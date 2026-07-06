@@ -1,0 +1,1211 @@
+    /* ── Cobalt 디자인 토큰 ─ 라이트 ────────────────────────────── */
+    :root {
+      --bg1:#f4f6fa;--bg2:#e9edf5;--bg3:#dfe5f0;
+      --glass:#ffffff;--glass-hover:#f7f9fc;
+      --panel-border:#e2e7f0;--inner-bg:#f2f5fa;
+      --header-bg:#ffffff;--hover-bg:rgba(42,111,219,.06);
+      --modal-bg:#ffffff;--border-light:#e2e7f0;--border-dark:#c9d3e6;
+      --gshadow:0 8px 24px -14px rgba(30,50,90,.20);
+      --acc:#2a6fdb;--acc2:#0f9488;--acc3:#7c3aed;
+      --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
+      --t1:#18213a;--t2:#4a5878;--t3:#6a7898;
+      --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
+      --grid:#e6eaf2;
+      --tipbg:#18213a;--tiptx:#f2f5fa
+    }
+    /* ── Cobalt 디자인 토큰 ─ 다크 ──────────────────────────────── */
+    [data-theme="dark"] {
+      --bg1:#0d0e12;--bg2:#08090c;--bg3:#060708;
+      --glass:#15181e;--glass-hover:#1a1e26;
+      --panel-border:#1f232b;--inner-bg:#0e1014;
+      --header-bg:#15181e;--hover-bg:rgba(122,162,255,.07);
+      --modal-bg:#15181e;--border-light:#1f232b;--border-dark:#2c313c;
+      --gshadow:none;
+      --acc:#7aa2ff;--acc2:#38bdf8;--acc3:#a78bfa;
+      --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
+      --t1:#e7e9ee;--t2:#a5abb8;--t3:#8a909b;
+      --up:#34d399;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
+      --grid:#1f232b;
+      --tipbg:#1a1d24;--tiptx:#e7e9ee
+    }
+    /* ── Cobalt 디자인 토큰 ─ 네이비 (기본) ─────────────────────── */
+    [data-theme="navy"] {
+      --bg1:#0c1a3a;--bg2:#080f24;--bg3:#060b1c;
+      --glass:#0e1c3f;--glass-hover:#122349;
+      --panel-border:#17274a;--inner-bg:#0a1836;
+      --header-bg:#0e1c3f;--hover-bg:rgba(77,141,255,.08);
+      --modal-bg:#0e1c3f;--border-light:#17274a;--border-dark:#24396b;
+      --gshadow:none;
+      --acc:#5b9bff;--acc2:#4ecdc4;--acc3:#c084fc;
+      --acc-soft:rgba(77,141,255,.14);--acc-soft2:rgba(77,141,255,.26);
+      --t1:#e6edfb;--t2:#9fb0cf;--t3:#7d93bf;
+      --up:#4ade80;--dn:#fb7185;--warn:#fbbf24;--gold:#d4b24a;--purple:#c084fc;
+      --grid:#17274a;
+      --tipbg:#0a142e;--tiptx:#dbe6ff
+    }
+    body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
+    .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
+    .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
+    .layout{display:grid;grid-template-columns:210px 1fr;gap:15px;padding:15px;height:100vh;height:100dvh;box-sizing:border-box}
+    /* 모바일 햄버거/백드롭 — 데스크톱에서는 비활성 (모바일 규칙은 파일 말미 @media 블록) */
+    .hamburger-btn{display:none}
+    #sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1290}
+    .menu-col{padding:12px 10px;display:flex;flex-direction:column;height:100%}
+    .logo{display:flex;align-items:center;gap:9px;padding:0 8px 14px;flex-shrink:0}
+    .logo-badge{width:29px;height:29px;border-radius:8px;background:linear-gradient(140deg,var(--acc),#2c4a86);display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+    .logo-text{font-family:'Manrope',sans-serif;font-weight:800;font-size:14px;color:var(--t1);line-height:1.15}
+    .logo-sub{font-size:9px;color:var(--t3);letter-spacing:.12em}
+    .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0}
+    .cf-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:center;justify-content:center}
+    .cf-modal.active{display:flex;animation:fadeIn .2s}
+    .cf-modal-content{background:var(--bg1);border-radius:12px;padding:20px;width:400px;max-width:90%;position:relative;box-shadow:var(--gshadow);border:1px solid var(--border-light);max-height:80vh;overflow-y:auto}
+    .cf-modal-close{position:absolute;right:15px;top:15px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--t3)}
+    .menu-btn{background:transparent;border:none;padding:8px 10px;text-align:left;border-radius:9px;font-weight:500;color:var(--t2);cursor:pointer;gap:10px;transition:background .15s,color .15s;font-size:.82rem;display:flex;align-items:center;width:100%;font-family:inherit}
+    .menu-btn .menu-ico{font-size:.82rem;width:17px;text-align:center;flex-shrink:0}
+    .menu-btn:hover{background:var(--hover-bg);color:var(--t1)}.menu-btn.active{background:var(--acc-soft);color:var(--t1);font-weight:700}
+    .sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:9px;flex-shrink:0}
+    .footer-btn{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
+    .footer-btn:hover{background:var(--acc-soft2)}
+    /* Cobalt 세그먼트 컨트롤 (테마 선택) */
+    .side-seg-label{font-size:9.5px;letter-spacing:.1em;color:var(--t3);margin:0 3px 5px}
+    .side-seg{display:flex;gap:4px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:9px;padding:3px}
+    .side-seg-btn{flex:1;text-align:center;padding:5px 0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:var(--t3);border:none;background:transparent;font-family:inherit;transition:background .15s,color .15s}
+    .side-seg-btn:hover{color:var(--t1)}
+    .side-seg-btn.active{background:var(--acc-soft2);color:var(--t1)}
+    .content-area{position:relative;overflow-y:auto;overflow-x:auto;padding-right:5px;height:100%;min-width:0}
+    .content-area::-webkit-scrollbar{width:6px}.content-area::-webkit-scrollbar-thumb{background:rgba(120,140,190,.32);border-radius:3px}
+    .inner-scroll::-webkit-scrollbar{width:4px}.inner-scroll::-webkit-scrollbar-thumb{background:rgba(100,100,100,.18);border-radius:3px}.inner-scroll{scrollbar-width:thin;scrollbar-color:rgba(100,100,100,.18) transparent}
+    .view-section{display:none;animation:fadeIn .3s ease;gap:12px;height:100%;flex:1;min-height:0}
+    .view-section.active{display:flex;flex-direction:column}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+    .page-title{margin:0;font-weight:700;font-size:1.3rem}
+    .api-btn{background:var(--acc);color:#fff!important;border:none;padding:6px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:.8rem;transition:.2s;font-family:inherit}
+    .api-btn:hover{opacity:.85}
+    .owner-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .dash-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);gap:12px;flex:1;min-height:550px}
+    .dash-main{gap:12px;min-width:0;min-height:0}
+    .dash-side{gap:12px;min-width:0;min-height:0}
+    .top-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:12px;flex:1.4;min-height:300px;min-width:0}
+    .mid-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;flex:1;min-height:0;min-width:0}
+    .val-lg{font-size:clamp(1.2rem,2vw,1.6rem);font-weight:700;font-family:'IBM Plex Mono',monospace}
+    .gain-row{margin-top:6px;font-size:.8rem}
+    /* 공통 결과/정보 패널 (인라인 스타일 통합) */
+    .result-panel{background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px}
+    .tf-btns{display:flex;gap:4px;flex-wrap:wrap}
+    .tf-btn{background:var(--inner-bg);border:none;border-radius:4px;font-size:.7rem;padding:4px 6px;cursor:pointer;font-weight:600;color:var(--t2);transition:.2s}
+    .tf-btn.active{background:var(--acc);color:white}
+    .chart-container{position:relative;width:100%;flex:1;display:flex;justify-content:center;align-items:center;min-height:0;min-width:0}
+    .c-up{color:var(--up);font-weight:600}.c-dn{color:var(--dn);font-weight:600}
+    .card-title{font-size:.85rem;font-weight:700;color:var(--t2);margin-bottom:8px;flex-shrink:0}
+    .item-row{margin-bottom:6px;font-size:.75rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hm-period-toggle{display:flex;gap:4px;background:var(--inner-bg);padding:3px;border-radius:8px;border:1px solid var(--border-light)}
+    .hm-btn{border:none;background:transparent;color:var(--t3);font-size:.65rem;font-weight:700;padding:4px 8px;border-radius:6px;cursor:pointer;transition:.2s}
+    .hm-btn.active{background:var(--modal-bg);color:var(--acc);box-shadow:0 2px 4px rgba(0,0,0,.05)}
+    .heatmap-container{padding:5px;flex:1;min-height:0}
+    .pt-group{margin-bottom:12px;border:1px solid var(--border-dark);border-radius:10px;background:var(--glass);box-shadow:0 2px 8px rgba(0,0,0,.02);flex-shrink:0}
+    .pt-group-header{padding:12px 16px;background:var(--header-bg);cursor:pointer;transition:.2s;border-bottom:1px solid var(--border-light);border-radius:10px 10px 0 0;overflow:hidden}
+    .pt-group-header:hover{background:var(--hover-bg)}
+    .pt-group-title{font-weight:700;font-size:.95rem;gap:8px;color:var(--t1)}
+    .pt-group-stats{font-size:.8rem;font-weight:600}
+    .pt-table-wrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 10px 10px;overflow:hidden}
+    .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:.75rem;white-space:nowrap;color:var(--t2)}
+    .pt-table th{padding:10px 12px;background:var(--glass);color:var(--t3);font-weight:600;text-align:right;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border-dark)}
+    .pt-table td{padding:10px 12px;border-bottom:1px solid var(--border-light);font-weight:500;font-family:'IBM Plex Mono','DM Sans',sans-serif}
+    .pt-table th.text-left,.pt-table td.text-left{text-align:left;font-family:'DM Sans',sans-serif}
+    .pt-table tbody tr:hover{background:var(--hover-bg)}
+    .pt-table .tkr-txt{font-size:.7rem;color:var(--t3);font-weight:bold;background:var(--border-dark);padding:2px 6px;border-radius:4px}
+    .pt-table .broker-txt{font-size:.7rem;color:var(--acc);font-weight:600}
+    #div-table-body td:first-child{white-space:normal}
+    /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
+    #cf-detail-table{table-layout:fixed}
+    #cf-detail-table th,
+    #cf-detail-table td{overflow:hidden;text-overflow:ellipsis}
+    #cf-detail-table td:nth-child(5){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+    .div-compact td,.div-compact th{padding:3px 6px;font-size:.7rem}
+    .div-compact thead th{padding:4px 6px}
+    .dca-tag{font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(16,185,129,.15);color:var(--up);border:1px solid rgba(16,185,129,.3);margin-left:4px;vertical-align:middle}
+    .dca-detail-txt{font-size:.65rem;color:var(--t3);font-weight:normal;margin-left:4px}
+    /* [5] 정렬 가능한 테이블 헤더 */
+    /* 정렬 헤더: 우측 패딩을 본문 td(12px)와 동일하게 맞춰 헤더 텍스트와 숫자열 정렬선 일치 */
+    .pt-table th.sortable{cursor:pointer;user-select:none;position:relative;padding-right:12px}
+    .pt-table th.sortable:hover{background:var(--hover-bg);color:var(--acc)}
+    .pt-table th.sortable::after{content:'↕';position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:.55rem;opacity:.4}
+    .pt-table th.sort-asc::after{content:'↑';opacity:1;color:var(--acc)}
+    .pt-table th.sort-desc::after{content:'↓';opacity:1;color:var(--acc)}
+    /* 주식/가상화폐/금 표 컬럼 폭 동일화(세로 줄 맞춤) — 동일 colgroup + 고정 레이아웃 */
+    .pt-table-fixed{table-layout:fixed}
+    .pt-table-fixed th,.pt-table-fixed td{overflow:hidden;text-overflow:ellipsis}
+    /* 모바일은 별도 컬럼 숨김 레이아웃 사용 → 고정/colgroup 무력화 */
+    @media (max-width:768px){.pt-table-fixed{table-layout:auto}.pt-table-fixed col{width:auto}}
+    /* [9] editable-val 인라인 크기 고정 */
+    .editable-val{cursor:pointer;border-bottom:1px dashed var(--acc);transition:color .2s;display:inline}
+    .editable-val:hover{color:var(--acc);background:var(--inner-bg)}
+    .editable-input{width:80px!important;min-width:60px!important;max-width:100px!important;padding:3px 6px!important;font-size:.75rem!important;display:inline-block!important}
+    .form-row{display:flex;gap:12px;align-items:flex-end;margin-bottom:15px;flex-wrap:wrap}
+    .form-group{gap:6px;flex:1;min-width:120px}
+    .form-label{font-size:.75rem;font-weight:600;color:var(--t3)}
+    .form-input{padding:10px 12px;border-radius:8px;border:1px solid var(--border-dark);background:var(--inner-bg);outline:none;transition:.2s;font-family:inherit;color:var(--t1)}
+    .form-input:focus{background:var(--modal-bg);border-color:var(--acc);box-shadow:0 0 0 2px rgba(120,140,190,.32)}
+    .btn-submit{padding:10px 20px;background:var(--acc);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;height:39px;transition:.2s}
+    .btn-submit:hover{opacity:.85}
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.55);display:none;justify-content:center;align-items:center;z-index:1000}
+    .modal-overlay.active{display:flex}
+    .modal-content{background:var(--modal-bg);color:var(--t1);width:450px;border-radius:16px;padding:25px;box-shadow:0 10px 40px rgba(0,0,0,.4);gap:15px;border:1px solid var(--border-dark)}
+    .modal-header{border-bottom:1px solid var(--border-dark);padding-bottom:10px;margin-bottom:5px}
+    .modal-close{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--t3)}
+    /* 캘린더/뉴스 관련 스타일 제거됨 */
+    @keyframes flashUp{0%{background:transparent}25%{background:rgba(16,185,129,.25);border-radius:4px}100%{background:transparent}}
+    @keyframes flashDown{0%{background:transparent}25%{background:rgba(239,68,68,.25);border-radius:4px}100%{background:transparent}}
+    @keyframes flashNeutral{0%{background:transparent}25%{background:rgba(37,99,235,.15);border-radius:4px}100%{background:transparent}}
+    .flash-up{animation:flashUp 1.2s ease-out}.flash-down{animation:flashDown 1.2s ease-out}.flash-neutral{animation:flashNeutral 1s ease-out}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .btn-action{background:none;border:none;cursor:pointer;font-size:1rem;padding:0 4px;transition:0.2s}
+    .btn-action:hover{transform:scale(1.1)}
+    #div-widget{flex:1.6;min-height:0}
+    #div-detail{flex:1;min-height:0;position:relative;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-dark)}
+    #div-detail .chart-container{position:absolute;top:8px;left:0;right:0;bottom:0;height:auto}
+
+    /* ── 선버스트 패널 (플랫 카드) ────────────────────────────── */
+    .sunburst-panel {
+      position: relative;
+      overflow: hidden;
+      background: var(--glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: var(--gshadow);
+    }
+    /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
+    /* 기본 소유주 버튼 (우상단/정밀분석) – 이전 버전 클린 스타일 복귀 */
+    .owner-btn {
+      padding: 5px 14px;
+      border-radius: 15px;
+      border: 1px solid var(--panel-border);
+      background: var(--glass);
+      font-weight: 600;
+      font-size: .8rem;
+      cursor: pointer;
+      color: var(--t2);
+      transition: .2s;
+    }
+    .owner-btn:hover {
+      background: var(--hover-bg);
+      color: var(--acc);
+      border-color: var(--acc);
+    }
+    .owner-btn.active {
+      background: var(--acc);
+      color: white;
+      border-color: var(--acc);
+    }
+    /* 선버스트 패널 내부 owner-btn은 공통 스타일 그대로 사용 (다른 페이지와 통일) */
+    #sunburst-container {
+      position: relative;
+      z-index: 1;
+      transition: filter .6s ease;
+    }
+    /* Plotly 투명 배경 보장 */
+    #sunburst-container .plotly,
+    #sunburst-container .js-plotly-plot,
+    #sunburst-container .plot-container {
+      background: transparent !important;
+    }
+    #sunburst-container svg {
+      overflow: visible;
+    }
+    /* ── 선버스트 path: 호버 강조(플랫, 네온 제거) ───────────── */
+    #sunburst-container .sunburst path {
+      transition: opacity .2s ease;
+    }
+    #sunburst-container .sunburst path:hover {
+      opacity: .85 !important;
+    }
+
+    /* ── 금 단위 셀렉터 ──────────────────────────────────────── */
+    #gold-unit-select option {
+      background: var(--modal-bg);
+      color: var(--t2);
+    }
+
+    /* ── 라이트 테마 pt-table 텍스트 가시성 보완 ─────────────── */
+    .pt-table td { color: var(--t2); }
+    .pt-table th { color: var(--t3); }
+
+    /* ── 다크 테마 form-input 텍스트 ────────────────────────── */
+    [data-theme="dark"] .form-input {
+      color: var(--t1);
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.12);
+    }
+    [data-theme="dark"] .form-input:focus {
+      background: rgba(255,255,255,0.1);
+      border-color: var(--acc);
+    }
+    /* 다크 테마 select 드롭다운 option 가시성 */
+    [data-theme="dark"] .form-input option,
+    [data-theme="dark"] select option {
+      background: #1e293b;
+      color: #f8fafc;
+    }
+
+    /* ── 미조회 뱃지 ──────────────────────────────────────────── */
+    .unavailable-badge {
+      font-size: .65rem;
+      color: var(--t3);
+      background: var(--inner-bg);
+      border: 1px solid var(--border-dark);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* ── 대시보드 차트 탭 ──────────────────────────────────────── */
+    .dash-chart-tab {
+      flex: 1;
+      padding: 5px 0;
+      font-size: .75rem;
+      font-weight: 600;
+      background: var(--inner-bg);
+      color: var(--t3);
+      border: none;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+    .dash-chart-tab.active {
+      background: var(--acc);
+      color: #fff;
+    }
+    .nwh-tf-btn {
+      padding: 2px 8px;
+      font-size: .7rem;
+      font-weight: 600;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t3);
+      cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+    .nwh-tf-btn.active {
+      background: var(--acc);
+      color: #fff;
+      border-color: var(--acc);
+    }
+
+    /* ── 반응형: 창 폭이 좁아질 때 레이아웃 보호 ── */
+    .port-grid-top { min-width: 680px; }
+    .port-grid-mid { min-width: 680px; }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 180px 1fr; gap: 10px; padding: 10px; }
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 160px 1fr; gap: 8px; padding: 8px; }
+    }
+
+    /* Plotly sunburst 내부 텍스트 가운데 정렬 */
+    .sunburstlayer text {
+      text-anchor: middle !important;
+      dominant-baseline: central !important;
+    }
+
+    /* 로그인 오버레이 */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+    }
+    .login-card {
+      width: 100%;
+      max-width: 360px;
+      padding: 40px 36px;
+      text-align: center;
+      gap: 0;
+      animation: fadeIn .4s ease;
+    }
+    .login-logo {
+      font-size: 2.4rem;
+      margin-bottom: 12px;
+    }
+    .login-title {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--acc);
+    }
+    .login-sub {
+      margin: 0 0 24px;
+      font-size: 0.88rem;
+      color: var(--t3);
+    }
+    .login-input-wrap {
+      margin-bottom: 12px;
+    }
+    .login-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-dark);
+      background: var(--inner-bg);
+      color: var(--t1);
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .login-input:focus {
+      border-color: var(--acc);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: var(--acc);
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+    }
+    .login-btn:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+    }
+    .login-error {
+      margin: 10px 0 0;
+      font-size: 0.85rem;
+      color: var(--dn);
+    }
+
+    /* === 배당 심화 / 공용 작은 버튼 (구 분석+ 페이지에서 분리된 잔여 스타일) === */
+    .rsk-tf-btn {
+      background: transparent; border: 1px solid var(--border-dark);
+      color: var(--t3); padding: 4px 10px; border-radius: 6px;
+      font-size: .75rem; cursor: pointer; font-weight: 600;
+      font-family: inherit; transition: all .15s;
+    }
+    .rsk-tf-btn:hover { color: var(--acc); border-color: var(--acc); }
+    .rsk-tf-btn.active { background: var(--acc); color: #fff; border-color: var(--acc); }
+    .rsk-owner-pill {
+      background: transparent; border: 1px solid var(--border-dark);
+      color: var(--t3); padding: 3px 9px; border-radius: 6px;
+      font-size: .72rem; cursor: pointer; font-weight: 600;
+      font-family: inherit; transition: all .15s;
+    }
+    .rsk-owner-pill:hover { color: var(--acc); border-color: var(--acc); }
+    .rsk-owner-pill.active { background: var(--acc); color: #fff; border-color: var(--acc); }
+
+    /* === 배당+ View === */
+    .divp-table {
+      width: 100%; border-collapse: collapse; font-size: .85rem;
+    }
+    .divp-table thead th {
+      font-size: .72rem; color: var(--t3); font-weight: 700;
+      padding: 8px 10px; border-bottom: 1px solid var(--border-dark);
+      text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
+    }
+    .divp-table tbody td {
+      padding: 9px 10px; border-bottom: 1px solid var(--border-light);
+      color: var(--t1); white-space: nowrap;
+    }
+    .divp-table tfoot td {
+      padding: 9px 10px; color: var(--t1);
+      border-top: 1px solid var(--border-dark);
+    }
+    .divp-table .text-right { text-align: right; font-family: 'IBM Plex Mono', 'DM Sans', sans-serif; }
+    .divp-table .text-left { text-align: left; font-family: 'DM Sans', sans-serif; }
+    .divp-table tbody tr:hover { background: var(--inner-bg); }
+    .divp-input-wrap {
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: .75rem; color: var(--t3); font-weight: 600;
+    }
+    .divp-input-wrap input,
+    .divp-input-wrap select {
+      padding: 7px 10px; border: 1px solid var(--border-dark);
+      border-radius: 8px; background: var(--inner-bg);
+      color: var(--t1); font-size: .9rem; font-family: inherit;
+      font-weight: 600; outline: none;
+    }
+    .divp-input-wrap input:focus,
+    .divp-input-wrap select:focus { border-color: var(--acc); }
+
+    /* 배당+ 위젯 탭 (한 번에 하나만 펼침) */
+    .divp-widget { padding: 0; overflow: visible; flex-shrink: 0; }
+    .divp-widget-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 14px 18px; cursor: pointer; user-select: none;
+      border-radius: 14px;
+    }
+    .divp-widget-header:hover { background: var(--inner-bg); }
+    .divp-widget-header.open {
+      border-radius: 14px 14px 0 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .divp-widget-arrow {
+      font-size: .8rem; color: var(--t3); flex-shrink: 0;
+      transition: transform .2s;
+    }
+    .divp-widget-header.open .divp-widget-arrow { transform: rotate(180deg); }
+    .divp-widget-body {
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 6px 18px 18px;
+    }
+    .divp-widget-body > * { min-width: 0; max-width: 100%; }
+
+    /* 배당 성장률 — 최근 5년 DPS 셀 */
+    .divp-dps-row {
+      display: flex; justify-content: flex-end; gap: 18px; flex-wrap: wrap;
+    }
+    .divp-dps-item {
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 2px; line-height: 1.2;
+    }
+    .divp-dps-yr {
+      font-size: .66rem; color: var(--t3); font-weight: 600; letter-spacing: .02em;
+    }
+    .divp-dps-val {
+      font-family: 'IBM Plex Mono', 'DM Sans', sans-serif; font-size: .82rem;
+      color: var(--t1); font-weight: 600;
+    }
+
+    /* 배당 성장률 표 — 컬럼 너비 분배 (colgroup과 함께 동작) */
+    .divp-table--cagr { table-layout: fixed; width: 100%; }
+
+    /* 표 헤더 안에 들어가는 info-tip의 툴팁: overflow-x:auto 래퍼에 잘리지
+       않도록 아래쪽으로 펼치고 우측 정렬, 헤더의 uppercase 영향 제거 */
+    .divp-table th .info-tip:hover::after,
+    .divp-table th .info-tip:focus::after {
+      bottom: auto; top: calc(100% + 8px);
+      left: auto; right: 0; transform: none;
+      text-transform: none; letter-spacing: normal;
+    }
+
+    /* 목표 & 리밸런싱 view: 패널 헤더의 info-tip 은 외부 overflow-y:auto 래퍼에
+       의해 위쪽이 잘리므로 아래쪽으로 펼치도록 override. */
+    #view-target_rebal .info-tip:hover::after,
+    #view-target_rebal .info-tip:focus::after {
+      bottom: auto; top: calc(100% + 8px);
+    }
+
+    /* === 목표 & 리밸런싱 View === */
+    .tgt-top5-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 50px;
+      gap: 8px; align-items: center;
+      padding: 6px 8px; background: var(--inner-bg);
+      border-radius: 6px;
+    }
+    .tgt-top5-name {
+      font-size: .82rem; color: var(--t1); font-weight: 600;
+      display: flex; align-items: center; min-width: 0;
+    }
+    .tgt-top5-bar {
+      height: 8px; background: var(--border-light); border-radius: 4px;
+      overflow: hidden;
+    }
+    .tgt-top5-bar > div {
+      height: 100%; border-radius: 4px; transition: width .3s;
+    }
+    .tgt-top5-pct {
+      font-family: 'IBM Plex Mono', monospace; font-size: .8rem;
+      font-weight: 700; color: var(--t1); text-align: right;
+    }
+
+    /* === 포트폴리오 어드바이저 === */
+    /* view-target_rebal 내부 panel 들은 flex shrink 비활성화 — 합산 컨텐츠가
+       뷰포트보다 클 때 panel 압축이 아니라 wrapper 스크롤이 동작하도록. */
+    #view-target_rebal > .f-col > * { flex-shrink: 0; }
+    .advisor-results {
+      display: none;
+      position: absolute; left: 0; right: 0; top: 100%;
+      margin-top: 4px; z-index: 30;
+      background: var(--inner-bg);
+      border: 1px solid var(--border-light); border-radius: 10px;
+      max-height: 280px; overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    }
+    .advisor-result-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px; align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-light);
+      font-size: .85rem;
+    }
+    .advisor-result-row:last-child { border-bottom: none; }
+    .advisor-result-row:hover { background: var(--border-light); }
+    .advisor-result-name { color: var(--t1); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .advisor-result-tkr { color: var(--t3); font-family: 'IBM Plex Mono', monospace; font-size: .78rem; }
+    .advisor-result-mkt { color: var(--t3); font-size: .72rem; }
+    .advisor-target-card {
+      background: var(--inner-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .advisor-target-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .advisor-target-name { font-size: 1.05rem; font-weight: 700; color: var(--t1); }
+    .advisor-target-tkr { font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--t3); margin-left: 6px; font-weight: 500; }
+    .advisor-target-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+    .advisor-sector-tag {
+      display: inline-block; padding: 2px 10px; border-radius: 10px;
+      background: var(--acc); color: #fff; font-size: .72rem; font-weight: 700;
+    }
+    .advisor-owner-meta { font-size: .72rem; color: var(--t3); }
+    .advisor-score-wrap { text-align: right; min-width: 80px; }
+    .advisor-score-label { font-size: .7rem; color: var(--t3); font-weight: 600; }
+    .advisor-score-value { font-size: 1.7rem; font-weight: 800; font-family: 'IBM Plex Mono', monospace; line-height: 1.1; }
+    .advisor-oneliner { font-size: .9rem; color: var(--t1); font-weight: 600; line-height: 1.4; }
+    .advisor-score-bar {
+      height: 6px; background: var(--border-light); border-radius: 3px; overflow: hidden;
+    }
+    .advisor-score-bar > div { height: 100%; transition: width .3s; }
+    .advisor-metrics-table {
+      width: 100%; border-collapse: collapse; font-size: .82rem;
+    }
+    .advisor-metrics-table th {
+      text-align: left; color: var(--t3); font-weight: 600; padding: 4px 6px; width: 40%;
+    }
+    .advisor-metrics-table td {
+      text-align: right; color: var(--t1); font-family: 'IBM Plex Mono', monospace; padding: 4px 6px;
+    }
+    .advisor-empty {
+      color: var(--t3); font-size: .85rem; padding: 14px; text-align: center;
+      background: var(--inner-bg); border: 1px dashed var(--border-light); border-radius: 10px;
+    }
+    .advisor-peers-head {
+      font-size: .85rem; font-weight: 700; color: var(--t1);
+      margin-top: 6px; padding-top: 6px;
+    }
+    .advisor-peers-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 6px;
+    }
+    .advisor-peer-card {
+      background: var(--inner-bg);
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .advisor-peer-head { display: flex; gap: 10px; align-items: center; }
+    .advisor-peer-rank {
+      font-size: 1rem; font-weight: 800; color: var(--acc);
+      background: var(--border-light); border-radius: 8px; padding: 2px 8px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .advisor-peer-name { font-size: .9rem; font-weight: 700; color: var(--t1); }
+    .advisor-peer-tkr { font-family: 'IBM Plex Mono', monospace; font-size: .75rem; color: var(--t3); }
+    .advisor-peer-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .advisor-peer-table thead th {
+      text-align: right; color: var(--t3); font-weight: 600; padding: 4px 6px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .advisor-peer-table thead th:first-child { text-align: left; }
+    .advisor-peer-table tbody th {
+      text-align: left; color: var(--t3); font-weight: 500; padding: 4px 6px;
+    }
+    .advisor-peer-table tbody td {
+      text-align: right; color: var(--t1); font-family: 'IBM Plex Mono', monospace; padding: 4px 6px;
+    }
+    .advisor-peer-table .advisor-diff { width: 30px; font-weight: 700; }
+
+    /* =================================================== */
+    /* === 반응형 위생 (모든 view 공통) ================== */
+    /* =================================================== */
+
+    /* Group 1: 그리드/플렉스 자식이 부모를 뚫지 않도록 */
+    .f-col, .f-row, .f-between { min-width: 0; }
+
+    /* 종목명 셀 공통 — 동적 렌더 td/span에 .name-cell 부여 */
+    .name-cell {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    @media (max-width: 1100px) { .name-cell { max-width: 160px; } }
+    @media (max-width: 900px)  { .name-cell { max-width: 120px; } }
+
+    /* inner-scroll 안 테이블 가로 스크롤 허용 */
+    .inner-scroll { overflow-x: auto; }
+
+    /* 큰 KRW 값 안전장치 — 좁은 화면에서 카드 안에 들어가도록 */
+    .val-lg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Group 2: 고정 비율 그리드 클래스 — 인라인 style 대체 */
+    .port-grid-top {
+      display: grid;
+      grid-template-columns: 1.5fr 0.85fr 0.85fr;
+      grid-template-rows: 1.4fr 1fr;
+      gap: 10px;
+      flex: 2.4;
+      min-height: 0;
+      min-width: 0;
+    }
+    .cf-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 15px;
+      height: 100%;
+      min-width: 0;
+    }
+    /* 증여 좌측 패널: 폼그룹 grow 방지 — 콘텐츠를 상단으로 정렬(빈 여백 제거) */
+    #view-gift .form-group{flex:0 0 auto;min-width:0}
+    /* 2x2 납입액 입력칸이 셀 폭에 맞게 축소되도록(min-width:auto면 안 줄어 겹침) */
+    #view-gift .gift-amt-input{min-width:0;box-sizing:border-box}
+    .gift-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      height: 100%;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .family-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      height: 100%;
+      min-height: 0;
+      min-width: 0;
+    }
+    .analysis-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+    .bubble-body-flex {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      padding: 0 14px 12px;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .bubble-sector-panel {
+      flex: 0 0 260px;
+      max-width: 30%;
+      min-width: 200px;
+      overflow: hidden;
+      padding: 2px 4px 2px 8px;
+      transition: flex-basis .35s cubic-bezier(.2,.8,.2,1);
+    }
+
+    /* port-grid-top: 기존 min-width:680px 강제 → 좁은 폭에서 해제 */
+    @media (max-width: 1100px) {
+      .port-grid-top { min-width: 0; grid-template-columns: 1fr; grid-template-rows: auto; }
+      /* 자식의 인라인 grid-row/column 배치 해제 — 1열 축소 시 암시적 컬럼(빈 슬리버) 생성 방지 */
+      .port-grid-top > * { grid-row: auto !important; grid-column: 1 !important; }
+      .port-grid-mid { min-width: 0; }
+      .cf-grid { grid-template-columns: 1fr; height: auto; }
+    }
+    @media (max-width: 900px) {
+      .gift-grid, .family-grid, .analysis-grid-2col {
+        grid-template-columns: 1fr;
+        overflow: visible;
+        height: auto;
+      }
+      .bubble-body-flex { flex-direction: column; }
+      .bubble-sector-panel {
+        flex: 0 0 auto;
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
+      }
+      .dash-layout { grid-template-columns: 1fr; min-height: 0; }
+    }
+
+    /* Group 3: 신규 view 마이크로 조정 */
+    /* target_rebal: top5-row — 좁으면 종목명에 더 양보 */
+    @media (max-width: 900px) {
+      .tgt-top5-row { grid-template-columns: 1fr 70px 44px; }
+    }
+    .tgt-top5-name { min-width: 0; }
+
+    /* dividend_plus: 종목명 컬럼 (첫 컬럼) max-width */
+    .divp-table { table-layout: auto; }
+    .divp-table td:first-child {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    @media (max-width: 1100px) { .divp-table td:first-child { max-width: 150px; } }
+    @media (max-width: 900px)  { .divp-table td:first-child { max-width: 110px; } }
+
+    /* DRIP 입력/카드 그리드 — 768px에서 1열 */
+    @media (max-width: 768px) {
+      html,body{width:100%;max-width:100vw;overflow-x:hidden}
+      #divp-drip-cards, #tgt-concentration-cards {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    /* Group 4: 페이지 헤더 줄바꿈 안정화 */
+    .content-area > .f-between:first-child {
+      flex-wrap: wrap;
+      row-gap: 8px;
+      min-width: 0;
+    }
+    .page-title {
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .owner-tabs,
+    #cf-owner-bar,
+    #bubble-owner-bar,
+    #analysis-owner-bar { flex-wrap: wrap; }
+    @media (max-width: 900px) {
+      .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
+        margin-left: 0 !important;
+      }
+    }
+
+    /* === DRIP 카드 — 텍스트 오버플로우 방지 === */
+    .drip-card {
+      background: var(--inner-bg);
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-light);
+      min-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .drip-card-label {
+      font-size: .75rem;
+      color: var(--t3);
+      font-weight: 600;
+    }
+    .drip-card-val {
+      font-size: clamp(1rem, 1.6vw, 1.3rem);
+      font-weight: 700;
+      font-family: 'IBM Plex Mono', 'DM Sans', sans-serif;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .drip-card-sub {
+      font-size: .7rem;
+      color: var(--t3);
+      margin-top: 2px;
+      line-height: 1.35;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+    #divp-drip-cards { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important; }
+    @media (max-width: 768px) {
+      #divp-drip-cards { grid-template-columns: 1fr !important; }
+    }
+
+    /* === 전문 용어 도움말 (HHI, 샤프 비율 등) === */
+    .info-tip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--inner-bg);
+      border: 1px solid var(--border-light);
+      color: var(--t3);
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 5px;
+      cursor: help;
+      position: relative;
+      vertical-align: middle;
+      user-select: none;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .info-tip::before { content: '?'; }
+    .info-tip:hover,
+    .info-tip:focus { background: var(--acc); color: #fff; border-color: var(--acc); }
+    .info-tip:hover::after,
+    .info-tip:focus::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--tipbg);
+      color: var(--tiptx);
+      border: 1px solid var(--border-dark);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: .72rem;
+      font-weight: 500;
+      white-space: normal;
+      width: max-content;
+      max-width: 280px;
+      text-align: left;
+      z-index: 100;
+      line-height: 1.5;
+      box-shadow: 0 6px 18px rgba(0,0,0,.32);
+      pointer-events: none;
+    }
+    .info-tip:hover::before,
+    .info-tip:focus::before {
+      /* keep the ? showing on hover too */
+    }
+
+    /* === DRIP 위젯 내용 컨테인먼트 (텍스트/차트 패널 이탈 방지) === */
+    .divp-drip-panel { min-width: 0; }
+    .divp-drip-panel > * { min-width: 0; max-width: 100%; }
+    .divp-drip-chart-wrap {
+      position: relative;
+      height: 300px;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .divp-drip-chart-wrap > canvas { max-width: 100% !important; }
+
+    /* === 추세 분석 어드바이저 (view-trend) === */
+    #view-trend #trend-chart-wrap{flex:1 1 0;min-width:0;min-height:240px;align-self:stretch;display:flex;flex-direction:column}
+    #view-trend #trend-chart-wrap>#trend-chart{flex:1 1 auto;min-height:0}
+    #view-trend .trend-mid-row{display:flex;gap:8px;flex-shrink:0;align-items:stretch}
+    #view-trend .trend-mid-row > #trend-scorecards{flex:0 0 auto;width:min(46%,440px);display:flex;flex-direction:column;gap:6px}
+    #view-trend::-webkit-scrollbar{width:6px}
+    #view-trend::-webkit-scrollbar-thumb{background:rgba(120,140,190,.32);border-radius:3px}
+    .trend-results{position:absolute;top:100%;left:0;right:0;background:var(--modal-bg);border:1px solid var(--border-dark);border-radius:8px;box-shadow:var(--gshadow);max-height:280px;overflow-y:auto;z-index:50;display:none;margin-top:4px}
+    .trend-result-row{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--border-light);font-size:.85rem;color:var(--t1)}
+    .trend-result-row:last-child{border-bottom:none}
+    .trend-result-row:hover{background:var(--hover-bg);color:var(--acc)}
+    .trend-result-row .trend-r-tkr{font-family:'IBM Plex Mono';font-size:.72rem;color:var(--t3);background:var(--inner-bg);padding:2px 6px;border-radius:4px}
+    .trend-result-row .trend-r-mkt{font-size:.7rem;color:var(--t3)}
+
+    .trend-card{padding:6px 9px;border-radius:8px;border:1px solid var(--border-light);background:var(--inner-bg);display:flex;flex-direction:row;align-items:center;gap:8px;transition:.2s}
+    .trend-card:hover{border-color:var(--acc)}
+    .trend-card .trend-card-status{flex:0 0 auto;white-space:nowrap;font-size:.78rem;font-weight:700}
+    .trend-card .trend-card-label{flex:0 0 auto;white-space:nowrap;font-size:.66rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px}
+    .trend-card .trend-card-detail{flex:1 1 auto;min-width:0;font-size:.68rem;color:var(--t2);font-family:'IBM Plex Mono';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+    .trend-card.status-ok{border-color:rgba(16,185,129,.4)}
+    .trend-card.status-ok .trend-card-status{color:var(--up)}
+    .trend-card.status-warn{border-color:rgba(245,158,11,.4)}
+    .trend-card.status-warn .trend-card-status{color:var(--warn)}
+    .trend-card.status-fail{border-color:rgba(239,68,68,.4)}
+    .trend-card.status-fail .trend-card-status{color:var(--dn)}
+    .trend-card.status-na{opacity:.55}
+    .trend-card.status-na .trend-card-status{color:var(--t3)}
+
+    #trend-h-trend-badge.trend-up,.th-badge.trend-up{background:rgba(16,185,129,.15);color:var(--up);border:1px solid rgba(16,185,129,.4)}
+    #trend-h-trend-badge.trend-down,.th-badge.trend-down{background:rgba(239,68,68,.15);color:var(--dn);border:1px solid rgba(239,68,68,.4)}
+
+    /* === 통합 툴바 (검색 + 종목 헤더 인라인) === */
+    .trend-toolbar-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    #trend-range-btns{margin-left:auto}
+    .trend-search-wrap{position:relative;flex:0 0 280px;min-width:240px}
+    .trend-search-wrap .form-input{width:100%;padding:7px 10px;font-size:.85rem}
+    .trend-header-inline{display:flex;align-items:center;gap:18px;flex:1 1 auto;min-width:0;flex-wrap:nowrap;padding-left:14px;border-left:1px solid var(--border-light);justify-content:space-evenly}
+    .trend-header-inline .th-name{display:flex;flex-direction:column;line-height:1.18;min-width:0;flex-shrink:0}
+    .trend-header-inline .th-name strong{font-size:.95rem;color:var(--t1);white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+    .trend-header-inline .th-meta{font-size:.7rem;color:var(--t3)}
+    .trend-header-inline .th-quote{display:flex;align-items:baseline;gap:8px;font-family:'IBM Plex Mono'}
+    .trend-header-inline .th-quote .th-quote-label{font-size:.7rem;color:var(--t3);font-family:'Noto Sans KR',sans-serif}
+    .trend-header-inline .th-quote #trend-h-price{font-size:1.05rem;font-weight:700;color:var(--t1)}
+    .trend-header-inline .th-quote #trend-h-change{font-size:.85rem;font-weight:600}
+    .trend-header-inline .th-badge{padding:5px 10px;border-radius:8px;font-weight:700;font-size:.78rem;background:var(--inner-bg);color:var(--t2)}
+
+    /* === Livermore/Minervini 어드바이저 패널 === */
+    #trend-advice{padding:6px 10px;gap:4px;flex-shrink:0}
+    .tpl-header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .tpl-action{padding:5px 10px;border-radius:8px;font-weight:700;font-size:.78rem;border:1px solid var(--border-light);background:var(--inner-bg)}
+    .tpl-action.status-ok{color:var(--up);border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.08)}
+    .tpl-action.status-warn{color:var(--warn);border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08)}
+    .tpl-action.status-fail{color:var(--dn);border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+    .tpl-score{font-family:'IBM Plex Mono';font-size:1.4rem;font-weight:700;color:var(--t1)}
+    .tpl-score small{font-size:.7rem;color:var(--t3);margin-left:2px}
+    .tpl-stage{padding:4px 10px;border-radius:8px;font-size:.75rem;font-weight:700;background:var(--inner-bg);color:var(--t2);border:1px solid var(--border-light)}
+    .tpl-refdate{font-size:.72rem;color:var(--t3);font-family:'IBM Plex Mono';margin-left:auto}
+    .tpl-summary{font-size:.82rem;color:var(--t2);width:100%}
+    .tpl-outer{display:flex;flex-direction:row;gap:12px;width:100%;align-items:stretch}
+    .tpl-col-left{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:6px}
+    .tpl-col-left>.tpl-commentary{flex:1 1 auto}
+    .tpl-col-right{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:6px}
+    .tpl-col-right>.tplchk-grid{flex:1 1 auto}
+    .tpl-numeric{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px 8px;background:var(--inner-bg);border-radius:8px;border:1px solid var(--border-light);align-content:start;width:100%}
+    .tpl-pyramid-wrap{display:flex;flex-direction:column;background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px;padding:6px 8px;width:100%}
+    .tpl-numeric .tpl-numeric-cap{grid-column:1/-1;font-size:.68rem;color:var(--t3);font-weight:600;letter-spacing:.2px;border-bottom:1px solid var(--border-light);padding-bottom:4px;margin-bottom:2px}
+    .tpl-numeric>div{display:flex;flex-direction:column;font-size:.7rem;color:var(--t3)}
+    .tpl-numeric>div strong{font-family:'IBM Plex Mono';font-size:.85rem;color:var(--t1);font-weight:700;margin-top:2px}
+    .tpl-pyramid{margin-top:0;font-size:.7rem}
+    .tpl-pyramid table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono'}
+    .tpl-pyramid th,.tpl-pyramid td{padding:2px 4px;text-align:right;border-bottom:1px solid var(--border-light)}
+    .tpl-pyramid th{color:var(--t3);font-weight:600;font-size:.65rem;text-transform:uppercase}
+    .tpl-pyramid td:first-child,.tpl-pyramid th:first-child{text-align:left;color:var(--t2)}
+    .tpl-pyramid-note{font-size:.65rem;color:var(--t3);margin-top:4px;text-align:center}
+    .tplchk-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;min-width:0;align-items:start}
+    .tplchk-col h4{margin:0 0 1px 0;font-size:.7rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+    .tplchk-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:0}
+    .tplchk-row{display:flex;gap:3px;align-items:flex-start;font-size:.68rem;line-height:1.15}
+    .tplchk-row.tplchk-unmet{opacity:.7}
+    .tplchk-row .tplchk-icon{flex:0 0 14px;font-size:.72rem}
+    .tplchk-row .tplchk-body{flex:1 1 auto;min-width:0;display:flex;gap:4px;align-items:baseline;flex-wrap:wrap}
+    .tplchk-row .tplchk-name{color:var(--t1);font-size:.72rem;font-weight:600;white-space:nowrap;flex-shrink:0}
+    .tplchk-sep{color:var(--t3);font-size:.65rem;flex-shrink:0}
+    .tplchk-row .tplchk-meta{color:var(--t3);font-size:.66rem;font-family:'IBM Plex Mono';word-break:break-all}
+    .tpl-vcp-strip{padding:6px 10px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;font-size:.74rem;color:var(--t2);font-family:'IBM Plex Mono'}
+    .tpl-exit-strip{padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:.74rem;color:var(--dn);font-weight:600}
+    .tpl-commentary{margin:0;padding:5px 10px;background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px;list-style:disc;list-style-position:outside;display:flex;flex-direction:column;gap:2px}
+    .tpl-commentary li{font-size:.74rem;line-height:1.3;color:var(--t2);margin-left:14px}
+    .tpl-commentary li strong{color:var(--t1);font-weight:700}
+    .tpl-commentary-single{padding:5px 10px;background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px;font-size:.78rem;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;box-sizing:border-box}
+    .tpl-score-legend{align-self:center;margin-left:2px;font-size:.62rem;color:var(--t3);font-family:'IBM Plex Mono';font-weight:400}
+    @media (max-width: 1100px){
+      .tplchk-grid{grid-template-columns:1fr}
+      .tpl-numeric{grid-template-columns:1fr 1fr}
+      .tpl-outer{flex-direction:column}
+      .tpl-col-left{flex:0 0 auto;max-width:none;width:100%}
+      .tpl-col-right{flex:0 0 auto;max-width:none;width:100%}
+      #view-trend .trend-mid-row{flex-direction:column}
+      #view-trend .trend-mid-row > #trend-chart-wrap,
+      #view-trend .trend-mid-row > #trend-scorecards{flex:0 0 auto;width:100%}
+    }
+
+    /* ── Cobalt 우하단 시세 위젯 (JPY100/KRW · 금 1g) ─────────── */
+    #fx-widget{position:fixed;right:12px;bottom:12px;z-index:900;display:flex;gap:7px;align-items:flex-end;pointer-events:none}
+    .fx-widget-card{background:var(--modal-bg);border:1px solid var(--border-dark);border-radius:10px;padding:8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.28);pointer-events:auto}
+    .fx-widget-label{font-size:9.5px;color:var(--t3);letter-spacing:.06em}
+    .fx-widget-val{font-family:'IBM Plex Mono',monospace;font-size:14.5px;font-weight:600;margin-top:1px;color:var(--t1)}
+    .fx-widget-note{font-size:9px;color:var(--t3);padding-bottom:2px}
+
+    /* =============================================
+       모바일 (≤768px): 햄버거 드로어 + 전체 뷰 세로 재배치
+       — 769px 이상 데스크톱/태블릿 동작은 불변
+       ============================================= */
+    @media (max-width: 768px) {
+      #fx-widget{display:none}
+      /* ── 셸: 그리드 해제, 사이드바 → 오프캔버스 드로어 ── */
+      .layout{display:block;padding:10px;width:100%;max-width:100vw;height:100dvh;box-sizing:border-box;overflow-x:hidden}
+      .menu-col{position:fixed;top:0;left:0;bottom:0;height:100dvh;width:min(280px,82vw);
+        z-index:1300;transform:translateX(-105%);transition:transform .25s ease;
+        border-radius:0 14px 14px 0;overflow-y:auto;background:var(--modal-bg)}
+      .menu-col.open{transform:translateX(0)}
+      #sidebar-backdrop.show{display:block}
+      /* 드로어 전체 스크롤 — 메뉴 리스트 인라인 flex:1/overflow:hidden 해제 (마지막 메뉴·푸터 잘림 방지) */
+      .menu-list{flex:0 0 auto!important;overflow:visible!important}
+      /* 드로어 푸터: 새로고침·다크모드 버튼 좌우 50/50 가로 배치로 세로 공간 절약 (인라인 flex-direction:column 덮어쓰기) */
+      .sidebar-footer{flex-direction:row!important;gap:8px}
+      .sidebar-footer .footer-btn{flex:1 1 0;min-width:0;width:auto;padding:10px 6px}
+      .content-area{height:100%;width:100%;max-width:100%;box-sizing:border-box;padding:0 0 16px;overflow-x:hidden}
+      .hamburger-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;
+        flex-shrink:0;border:1px solid var(--border-dark);background:var(--inner-bg);color:var(--t1);
+        border-radius:10px;font-size:1.15rem;cursor:pointer}
+      /* 헤더: sticky + 그리드(☰ | 제목 중앙 | 여백), 소유주 탭은 둘째 줄 중앙 */
+      .content-area > .f-between:first-child{position:sticky;top:0;z-index:500;
+        display:grid;grid-template-columns:38px 1fr 38px;align-items:center;row-gap:8px;
+        background:var(--modal-bg);padding:10px 12px;gap:8px}
+      .hamburger-btn{grid-row:1;grid-column:1}
+      .page-title{grid-row:1;grid-column:2;text-align:center;font-size:1.05rem!important}
+      #owner-tabs-container,#cf-owner-bar,#bubble-owner-bar,#analysis-owner-bar{
+        grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center}
+      .owner-btn{padding:4px 10px;font-size:.72rem}
+      .modal-content{max-width:92vw}
+
+      /* ── 세로 흐름: 뷰 높이를 콘텐츠 기준으로 (min-height:100% 금지 — flex-grow가
+         남는 높이를 위젯에 분배해 차트 아래 빈 여백을 만들었음) ── */
+      .view-section.active{height:auto;min-height:0;width:100%;max-width:100%;box-sizing:border-box;overflow:visible}
+      /* 모든 뷰의 직계 래퍼: 인라인 height:100%/overflow-y:auto 해제 — 페이지 스크롤 일원화
+         (target_rebal·analysis·family 등 뷰별 패치 누락으로 위젯이 뷰포트 높이에 갇히던 문제) */
+      .view-section.active > div{height:auto!important;min-height:0;overflow-y:visible!important}
+      .view-section.active > .f-col,
+      .view-section.active > .glass-panel{height:auto!important;min-height:0;max-width:100%}
+      /* width:calc(100%-4px) 전역 핵 금지 — 사이드바(.glass-panel.menu-col)의 드로어 폭까지 덮어써 풀스크린이 됐음 */
+      .glass-panel{min-height:0;max-width:100%;box-sizing:border-box}
+      /* 차트 컨테이너 고정 높이 — auto 높이 패널에서 Chart.js responsive 리사이즈
+         피드백 루프(무한 늘어짐)·0높이(잘림) 동시 차단 */
+      .chart-container{height:240px!important;min-height:0!important;flex:0 0 auto!important;overflow:hidden}
+      /* 리사이즈 전 캔버스가 컨테이너보다 커도 축/범례가 잘리지 않도록 시각적 상한 */
+      .chart-container > canvas{max-width:100%!important;max-height:100%!important}
+      #view-trend #trend-chart-wrap{height:380px;flex:0 0 auto}
+      /* #div-detail 내부 chart-container는 absolute(top/bottom) 배치 — auto 높이에서 붕괴 방지 */
+      #div-detail{position:relative;min-height:250px}
+      #div-detail .chart-container{position:relative;top:auto;left:auto;right:auto;bottom:auto}
+
+      /* ── dashboard ── */
+      .dash-layout{min-height:0;height:auto}
+      .dash-main,.dash-side,.top-grid,.mid-grid{height:auto!important;min-height:0}
+      /* 베이스 flex:1.4(basis 0)가 auto 높이 컬럼에서 min-content로 붕괴 → 패널이 콘텐츠보다 작아져
+         캔버스가 패널 밖으로 넘치던 원인. 콘텐츠 크기 기준으로 고정 */
+      .dash-layout,.top-grid,.mid-grid{flex:0 0 auto!important}
+      /* 차트 고정 240px + 패널 overflow:hidden — 캔버스가 패널 밖(다음 카드 위)으로 그려져
+         자산 배분 카드와 중첩되던 문제 차단. 1열 스택은 ≤900px .dash-layout{grid-template-columns:1fr}가 보장 */
+      #view-dashboard .chart-container{height:240px!important;min-height:240px!important;flex:0 0 auto!important;overflow:hidden}
+      #wrap-mini-value-chart{height:240px!important;min-height:240px!important;flex:0 0 auto!important;overflow:hidden}
+      #wrap-networth-chart{height:auto!important;min-height:0!important;flex:0 0 auto!important;overflow:hidden}
+      #view-dashboard .glass-panel{flex:0 0 auto!important;overflow:hidden}
+      /* NET 요약: 모바일 기본 접힘, 토글 헤더 표시 */
+      #dash-net-toggle{display:flex!important}
+      #dash-net-summary:not(.expanded) #dash-net-summary-body{display:none}
+      #dash-net-summary.expanded #dash-net-arrow{transform:rotate(180deg)}
+
+      /* ── portfolio: Row2/Row3 가로 flex → 세로 스택, 내부 래퍼 자연 높이 ── */
+      .port-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
+      #view-portfolio .glass-panel{overflow:visible}
+      /* 우측 잘림 수정: flex/grid 아이템 기본 min-width:auto가 nowrap 콘텐츠(기간 버튼 6개·TOP3 행)의
+         min-content 폭으로 패널을 뷰포트보다 넓혀 content-area overflow-x:hidden에 잘리던 문제 */
+      .port-grid-top > *,.port-row2-flex > *,.port-bottom-flex > *{min-width:0;max-width:100%}
+      #view-portfolio .card-title.f-between{flex-wrap:wrap;row-gap:6px}
+      #view-portfolio .tf-btns{flex-wrap:wrap;justify-content:flex-end}
+      /* 패널 min-height 강제 없음 — 차트는 .chart-container 고정 240px가 높이를 보장하고,
+         차트 없는 패널(환율 노출도 등)은 콘텐츠 높이로 줄여 하단 여백 제거.
+         인라인 flex:N(basis 0)이 세로 스택에서 grow 분배로 패널을 늘리므로 콘텐츠 크기로 고정 */
+      .port-row2-flex{flex-direction:column}
+      .port-bottom-flex{flex-direction:column}
+      /* 래퍼 자신도 베이스 flex:2.4/인라인 flex:1(basis 0)이 min-content로 붕괴해
+         TOP3 위젯이 다음 카드에 가려지던 문제 — 콘텐츠 크기로 고정 */
+      .port-grid-top,.port-bottom-flex{flex:0 0 auto!important}
+      .port-grid-top .glass-panel,
+      .port-row2-flex > .glass-panel,
+      .port-bottom-flex > .glass-panel{flex:0 0 auto!important}
+      #port-fx-column > div{height:auto!important}
+      #port-best-widget,#port-worst-widget,#port-dca-widget{min-height:140px!important} /* 인라인 min-height:0 덮어쓰기 */
+
+      /* ── holdings: 내부 스크롤 제거 — 페이지 스크롤로 일원화 ── */
+      .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
+      .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
+      #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{overflow-x:auto}
+      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·3·2번째) */
+      #portfolio-tables .pt-table:not([data-grp="현금"]) :is(th,td):not([colspan]):is(
+        :nth-last-child(1),:nth-last-child(4),:nth-last-child(5),:nth-last-child(6),
+        :nth-last-child(7),:nth-last-child(8),:nth-last-child(10),:nth-last-child(11)){display:none}
+      /* 현금: 자산명 · 평가금액(KRW) */
+      #portfolio-tables .pt-table[data-grp="현금"] :is(th,td):not([colspan]):is(
+        :nth-last-child(1),:nth-last-child(2),:nth-last-child(4),
+        :nth-last-child(6),:nth-last-child(7)){display:none}
+      #portfolio-tables .pt-table td.text-left{white-space:normal;word-break:break-word}
+      #portfolio-tables .pt-table th,#portfolio-tables .pt-table td{padding:8px 6px}
+      /* 그룹 카드 헤더: 1행 [제목 (N종목) · 총평가 ──────── ▼] / 2행 [수익]
+         stats 래퍼를 display:contents로 풀어 헤더 flex에 직접 배치 */
+      .pt-group-header{gap:6px 10px!important;justify-content:flex-start!important}
+      #portfolio-tables .pt-group-stats{display:contents}
+      #portfolio-tables .pt-group-stats > span:nth-of-type(1){font-size:.78rem}
+      #portfolio-tables .pt-group-stats > span:nth-of-type(2){order:2;flex:1 1 100%;font-size:.78rem}
+      #portfolio-tables .pt-group-stats > .pt-arrow{margin-left:auto}
+      /* 부동산/부채 아코디언 헤더 — 동일 패턴: 1행 [제목 ── ▼] / 2행 [지표들] */
+      #htab-realestate .pt-group-header > div:last-child,
+      #htab-liability .pt-group-header > div:last-child{display:contents!important} /* 인라인 display:flex 덮어쓰기 */
+      #htab-realestate .pt-group-header > div:last-child > div,
+      #htab-liability .pt-group-header > div:last-child > div{order:2;flex:1 1 100%;flex-wrap:wrap;gap:4px 14px!important}
+      #htab-realestate .pt-group-header > div:last-child > [id$="-arrow"],
+      #htab-liability .pt-group-header > div:last-child > [id$="-arrow"]{margin-left:auto}
+
+      /* ── cashflow: 두 컬럼 자연 높이 + 상세 표는 패널 내부 가로 스크롤 ── */
+      /* grid 행 높이가 좌측 컬럼을 콘텐츠보다 작게 잡아(전체 소유주 다건 시) 상세 리스트가
+         넘쳐 우측 '수입/지출 구성' 도넛 위에 페인트되던 문제 → flex 세로 스택으로 전환해
+         각 컬럼을 콘텐츠 높이로 */
+      #view-cashflow .cf-grid{display:flex!important;flex-direction:column!important;height:auto!important}
+      #view-cashflow .cf-grid > .f-col{flex:0 0 auto!important;height:auto!important;overflow:visible!important}
+      #view-cashflow .cf-grid .glass-panel{overflow-x:auto}
+      /* 인라인 flex:2/flex:1(basis 0)이 min-content로 붕괴해 패널 내부 세로 스크롤을 만들던 문제 */
+      #view-cashflow .cf-grid .glass-panel{flex:0 0 auto!important}
+      #cf-detail-table{min-width:600px}
+
+      /* ── family: 비교 표 세로 전부 노출(페이지 스크롤). 셀은 축약 포맷(JS)+컴팩트로 5컬럼 수납,
+         그래도 넘치면 패널 내 가로 스크롤 폴백 ── */
+      #view-family .family-grid .glass-panel{height:auto!important;overflow-y:visible!important}
+      #family-compare-table{width:100%}
+      #family-compare-table th,#family-compare-table td{padding:6px 4px;font-size:.7rem;white-space:nowrap}
+      #family-compare-table th:first-child,#family-compare-table td:first-child{min-width:0}
+      #family-compare-table th[style*="min-width"]{min-width:56px!important}
+
+      /* ── portfolio 배당 종목 리스트: 종목명/티커 · 보유수량 · 예상배당금만 노출 ── */
+      #view-portfolio .div-compact :is(th,td):not([colspan]):is(:nth-child(2),:nth-child(3)){display:none}
+      #view-portfolio .div-compact{width:100%;table-layout:auto}
+      #view-portfolio .inner-scroll{overflow-x:hidden!important;overflow-y:visible!important;max-height:none!important;padding-right:0!important;padding-bottom:18px}
+      #view-portfolio .div-compact tfoot td{padding-bottom:14px}
+      #view-portfolio .div-compact,
+      #view-portfolio .div-compact tbody,
+      #view-portfolio .div-compact tfoot{overflow:visible}
+      #view-portfolio .div-compact tfoot td{padding:8px 6px 14px!important}
+      #view-portfolio .div-compact tfoot td.div-total-label{text-align:right!important;font-size:.72rem!important;white-space:nowrap}
+      #view-portfolio .div-compact tfoot td.div-total-value{text-align:right!important;font-size:.78rem!important;white-space:nowrap}
+
+      /* ── gift: 안내 그리드 1열 (인라인 1fr 1fr 덮어쓰기) ── */
+      .gift-info-grid{grid-template-columns:1fr!important}
+      /* grid 행 높이가 좌측 패널을 콘텐츠보다 작게 잡아(overflow:hidden 시 잘림, visible 시 차트 위로 넘침)
+         → flex 세로 스택으로 전환해 각 패널을 콘텐츠 높이로. 내부 스크롤 제거(페이지 스크롤 일원화) */
+      #view-gift .gift-grid{display:flex!important;flex-direction:column!important;height:auto!important}
+      #view-gift .gift-grid > .glass-panel,
+      #view-gift .gift-grid > .f-col{flex:0 0 auto!important;height:auto!important;overflow:visible!important}
+      #view-gift .gift-grid > .f-col > .glass-panel{height:auto!important;overflow:visible!important}
+      #gift-progress-container{flex:0 0 auto!important;overflow-y:visible!important;min-height:0}
+
+      /* ── analysis: 손익 표 가로 스크롤 + 인라인 min-height:360px/flex:1 해제(빈 표일 때 카드 늘어짐) ── */
+      #pl-table-container{overflow-x:auto;overflow-y:visible!important;min-height:0!important;flex:0 0 auto!important}
+
+      /* ── 모바일 = 조회 전용: 추가/수정/삭제 UI 전부 숨김 (JS 가드와 이중 방어) ── */
+      #cf-input-panel{display:none!important}        /* 수입/지출 입력 패널 (날짜/유형/카테고리 중첩도 함께 해소) */
+      #view-holdings .api-btn{display:none!important} /* ➕ 추가 버튼들 */
+      .btn-action{display:none!important}             /* ✏️🗑️ 행 단위 수정/삭제 */
+      .editable-val{pointer-events:none}              /* 클릭 인라인 편집 */
+      #pl-input-row{display:none!important}           /* 분석 뷰 월별손익 입력 행 */
+
+      /* ── dividend_plus: CAGR 표 % colgroup 뭉개짐 방지 ── */
+      #view-dividend_plus > .f-col{height:auto!important;overflow-y:visible!important;padding-bottom:18px!important}
+      #view-dividend_plus .divp-widget-body{overflow:visible}
+      #view-dividend_plus .divp-widget-body > div[style*="overflow-x:auto"]{overflow-x:visible!important}
+      #divp-tab-yoc .divp-table{min-width:0;width:100%;table-layout:fixed;font-size:.68rem}
+      #divp-tab-yoc .divp-table th,#divp-tab-yoc .divp-table td{padding:7px 3px;font-size:.68rem;line-height:1.2}
+      #divp-tab-yoc .divp-table th:nth-child(1),#divp-tab-yoc .divp-table td:nth-child(1){width:34%;max-width:none}
+      #divp-tab-yoc .divp-table th:nth-child(2),#divp-tab-yoc .divp-table td:nth-child(2){width:20%}
+      #divp-tab-yoc .divp-table th:nth-child(3),#divp-tab-yoc .divp-table td:nth-child(3){width:21%}
+      #divp-tab-yoc .divp-table th:nth-child(6),#divp-tab-yoc .divp-table td:nth-child(6){display:table-cell!important;width:25%;font-size:.66rem;white-space:nowrap}
+      #divp-tab-yoc .divp-table td:nth-child(1) strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #divp-tab-yoc .divp-table td:nth-child(2),
+      #divp-tab-yoc .divp-table td:nth-child(3){font-size:.68rem;white-space:nowrap}
+      #divp-tab-yoc .divp-table td:nth-child(3) span{display:none!important}
+      #divp-tab-yoc .divp-table :is(th,td):is(:nth-child(4),:nth-child(5)){display:none}
+      /* tfoot은 6셀 구조(JS)라 위 nth-child(4,5) 숨김·6컬럼 표시가 그대로 적용 — 별도 grid 핵 불필요 */
+      .divp-table--cagr{min-width:0}
+      .divp-table--cagr colgroup{display:none}
+      .divp-table--cagr :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(4),:nth-child(6)){display:none}
+      .divp-table th,.divp-table td{padding-left:6px;padding-right:6px}
+
+      /* ── target_rebal: concentration cards compact grid ── */
+      #tgt-concentration-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+      #tgt-concentration-cards > div{padding:8px 9px!important;border-radius:8px!important;min-width:0}
+      #tgt-concentration-cards > div > div:first-child{font-size:.64rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #tgt-concentration-cards > div > div:nth-child(2){font-size:.98rem!important;line-height:1.18!important}
+      #tgt-concentration-cards > div > div:nth-child(3){font-size:.6rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+      /* ── trend: 툴바 줄바꿈 ── */
+      .trend-search-wrap{flex:1 1 100%;min-width:0}
+      .trend-header-inline{flex-wrap:wrap;border-left:none;padding-left:0}
+      #trend-range-btns{margin-left:0}
+
+      /* ── bubble: 인라인 height:100%/overflow:hidden 해제, 모바일은 HTML 비중 리스트 폴백 ── */
+      #view-bubble{height:auto!important;overflow:visible!important}
+      #view-bubble > div{height:auto!important;overflow:visible!important}
+      /* 중간 래퍼(sunburst-panel·bubble-body-flex·sunburst-container)의 flex:1(basis 0)이
+         auto 높이 세로 스택에서 붕괴해, '종목별 비중' 리스트와 COMPOSITION 섹터표가
+         서로 겹쳐 그려지던 문제 → 전부 콘텐츠 높이로 고정해 문서 순서대로 세로 배치 */
+      #view-bubble .sunburst-panel{flex:0 0 auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
+      #view-bubble .bubble-body-flex{flex:0 0 auto!important;height:auto!important;min-height:0!important}
+      #sunburst-container{flex:0 0 auto!important;min-height:0!important;height:auto!important}
+      #bubble-center-summary{display:none!important}
+      #bubble-sector-panel{flex:0 0 auto!important;width:100%;overflow:visible!important}
+      #bubble-leaves-panel{display:none!important}
+      .bubble-inline-leaves{display:block}
+    }

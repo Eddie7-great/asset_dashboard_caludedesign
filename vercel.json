@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "api/auth.ts": {
+      "maxDuration": 5
+    },
+    "api/kv.ts": {
+      "maxDuration": 10
+    },
+    "api/price.ts": {
+      "maxDuration": 30
+    },
+    "api/get-stock.ts": {
+      "maxDuration": 15
+    },
+    "api/dashboard.py": {
+      "maxDuration": 60
+    },
+    "api/stock-price.js": {
+      "maxDuration": 15
+    }
+  }
+}
