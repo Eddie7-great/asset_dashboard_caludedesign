@@ -60,20 +60,31 @@
         </div>
       </div>
     </div>
-    <div class="menu-list" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2px">
-      <button class="menu-btn active" id="menu-dashboard" onclick="switchView('dashboard',this)"><span class="menu-ico">◧</span>대시보드</button>
-      <button class="menu-btn" onclick="switchView('portfolio',this)"><span class="menu-ico">⇗</span>포트폴리오</button>
+    <div class="menu-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
+      <button class="menu-btn active" id="menu-dashboard" onclick="switchView('cdash',this)"><span class="menu-ico">◧</span>대시보드</button>
+      <button class="menu-btn" id="menu-perf2" onclick="switchView('perf2',this)"><span class="menu-ico">⇗</span>성과 비교</button>
+      <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>가족 자산</button>
+      <button class="menu-btn" id="menu-risk2" onclick="switchView('risk2',this)"><span class="menu-ico">◬</span>리스크 진단</button>
+      <button class="menu-btn" id="menu-divm" onclick="switchView('divm',this)"><span class="menu-ico">₪</span>배당 관리</button>
+      <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>증여 플랜</button>
+      <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
+      <button class="menu-btn" id="menu-dca2" onclick="switchView('dca2',this)"><span class="menu-ico">⟳</span>DCA 자동매수</button>
+      <div class="cb-menu-sep"></div>
       <button class="menu-btn" id="menu-holdings" onclick="switchView('holdings',this)"><span class="menu-ico">⊞</span>자산 내역</button>
       <button class="menu-btn" onclick="switchView('cashflow',this)"><span class="menu-ico">⇄</span>현금 흐름</button>
-      <button class="menu-btn" onclick="switchView('gift',this)"><span class="menu-ico">⌂</span>증여 현황</button>
-      <button class="menu-btn" onclick="switchView('family',this)"><span class="menu-ico">◔</span>가족 현황</button>
-      <button class="menu-btn" id="menu-analysis" onclick="switchView('analysis',this)"><span class="menu-ico">⊟</span>세금 &amp; 배당 분석</button>
-      <button class="menu-btn" id="menu-dividend_plus" onclick="switchView('dividend_plus',this)"><span class="menu-ico">₪</span>배당 심화</button>
-      <button class="menu-btn" id="menu-target_rebal" onclick="switchView('target_rebal',this)"><span class="menu-ico">◬</span>목표 &amp; 리밸런싱</button>
+      <button class="menu-btn" id="menu-dividend_plus" onclick="switchView('dividend_plus',this)"><span class="menu-ico">✚</span>배당 심화</button>
       <button class="menu-btn" id="menu-trend" onclick="switchView('trend',this)"><span class="menu-ico">∿</span>추세 분석</button>
       <button class="menu-btn" id="menu-bubble" onclick="switchView('bubble',this)"><span class="menu-ico">◉</span>비중 차트</button>
     </div>
     <div class="sidebar-footer">
+      <div>
+        <div class="side-seg-label">표시 통화</div>
+        <div class="side-seg" id="cur-seg">
+          <button class="side-seg-btn" id="cur-seg-USD" onclick="setDispCur('USD')">USD</button>
+          <button class="side-seg-btn active" id="cur-seg-KRW" onclick="setDispCur('KRW')">KRW</button>
+          <button class="side-seg-btn" id="cur-seg-JPY" onclick="setDispCur('JPY')">JPY</button>
+        </div>
+      </div>
       <div>
         <div class="side-seg-label">테마</div>
         <div class="side-seg" id="theme-seg">
@@ -82,7 +93,10 @@
           <button class="side-seg-btn active" id="theme-seg-navy" onclick="setTheme('navy')">네이비</button>
         </div>
       </div>
-      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">시세 갱신</span></button>
+      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">전일 종가 갱신</span></button>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);padding:0 3px">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--up);flex-shrink:0"></span><span id="feed-note">시세 연동 대기</span>
+      </div>
     </div>
   </aside>
 
@@ -120,8 +134,18 @@
       </div>
     </div>
 
-    <!-- DASHBOARD -->
-    <div id="view-dashboard" class="view-section active">
+    <!-- ===== Cobalt 시안 8페이지 (cobalt.js가 렌더링) ===== -->
+    <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
+    <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
+    <div id="view-fam2" class="view-section"><div class="cb-scroll" id="cb-fam2"></div></div>
+    <div id="view-risk2" class="view-section"><div class="cb-scroll" id="cb-risk2"></div></div>
+    <div id="view-divm" class="view-section"><div class="cb-scroll" id="cb-divm"></div></div>
+    <div id="view-gift2" class="view-section"><div class="cb-scroll" id="cb-gift2"></div></div>
+    <div id="view-tax2" class="view-section"><div class="cb-scroll" id="cb-tax2"></div></div>
+    <div id="view-dca2" class="view-section"><div class="cb-scroll" id="cb-dca2"></div></div>
+
+    <!-- DASHBOARD (legacy — 메뉴에서 제거됨, 렌더 함수 호환을 위해 DOM 유지) -->
+    <div id="view-dashboard" class="view-section">
       <div class="dash-layout">
         <div class="dash-main f-col">
           <div class="top-grid" style="grid-template-columns:1fr;">
@@ -1132,5 +1156,6 @@
 </div>
 
 <script src="script.js?v=21"></script>
+<script src="cobalt.js?v=1"></script>
 </body>
 </html>

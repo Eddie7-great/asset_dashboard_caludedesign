@@ -43,6 +43,22 @@
       --grid:#17274a;
       --tipbg:#0a142e;--tiptx:#dbe6ff
     }
+    /* ── Cobalt 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
+       주의: 테마 토큰이 body[data-theme]에 정의되므로, var() 참조 별칭은 body에도
+       선언해야 테마별 값으로 재계산된다 (:root에서만 선언하면 라이트 값으로 고정됨) */
+    :root, body {
+      --tx:var(--t1);--mut:var(--t2);--lab:var(--t3);--dim:var(--t3);
+      --bd:var(--border-light);--bd2:var(--border-dark);
+      --inner:var(--inner-bg);--panel:var(--glass);--panelSolid:var(--modal-bg);
+      --accSoft:var(--acc-soft);--accSoft2:var(--acc-soft2);--hover:var(--hover-bg);
+      --shadow:var(--gshadow);
+      --upSoft:rgba(23,138,82,.10);
+    }
+    [data-theme="dark"]{--upSoft:rgba(52,211,153,.12)}
+    [data-theme="navy"]{--upSoft:rgba(77,222,128,.12)}
+    /* 시안식 용어 툴팁 — 점선 밑줄 + 호버 말풍선 */
+    [data-tip]{position:relative;cursor:help;border-bottom:1px dashed var(--dim)}
+    [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 7px);z-index:99;width:max-content;max-width:250px;white-space:normal;background:var(--tipbg);color:var(--tiptx);font-size:11.5px;font-weight:400;line-height:1.55;padding:8px 11px;border-radius:8px;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.35);pointer-events:none;letter-spacing:0;text-transform:none}
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
@@ -982,6 +998,24 @@
       #view-trend .trend-mid-row > #trend-chart-wrap,
       #view-trend .trend-mid-row > #trend-scorecards{flex:0 0 auto;width:100%}
     }
+
+    /* ── Cobalt 시안 페이지 공통 컴포넌트 ─────────────────────── */
+    .cb-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding:14px 6px 60px 0}
+    .cb-panel{background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);box-sizing:border-box}
+    .cb-btn{cursor:pointer;background:var(--acc);border:none;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:9px}
+    .cb-btn:hover{opacity:.9}
+    .cb-input{background:var(--inner);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box}
+    .cb-input:focus{border-color:var(--acc)}
+    select.cb-input option{background:var(--panelSolid);color:var(--tx)}
+    .cb-hrow{border-radius:9px;transition:background .12s}
+    .cb-hrow:hover{background:var(--hover)}
+    .cb-edit{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim);cursor:pointer;border:1px solid var(--bd);flex-shrink:0}
+    .cb-edit:hover{color:var(--tx);border-color:var(--bd2)}
+    .cb-del{color:var(--dim);cursor:pointer;font-size:11px}
+    .cb-del:hover{color:var(--dn)}
+    .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
+    .cb-num{font-family:'IBM Plex Mono',monospace}
+    .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
 
     /* ── Cobalt 우하단 시세 위젯 (JPY100/KRW · 금 1g) ─────────── */
     #fx-widget{position:fixed;right:12px;bottom:12px;z-index:900;display:flex;gap:7px;align-items:flex-end;pointer-events:none}
