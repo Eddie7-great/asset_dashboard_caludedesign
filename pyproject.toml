@@ -1,2 +1,12 @@
+[project]
+name = "asset-dashboard-api"
+version = "1.0.0"
+requires-python = ">=3.9"
+dependencies = [
+    "yfinance>=0.2.40,<0.3.0",
+    "pandas>=2.0.0,<3.0.0",
+    "pykrx>=1.0.45,<2.0.0",
+]
+
 [tool.vercel]
 entrypoint = "api.dashboard:handler"
