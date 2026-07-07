@@ -806,6 +806,8 @@ function setTheme(mode) {
   try{localStorage.setItem('theme', mode);}catch(e){}
   const activeView = document.querySelector('.view-section.active');
   if (activeView && activeView.id === 'view-bubble') setTimeout(()=>renderBubbleChart('weight'), 200);
+  // 현금 흐름 차트는 렌더 시점에 CSS 토큰을 hex로 해석해 쓰므로 테마 변경 시 재렌더
+  if (activeView && activeView.id === 'view-cashflow') { try{ renderCashFlow(); }catch(e){} }
 }
 // 하위 호환 (구 다크모드 토글)
 function toggleTheme() { setTheme(isDarkTheme() ? 'light' : 'navy'); }
@@ -2772,7 +2774,7 @@ function renderCfDivPanel() {
     const isNow = i === nowM && String(cfYear) === String(new Date().getFullYear());
     return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:2px">
       <div style="width:100%;background:var(--inner-bg);border-radius:3px;height:36px;display:flex;align-items:flex-end">
-        <div style="width:100%;height:${pct}%;background:${isNow?'var(--acc)':'#6366F1'};border-radius:3px;min-height:${v>0?'3px':'0'}"></div>
+        <div style="width:100%;height:${pct}%;background:${isNow?'var(--acc)':'var(--acc3)'};border-radius:3px;min-height:${v>0?'3px':'0'}"></div>
       </div>
       <div style="font-size:.58rem;color:var(--t3)">${i+1}월</div>
       ${v > 0 ? `<div style="font-size:.58rem;color:var(--t2);white-space:nowrap">₩${(v/10000).toFixed(0)}만</div>` : ''}
@@ -3180,7 +3182,7 @@ function updateCfTrendChart() {
     // 자동이체 예상금액 포함 (실체화된 항목/skip/종료 이후는 calcAutoTransferForMonth에서 이미 제외됨)
     const atAmts = calcAutoTransferForMonth(y, m);
     mIn+=atAmts.atIn; mOut+=atAmts.atOut;
-    let net=mIn-mOut;netData.push(net);window.cfTrendDetails.in.push(mIn);window.cfTrendDetails.out.push(mOut);bgColors.push(net>=0?'#10B981':'#EF4444');
+    let net=mIn-mOut;netData.push(net);window.cfTrendDetails.in.push(mIn);window.cfTrendDetails.out.push(mOut);bgColors.push(net>=0?cssVar('--up','#4ade80'):cssVar('--dn','#fb7185'));
   }
   if(window.cfTrendChartInst){window.cfTrendChartInst.data.labels=labels;window.cfTrendChartInst.data.datasets[0].data=netData;window.cfTrendChartInst.data.datasets[0].backgroundColor=bgColors;window.cfTrendChartInst.update();}
 }
@@ -3272,7 +3274,7 @@ function renderCashFlow() {
     const incLabels=Object.keys(incomeByCat);const expLabels=Object.keys(expByCat);
     const allLabels=[...incLabels,...expLabels];
     const allData=[...incLabels.map(l=>incomeByCat[l]),...expLabels.map(l=>-expByCat[l])];
-    const allColors=[...incLabels.map(l=>cfColors[l]||'#10B981'),...expLabels.map(l=>cfColors[l]||'#EF4444')];
+    const allColors=[...incLabels.map(l=>cfColors[l]||cssVar('--up','#4ade80')),...expLabels.map(l=>cfColors[l]||cssVar('--dn','#fb7185'))];
     window.cfDonutChartInst.data.labels=allLabels;
     window.cfDonutChartInst.data.datasets[0].data=allData;
     window.cfDonutChartInst.data.datasets[0].backgroundColor=allColors;
