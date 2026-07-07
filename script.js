@@ -684,7 +684,7 @@ function renderAutoTransfers() {
       <td class="text-left">${at.desc}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono'">₩${Math.round(at.amt).toLocaleString()}</td>
       <td class="text-left">${cycleStr}</td>
-      <td><button class="btn-action" onclick="deleteAutoTransfer(${at.id})">🗑️</button></td>
+      <td><button class="btn-action" onclick="deleteAutoTransfer(${at.id})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -803,18 +803,6 @@ function setTheme(mode) {
   applyChartTheme(); // 내부에서 전 차트 재드로우 포함
   // gift 차트 범례 색상 강제 갱신
   if(window.giftChartInst){window.giftChartInst.update();}
-  // 추세(Highcharts) 차트 축/범례 색상 갱신 — 데이터 재요청 없이 update
-  try{
-    if(window._trendState && window._trendState.chartInst){
-      const tc=cssVar('--t2', isDarkTheme()?'#cbd5e1':'#475569');
-      const gc=isDarkTheme()?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
-      window._trendState.chartInst.update({
-        legend:{itemStyle:{color:tc}},
-        xAxis:{labels:{style:{color:tc}},gridLineColor:gc},
-        yAxis:[{labels:{style:{color:tc}},gridLineColor:gc},{labels:{style:{color:tc}},gridLineColor:gc}]
-      },true);
-    }
-  }catch(e){}
   try{localStorage.setItem('theme', mode);}catch(e){}
   const activeView = document.querySelector('.view-section.active');
   if (activeView && activeView.id === 'view-bubble') setTimeout(()=>renderBubbleChart('weight'), 200);
@@ -881,15 +869,14 @@ function switchView(viewId, btn) {
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active')); viewEl.classList.add('active');
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
-  if (viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='dividend_plus'||viewId==='target_rebal') {
+  if (viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal') {
     document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>b.classList.remove('active'));
     const allBtn=document.querySelector('#owner-tabs-container .owner-btn');
     if(allBtn)allBtn.classList.add('active');
     currentOwner='전체';
-    if (viewId==='dividend_plus') window._divPlusOwner = '전체';
   }
   const dispOwner = currentOwner==='전체'?'통합':currentOwner;
-  const baseTitles={'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역','dividend':'배당 현황 상세','cashflow':'현금 흐름 관리 (가계부)','gift':'유기정기금 증여 현황','family':'가족 자산 현황','analysis':'세금 & 배당 분석','dividend_plus':'배당 심화 (YoC · CAGR · DRIP)','target_rebal':'목표 & 리밸런싱','trend':'추세 분석 어드바이저'};
+  const baseTitles={'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역','dividend':'배당 현황 상세','cashflow':'현금 흐름 관리 (가계부)','gift':'유기정기금 증여 현황','family':'가족 자산 현황','analysis':'세금 & 배당 분석','target_rebal':'목표 & 리밸런싱'};
   let title;
   if (viewId==='portfolio') title=`부동산 제외 ${currentOwner} 자산`;
   else if (viewId==='dashboard'||viewId==='holdings') title=dispOwner+(baseTitles[viewId]||'');
@@ -900,7 +887,7 @@ function switchView(viewId, btn) {
   }
   else title=baseTitles[viewId]||viewId;
   document.getElementById('main-title').textContent = title;
-  document.getElementById('owner-tabs-container').style.display=(viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='dividend_plus'||viewId==='target_rebal')?'flex':'none';
+  document.getElementById('owner-tabs-container').style.display=(viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal')?'flex':'none';
   const cfBar = document.getElementById('cf-owner-bar');
   if (cfBar) cfBar.style.display = (viewId==='cashflow') ? 'flex' : 'none';
   const bubbleBar = document.getElementById('bubble-owner-bar');
@@ -930,9 +917,7 @@ function switchView(viewId, btn) {
   if (viewId==='liability'){switchView('holdings',document.querySelector('.menu-btn[onclick*="holdings"]'));setTimeout(()=>switchHoldingsTab('liability',document.getElementById('htab-btn-liability')),50);return;}
   if (viewId==='family')renderFamilyView();
   if (viewId==='analysis'){renderAnalysisView();}
-  if (viewId==='dividend_plus'){renderDividendPlusView();}
   if (viewId==='target_rebal'){renderTargetRebalView();}
-  if (viewId==='trend'){renderTrendView();}
   if (viewId==='bubble'){
     // 현재 owner 와 버블 view 의 owner 탭 active 상태 동기화
     _bubbleOwner = currentOwner || '전체';
@@ -2244,7 +2229,7 @@ function renderPortfolio(owner) {
       grpItems.forEach(i=>{
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left"><span style="font-size:.7rem;background:var(--inner-bg);padding:3px 8px;border-radius:12px;color:var(--acc);font-weight:bold">${i.owner}</span></td>`:'';
-        let mgmtBtns=`<button class="btn-action" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✏️</button><button class="btn-action" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">🗑️</button>`;
+        let mgmtBtns=`<button class="btn-action" title="수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✎</button><button class="btn-action" title="삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">✕</button>`;
 
         if(grpName==='현금'){
           // [8] 현금: 정렬, 검정폰트, 클릭편집
@@ -2360,7 +2345,7 @@ function renderPortfolio(owner) {
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
-    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName==='주식'?'📈':(grpName==='가상화폐'?'🪙':(grpName==='현금'?'💵':'🥇'))} ${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span></div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">➕ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}">${grpName==='주식'?brokerFilterHtml:''}<table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
+    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span></div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}">${grpName==='주식'?brokerFilterHtml:''}<table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
   });
   document.getElementById('portfolio-tables').innerHTML=html;
 }
@@ -3129,7 +3114,7 @@ function resetCfForm() {
   const cEl = document.getElementById('cf-cat'); if (cEl && cEl.options.length) cEl.selectedIndex = 0;
   const btn = document.getElementById('btn-cf-submit'); if (btn) btn.innerText = '저장';
 }
-// 폼 바깥 클릭 시 편집 상태 자동 해제. mousedown 으로 잡되, 다른 행의 ✏️/🗑️ 클릭은
+// 폼 바깥 클릭 시 편집 상태 자동 해제. mousedown 으로 잡되, 다른 행의 ✎/✕ 클릭은
 // 자체 onclick 핸들러(editCF/deleteCF)에 위임하기 위해 .btn-action 클릭은 건너뛴다.
 document.addEventListener('mousedown', (e) => {
   const idxEl = document.getElementById('cf-edit-index');
@@ -3219,7 +3204,7 @@ function renderCashFlow() {
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
     const cycleDisp=i.isAuto?`<span style="font-size:.65rem;color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+i.cycleLabel:''}</span>`:`<span style="font-size:.65rem;color:var(--t3)">일회성</span>`;
     const ownerCell=`<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${i.owner||'-'}</span></td>`;
-    html+=`<tr><td class="text-left">${fd}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${i.type}</span></td>${ownerCell}<td class="text-left">${i.cat}</td><td class="text-left">${i.desc}</td><td style="color:${cls}" class="text-right">${sign}₩${i.amt.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" onclick="editCF(${realIdx})">✏️</button><button class="btn-action" onclick="deleteCF(${realIdx})">🗑️</button></td></tr>`;
+    html+=`<tr><td class="text-left">${fd}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${i.type}</span></td>${ownerCell}<td class="text-left">${i.cat}</td><td class="text-left">${i.desc}</td><td style="color:${cls}" class="text-right">${sign}₩${i.amt.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" onclick="editCF(${realIdx})">✎</button><button class="btn-action" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
   // 자동이체 가상 행: 각 자동이체별로 해당 월의 실제/레거시 [자동] 항목이 없으면 예정 행 표시
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();
@@ -3272,8 +3257,8 @@ function renderCashFlow() {
       <td style="color:${atCls}" class="text-right">${atSign}₩${total.toLocaleString()}</td>
       <td class="text-right"><span style="font-size:.65rem;color:var(--t3)">${cycleLbl}</span></td>
       <td class="text-right" style="white-space:nowrap">
-        <button class="btn-action" title="이 달 금액 수정" onclick="editAutoTransferMonth(${at.id},${cfYear},${cfMonth})">✏️</button>
-        <button class="btn-action" title="이 달만 삭제" onclick="skipAutoTransferMonth(${at.id},${cfYear},${cfMonth})">🗑️</button>
+        <button class="btn-action" title="이 달 금액 수정" onclick="editAutoTransferMonth(${at.id},${cfYear},${cfMonth})">✎</button>
+        <button class="btn-action" title="이 달만 삭제" onclick="skipAutoTransferMonth(${at.id},${cfYear},${cfMonth})">✕</button>
       </td>
     </tr>`;
   });
@@ -3516,16 +3501,10 @@ async function liveRefresh() {
       const oldJpy100=RATES.JPY*100;
       const jpyEl=document.getElementById('side-jpy-rate');
       if(jpyEl){jpyEl.textContent=jpy100.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});if(Math.abs(jpy100-oldJpy100)>0.01)flash(jpyEl,jpy100>oldJpy100?'up':'down');}
-      // Cobalt 우하단 시세 위젯 — JPY100/KRW
-      const fxwJ=document.getElementById('fxw-jpy');
-      if(fxwJ)fxwJ.textContent=jpy100.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+'원';
       RATES.USD=data.rates.USD;RATES.JPY=data.rates.JPY;
       const oldGold=window._GOLD_G_KRW||0;
       const hG=document.getElementById('side-gold-rate');
       if(hG){hG.textContent='₩'+data.rates.GOLD_G_KRW.toLocaleString();if(data.rates.GOLD_G_KRW!==oldGold)flash(hG,data.rates.GOLD_G_KRW>oldGold?'up':'down');}
-      // Cobalt 우하단 시세 위젯 — 금 1g (KRW)
-      const fxwG2=document.getElementById('fxw-gold');
-      if(fxwG2&&typeof data.rates.GOLD_G_KRW==='number')fxwG2.textContent='₩'+Math.round(data.rates.GOLD_G_KRW).toLocaleString();
       window._GOLD_G_KRW=data.rates.GOLD_G_KRW;
     }
 
@@ -3843,7 +3822,7 @@ function renderRealEstate() {
       <td class="c-dn">${re.mortgage>0?'-₩'+Math.round(re.mortgage).toLocaleString():'-'}</td>
       <td class="${gainCls}">${gainSign}₩${Math.round(Math.abs(gain)).toLocaleString()}</td>
       <td class="${gainCls}">${gainSign}${gainPct.toFixed(1)}%</td>
-      <td><button class="btn-action" onclick="editRealEstate(${origIdx})">✏️</button><button class="btn-action" onclick="deleteRealEstate(${origIdx})">🗑️</button></td>
+      <td><button class="btn-action" onclick="editRealEstate(${origIdx})">✎</button><button class="btn-action" onclick="deleteRealEstate(${origIdx})">✕</button></td>
     </tr>`;
   });
   if (!html) html = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부동산이 없습니다.</td></tr>';
@@ -3995,8 +3974,8 @@ function renderLiabilities() {
     const hasAutoTransfer = autoTransferData.some(at => at.liabIdx === origIdx);
     const autoLabel = l.payDay
       ? (hasAutoTransfer
-          ? `<span style="font-size:.63rem;color:var(--up);display:block;margin-top:2px">📅 매월 ${l.payDay}일 자동상환</span>`
-          : `<span style="font-size:.63rem;color:var(--t3);display:block;margin-top:2px">📅 ${l.payDay}일 (미등록)</span>`)
+          ? `<span style="font-size:.63rem;color:var(--up);display:block;margin-top:2px">매월 ${l.payDay}일 자동상환</span>`
+          : `<span style="font-size:.63rem;color:var(--t3);display:block;margin-top:2px">${l.payDay}일 (미등록)</span>`)
       : '';
     html += `<tr>
       <td class="text-left" style="color:var(--t3);font-size:.75rem">${l.owner||'본인'}</td>
@@ -4006,7 +3985,7 @@ function renderLiabilities() {
       <td class="c-dn">₩${Math.round(l.balance).toLocaleString()}</td>
       <td>${l.rate?l.rate.toFixed(2)+'%':'-'}</td>
       <td class="c-dn" title="${l.remainMonths?l.remainMonths+'개월 잔여':'이자만납부'}">${pmt>0?'₩'+pmt.toLocaleString():'-'}</td>
-      <td><button class="btn-action" onclick="editLiability(${origIdx})">✏️</button><button class="btn-action" onclick="deleteLiability(${origIdx})">🗑️</button></td>
+      <td><button class="btn-action" onclick="editLiability(${origIdx})">✎</button><button class="btn-action" onclick="deleteLiability(${origIdx})">✕</button></td>
     </tr>`;
   });
   if (!html) html = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부채가 없습니다.</td></tr>';
@@ -4416,7 +4395,7 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
-  const ext = { liabilities: liabilityData, realEstate: realEstateData, assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null };
+  const ext = { liabilities: liabilityData, realEstate: realEstateData, assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
   await setKV('ext_data', ext);
 }
 
@@ -4429,6 +4408,10 @@ async function loadExtDataFromKV() {
     if (Array.isArray(data.goalData)) goalData = data.goalData;
     if (Array.isArray(data.netWorthHistory)) window._netWorthHistory = data.netWorthHistory;
     if (data.targetAlloc && typeof data.targetAlloc === 'object') window._targetAlloc = data.targetAlloc;
+    if (data.giftActual && typeof data.giftActual === 'object') {
+      window._giftActual = data.giftActual;
+      try { localStorage.setItem('giftActual', JSON.stringify(data.giftActual)); } catch(e) {}
+    }
     if (Array.isArray(data.monthlyPLData) && data.monthlyPLData.length > 0) {
       monthlyPLData = data.monthlyPLData;
       try { localStorage.setItem('monthlyPLData', JSON.stringify(monthlyPLData)); } catch(e) {}
@@ -4823,8 +4806,10 @@ function initDashboard(){
     rerenderBenchmark();
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     injectInitialFromStocksDB();
-    // 2차: 기존 EOD 시세(Yahoo 기반) 반영
+    // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
     await liveRefresh();
+    // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
+    refreshPyData();
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
     fetchBenchmarkData();
@@ -5967,7 +5952,7 @@ function renderMonthlyPL(){
       <td class="text-left"><span style="font-size:.65rem;padding:2px 6px;border-radius:4px;background:${catColor}22;color:${catColor};font-weight:600">${catLabel}</span></td>
       <td class="text-right ${isPos?'c-up':'c-dn'}">${isPos?'+':'−'}₩${Math.abs(r.amt).toLocaleString()}</td>
       <td class="text-right" style="color:var(--t3)">${r.memo||'-'}</td>
-      <td class="text-right" style="white-space:nowrap"><button class="btn-action" onclick="editMonthlyPL(${r.id})">✏️</button><button class="btn-action" onclick="deleteMonthlyPL(${r.id})">🗑️</button></td>
+      <td class="text-right" style="white-space:nowrap"><button class="btn-action" onclick="editMonthlyPL(${r.id})">✎</button><button class="btn-action" onclick="deleteMonthlyPL(${r.id})">✕</button></td>
     </tr>`;
   }).join('');
   const mi=document.getElementById('pl-month-input');if(mi&&!mi.value){const n=new Date();mi.value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;}
@@ -7628,9 +7613,6 @@ async function fetchPyRates() {
     const jpyFmt = rates.jpy100_krw.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
     const el = document.getElementById('side-jpy-rate');
     if (el) el.textContent = jpyFmt;
-    // Cobalt 우하단 시세 위젯
-    const fxw = document.getElementById('fxw-jpy');
-    if (fxw) fxw.textContent = jpyFmt + '원';
     RATES.JPY = rates.jpy100_krw / 100;
   }
 }
@@ -7665,9 +7647,6 @@ async function fetchPyGold(unit) {
   if (g.price_per_g && g.price_per_g !== '미조회') {
     const oldGold = window._GOLD_G_KRW || 0;
     window._GOLD_G_KRW = g.price_per_g;
-    // Cobalt 우하단 시세 위젯 — 금 1g (KRW)
-    const fxwG = document.getElementById('fxw-gold');
-    if (fxwG) fxwG.textContent = '₩' + Math.round(g.price_per_g).toLocaleString();
     // 금 자산 curP 갱신
     pfolioData.forEach(i => {
       if (i.grp === '금') {
@@ -8065,1102 +8044,6 @@ window.addEventListener('load', () => {
 
 
 // =============================================
-// 추세 분석 어드바이저 (view-trend)
-//   - VWAP / SMA20·50·150·200 / 거래량 / Gaussian 채널 / 상대강도
-//   - 6칸 스코어카드 (이평선/VWAP/상대거래량/섹터RS/유동성/시장레짐)
-//   - Highstock 캔들 + 리버모어/미너비니 규칙기반 어드바이저
-// =============================================
-window._trendState = window._trendState || {
-  ticker: null, asset: null, data: null, range: '1y',
-  chartInst: null, advice: null, ind: null, scores: null,
-};
-window._trendSearchTimer = null;
-window._trendHighstockLoaded = window._trendHighstockLoaded || null;
-window._trendInited = window._trendInited || false;
-
-function _trendEscape(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
-  );
-}
-function _trendInferMarket(ticker, currency) {
-  const t = String(ticker || '').toUpperCase();
-  if (/\.T$/.test(t) || currency === 'JPY') return 'JP';
-  if (/^[0-9A-Z]{6}(\.(KS|KQ))?$/.test(t) || currency === 'KRW') return 'KR';
-  return 'US';
-}
-function _trendFmtPrice(v, cur) {
-  if (v == null || !isFinite(v)) return '-';
-  if (cur === 'KRW') return '₩' + Math.round(v).toLocaleString();
-  if (cur === 'JPY') return '¥' + Math.round(v).toLocaleString();
-  return '$' + Number(v).toFixed(2);
-}
-function _trendFmtPct(v, dp = 2) {
-  if (v == null || !isFinite(v)) return '-';
-  return (v >= 0 ? '+' : '') + Number(v).toFixed(dp) + '%';
-}
-
-// Highstock 동적 로드 (멱등)
-function _trendLoadHighstock() {
-  if (window._trendHighstockLoaded) return window._trendHighstockLoaded;
-  if (window.Highcharts && Highcharts.stockChart) {
-    window._trendHighstockLoaded = Promise.resolve();
-    return window._trendHighstockLoaded;
-  }
-  window._trendHighstockLoaded = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://code.highcharts.com/stock/highstock.js';
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = (e) => reject(e);
-    document.head.appendChild(s);
-  });
-  return window._trendHighstockLoaded;
-}
-
-// ── 지표 계산 ────────────────────────────────────────────────
-function _trendSMA(arr, n) {
-  const out = new Array(arr.length).fill(null);
-  let s = 0, count = 0;
-  for (let i = 0; i < arr.length; i++) {
-    const v = arr[i];
-    if (v == null) continue;
-    s += v; count++;
-    if (i >= n) { const old = arr[i - n]; if (old != null) { s -= old; count--; } }
-    if (count >= n) out[i] = s / n;
-  }
-  return out;
-}
-function _trendVWAP(bars) {
-  let cumPV = 0, cumV = 0; const out = new Array(bars.length).fill(null);
-  for (let i = 0; i < bars.length; i++) {
-    const b = bars[i];
-    const tp = (b.h + b.l + b.c) / 3;
-    cumPV += tp * (b.v || 0);
-    cumV += (b.v || 0);
-    out[i] = cumV > 0 ? cumPV / cumV : null;
-  }
-  return out;
-}
-function _trendATR(bars, n = 14) {
-  const tr = new Array(bars.length).fill(0);
-  for (let i = 0; i < bars.length; i++) {
-    if (i === 0) tr[i] = bars[i].h - bars[i].l;
-    else {
-      const p = bars[i - 1].c;
-      tr[i] = Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - p), Math.abs(bars[i].l - p));
-    }
-  }
-  return _trendSMA(tr, n);
-}
-
-// 단일극 IIR Gaussian 근사 (Ehlers 1극). 원 TradingView 4극과 색반전 타이밍이 1-2 봉 차이 가능
-function _trendGaussianChannel(hlc3, period = 20, mult = 1.414, trSeries = null) {
-  const beta = (1 - Math.cos(2 * Math.PI / period)) / (Math.sqrt(2) - 1);
-  const alpha = -beta + Math.sqrt(beta * beta + 2 * beta);
-  const f = new Array(hlc3.length).fill(null);
-  f[0] = hlc3[0];
-  for (let i = 1; i < hlc3.length; i++) {
-    if (hlc3[i] == null) { f[i] = f[i - 1]; continue; }
-    f[i] = alpha * hlc3[i] + (1 - alpha) * (f[i - 1] ?? hlc3[i]);
-  }
-  // TR 시리즈에 같은 IIR 적용 → 필터된 ATR
-  const atrF = new Array(hlc3.length).fill(null);
-  if (trSeries && trSeries.length === hlc3.length) {
-    atrF[0] = trSeries[0] ?? 0;
-    for (let i = 1; i < hlc3.length; i++) {
-      const v = trSeries[i] ?? atrF[i - 1] ?? 0;
-      atrF[i] = alpha * v + (1 - alpha) * (atrF[i - 1] ?? v);
-    }
-  }
-  const upper = f.map((v, i) => v == null || atrF[i] == null ? null : v + mult * atrF[i]);
-  const lower = f.map((v, i) => v == null || atrF[i] == null ? null : v - mult * atrF[i]);
-  const trend = f.map((v, i) => {
-    if (i === 0 || v == null || f[i - 1] == null) return 'up';
-    return v >= f[i - 1] ? 'up' : 'down';
-  });
-  return { filter: f, upper, lower, trend };
-}
-
-// 두 시계열을 시간(t)으로 정렬해 마지막 N봉의 % 수익률 차이 계산
-function _trendRSReturn(targetBars, benchBars, lookback = 20) {
-  if (!targetBars || !benchBars || !targetBars.length || !benchBars.length) return null;
-  // bench 를 t→c 맵으로
-  const m = new Map();
-  benchBars.forEach(b => m.set(b.t, b.c));
-  // 타깃 bars 중 bench 와 t 일치 또는 가장 근접한 (±2일) bench 종가 매핑
-  const aligned = [];
-  for (const tb of targetBars) {
-    let c = m.get(tb.t);
-    if (c == null) {
-      // 1-2일 차이 허용
-      for (let dt = 1; dt <= 2; dt++) {
-        const dayMs = 86400;
-        c = m.get(tb.t - dt * dayMs) || m.get(tb.t + dt * dayMs);
-        if (c != null) break;
-      }
-    }
-    if (c != null) aligned.push({ t: tb.t, tc: tb.c, bc: c });
-  }
-  if (aligned.length < lookback + 1) return null;
-  const tail = aligned.slice(-lookback - 1);
-  const tRet = (tail[tail.length - 1].tc / tail[0].tc - 1) * 100;
-  const bRet = (tail[tail.length - 1].bc / tail[0].bc - 1) * 100;
-  return { target: tRet, bench: bRet, diff: tRet - bRet };
-}
-
-function _trendComputeIndicators(bars, benchmarkClose) {
-  const closes = bars.map(b => b.c);
-  const hlc3 = bars.map(b => (b.h + b.l + b.c) / 3);
-  const vols = bars.map(b => b.v || 0);
-  const sma20 = _trendSMA(closes, 20);
-  const sma50 = _trendSMA(closes, 50);
-  const sma150 = _trendSMA(closes, 150);
-  const sma200 = _trendSMA(closes, 200);
-  const vwap = _trendVWAP(bars);
-  // TR 시리즈
-  const tr = new Array(bars.length).fill(0);
-  for (let i = 0; i < bars.length; i++) {
-    if (i === 0) tr[i] = bars[i].h - bars[i].l;
-    else {
-      const p = bars[i - 1].c;
-      tr[i] = Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - p), Math.abs(bars[i].l - p));
-    }
-  }
-  const atr14 = _trendSMA(tr, 14);
-  const gauss = _trendGaussianChannel(hlc3, 20, 1.414, tr);
-
-  // 확정 종가 인덱스: 마지막 봉이 오늘이면 한 봉 앞으로 (장중 봉 제외)
-  const rawLast = bars.length - 1;
-  const lastBarDate = new Date(bars[rawLast].t * 1000).toDateString();
-  const todayDate = new Date().toDateString();
-  const lastIdx = (lastBarDate === todayDate && rawLast >= 1) ? rawLast - 1 : rawLast;
-
-  const close = closes[lastIdx];
-  const vol20 = _trendSMA(vols, 20);
-  const turnover = bars.map(b => b.c * (b.v || 0));
-  const turnover20 = _trendSMA(turnover, 20);
-  const todayRelVol = vol20[lastIdx] > 0 ? vols[lastIdx] / vol20[lastIdx] : null;
-
-  // 22봉 기울기 (SMA50/150/200)
-  const slope22 = (arr, i) => {
-    if (i < 22 || arr[i] == null || arr[i - 22] == null) return null;
-    return ((arr[i] / arr[i - 22]) - 1) * 100;
-  };
-  const sma50Slope22 = slope22(sma50, lastIdx);
-  const sma150Slope22 = slope22(sma150, lastIdx);
-  const sma200Slope22 = slope22(sma200, lastIdx);
-
-  // 52주 고/저 (252봉)
-  const lookback52 = Math.min(252, lastIdx + 1);
-  const window52 = closes.slice(lastIdx + 1 - lookback52, lastIdx + 1);
-  const hi52w = window52.length ? Math.max(...window52) : null;
-  const lo52w = window52.length ? Math.min(...window52) : null;
-
-  // 50봉 신고가 (확정종가 봉 제외 → 그 봉이 돌파인지 판단)
-  let hi50 = null;
-  if (lastIdx >= 1) {
-    const from = Math.max(0, lastIdx - 50);
-    const seg = bars.slice(from, lastIdx).map(b => b.h);
-    if (seg.length) hi50 = Math.max(...seg);
-  }
-
-  // 최근 20봉 스윙저점
-  let swingLow20 = null;
-  if (lastIdx >= 1) {
-    const from = Math.max(0, lastIdx - 19);
-    const seg = bars.slice(from, lastIdx + 1).map(b => b.l);
-    if (seg.length) swingLow20 = Math.min(...seg);
-  }
-
-  // 6개월 수익률 (≥ 126봉 필요)
-  const ret6m = (lastIdx >= 126 && closes[lastIdx - 126]) ? ((close / closes[lastIdx - 126]) - 1) * 100 : null;
-
-  // 벤치마크 SPY 6개월 수익률 (벤치마크는 마지막 봉이 이미 확정종가 — _jsBenchmarkFallback/get_benchmark가 오늘 봉을 떨굼)
-  let spy6m = null;
-  if (Array.isArray(benchmarkClose?.spy) && benchmarkClose.spy.length >= 127) {
-    const spyArr = benchmarkClose.spy.map(b => b.c);
-    const spyLast = spyArr[spyArr.length - 1];
-    const spyPast = spyArr[spyArr.length - 127];
-    if (spyLast && spyPast) spy6m = ((spyLast / spyPast) - 1) * 100;
-  }
-
-  // 상대강도 (vs SPY, KOSPI, 섹터 ETF) — 20봉 기준
-  const rsSpy = _trendRSReturn(bars, benchmarkClose?.spy || [], 20);
-  const rsKospi = _trendRSReturn(bars, benchmarkClose?.kospi || [], 20);
-  const rsSector = _trendRSReturn(bars, benchmarkClose?.sector || [], 20);
-
-  // 시장 레짐: SPY 와 KOSPI 가 각자의 SMA200 위/아래
-  function regimeCheck(arr) {
-    if (!arr || arr.length < 60) return null;
-    const c = arr.map(b => b.c);
-    const ma = _trendSMA(c, Math.min(200, c.length));
-    const lc = c[c.length - 1];
-    const m = ma[ma.length - 1];
-    if (!m || !lc) return null;
-    return ((lc / m) - 1) * 100;
-  }
-  const regimeSpy = regimeCheck(benchmarkClose?.spy);
-  const regimeKospi = regimeCheck(benchmarkClose?.kospi);
-
-  // Stage 분류 (Stan Weinstein / Minervini)
-  const m50 = sma50[lastIdx], m150 = sma150[lastIdx], m200 = sma200[lastIdx];
-  let stage = 3; // default mixed/topping
-  if (m50 != null && m150 != null && m200 != null) {
-    const up2 = close > m50 && m50 > m150 && m150 > m200
-                && (sma50Slope22 ?? -1) > 0 && (sma150Slope22 ?? -1) > 0 && (sma200Slope22 ?? -1) > 0;
-    const dn4 = close < m50 && m50 < m150 && m150 < m200
-                && (sma50Slope22 ?? 1) < 0 && (sma150Slope22 ?? 1) < 0 && (sma200Slope22 ?? 1) < 0;
-    const flat200 = sma200Slope22 != null && Math.abs(sma200Slope22) < 1;
-    if (up2) stage = 2;
-    else if (dn4) stage = 4;
-    else if (flat200 && Math.abs((close / m200 - 1) * 100) < 8) stage = 1;
-    else stage = 3;
-  }
-
-  // VCP 감지
-  const vcp = _trendDetectVCP(bars, lastIdx);
-
-  // 기준 종가 날짜 (YYYY-MM-DD)
-  const refDt = new Date(bars[lastIdx].t * 1000);
-  const refDate = refDt.getFullYear() + '-'
-                + String(refDt.getMonth() + 1).padStart(2, '0') + '-'
-                + String(refDt.getDate()).padStart(2, '0');
-
-  return {
-    last: { close, t: bars[lastIdx].t },
-    lastIdx, refDate,
-    sma20: sma20[lastIdx], sma50: m50, sma150: m150, sma200: m200,
-    sma50Slope22, sma150Slope22, sma200Slope22,
-    vwap: vwap[lastIdx], atr14: atr14[lastIdx],
-    gaussFilter: gauss.filter[lastIdx],
-    gaussUpper: gauss.upper[lastIdx],
-    gaussLower: gauss.lower[lastIdx],
-    gaussTrend: gauss.trend[lastIdx],
-    relVol: todayRelVol,
-    avgVol20: vol20[lastIdx],
-    avgTurnover20: turnover20[lastIdx],
-    rs: { spy: rsSpy, kospi: rsKospi, sector: rsSector },
-    regime: { spyVsMA200: regimeSpy, kospiVsMA200: regimeKospi },
-    hi52w, lo52w, hi50, swingLow20, ret6m, spy6m,
-    stage, vcp,
-    // 차트 렌더용 시계열 전체
-    _series: { sma20, sma50, sma150, sma200, vwap, gauss },
-  };
-}
-
-// VCP (Volatility Contraction Pattern) 감지
-function _trendDetectVCP(bars, lastIdx) {
-  if (lastIdx < 50) return { isVcp: false, contractions: [], finalRangePct: null, prevRangePct: null, volDryingUp: false, breakoutAbove: null };
-  // 마지막 50봉을 5개 윈도우(10봉씩)로 분할
-  const windows = [];
-  for (let w = 0; w < 5; w++) {
-    const end = lastIdx + 1 - w * 10;
-    const start = Math.max(0, end - 10);
-    if (end - start < 5) break;
-    const seg = bars.slice(start, end);
-    const hi = Math.max(...seg.map(b => b.h));
-    const lo = Math.min(...seg.map(b => b.l));
-    const v = seg.reduce((s, b) => s + (b.v || 0), 0) / seg.length;
-    windows.push({ start, end, hi, lo, rangePct: lo > 0 ? ((hi - lo) / lo) * 100 : null, avgVol: v });
-  }
-  // windows[0] = 최근 10봉, windows[1] = 그 이전 ...
-  // 정상 순서로 뒤집어 분석
-  const inOrder = windows.slice().reverse();
-  if (inOrder.length < 3) return { isVcp: false, contractions: inOrder.map(w => w.rangePct), finalRangePct: inOrder[inOrder.length - 1]?.rangePct ?? null, prevRangePct: inOrder[inOrder.length - 2]?.rangePct ?? null, volDryingUp: false, breakoutAbove: null };
-
-  // 연속 축소 카운트
-  let contractCount = 0;
-  for (let i = inOrder.length - 1; i >= 1; i--) {
-    const cur = inOrder[i].rangePct;
-    const prev = inOrder[i - 1].rangePct;
-    if (cur != null && prev != null && cur < prev * 0.75) contractCount++;
-    else break;
-  }
-  const finalRangePct = inOrder[inOrder.length - 1].rangePct;
-  const prevRangePct = inOrder[inOrder.length - 2].rangePct;
-
-  // 거래량 감소: 마지막 윈도우 평균 vs 그 이전 4개 윈도우 평균
-  const finalVol = inOrder[inOrder.length - 1].avgVol;
-  const priorVolAvg = inOrder.slice(0, inOrder.length - 1).reduce((s, w) => s + w.avgVol, 0) / (inOrder.length - 1);
-  const volDryingUp = priorVolAvg > 0 && finalVol < priorVolAvg * 0.9;
-
-  // 피벗: 직전 10봉 (현재 윈도우 제외) 최고가
-  let breakoutAbove = null;
-  if (lastIdx >= 11) {
-    const seg = bars.slice(Math.max(0, lastIdx - 20), lastIdx).map(b => b.h);
-    if (seg.length) breakoutAbove = Math.max(...seg);
-  }
-
-  const isVcp = contractCount >= 2 && finalRangePct != null && finalRangePct < 10 && volDryingUp;
-  return {
-    isVcp,
-    contractions: inOrder.map(w => w.rangePct != null ? +w.rangePct.toFixed(2) : null),
-    finalRangePct: finalRangePct != null ? +finalRangePct.toFixed(2) : null,
-    prevRangePct: prevRangePct != null ? +prevRangePct.toFixed(2) : null,
-    volDryingUp,
-    breakoutAbove,
-  };
-}
-
-// ── 스코어 카드 산출 (6개) ───────────────────────────────────
-function _trendComputeScores(ind, asset) {
-  const out = [];
-  const cur = asset?.currency || 'USD';
-
-  // 1. 주요 이평선
-  {
-    const c = ind.last.close;
-    const above = [ind.sma20, ind.sma50, ind.sma200].map(m => (m != null && c >= m) ? 1 : 0);
-    const sum = above[0] + above[1] + above[2];
-    const status = sum === 3 ? 'ok' : sum >= 2 ? 'warn' : 'fail';
-    const labels = ['MA20', 'MA50', 'MA200'];
-    const detail = labels.map((l, i) => `${l}:${above[i] ? '↑' : '↓'}`).join(' ');
-    out.push({ key: 'ma', label: '주요 이평선', status, detail });
-  }
-  // 2. VWAP
-  {
-    const c = ind.last.close;
-    const v = ind.vwap;
-    if (v == null) {
-      out.push({ key: 'vwap', label: 'VWAP', status: 'na', detail: '데이터 부족' });
-    } else {
-      const diff = ((c / v) - 1) * 100;
-      const status = diff >= 0 ? 'ok' : diff >= -2 ? 'warn' : 'fail';
-      out.push({ key: 'vwap', label: 'VWAP', status, detail: `종가 vs VWAP ${_trendFmtPct(diff)}` });
-    }
-  }
-  // 3. 상대 거래량
-  {
-    const r = ind.relVol;
-    if (r == null) {
-      out.push({ key: 'relvol', label: '상대 거래량', status: 'na', detail: '데이터 부족' });
-    } else {
-      const status = r >= 1.5 ? 'ok' : r >= 0.8 ? 'warn' : 'fail';
-      out.push({ key: 'relvol', label: '상대 거래량', status, detail: `오늘/20일평균 ${r.toFixed(2)}×` });
-    }
-  }
-  // 4. 섹터 상대강도
-  {
-    const r = ind.rs.sector;
-    if (!r) {
-      out.push({ key: 'sectorrs', label: '섹터 상대강도', status: 'na', detail: '비교 ETF 없음' });
-    } else {
-      const status = r.diff >= 2 ? 'ok' : r.diff >= -2 ? 'warn' : 'fail';
-      out.push({ key: 'sectorrs', label: '섹터 상대강도', status, detail: `20일 ${_trendFmtPct(r.target)} vs 섹터 ${_trendFmtPct(r.bench)}` });
-    }
-  }
-  // 5. 유동성 (20일 평균 거래대금)
-  {
-    const t = ind.avgTurnover20;
-    if (t == null) {
-      out.push({ key: 'liq', label: '유동성', status: 'na', detail: '데이터 부족' });
-    } else if (cur === 'KRW') {
-      // ₩50억 / 10억 기준
-      const eok = t / 100000000; // 단위: 억
-      const status = eok >= 50 ? 'ok' : eok >= 10 ? 'warn' : 'fail';
-      out.push({ key: 'liq', label: '유동성', status, detail: `일평균 ₩${eok.toFixed(1)}억` });
-    } else {
-      // USD 기준 $20M / $5M
-      const tM = t / 1000000;
-      const status = tM >= 20 ? 'ok' : tM >= 5 ? 'warn' : 'fail';
-      out.push({ key: 'liq', label: '유동성', status, detail: `일평균 $${tM.toFixed(1)}M` });
-    }
-  }
-  // 6. 시장 레짐
-  {
-    const s = ind.regime.spyVsMA200;
-    const k = ind.regime.kospiVsMA200;
-    if (s == null && k == null) {
-      out.push({ key: 'regime', label: '시장 레짐', status: 'na', detail: '데이터 부족' });
-    } else {
-      const sOk = s != null && s > 0;
-      const kOk = k != null && k > 0;
-      const status = (sOk && kOk) ? 'ok' : (sOk || kOk) ? 'warn' : 'fail';
-      const sTxt = s != null ? `SPY ${_trendFmtPct(s)}` : 'SPY -';
-      const kTxt = k != null ? `KOSPI ${_trendFmtPct(k)}` : 'KOSPI -';
-      out.push({ key: 'regime', label: '시장 레짐', status, detail: `${sTxt} · ${kTxt}` });
-    }
-  }
-  return out;
-}
-
-// ── 어드바이저 (Livermore + Minervini 규칙 기반) ──────────────
-function _trendComputeAdvice(ind, ohlcv, asset) {
-  const c = ind.last.close;
-  const cur = ohlcv.currency || asset?.currency || 'USD';
-  const atr = ind.atr14 || 0;
-
-  // Minervini Trend Template (8개 조건)
-  const M = [];
-  const pushM = (id, label, met, detail) => M.push({ id, label, met: !!met, detail });
-  pushM('m1', 'Price > MA150 & MA200',
-        ind.sma150 != null && ind.sma200 != null && c > ind.sma150 && c > ind.sma200,
-        ind.sma150 != null && ind.sma200 != null
-          ? `종가 ${_trendFmtPrice(c, cur)} · MA150 ${_trendFmtPrice(ind.sma150, cur)} · MA200 ${_trendFmtPrice(ind.sma200, cur)}`
-          : '이평선 데이터 부족');
-  pushM('m2', 'MA150 > MA200',
-        ind.sma150 != null && ind.sma200 != null && ind.sma150 > ind.sma200,
-        ind.sma150 != null && ind.sma200 != null
-          ? `MA150 ${_trendFmtPrice(ind.sma150, cur)} vs MA200 ${_trendFmtPrice(ind.sma200, cur)}`
-          : '데이터 부족');
-  pushM('m3', 'MA200 22봉 상승',
-        ind.sma200Slope22 != null && ind.sma200Slope22 > 0,
-        ind.sma200Slope22 != null ? `22봉 변화율 ${_trendFmtPct(ind.sma200Slope22)}` : '데이터 부족');
-  pushM('m4', 'MA50 > MA150 > MA200',
-        ind.sma50 != null && ind.sma150 != null && ind.sma200 != null
-          && ind.sma50 > ind.sma150 && ind.sma150 > ind.sma200,
-        'Stage-2 정렬 여부');
-  pushM('m5', 'Price > MA50',
-        ind.sma50 != null && c > ind.sma50,
-        ind.sma50 != null ? `종가 vs MA50 ${_trendFmtPct(((c / ind.sma50) - 1) * 100)}` : '데이터 부족');
-  const pctFromLow = ind.lo52w ? ((c / ind.lo52w) - 1) * 100 : null;
-  pushM('m6', '52주 저점 +30% 이상',
-        pctFromLow != null && pctFromLow >= 30,
-        pctFromLow != null ? `52주저 대비 ${_trendFmtPct(pctFromLow)}` : '데이터 부족');
-  const pctFromHigh = ind.hi52w ? ((c / ind.hi52w) - 1) * 100 : null;
-  pushM('m7', '52주 고점 -25% 이내',
-        pctFromHigh != null && pctFromHigh >= -25,
-        pctFromHigh != null ? `52주고 대비 ${_trendFmtPct(pctFromHigh)}` : '데이터 부족');
-  const rsOk = ind.ret6m != null && ind.spy6m != null && ind.ret6m >= 0 && ind.ret6m > ind.spy6m;
-  pushM('m8', '상대강도 (6M vs SPY)',
-        rsOk,
-        ind.ret6m != null
-          ? `종목 6M ${_trendFmtPct(ind.ret6m)} vs SPY ${_trendFmtPct(ind.spy6m ?? 0)}`
-          : '6M 데이터 부족 (1Y 이상 필요)');
-
-  // Livermore Pivotal Point (7개 조건)
-  const L = [];
-  const pushL = (id, label, met, detail) => L.push({ id, label, met: !!met, detail });
-  const spyUp = ind.regime.spyVsMA200 != null && ind.regime.spyVsMA200 > 0;
-  const koUp = ind.regime.kospiVsMA200 != null && ind.regime.kospiVsMA200 > 0;
-  const regimeUp = (cur === 'KRW') ? koUp : spyUp;
-  pushL('l1', '시장 레짐 우호',
-        regimeUp,
-        `SPY ${_trendFmtPct(ind.regime.spyVsMA200 ?? 0)} · KOSPI ${_trendFmtPct(ind.regime.kospiVsMA200 ?? 0)}`);
-
-  const breakout = ind.hi50 != null && c > ind.hi50;
-  const volSurge = ind.relVol != null && ind.relVol >= 1.5;
-  pushL('l2', '피벗 돌파 + 거래량 동반',
-        breakout && volSurge,
-        `${breakout ? '50봉 신고가 돌파' : `고점미달 ${_trendFmtPct(ind.hi50 ? ((c / ind.hi50) - 1) * 100 : 0)}`} · 상대거래량 ${(ind.relVol ?? 0).toFixed(2)}×`);
-
-  // 손절 (7-10% 강제 클램프)
-  const stopCandidates = [c * 0.92];
-  if (atr > 0) stopCandidates.push(c - 2 * atr);
-  if (ind.swingLow20 != null) stopCandidates.push(ind.swingLow20);
-  let stopLoss = Math.max(...stopCandidates);
-  stopLoss = Math.min(Math.max(stopLoss, c * 0.90), c * 0.93); // [-10%, -7%]
-  const stopPct = ((c - stopLoss) / c) * 100;
-  pushL('l3', '손절 7-10% 범위',
-        stopPct >= 7 && stopPct <= 10,
-        `손절 ${_trendFmtPrice(stopLoss, cur)} (-${stopPct.toFixed(1)}%)`);
-
-  pushL('l4', 'Gaussian 채널 상승',
-        ind.gaussTrend === 'up',
-        `현재 채널: ${ind.gaussTrend === 'up' ? '🟢 상승' : '🔴 하락'}`);
-
-  // l5: Line of Least Resistance (단·장 정배열)
-  const maAlign = ind.sma50 != null && ind.sma200 != null && ind.sma50 > ind.sma200;
-  const maGapPct = (ind.sma50 != null && ind.sma200 != null)
-    ? ((ind.sma50 / ind.sma200) - 1) * 100 : null;
-  pushL('l5', '추세 정배열 (MA50 > MA200)',
-        maAlign,
-        (ind.sma50 != null && ind.sma200 != null)
-          ? `MA50 ${_trendFmtPrice(ind.sma50, cur)} vs MA200 ${_trendFmtPrice(ind.sma200, cur)} (괴리 ${_trendFmtPct(maGapPct ?? 0)})`
-          : '이평선 데이터 부족');
-
-  // l6: Don't Chase the Breakout (50봉 신고가 +5% 이내)
-  const hi50GapPct = ind.hi50 != null ? ((c / ind.hi50) - 1) * 100 : null;
-  pushL('l6', '추격 금지 (피벗 +5% 이내)',
-        hi50GapPct != null && hi50GapPct >= 0 && hi50GapPct <= 5,
-        hi50GapPct != null
-          ? `현재가 vs 50봉고 ${_trendFmtPct(hi50GapPct)} (안전구간 0~+5%)`
-          : '50봉 고점 데이터 부족');
-
-  // l7: Pyramid Eligible (52주 고점 -10% 이내, 주도주)
-  pushL('l7', '강한 추세 신호 (52주 고점 -10% 이내)',
-        pctFromHigh != null && pctFromHigh >= -10,
-        pctFromHigh != null ? `52주고 대비 ${_trendFmtPct(pctFromHigh)}` : '52주 고점 데이터 부족');
-
-  // VCP / 피벗
-  const vcp = ind.vcp;
-  const pivot = vcp?.breakoutAbove ?? null;
-  const vcpBreakout = vcp?.isVcp && pivot != null && c > pivot && volSurge;
-
-  // 피라미딩 (Livermore: Stage-2 + 피벗 확정 시)
-  let pyramid = null;
-  if (ind.stage === 2 && pivot != null && atr > 0) {
-    pyramid = [
-      { tier: '1차', price: Math.max(c, pivot), sizeHint: '100%' },
-      { tier: '2차', price: Math.max(c, pivot) + 1.5 * atr, sizeHint: '50% (1차 수익 후)' },
-      { tier: '3차', price: Math.max(c, pivot) + 3.0 * atr, sizeHint: '33% (2차 수익 후)' },
-    ];
-  }
-
-  // 점수 (Minervini 55 + Livermore 35 + VCP 10)
-  const mScore = M.filter(m => m.met).length;
-  const lScore = L.filter(l => l.met).length;
-  const score = Math.round((mScore / M.length) * 55 + (lScore / L.length) * 35 + (vcp?.isVcp ? 10 : 0));
-
-  // Action 매핑
-  let action;
-  if (ind.stage === 2 && mScore >= 7 && vcpBreakout) action = 'STRONG_BUY';
-  else if (ind.stage === 2 && mScore >= 6 && lScore >= 4) action = 'BUY';
-  else if (ind.stage === 2 && vcp?.isVcp && (pivot == null || c <= pivot)) action = 'WATCH';
-  else if (ind.stage === 1) action = 'HOLD';
-  else if (ind.stage === 4) action = 'AVOID';
-  else if (ind.stage === 3 || (ind.sma50 != null && c < ind.sma50)) {
-    action = mScore <= 2 ? 'AVOID' : 'REDUCE';
-  } else if (mScore >= 4) action = 'HOLD';
-  else action = mScore <= 2 ? 'AVOID' : 'HOLD';
-
-  // 진입 구간 (피벗 ± 0.5 ATR)
-  const entryZone = (pivot != null && atr > 0) ? { low: pivot, high: pivot + 0.5 * atr } : null;
-
-  // 목표가 (2:1 R:R)
-  const risk = c - stopLoss;
-  const target = c + 2 * risk;
-  const suggestedRiskPct = Math.min(1.0, Math.max(0.25, (risk / c) * 100 * 0.1));
-
-  // 한국어 요약 (스테이지/VCP 상태 반영)
-  const fmt = (v) => _trendFmtPrice(v, cur);
-  const summaryMap = {
-    STRONG_BUY: `Stage-2 정렬 + 변동성 축소 완료 + 거래량 동반 신고가 돌파 — 피벗 ${pivot != null ? fmt(pivot) : '-'} 진입, 피라미딩 준비.`,
-    BUY: `Trend Template ${mScore}/8 충족. 거래량 확인 후 분할 진입.`,
-    WATCH: `VCP ${vcp?.finalRangePct ?? '-'}% 축소 진행 — 피벗 ${pivot != null ? fmt(pivot) : '-'} 돌파 대기.`,
-    HOLD: ind.stage === 1
-      ? 'Stage-1 베이스 형성 중 — 추세 확정 대기.'
-      : `Trend Template ${mScore}/8 — 추세 모호, 신규 진입 보류.`,
-    REDUCE: `MA50 이탈, Stage-${ind.stage} 진입 — 보유 시 비중 축소 검토.`,
-    AVOID: ind.stage === 4 ? 'Stage-4 하락 추세 — 매수 회피.' : `Trend Template ${mScore}/8 — 추세 비우호, 매수 회피.`,
-  };
-
-  // 청산 시그널
-  const exitSignals = [];
-  if (ind.sma50 != null && c < ind.sma50) exitSignals.push('MA50 이탈');
-  if (ind.sma150 != null && c < ind.sma150) exitSignals.push('MA150 이탈');
-  if (ind.gaussTrend === 'down') exitSignals.push('Gaussian 채널 하락 전환');
-  if (ind.stage === 4) exitSignals.push('Stage-4 하락 단계');
-  if (ind.hi52w && ((c / ind.hi52w) - 1) * 100 < -10) exitSignals.push('52주 고점 -10% 이상 후퇴');
-
-  // ── 추세추종 분석 코멘트 (검색 종목 특화, 데이터 기반 5-7줄) ──
-  const tkr = asset?.ticker || ohlcv.symbol || ohlcv.rawTicker || '종목';
-  const commentary = [];
-  const stageDesc = { 1: 'Stage-1 (베이스 형성)', 2: 'Stage-2 (상승 추세)', 3: 'Stage-3 (정점/혼조)', 4: 'Stage-4 (하락 추세)' };
-  // 1) Stage 정렬 + MA 위치
-  if (ind.sma50 != null && ind.sma150 != null && ind.sma200 != null) {
-    const dist = (m) => m != null ? `${m >= c ? '하방' : '상방'} ${_trendFmtPct(((c / m) - 1) * 100)}` : '-';
-    commentary.push(`<strong>${tkr}</strong> 종가 ${_trendFmtPrice(c, cur)} · MA50 ${_trendFmtPrice(ind.sma50, cur)} (${dist(ind.sma50)}) · MA150 ${_trendFmtPrice(ind.sma150, cur)} · MA200 ${_trendFmtPrice(ind.sma200, cur)} — ${stageDesc[ind.stage]}`);
-  } else {
-    commentary.push(`<strong>${tkr}</strong> 종가 ${_trendFmtPrice(c, cur)} — 이평선 데이터 부족 (${stageDesc[ind.stage]})`);
-  }
-  // 2) MA 기울기
-  if (ind.sma50Slope22 != null || ind.sma150Slope22 != null || ind.sma200Slope22 != null) {
-    const sl = (v) => v != null ? `${_trendFmtPct(v)}` : '-';
-    commentary.push(`이평선 22봉 기울기 — MA50 ${sl(ind.sma50Slope22)} · MA150 ${sl(ind.sma150Slope22)} · MA200 ${sl(ind.sma200Slope22)} — ${(ind.sma200Slope22 ?? 0) > 0 ? '장기 상승' : '장기 정체/하락'}`);
-  }
-  // 3) VCP 상태
-  if (vcp?.isVcp) {
-    commentary.push(`변동성 축소 완료 — 최근 10봉 변동폭 <strong>${vcp.finalRangePct}%</strong> (직전 ${vcp.prevRangePct ?? '-'}%), 거래량 ${vcp.volDryingUp ? '감소 (매집 가능성)' : '보합'}, 피벗 ${pivot != null ? _trendFmtPrice(pivot, cur) : '-'} 돌파 시 진입.`);
-  } else if (vcp?.finalRangePct != null) {
-    commentary.push(`VCP 미감지 — 최근 10봉 변동폭 ${vcp.finalRangePct}% (10% 임계 ${vcp.finalRangePct < 10 ? '하회하나 거래량 마름 불충분' : '초과'}). 변동성 축소 진행 대기.`);
-  }
-  // 4) 거래량
-  if (ind.relVol != null) {
-    const volTxt = ind.relVol >= 1.5 ? '급증 (매수세 유입)'
-                 : ind.relVol >= 0.8 ? '평이'
-                 : '미약 (매수세 약함)';
-    commentary.push(`최근 봉 상대거래량 <strong>${ind.relVol.toFixed(2)}×</strong> (20일 평균 대비) — ${volTxt}`);
-  }
-  // 5) 상대강도
-  if (ind.ret6m != null && ind.spy6m != null) {
-    const out = ind.ret6m - ind.spy6m;
-    commentary.push(`상대강도 6M — ${tkr} ${_trendFmtPct(ind.ret6m)} vs SPY ${_trendFmtPct(ind.spy6m)} (차 ${_trendFmtPct(out)}) — ${out > 0 ? '시장 대비 강세' : '시장 대비 약세'}`);
-  } else if (ind.rs?.sector) {
-    commentary.push(`섹터 상대강도 20봉 — 종목 ${_trendFmtPct(ind.rs.sector.target)} vs 섹터 ${_trendFmtPct(ind.rs.sector.bench)} (차 ${_trendFmtPct(ind.rs.sector.diff)})`);
-  }
-  // 6) 52주 위치
-  if (ind.hi52w && ind.lo52w) {
-    const fromHi = ((c / ind.hi52w) - 1) * 100;
-    const fromLo = ((c / ind.lo52w) - 1) * 100;
-    const m6 = fromLo >= 30, m7 = fromHi >= -25;
-    commentary.push(`52주 위치 — 고점 ${_trendFmtPrice(ind.hi52w, cur)} 대비 ${_trendFmtPct(fromHi)} ${m7 ? '✓' : '✗'} · 저점 ${_trendFmtPrice(ind.lo52w, cur)} 대비 ${_trendFmtPct(fromLo)} ${m6 ? '✓' : '✗'} (미너비니 6·7번 ${m6 && m7 ? '충족' : '미충족'})`);
-  }
-  // 7) 시장 레짐
-  if (ind.regime.spyVsMA200 != null || ind.regime.kospiVsMA200 != null) {
-    commentary.push(`시장 레짐 — SPY MA200 대비 ${_trendFmtPct(ind.regime.spyVsMA200 ?? 0)} · KOSPI MA200 대비 ${_trendFmtPct(ind.regime.kospiVsMA200 ?? 0)}`);
-  }
-  // 8) 행동 권고 + 진입 트리거
-  const actionMap = {
-    STRONG_BUY: `<strong>행동:</strong> 강한 매수 시그널. 피벗 ${pivot != null ? _trendFmtPrice(pivot, cur) : '-'} 진입 후 1.5 ATR 상승마다 피라미딩. 손절 ${_trendFmtPrice(stopLoss, cur)} (-${stopPct.toFixed(1)}%).`,
-    BUY: `<strong>행동:</strong> Trend Template ${mScore}/8 충족. 거래량 1.5× 동반 신고가 돌파 시 분할 진입. 손절 ${_trendFmtPrice(stopLoss, cur)} (-${stopPct.toFixed(1)}%).`,
-    WATCH: `<strong>행동:</strong> 변동성 축소 진행 — 피벗 ${pivot != null ? _trendFmtPrice(pivot, cur) : '-'} 돌파 + 거래량 동반 확인까지 관망.`,
-    HOLD: `<strong>행동:</strong> 추세 모호 — 신규 진입 보류. MA50 회복 및 거래량 동반 신고가 돌파 시 재평가.`,
-    REDUCE: `<strong>행동:</strong> 보유 비중 축소 검토 — MA50 이탈 후 ${ind.gaussTrend === 'down' ? 'Gaussian 채널도 하락 전환' : '추세 약화'}. 회복 시그널까지 신규 진입 회피.`,
-    AVOID: `<strong>행동:</strong> 매수 회피 — Stage-${ind.stage} 환경에서 진입 트리거 없음. MA50/MA200 회복 + Trend Template 6/8 이상 충족 후 재검토.`,
-  };
-  commentary.push(actionMap[action]);
-
-  return {
-    action, score, stage: ind.stage,
-    mScore, lScore, vcpBonus: vcp?.isVcp ? 10 : 0,
-    refDate: ind.refDate,
-    summary: summaryMap[action],
-    commentary,
-    vcp,
-    pivot,
-    pyramid,
-    stopLoss, target, stopPct,
-    entryZone,
-    suggestedRiskPct,
-    minervini: M,
-    livermore: L,
-    exitSignals,
-  };
-}
-
-// ── UI 렌더 ──────────────────────────────────────────────────
-function _trendStatus(msg) {
-  const el = document.getElementById('trend-status');
-  if (el) el.textContent = msg || '';
-}
-function _trendHideAnalysis() {
-  ['trend-chart-wrap', 'trend-scorecards', 'trend-advice', 'trend-header-inline']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-  try { localStorage.removeItem('trendLastTicker'); } catch (e) {}
-  if (window._trendState) { window._trendState.asset = null; window._trendState.data = null; }
-  _trendStatus('');
-}
-function _trendRenderResults(items) {
-  const el = document.getElementById('trend-search-results');
-  if (!el) return;
-  if (!items.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
-  el.innerHTML = items.slice(0, 8).map(it => {
-    const tk = it.symbol || it.tkr || '';
-    const nm = it.name || tk;
-    const mkt = _trendInferMarket(tk, it.currency);
-    const mLab = mkt === 'KR' ? '🇰🇷 KR' : mkt === 'JP' ? '🇯🇵 JP' : '🇺🇸 US';
-    return `<div class="trend-result-row" data-tkr="${_trendEscape(tk)}" data-name="${_trendEscape(nm)}" data-cur="${_trendEscape(it.currency || '')}">
-      <span>${_trendEscape(nm)}</span>
-      <span class="trend-r-tkr">${_trendEscape(tk)}</span>
-      <span class="trend-r-mkt">${mLab}</span>
-    </div>`;
-  }).join('');
-  el.style.display = 'block';
-  el.querySelectorAll('.trend-result-row').forEach(row => {
-    row.addEventListener('click', () => {
-      const tk = row.dataset.tkr;
-      const nm = row.dataset.name;
-      const cur = row.dataset.cur || '';
-      el.style.display = 'none';
-      document.getElementById('trend-search-input').value = nm;
-      _trendAnalyze({ ticker: tk, name: nm, currency: cur });
-    });
-  });
-}
-async function _trendOnSearchInput(q) {
-  _trendStatus('검색 중...');
-  try {
-    const res = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
-    const data = await res.json();
-    const items = [];
-    if (data && data.success) {
-      if (Array.isArray(data.results)) items.push(...data.results);
-      else if (data.symbol) items.push({ name: data.name, symbol: data.symbol, currency: data.currency, price: data.price });
-    }
-    _trendStatus('');
-    _trendRenderResults(items);
-  } catch (e) {
-    _trendStatus('검색 실패');
-    _trendRenderResults([]);
-  }
-}
-
-async function _trendFetchOhlcv(ticker, range) {
-  const url = `/api/price?type=ohlcv&tkr=${encodeURIComponent(ticker)}&range=${encodeURIComponent(range)}`;
-  const r = await authFetch(url);
-  if (!r.ok) throw new Error(`OHLCV ${r.status}`);
-  const d = await r.json();
-  if (!d || !d.success) throw new Error(d?.error || 'OHLCV no data');
-  return d;
-}
-
-function _trendRenderHeader(asset, ohlcv, ind) {
-  const wrap = document.getElementById('trend-header-inline');
-  if (!wrap) return;
-  wrap.style.display = 'flex';
-  document.getElementById('trend-h-name').textContent = asset.name || asset.ticker || ohlcv.rawTicker;
-  document.getElementById('trend-h-tkr').textContent = ohlcv.symbol || ohlcv.rawTicker;
-  document.getElementById('trend-h-exch').textContent = ohlcv.exchangeName || '-';
-  document.getElementById('trend-h-sector').textContent = ohlcv.sector || '-';
-  const cur = ohlcv.currency || asset.currency || 'USD';
-  const last = ind.last.close;
-  document.getElementById('trend-h-price').textContent = _trendFmtPrice(last, cur);
-  // 1D 변화 (확정 종가 vs 그 직전 종가)
-  const bars = ohlcv.bars;
-  const idx = ind.lastIdx ?? (bars.length - 1);
-  let chgPct = null;
-  if (idx >= 1) chgPct = ((bars[idx].c / bars[idx - 1].c) - 1) * 100;
-  const chEl = document.getElementById('trend-h-change');
-  if (chgPct == null) chEl.textContent = '-';
-  else {
-    chEl.textContent = `(${_trendFmtPct(chgPct)})`;
-    chEl.className = chgPct >= 0 ? 'c-up' : 'c-dn';
-  }
-  // Gaussian 추세 배지
-  const badge = document.getElementById('trend-h-trend-badge');
-  badge.classList.remove('trend-up', 'trend-down');
-  if (ind.gaussTrend === 'up') {
-    badge.classList.add('trend-up');
-    badge.innerHTML = '추세: 🟢 상승';
-  } else {
-    badge.classList.add('trend-down');
-    badge.innerHTML = '추세: 🔴 하락';
-  }
-}
-
-function _trendRenderScorecards(scores) {
-  const grid = document.getElementById('trend-scorecards-grid');
-  const wrap = document.getElementById('trend-scorecards');
-  if (!grid || !wrap) return;
-  wrap.style.display = 'flex';
-  const emoji = { ok: '✅', warn: '⚠️', fail: '❌', na: '➖' };
-  grid.innerHTML = scores.map(s => `
-    <div class="trend-card status-${s.status}">
-      <div class="trend-card-status">${emoji[s.status] || ''} ${s.status === 'ok' ? '양호' : s.status === 'warn' ? '주의' : s.status === 'fail' ? '경고' : '-'}</div>
-      <div class="trend-card-label">${_trendEscape(s.label)}</div>
-      <div class="trend-card-detail">${_trendEscape(s.detail)}</div>
-    </div>
-  `).join('');
-}
-
-function _trendRenderAdvice(adv, ohlcv, scores) {
-  const wrap = document.getElementById('trend-advice');
-  if (!wrap) return;
-  wrap.style.display = 'flex';
-  wrap.style.flexDirection = 'column';
-  const cur = ohlcv.currency || 'USD';
-  const mList = Array.isArray(adv.minervini) ? adv.minervini : [];
-  const lList = Array.isArray(adv.livermore) ? adv.livermore : [];
-  const exitSigs = Array.isArray(adv.exitSignals) ? adv.exitSignals : [];
-
-  const actionStatus = {
-    STRONG_BUY: 'ok', BUY: 'ok', WATCH: 'warn', HOLD: 'warn', REDUCE: 'fail', AVOID: 'fail',
-  }[adv.action] || 'na';
-  const actionLabel = {
-    STRONG_BUY: '🟢 강한 매수', BUY: '🟢 매수', WATCH: '🟡 관망', HOLD: '🟡 보유',
-    REDUCE: '🔴 비중 축소', AVOID: '🔴 회피',
-  }[adv.action];
-
-  const stageLabel = { 1: '📊 Stage 1 (베이스)', 2: '📈 Stage 2 (상승)', 3: '📉 Stage 3 (정점)', 4: '🔻 Stage 4 (하락)' }[adv.stage] || '-';
-
-  const ezTxt = adv.entryZone
-    ? `${_trendFmtPrice(adv.entryZone.low, cur)} ~ ${_trendFmtPrice(adv.entryZone.high, cur)}`
-    : '돌파 대기';
-  const stopPctTxt = `-${Number(adv.stopPct || 0).toFixed(1)}%`;
-  const targetPct = adv.target && adv.stopLoss ? ((adv.target / adv.stopLoss) - 1) * 0 : 0; // unused
-  const targetUpPct = ((adv.target / ohlcv.bars[ohlcv.bars.length - 1].c) - 1) * 100;
-
-  const renderList = (items) => items.map(i =>
-    `<li class="tplchk-row ${i.met ? 'tplchk-met' : 'tplchk-unmet'}" title="${_trendEscape(i.detail)}">
-       <span class="tplchk-icon">${i.met ? '✅' : '❌'}</span>
-       <div class="tplchk-body">
-         <span class="tplchk-name">${_trendEscape(i.label)}</span>
-         <span class="tplchk-sep">·</span>
-         <span class="tplchk-meta">${_trendEscape(i.detail)}</span>
-       </div>
-     </li>`).join('');
-
-  const pyramidBlock = adv.pyramid ? `
-    <div class="tpl-pyramid-wrap">
-    <div class="tpl-pyramid">
-      <table>
-        <thead><tr><th>차수</th><th>가격</th><th>비중</th></tr></thead>
-        <tbody>
-          ${adv.pyramid.map(p => `<tr><td>${p.tier}</td><td>${_trendFmtPrice(p.price, cur)}</td><td>${_trendEscape(p.sizeHint)}</td></tr>`).join('')}
-        </tbody>
-      </table>
-      <div class="tpl-pyramid-note">1차 수익 확인 후 단계적 추가 (Livermore Pyramiding)</div>
-    </div>
-    </div>` : '';
-
-  const vcpStrip = adv.vcp?.isVcp ? `
-    <div class="tpl-vcp-strip">
-      변동성 축소 완료 — 최근 10봉 ${adv.vcp.finalRangePct}% / 직전 ${adv.vcp.prevRangePct ?? '-'}%
-      · 거래량 ${adv.vcp.volDryingUp ? '감소' : '보합'}
-      ${adv.pivot != null ? ` · 피벗 ${_trendFmtPrice(adv.pivot, cur)}` : ''}
-    </div>` : '';
-
-  const exitStrip = exitSigs.length
-    ? `<div class="tpl-exit-strip">⚠️ 청산 시그널: ${exitSigs.map(_trendEscape).join(' · ')}</div>`
-    : '';
-
-  const commentaryBlock = adv.commentary && adv.commentary.length
-    ? `<ul class="tpl-commentary">${adv.commentary.map(c => `<li>${c}</li>`).join('')}</ul>`
-    : '<div></div>';
-
-  wrap.innerHTML = `
-    <div class="tpl-header">
-      <div class="tpl-action status-${actionStatus}" title="Stage·Minervini·Livermore 종합 판단">${actionLabel}</div>
-      <div class="tpl-score">${adv.score}<small>/100</small></div>
-      <div class="tpl-stage">${stageLabel}</div>
-      <span class="tpl-score-legend">Minervini ${adv.mScore}/8 · Livermore ${adv.lScore}/7 · VCP ${adv.vcpBonus}/10</span>
-      <div class="tpl-refdate">기준 종가: ${adv.refDate}</div>
-    </div>
-    <div class="tpl-summary">${_trendEscape(adv.summary)}</div>
-    ${vcpStrip}
-    ${exitStrip}
-    <div class="tpl-outer">
-      <div class="tpl-col-left">
-        ${commentaryBlock}
-      </div>
-      <div class="tpl-col-right">
-        <div class="tplchk-grid">
-          <div class="tplchk-col">
-            <h4>Minervini Trend Template</h4>
-            <ul>${renderList(mList)}</ul>
-          </div>
-          <div class="tplchk-col">
-            <h4>Livermore Pivotal Point</h4>
-            <ul>${renderList(lList)}</ul>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  // 매매 플랜 + 피라미딩을 기관식 체크리스트 패널에 배치
-  const scorecardsWrap = document.getElementById('trend-scorecards');
-  if (scorecardsWrap) {
-    // 매매 플랜
-    let planEl = scorecardsWrap.querySelector('.tpl-numeric');
-    if (!planEl) {
-      planEl = document.createElement('div');
-      planEl.className = 'tpl-numeric';
-      scorecardsWrap.appendChild(planEl);
-    }
-    planEl.innerHTML = `
-      <div class="tpl-numeric-cap">매매 플랜</div>
-      <div><span>진입 구간</span><strong>${_trendEscape(ezTxt)}</strong></div>
-      <div><span>손절</span><strong>${_trendFmtPrice(adv.stopLoss, cur)} (${stopPctTxt})</strong></div>
-      <div><span>목표 (2:1)</span><strong>${_trendFmtPrice(adv.target, cur)} (+${targetUpPct.toFixed(1)}%)</strong></div>
-      <div><span>권장 리스크</span><strong>${Number(adv.suggestedRiskPct || 0).toFixed(2)}% / 거래</strong></div>
-    `;
-    // 피라미딩
-    let pyrEl = scorecardsWrap.querySelector('.tpl-pyramid-wrap');
-    if (adv.pyramid && adv.pyramid.length) {
-      if (!pyrEl) {
-        pyrEl = document.createElement('div');
-        pyrEl.className = 'tpl-pyramid-wrap';
-        scorecardsWrap.appendChild(pyrEl);
-      }
-      pyrEl.innerHTML = `
-        <div class="tpl-pyramid">
-          <table>
-            <thead><tr><th>차수</th><th>가격</th><th>비중</th></tr></thead>
-            <tbody>${adv.pyramid.map(p => `<tr><td>${p.tier}</td><td>${_trendFmtPrice(p.price, cur)}</td><td>${_trendEscape(p.sizeHint)}</td></tr>`).join('')}</tbody>
-          </table>
-          <div class="tpl-pyramid-note">1차 수익 확인 후 단계적 추가 (Livermore Pyramiding)</div>
-        </div>`;
-    } else if (pyrEl) {
-      pyrEl.remove();
-    }
-  }
-}
-
-async function _trendRenderChart(ohlcv, ind) {
-  await _trendLoadHighstock();
-  const wrap = document.getElementById('trend-chart-wrap');
-  if (!wrap) return;
-  wrap.style.display = 'block';
-  const bars = ohlcv.bars;
-  const tsMs = bars.map(b => b.t * 1000);
-  const ohlc = bars.map((b, i) => [tsMs[i], b.o, b.h, b.l, b.c]);
-  const vol = bars.map((b, i) => [tsMs[i], b.v || 0]);
-  const seriesData = ind._series;
-  const sma20Pts = seriesData.sma20.map((v, i) => [tsMs[i], v]);
-  const sma50Pts = seriesData.sma50.map((v, i) => [tsMs[i], v]);
-  const sma200Pts = seriesData.sma200.map((v, i) => [tsMs[i], v]);
-  const vwapPts = seriesData.vwap.map((v, i) => [tsMs[i], v]);
-  // Gaussian 채널: trend 별로 두 시리즈로 분리 (녹/적 마스크)
-  const gUp = seriesData.gauss.upper.map((u, i) => {
-    const l = seriesData.gauss.lower[i];
-    if (u == null || l == null) return [tsMs[i], null, null];
-    return seriesData.gauss.trend[i] === 'up' ? [tsMs[i], l, u] : [tsMs[i], null, null];
-  });
-  const gDn = seriesData.gauss.upper.map((u, i) => {
-    const l = seriesData.gauss.lower[i];
-    if (u == null || l == null) return [tsMs[i], null, null];
-    return seriesData.gauss.trend[i] === 'down' ? [tsMs[i], l, u] : [tsMs[i], null, null];
-  });
-
-  // 라이트/다크 테마에 따른 텍스트 색상
-  const isDark = isDarkTheme();
-  const textColor = isDark ? '#cbd5e1' : '#475569';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-
-  try { if (window._trendState.chartInst) window._trendState.chartInst.destroy(); } catch (e) {}
-
-  window._trendState.chartInst = Highcharts.stockChart('trend-chart', {
-    chart: { backgroundColor: 'transparent', height: null, reflow: true, style: { fontFamily: 'inherit' } },
-    rangeSelector: { enabled: false },
-    navigator: { enabled: true, height: 22 },
-    scrollbar: { enabled: false },
-    legend: { enabled: true, itemStyle: { color: textColor, fontWeight: '500' } },
-    tooltip: { split: true, valueDecimals: 2 },
-    xAxis: { labels: { style: { color: textColor } }, gridLineColor: gridColor },
-    yAxis: [
-      {
-        height: '78%', resize: { enabled: true },
-        labels: { align: 'right', x: -3, style: { color: textColor } },
-        gridLineColor: gridColor, title: { text: '' },
-      },
-      {
-        top: '80%', height: '20%', offset: 0,
-        labels: { align: 'right', x: -3, style: { color: textColor } },
-        gridLineColor: gridColor, title: { text: '' },
-      },
-    ],
-    plotOptions: {
-      candlestick: { color: '#ef4444', upColor: '#10B981', lineColor: '#ef4444', upLineColor: '#10B981' },
-      arearange: { lineWidth: 0, marker: { enabled: false }, enableMouseTracking: false },
-      spline: { lineWidth: 1.5, marker: { enabled: false } },
-      column: { borderWidth: 0 },
-    },
-    series: [
-      { type: 'arearange', name: 'Gauss ↑', data: gUp, color: 'rgba(16,185,129,0.18)', fillOpacity: 1, zIndex: 0 },
-      { type: 'arearange', name: 'Gauss ↓', data: gDn, color: 'rgba(239,68,68,0.18)', fillOpacity: 1, zIndex: 0 },
-      { type: 'candlestick', name: ohlcv.rawTicker, data: ohlc, yAxis: 0, zIndex: 2 },
-      { type: 'spline', name: 'VWAP', data: vwapPts, color: '#a855f7', dashStyle: 'ShortDot', zIndex: 1 },
-      { type: 'spline', name: 'SMA20', data: sma20Pts, color: '#3b82f6', zIndex: 1 },
-      { type: 'spline', name: 'SMA50', data: sma50Pts, color: '#0ea5e9', zIndex: 1 },
-      { type: 'spline', name: 'SMA200', data: sma200Pts, color: '#f59e0b', zIndex: 1 },
-      { type: 'column', name: '거래량', data: vol, yAxis: 1, color: 'rgba(100,116,139,0.6)' },
-    ],
-    credits: { enabled: false },
-  });
-
-  // stretch 로 늘어난 래퍼 높이가 확정된 뒤 차트를 패널 하단까지 채우도록 한 번 더 reflow
-  requestAnimationFrame(() => {
-    try { window._trendState.chartInst?.reflow(); } catch (e) {}
-  });
-
-  // 창 크기 변경 시 차트 reflow (한 번만 등록)
-  if (!window._trendChartResizeWired) {
-    window._trendChartResizeWired = true;
-    window.addEventListener('resize', () => {
-      try { window._trendState.chartInst?.reflow(); } catch (e) {}
-    });
-  }
-}
-
-// ── 분석 실행 ────────────────────────────────────────────────
-async function _trendAnalyze(asset) {
-  // asset: { ticker, name, currency }
-  const st = window._trendState;
-  st.ticker = asset.ticker;
-  st.asset = asset;
-  try { localStorage.setItem('trendLastTicker', JSON.stringify(asset)); } catch (e) {}
-
-  _trendStatus(`${asset.ticker} OHLCV 가져오는 중...`);
-  try {
-    const ohlcv = await _trendFetchOhlcv(asset.ticker, st.range);
-    if (!ohlcv.bars || ohlcv.bars.length < 30) {
-      _trendStatus('데이터 부족 (30봉 미만)');
-      return;
-    }
-    st.data = ohlcv;
-    // 통화 보정 (검색 결과에 currency 없을 수 있음)
-    if (!asset.currency) asset.currency = ohlcv.currency;
-    _trendStatus('지표 계산 중...');
-    const ind = _trendComputeIndicators(ohlcv.bars, ohlcv.benchmarkClose);
-    st.ind = ind;
-    const scores = _trendComputeScores(ind, { ...asset, currency: ohlcv.currency });
-    st.scores = scores;
-    const advice = _trendComputeAdvice(ind, ohlcv, { ...asset, currency: ohlcv.currency });
-    st.advice = advice;
-    _trendRenderHeader(asset, ohlcv, ind);
-    _trendRenderScorecards(scores);
-    _trendRenderAdvice(advice, ohlcv, scores);
-    _trendStatus('차트 렌더링 중...');
-    await _trendRenderChart(ohlcv, ind);
-    _trendStatus('');
-  } catch (e) {
-    console.error('[trend] analyze', e);
-    _trendStatus('분석 실패: ' + (e?.message || e));
-  }
-}
-
-// ── 뷰 초기화 (switchView 에서 호출) ─────────────────────────
-function renderTrendView() {
-  if (window._trendInited) return;
-  window._trendInited = true;
-
-  const input = document.getElementById('trend-search-input');
-  const resultsEl = document.getElementById('trend-search-results');
-  if (input) {
-    input.addEventListener('input', () => {
-      const v = input.value.trim();
-      clearTimeout(window._trendSearchTimer);
-      if (!v) {
-        if (resultsEl) resultsEl.style.display = 'none';
-        _trendHideAnalysis();
-        return;
-      }
-      window._trendSearchTimer = setTimeout(async () => {
-        await _trendOnSearchInput(v);
-        // 디바운스 경과 + 결과 1건 이상이면 첫 결과로 자동 분석
-        const first = resultsEl?.querySelector('.trend-result-row');
-        if (first) first.click();
-      }, 350);
-    });
-    input.addEventListener('focus', () => {
-      if (resultsEl?.children.length) resultsEl.style.display = 'block';
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const v = input.value.trim();
-        if (v) {
-          // 정확 일치 검색 → 첫 결과로 분석
-          _trendOnSearchInput(v).then(() => {
-            const first = resultsEl?.querySelector('.trend-result-row');
-            if (first) first.click();
-          });
-        }
-      }
-    });
-  }
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#trend-search-input') && !e.target.closest('#trend-search-results')) {
-      if (resultsEl) resultsEl.style.display = 'none';
-    }
-  });
-
-  // 기간 토글
-  document.querySelectorAll('#trend-range-btns .tf-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#trend-range-btns .tf-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      window._trendState.range = btn.dataset.r || '1y';
-      if (window._trendState.asset) _trendAnalyze(window._trendState.asset);
-    });
-  });
-
-  // localStorage 의 마지막 종목 복원
-  try {
-    const last = localStorage.getItem('trendLastTicker');
-    if (last) {
-      const a = JSON.parse(last);
-      if (a && a.ticker) {
-        if (input) input.value = a.name || a.ticker;
-        _trendAnalyze(a);
-      }
-    }
-  } catch (e) {}
-}
-
-// =============================================
 // 전역 리사이즈 핸들러 (모바일 회전/드로어 대응 차트 재맞춤)
 // =============================================
 let _globalResizeTimer = null;
@@ -9172,6 +8055,5 @@ window.addEventListener('resize', () => {
     if (!active) return;
     _fitActiveCharts();
     if (active.id === 'view-bubble') { try { renderBubbleChart('weight'); } catch (e) {} }
-    if (active.id === 'view-trend') { try { window._trendState?.chartInst?.reflow(); } catch (e) {} }
   }, 200);
 });

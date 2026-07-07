@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -33,13 +33,6 @@
 
 <div class="layout">
   <aside class="glass-panel menu-col">
-    <div class="logo">
-      <span class="logo-badge">C</span>
-      <div>
-        <div class="logo-text">Cobalt</div>
-        <div class="logo-sub">FAMILY PORTFOLIO</div>
-      </div>
-    </div>
     <!-- 환율/금 사이드바: USD/KRW → USD/JPY → JPY100/KRW → GOLD, 색상 통일 -->
     <div class="f-col" style="margin-bottom:12px;padding:10px;background:var(--inner-bg);border-radius:12px;border:1px solid var(--border-light);font-size:0.76rem;">
       <div id="side-date-display" style="font-weight:700;color:var(--t1);margin-bottom:8px;text-align:center;font-size:0.85rem;border-bottom:1px solid var(--border-dark);padding-bottom:6px;">-</div>
@@ -72,19 +65,9 @@
       <div class="cb-menu-sep"></div>
       <button class="menu-btn" id="menu-holdings" onclick="switchView('holdings',this)"><span class="menu-ico">⊞</span>자산 내역</button>
       <button class="menu-btn" onclick="switchView('cashflow',this)"><span class="menu-ico">⇄</span>현금 흐름</button>
-      <button class="menu-btn" id="menu-dividend_plus" onclick="switchView('dividend_plus',this)"><span class="menu-ico">✚</span>배당 심화</button>
-      <button class="menu-btn" id="menu-trend" onclick="switchView('trend',this)"><span class="menu-ico">∿</span>추세 분석</button>
       <button class="menu-btn" id="menu-bubble" onclick="switchView('bubble',this)"><span class="menu-ico">◉</span>비중 차트</button>
     </div>
     <div class="sidebar-footer">
-      <div>
-        <div class="side-seg-label">표시 통화</div>
-        <div class="side-seg" id="cur-seg">
-          <button class="side-seg-btn" id="cur-seg-USD" onclick="setDispCur('USD')">USD</button>
-          <button class="side-seg-btn active" id="cur-seg-KRW" onclick="setDispCur('KRW')">KRW</button>
-          <button class="side-seg-btn" id="cur-seg-JPY" onclick="setDispCur('JPY')">JPY</button>
-        </div>
-      </div>
       <div>
         <div class="side-seg-label">테마</div>
         <div class="side-seg" id="theme-seg">
@@ -211,7 +194,7 @@
           </div>
           <!-- 이외 자산 요약 위젯 (스크롤바 없이 자동 높이) -->
           <div class="glass-panel f-col" style="flex-shrink:0">
-            <div class="card-title f-between">📋 이외 자산 요약</div>
+            <div class="card-title f-between">이외 자산 요약</div>
             <div id="side-other-assets" style="display:flex;flex-direction:column;gap:3px;font-size:.73rem;"></div>
           </div>
           <!-- 숨겨진 캔버스 (JS 호환성 유지) -->
@@ -337,7 +320,6 @@
         <div id="htab-realestate" style="flex-shrink:0">
           <div class="pt-group-header" onclick="toggleHoldingsSection('re-accordion-body','re-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
             <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:1rem">🏠</span>
               <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부동산</span>
               <span id="re-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
             </div>
@@ -346,7 +328,7 @@
                 <span style="color:var(--t3)">총 시세: <strong id="re-header-cur" style="color:var(--t1)">₩0</strong></span>
                 <span style="color:var(--t3)">미실현 손익: <strong id="re-header-gain">₩0</strong></span>
               </div>
-              <button class="api-btn" onclick="event.stopPropagation();openREModal()" style="padding:4px 10px;font-size:.7rem">➕ 추가</button>
+              <button class="api-btn" onclick="event.stopPropagation();openREModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
               <span id="re-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
             </div>
           </div>
@@ -375,7 +357,6 @@
         <div id="htab-liability" style="flex-shrink:0">
           <div class="pt-group-header" onclick="toggleHoldingsSection('liab-accordion-body','liab-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
             <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:1rem">📋</span>
               <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부채</span>
               <span id="liab-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
             </div>
@@ -385,7 +366,7 @@
                 <span style="color:var(--t3)">연간이자: <strong class="c-dn" id="liab-summary-interest">₩0/년</strong></span>
                 <span style="color:var(--t3)">잔여원금: <strong class="c-dn" id="liab-summary-balance">₩0</strong></span>
               </div>
-              <button class="api-btn" onclick="event.stopPropagation();openLiabModal()" style="padding:4px 10px;font-size:.7rem">➕ 추가</button>
+              <button class="api-btn" onclick="event.stopPropagation();openLiabModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
               <span id="liab-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
             </div>
           </div>
@@ -417,11 +398,11 @@
         <div class="f-col" style="gap:15px;height:100%;min-height:0;overflow-y:auto">
           <!-- 통합 수입/지출 내역 관리 -->
           <div id="cf-input-panel" class="glass-panel" style="flex-shrink:0">
-            <div class="card-title f-between">💰 수입 / 지출 내역 관리
+            <div class="card-title f-between">수입 / 지출 내역 관리
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="display:flex;gap:6px">
                   <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2)"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()"> 일회성</label>
-                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2)"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()"> 🔁 자동이체</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2)"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()"> 자동이체</label>
                 </div>
               </div>
             </div>
@@ -679,136 +660,6 @@
       </div>
     </div>
 
-    <!-- DIVIDEND+ (DIVIDEND DEEP DIVE) VIEW -->
-    <div id="view-dividend_plus" class="view-section">
-      <div class="f-col" style="gap:14px;padding:14px;height:100%;overflow-y:auto">
-
-        <!-- 헤더: 새로고침 (소유주 필터는 우상단 #owner-tabs-container 사용) -->
-        <div class="f-between" style="gap:10px;flex-wrap:wrap">
-          <label class="divp-input-wrap" style="flex-direction:row;align-items:center;gap:8px;font-size:.78rem">
-            <input type="checkbox" id="divp-yoc-aggregate" checked onchange="_divpRenderYocTable(window._divPlusOwner)" style="margin:0">
-            <span style="color:var(--t1)">YoC 표를 종목 단위로 합산 (계좌별 합치기)</span>
-          </label>
-          <button class="rsk-tf-btn" onclick="reloadDivPlusHistory(this)" title="배당 이력 강제 재조회">🔄 이력 새로고침</button>
-        </div>
-
-        <!-- 1. YoC 테이블 -->
-        <div class="glass-panel divp-widget f-col">
-          <div id="divp-head-yoc" class="divp-widget-header" onclick="_divpSwitchTab('yoc')">
-            <h3 style="margin:0;font-size:1.1rem;color:var(--t1)">YoC <span style="font-size:.8rem;color:var(--t3);font-weight:500">(Yield on Cost)</span></h3>
-            <span class="divp-widget-arrow">▼</span>
-          </div>
-          <div id="divp-tab-yoc" class="divp-widget-body" style="display:none">
-            <p style="margin:0;font-size:.78rem;color:var(--t3)">매수원가 대비 현재 연배당 수익률 — 평균매수가가 낮을수록 YoC가 시장 yield보다 높음</p>
-            <div style="overflow-x:auto">
-              <table class="divp-table">
-                <thead>
-                  <tr>
-                    <th class="text-left">종목</th>
-                    <th class="text-right">현재 yield</th>
-                    <th class="text-right">YoC</th>
-                    <th class="text-right">평균매수가</th>
-                    <th class="text-right">연배당/주</th>
-                    <th class="text-right">연 배당금 (KRW)</th>
-                  </tr>
-                </thead>
-                <tbody id="divp-yoc-body"></tbody>
-                <tfoot id="divp-yoc-foot"></tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. 5Y 배당 성장률 (CAGR) 테이블 -->
-        <div class="glass-panel divp-widget f-col">
-          <div id="divp-head-cagr" class="divp-widget-header" onclick="_divpSwitchTab('cagr')">
-            <h3 style="margin:0;font-size:1.1rem;color:var(--t1)">배당 성장률 <span style="font-size:.8rem;color:var(--t3);font-weight:500">(주당 배당금 기준 CAGR)</span><span class="info-tip" tabindex="0" onclick="event.stopPropagation()" data-tip="CAGR (Compound Annual Growth Rate, 연복리 성장률) — 일정 기간 동안 매년 동일한 비율로 성장했다고 가정했을 때의 평균 성장률. 5Y CAGR은 5년 전 DPS 대비 매년 평균 몇 %씩 늘었는지를 의미합니다."></span></h3>
-            <span class="divp-widget-arrow">▼</span>
-          </div>
-          <div id="divp-tab-cagr" class="divp-widget-body" style="display:none">
-            <p style="margin:0;font-size:.78rem;color:var(--t3)">완결된 회계연도 기준 — 환율 영향 제거 위해 종목 통화 그대로 산출</p>
-            <div style="overflow-x:auto">
-              <table class="divp-table divp-table--cagr">
-                <colgroup>
-                  <col style="width:22%">
-                  <col style="width:8%">
-                  <col style="width:11%">
-                  <col style="width:11%">
-                  <col style="width:11%">
-                  <col style="width:37%">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th class="text-left">종목</th>
-                    <th class="text-right">통화</th>
-                    <th class="text-right">3Y CAGR</th>
-                    <th class="text-right">5Y CAGR</th>
-                    <th class="text-right">전년 대비</th>
-                    <th class="text-right">최근 5년 DPS <span class="info-tip" tabindex="0" onclick="event.stopPropagation()" data-tip="DPS (Dividend Per Share) — 주당 배당금. 1주를 1년 보유했을 때 받는 1년치 배당금 총액입니다. 환율 영향을 빼고 종목 통화 그대로 표시합니다."></span></th>
-                  </tr>
-                </thead>
-                <tbody id="divp-cagr-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. DRIP 시뮬레이터 -->
-        <div class="glass-panel divp-widget divp-drip-panel f-col">
-          <div id="divp-head-drip" class="divp-widget-header" onclick="_divpSwitchTab('drip')">
-            <h3 style="margin:0;font-size:1.1rem;color:var(--t1)">DRIP 시뮬레이터 <span style="font-size:.8rem;color:var(--t3);font-weight:500">(배당 재투자 What-if)</span><span class="info-tip" tabindex="0" onclick="event.stopPropagation()" data-tip="DRIP (Dividend Reinvestment Plan): 받은 배당금을 현금으로 빼지 않고 같은 종목에 자동 재매수했다고 가정한 시뮬레이션입니다. 복리 효과로 장기 평가액이 현금 수령 대비 얼마나 늘어나는지 비교합니다."></span></h3>
-            <span class="divp-widget-arrow">▼</span>
-          </div>
-          <div id="divp-tab-drip" class="divp-widget-body" style="display:none">
-            <p style="margin:0;font-size:.78rem;color:var(--t3)">배당을 매번 재투자했다고 가정한 경우의 누적 결과 — 현금 수령 시나리오와 비교</p>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-              <label class="divp-input-wrap">
-                <span>대상 종목</span>
-                <select id="divp-drip-tkr" onchange="renderDripSimulator()"></select>
-              </label>
-              <label class="divp-input-wrap">
-                <span>초기 투자금 (KRW)</span>
-                <input type="number" id="divp-drip-principal" value="10000000" step="1000000" min="0" oninput="renderDripSimulator()" />
-              </label>
-              <label class="divp-input-wrap">
-                <span>연 배당 성장률 (%)</span>
-                <input type="number" id="divp-drip-divgrowth" value="5" step="0.5" oninput="renderDripSimulator()" />
-              </label>
-              <label class="divp-input-wrap">
-                <span>연 주가 상승률 (%)</span>
-                <input type="number" id="divp-drip-pxgrowth" value="6" step="0.5" oninput="renderDripSimulator()" />
-              </label>
-              <label class="divp-input-wrap">
-                <span>시뮬 기간 (년)</span>
-                <input type="number" id="divp-drip-years" value="20" step="1" min="1" max="40" oninput="renderDripSimulator()" />
-              </label>
-              <label class="divp-input-wrap">
-                <span>계좌</span>
-                <select id="divp-drip-acc" onchange="renderDripSimulator()">
-                  <option value="일반">일반 (15.4%)</option>
-                  <option value="ISA">ISA (9.9%, 200만 비과세)</option>
-                  <option value="연금">연금 (과세이연)</option>
-                </select>
-              </label>
-            </div>
-
-            <!-- 결과 카드 4개 -->
-            <div id="divp-drip-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;min-width:0"></div>
-
-            <!-- 차트 -->
-            <div class="divp-drip-chart-wrap">
-              <canvas id="divpDripChart"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <p style="font-size:.72rem;color:var(--t3);margin:0;text-align:center">
-          ※ YoC/CAGR은 실측치 (Yahoo Finance 배당 이력 기반, 7일 캐시) — DRIP은 사용자 가정 기반 시뮬레이션
-        </p>
-      </div>
-    </div>
-
     <!-- TARGET ALLOCATION & REBALANCING VIEW -->
     <div id="view-target_rebal" class="view-section">
       <div class="f-col" style="gap:14px;padding:14px;height:100%;overflow-y:auto">
@@ -857,63 +708,6 @@
       </div>
     </div>
 
-    <!-- TREND ANALYSIS ADVISOR VIEW -->
-    <div id="view-trend" class="view-section" style="gap:10px;overflow-y:auto;overflow-x:hidden;padding-right:0;flex:1;min-height:0">
-      <!-- 통합 툴바: 검색 + 종목 헤더 + 기간 + 분석 -->
-      <div class="glass-panel" style="padding:10px 14px;flex-shrink:0">
-        <div class="trend-toolbar-row">
-          <div class="trend-search-wrap">
-            <input id="trend-search-input" type="text" class="form-input"
-              placeholder="종목명/티커 (예: TSLA, 005930, 7203.T)" autocomplete="off" />
-            <div id="trend-search-results" class="trend-results"></div>
-          </div>
-
-          <div id="trend-header-inline" class="trend-header-inline" style="display:none">
-            <div class="th-name">
-              <strong id="trend-h-name">-</strong>
-              <span class="th-meta">
-                <span id="trend-h-tkr">-</span> · <span id="trend-h-exch">-</span> · <span id="trend-h-sector">-</span>
-              </span>
-            </div>
-            <div class="th-quote">
-              <span class="th-quote-label">현재가</span>
-              <span id="trend-h-price">-</span>
-              <span id="trend-h-change">-</span>
-            </div>
-            <div id="trend-h-trend-badge" class="th-badge">추세: -</div>
-          </div>
-
-          <div class="tf-btns" id="trend-range-btns">
-            <button class="tf-btn" data-r="5d">5D</button>
-            <button class="tf-btn" data-r="1mo">1M</button>
-            <button class="tf-btn" data-r="3mo">3M</button>
-            <button class="tf-btn" data-r="6mo">6M</button>
-            <button class="tf-btn" data-r="ytd">YTD</button>
-            <button class="tf-btn active" data-r="1y">1Y</button>
-            <button class="tf-btn" data-r="2y">2Y</button>
-          </div>
-        </div>
-        <div id="trend-status" style="font-size:.74rem;color:var(--t3);min-height:1em;margin-top:4px"></div>
-      </div>
-
-      <!-- 차트 + 기관식 체크리스트 가로 배치 -->
-      <div class="trend-mid-row">
-        <!-- Highstock 캔들 차트 (가로 50%) -->
-        <div id="trend-chart-wrap" class="glass-panel" style="padding:6px 8px;display:none;min-height:240px">
-          <div id="trend-chart" style="width:100%;height:100%"></div>
-        </div>
-
-        <!-- 스코어카드 (2열 그리드, 가로 50%) -->
-        <div id="trend-scorecards" class="glass-panel" style="padding:7px 12px;display:none;flex-shrink:0">
-          <h3 style="margin:0 0 3px 0;font-size:.85rem;color:var(--t1)">기관식 체크리스트</h3>
-          <div id="trend-scorecards-grid" style="display:grid;grid-template-columns:1fr;gap:4px"></div>
-        </div>
-      </div>
-
-      <!-- 리버모어/미너비니 어드바이저 패널 -->
-      <div id="trend-advice" class="glass-panel" style="display:none"></div>
-    </div>
-
     <!-- HOLOGRAM BUBBLE CHART VIEW -->
     <div id="view-bubble" class="view-section" style="height:100%;overflow:hidden;padding:0">
       <div style="display:flex;flex-direction:column;height:100%;padding:0;overflow:hidden">
@@ -953,10 +747,10 @@
       <div class="form-group f-col" style="flex:1"><label class="form-label">자산군</label>
         <!-- [5] 자산군은 고정 표시 (드롭다운 없음) -->
         <select id="add-grp" class="form-input" onchange="toggleModalFields()" style="pointer-events:none;opacity:.8;">
-          <option value="주식">📈 주식</option>
-          <option value="가상화폐">🪙 가상화폐</option>
-          <option value="금">🥇 금</option>
-          <option value="현금">💵 현금</option>
+          <option value="주식">주식</option>
+          <option value="가상화폐">가상화폐</option>
+          <option value="금">금</option>
+          <option value="현금">현금</option>
         </select>
       </div>
     </div>
@@ -982,7 +776,7 @@
         <label class="form-label" style="display:block;margin-bottom:6px">종목명 / 티커</label>
         <div style="display:flex;gap:6px;position:relative;">
           <input type="text" class="form-input" id="add-search" placeholder="한국/미국/일본 종목명 또는 티커 검색" autocomplete="off" oninput="onSearchInput()" style="flex:1;box-sizing:border-box;">
-          <button class="api-btn" onclick="searchStockByApi()" id="btn-stock-search" style="flex-shrink:0;padding:8px 14px;font-size:.8rem;white-space:nowrap">🔍 검색</button>
+          <button class="api-btn" onclick="searchStockByApi()" id="btn-stock-search" style="flex-shrink:0;padding:8px 14px;font-size:.8rem;white-space:nowrap">검색</button>
           <div id="search-spinner" style="display:none;position:absolute;right:90px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid var(--border-dark);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;"></div>
         </div>
         <div id="search-dropdown" style="display:none;position:absolute;background:var(--modal-bg);color:var(--t1);border:1px solid var(--border-dark);border-radius:8px;z-index:9999;max-height:220px;overflow-y:auto;box-shadow:var(--gshadow);margin-top:2px;left:0;right:0;"></div>
@@ -997,19 +791,19 @@
                 &nbsp;|&nbsp; 최근 종가: <span id="result-price" style="font-weight:600;color:var(--t1)">-</span>
               </div>
             </div>
-            <button class="api-btn" onclick="confirmStockSelection()" style="padding:6px 12px;font-size:.78rem">✅ 이 종목 선택</button>
+            <button class="api-btn" onclick="confirmStockSelection()" style="padding:6px 12px;font-size:.78rem">이 종목 선택</button>
           </div>
         </div>
         <div id="stock-search-error" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:.75rem;color:var(--dn)"></div>
         <div id="stock-search-loading" style="display:none;margin-top:8px;font-size:.78rem;color:var(--t3);text-align:center;padding:8px;">데이터를 찾는 중...</div>
         <!-- 외부 API 실패 시 수동 입력 폴백 -->
         <div id="stock-manual-entry" style="display:none;margin-top:10px;padding:10px 12px;background:var(--inner-bg);border-radius:8px;border:1px dashed var(--acc);">
-          <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px">💡 외부 조회 실패 시 수동으로 직접 입력할 수 있습니다.</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px">외부 조회 실패 시 수동으로 직접 입력할 수 있습니다.</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
             <div class="form-group f-col" style="flex:1;min-width:110px;gap:3px"><label class="form-label" style="font-size:.65rem">티커</label><input type="text" id="manual-tkr" class="form-input" placeholder="예: AAPL, 005930" style="padding:6px 8px;font-size:.78rem"></div>
             <div class="form-group f-col" style="flex:1.5;min-width:130px;gap:3px"><label class="form-label" style="font-size:.65rem">종목명</label><input type="text" id="manual-name" class="form-input" placeholder="예: Apple Inc." style="padding:6px 8px;font-size:.78rem"></div>
             <div class="form-group f-col" style="flex:1;min-width:100px;gap:3px"><label class="form-label" style="font-size:.65rem">현재가</label><input type="text" id="manual-price" class="form-input" placeholder="0" inputmode="decimal" style="padding:6px 8px;font-size:.78rem"></div>
-            <button class="api-btn" onclick="confirmManualStock()" style="padding:6px 12px;font-size:.75rem">✅ 적용</button>
+            <button class="api-btn" onclick="confirmManualStock()" style="padding:6px 12px;font-size:.75rem">적용</button>
           </div>
         </div>
       </div>
@@ -1136,26 +930,13 @@
           <span style="font-size:.75rem;color:var(--t3)">일</span>
         </div>
       </div>
-      <div style="flex:1;padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3)">💡 상환일 설정 시 매달 해당 일자에 현금흐름 자동이체가 등록되고 대출 잔액이 자동으로 감소합니다.</div>
+      <div style="flex:1;padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3)">상환일 설정 시 매달 해당 일자에 현금흐름 자동이체가 등록되고 대출 잔액이 자동으로 감소합니다.</div>
     </div>
-    <div style="padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3);margin-bottom:4px">💡 원리금균등상환(PMT) 방식으로 월 납부액을 자동 계산합니다.</div>
+    <div style="padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3);margin-bottom:4px">원리금균등상환(PMT) 방식으로 월 납부액을 자동 계산합니다.</div>
     <button class="btn-submit" id="btn-liab-submit" onclick="addLiability()" style="margin-top:6px;width:100%">저장하기</button>
   </div>
 </div>
-<!-- Cobalt 우하단 시세 위젯 (전일 종가) -->
-<div id="fx-widget">
-  <div class="fx-widget-card">
-    <div class="fx-widget-label">JPY 100 / KRW</div>
-    <div class="fx-widget-val" id="fxw-jpy">-</div>
-  </div>
-  <div class="fx-widget-card">
-    <div class="fx-widget-label">금 1g (KRW)</div>
-    <div class="fx-widget-val" id="fxw-gold">-</div>
-  </div>
-  <div class="fx-widget-note">전일 종가</div>
-</div>
-
-<script src="script.js?v=21"></script>
-<script src="cobalt.js?v=1"></script>
+<script src="script.js?v=22"></script>
+<script src="cobalt.js?v=2"></script>
 </body>
 </html>

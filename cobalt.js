@@ -7,11 +7,14 @@
 
 /* global pfolioData, RATES, OWNERS, ownerColors, monthlyPLData, benchData,
    _gicsSector, _divpAggregateByYear, _divpComputeCagr, loadMonthlyPL,
-   saveMonthlyPL, saveAssetsToKV, openAddModal, editItem, closeSidebar,
-   fetchDivData, fetchDividendHistory, switchView, changeOwner, updateBenchmark, isMobileLayout */
+   saveMonthlyPL, saveAssetsToKV, loadAssetsFromKV, saveExtDataToKV, cssVar,
+   openAddModal, editItem, closeSidebar, fetchDivData, fetchDividendHistory,
+   switchView, changeOwner, updateBenchmark, setTheme, isMobileLayout */
 
 // ───────────────────────── 상태 ─────────────────────────
-let _dispCur = (function(){ try{ return localStorage.getItem('cobalt.dispCur') || 'KRW'; }catch(e){ return 'KRW'; } })();
+// 평가금액 표시 통화는 KRW 고정 (표시 통화 선택 UI 제거됨).
+// 매수 단가·현재가 등 종목 단위 가격은 cbFmtNative로 해당 종목 통화(USD/JPY/KRW) 그대로 노출한다.
+const _dispCur = 'KRW';
 let _cobaltActive = null;
 let _cdashQ = '', _cdashSel = null;
 let _famKey = 'all', _famQ = '';
@@ -135,7 +138,10 @@ function cbRisk(){
   const secs = cbSectors().list;
   const topSec = secs[0] || {label:'—', pct:0};
   const clsCount = Object.keys(byCls).length;
-  const upC='var(--up)', wnC='#fbbf24', dnC='var(--dn)';
+  // 테마별 CSS 토큰을 실제 hex로 해석 — 라이트/다크/네이비 모두에서 가시성 확보 (+'26' 알파 결합 가능)
+  const upC=(typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52'),
+        wnC=(typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706'),
+        dnC=(typeof cssVar==='function'?cssVar('--dn','#cf3d5c'):'#cf3d5c');
   const mk=(title,val,valFmt,thWarn,thBad,msgs,invert)=>{
     let lvl=0;
     if(invert){ if(val<thBad) lvl=2; else if(val<thWarn) lvl=1; }
@@ -487,7 +493,7 @@ function cbRenderRisk(){
         ${r.cards.map(c=>`
           <div class="cb-panel" style="padding:13px 15px">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:700">${c.title}</span><span style="font-size:10px;font-weight:800;padding:1px 8px;border-radius:16px;background:${c.color==='var(--up)'?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:700">${c.title}</span><span style="font-size:10px;font-weight:800;padding:1px 8px;border-radius:16px;background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
               <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:${c.color}">${c.valFmt}</div>
             </div>
             <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.55">${c.msg}</div>
@@ -572,6 +578,26 @@ function cbRenderDiv(){
 }
 
 // ───────────────────────── 페이지: 증여 플랜 ─────────────────────────
+// 실제 증여액(구간별 입력) — KV ext_data.giftActual + localStorage 미러로 영속화
+window._giftActual = window._giftActual || (function(){
+  try{ return JSON.parse(localStorage.getItem('giftActual')||'{}') || {}; }catch(e){ return {}; }
+})();
+function cbGiftActualOf(idx){
+  const v = Number((window._giftActual||{})[idx]);
+  return (isFinite(v) && v>0) ? v : 0;
+}
+function cbGiftSetActual(idx, raw){
+  const v = parseFloat(String(raw||'').replace(/[^\d]/g,''));
+  window._giftActual = window._giftActual || {};
+  window._giftActual[idx] = (isFinite(v) && v>0) ? Math.round(v) : 0;
+  try{ localStorage.setItem('giftActual', JSON.stringify(window._giftActual)); }catch(e){}
+  try{ saveExtDataToKV(); }catch(e){}
+  cbRenderGift();
+}
+function cbGiftFmtInput(el){
+  const digits = el.value.replace(/[^\d]/g,'');
+  el.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+}
 function cbGiftSegs(){
   const r = Math.pow(1.03, 1/12);
   const pvf = (1 - Math.pow(1.03, -10)) / (1 - 1/r);
@@ -580,10 +606,11 @@ function cbGiftSegs(){
     {label:'미성년 후기', ages:'10~19세', a0:10, limit:20000000},
     {label:'성년 전기',   ages:'20~29세', a0:20, limit:50000000},
     {label:'성년 후기',   ages:'30~39세', a0:30, limit:50000000},
-  ].map(g=>{ const M=g.limit/pvf, nominal=M*120; return {...g, monthly:M, nominal, extra:nominal-g.limit}; });
+  ].map((g,i)=>{ const M=g.limit/pvf, nominal=M*120; return {...g, idx:i, monthly:M, nominal, extra:nominal-g.limit, actual:cbGiftActualOf(i)}; });
 }
 function cbGiftChartSvg(w,h){
   const segs = cbGiftSegs();
+  const wn = (typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706');
   const maxY = segs.reduce((s,g)=>s+g.nominal,0)*1.08;
   const X=a=>a/40*w, Y=v=>h-18-(v/maxY)*(h-30);
   let cum=0; const lumpPts=[[0,0]];
@@ -599,11 +626,21 @@ function cbGiftChartSvg(w,h){
     out+=`<line x1="${X(a)}" x2="${X(a)}" y1="0" y2="${h-18}" style="stroke:var(--grid)" stroke-width="1"></line>`;
     out+=`<text x="${X(a)+3}" y="${h-5}" style="fill:var(--lab)" font-size="11" font-family="Noto Sans KR">${a}세</text>`;
   });
+  // 구간별 비과세 한도(누적) — 경고색 굵은 점선 + 눈에 띄는 라벨 (가시성 개선)
   let c2=0;
   segs.forEach((g,i)=>{ c2+=g.limit;
-    out+=`<line x1="${X(g.a0)}" x2="${X(g.a0+10)}" y1="${Y(c2)}" y2="${Y(c2)}" style="stroke:var(--lab)" stroke-width="1" stroke-dasharray="5 4"></line>`;
-    out+=`<text x="${X(g.a0)+4}" y="${Y(c2)-5}" style="fill:var(--lab)" font-size="10.5" font-family="Noto Sans KR">한도 누적 ${Math.round(c2/10000)}만</text>`;
+    out+=`<line x1="${X(g.a0)}" x2="${X(g.a0+10)}" y1="${Y(c2)}" y2="${Y(c2)}" stroke="${wn}" stroke-width="2" stroke-dasharray="7 5" opacity="0.95"></line>`;
+    out+=`<text x="${X(g.a0)+4}" y="${Y(c2)-6}" fill="${wn}" font-size="11.5" font-weight="700" font-family="Noto Sans KR">한도 누적 ${Math.round(c2/10000).toLocaleString()}만</text>`;
   });
+  // 실제 증여 누적 추이 (구간 내 선형 증가로 표현)
+  let cumR=0; const actPts=[[0,0]]; let anyActual=false;
+  segs.forEach(g=>{ actPts.push([g.a0,cumR]); if(g.actual>0) anyActual=true; cumR+=g.actual; actPts.push([g.a0+10,cumR]); });
+  actPts.push([40,cumR]);
+  if (anyActual){
+    const actD='M'+actPts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' L');
+    out+=`<path d="${actD}" fill="none" style="stroke:var(--acc3)" stroke-width="2.6" stroke-linejoin="round"></path>`;
+    out+=`<text x="${w-4}" y="${Math.max(14, Y(cumR)+16)}" style="fill:var(--acc3)" font-size="12" font-weight="700" text-anchor="end" font-family="Noto Sans KR">실제 증여 ${Math.round(cumR/10000).toLocaleString()}만원</text>`;
+  }
   out+=`<path d="${lumpD}" fill="none" style="stroke:var(--acc)" stroke-width="2.2" stroke-linejoin="round"></path>`;
   out+=`<path d="${annD}" fill="none" style="stroke:var(--up)" stroke-width="2.6" stroke-linejoin="round"></path>`;
   out+=`<text x="${w-4}" y="${Y(cumA)-8}" style="fill:var(--up)" font-size="12" font-weight="700" text-anchor="end" font-family="Noto Sans KR">명목 ${Math.round(cumA/10000).toLocaleString()}만원</text>`;
@@ -612,19 +649,60 @@ function cbGiftChartSvg(w,h){
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
   const segs = cbGiftSegs();
+  const wn = (typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706');
   const lumpT = segs.reduce((s,g)=>s+g.limit,0), annT = segs.reduce((s,g)=>s+g.nominal,0);
+  const actT = segs.reduce((s,g)=>s+g.actual,0);
+  const actPct = lumpT ? actT/lumpT*100 : 0;
   el.innerHTML = `
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><div class="cb-title">자녀 증여 플랜</div><div style="font-size:11.5px;color:var(--lab)"><span data-tip="일정 기간 동안 정기적으로 나누어 주는 증여. 미래 지급분을 연 3% 할인율로 현재가치 평가하므로, 같은 비과세 한도로 더 많은 금액을 이체할 수 있습니다.">유기정기금</span> 방식 · 연 3.0% 할인율 적용</div></div>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
       <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">일시금 한도 합계 (0~39세)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(lumpT)}</div></div>
       <div style="flex:1;min-width:190px;background:var(--upSoft);border:1px solid var(--bd);border-radius:12px;padding:12px 14px"><div style="font-size:11px;color:var(--mut)">유기정기금 이체 가능 총액</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">${cbManwon(annT)}</div></div>
       <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">할인율 효과 (추가 이체분)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">+${cbManwon(annT-lumpT)}</div></div>
+      <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px;border-top:3px solid var(--acc3)"><div style="font-size:11px;color:var(--lab)">실제 증여 누적 / 총 한도</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(actT)} <span style="font-size:12px;color:var(--lab);font-weight:600">(${actPct.toFixed(1)}%)</span></div></div>
+    </div>
+    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">실제 증여 진행 현황</div><div style="font-size:10.5px;color:var(--dim)">구간별로 실제 증여(이체)한 금액을 입력하면 비과세 한도 대비 진행률을 추적합니다</div></div>
+      ${segs.map(g=>{
+        const pct = g.limit ? g.actual/g.limit*100 : 0;
+        const over = g.actual > g.limit;
+        const remain = g.limit - g.actual;
+        const barColor = over ? wn : 'var(--acc3)';
+        return `
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+          <span style="width:150px;font-size:12.5px;font-weight:700;flex-shrink:0">${g.label} <span style="font-size:10.5px;color:var(--lab);font-weight:500">${g.ages}</span></span>
+          <span style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <input class="cb-input cb-num" value="${g.actual?g.actual.toLocaleString('ko-KR'):''}" placeholder="0"
+              inputmode="numeric" style="width:130px;text-align:right;padding:6px 8px"
+              oninput="cbGiftFmtInput(this)" onchange="cbGiftSetActual(${g.idx}, this.value)" />
+            <span style="font-size:11px;color:var(--lab)">원</span>
+          </span>
+          <div style="flex:1;min-width:160px">
+            <div style="height:9px;border-radius:5px;background:var(--inner);overflow:hidden;border:1px solid var(--bd)">
+              <div style="height:100%;border-radius:5px;background:${barColor};width:${Math.max(g.actual>0?2:0, Math.min(100, Math.round(pct)))}%;transition:width .25s"></div>
+            </div>
+          </div>
+          <span style="width:64px;text-align:right;font-weight:800;font-size:12.5px;color:${over?wn:'var(--tx)'}">${pct.toFixed(1)}%</span>
+          <span style="width:150px;text-align:right;font-size:11px;color:${over?wn:'var(--mut)'}">${over?'한도 초과 +'+cbManwon(g.actual-g.limit):'잔여 한도 '+cbManwon(remain)}</span>
+        </div>`;}).join('')}
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0 2px;flex-wrap:wrap">
+        <span style="width:150px;font-size:12.5px;font-weight:800;flex-shrink:0">전체 (0~39세)</span>
+        <span class="cb-num" style="width:140px;text-align:right;font-weight:800;font-size:12.5px;flex-shrink:0">${cbKrw(actT)}</span>
+        <div style="flex:1;min-width:160px">
+          <div style="height:9px;border-radius:5px;background:var(--inner);overflow:hidden;border:1px solid var(--bd)">
+            <div style="height:100%;border-radius:5px;background:var(--up);width:${Math.max(actT>0?2:0, Math.min(100, Math.round(actPct)))}%;transition:width .25s"></div>
+          </div>
+        </div>
+        <span style="width:64px;text-align:right;font-weight:800;font-size:12.5px">${actPct.toFixed(1)}%</span>
+        <span style="width:150px;text-align:right;font-size:11px;color:var(--mut)">잔여 한도 ${cbManwon(Math.max(0,lumpT-actT))}</span>
+      </div>
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--mut);flex-wrap:wrap">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--acc)"></span>일시금 증여 (한도 그대로)</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--up)"></span>유기정기금 월 이체 (할인율 반영)</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:0;border-top:2px dashed var(--dim)"></span>구간별 비과세 한도</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--acc3)"></span>실제 증여 누적</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:0;border-top:2px dashed ${wn}"></span>구간별 비과세 한도 (누적)</span>
       </div>
       ${cbGiftChartSvg(1100,230)}
     </div>
@@ -858,18 +936,6 @@ function cbDcaDel(idx){
   cbRenderDca();
 }
 
-// ───────────────────────── 표시 통화 ─────────────────────────
-function setDispCur(c){
-  if (!['USD','KRW','JPY'].includes(c)) return;
-  _dispCur = c;
-  try{ localStorage.setItem('cobalt.dispCur', c); }catch(e){}
-  ['USD','KRW','JPY'].forEach(k=>{
-    const b=document.getElementById('cur-seg-'+k);
-    if(b) b.classList.toggle('active', k===c);
-  });
-  cbRerender();
-}
-
 // ───────────────────────── 라우팅 통합 ─────────────────────────
 function cbRerender(){
   if (_cobaltActive && CB_VIEWS[_cobaltActive]){
@@ -903,6 +969,20 @@ changeOwner = function(owner, btn, isRefresh){
   _cbOrigChangeOwner(owner, btn, isRefresh);
   cbRerender();
 };
+// 자산 내역에서 추가/수정/삭제 → KV 저장이 일어나면 활성 Cobalt 페이지(대시보드 등)에 즉시 반영
+const _cbOrigSaveAssets = saveAssetsToKV;
+saveAssetsToKV = async function(){
+  const r = await _cbOrigSaveAssets();
+  cbRerender();
+  return r;
+};
+// 초기 KV 로드 완료 시에도 대시보드 재렌더 (시세 갱신 실패 시에도 보유 자산은 표시)
+const _cbOrigLoadAssets = loadAssetsFromKV;
+loadAssetsFromKV = async function(){
+  const r = await _cbOrigLoadAssets();
+  cbRerender();
+  return r;
+};
 const _cbOrigFetchDivData = fetchDivData;
 fetchDivData = async function(){
   await _cbOrigFetchDivData();
@@ -913,13 +993,9 @@ updateBenchmark = function(tf, btn){
   _cbOrigUpdateBenchmark(tf, btn);
   if (_cobaltActive === 'perf2') cbRerender();
 };
-
-// 초기 상태: 저장된 표시 통화 반영
-(function(){
-  try{
-    ['USD','KRW','JPY'].forEach(k=>{
-      const b=document.getElementById('cur-seg-'+k);
-      if(b) b.classList.toggle('active', k===_dispCur);
-    });
-  }catch(e){}
-})();
+// 테마 전환 시 활성 Cobalt 페이지 재렌더 — 인라인으로 해석된 테마 색(hex)을 새 테마 기준으로 다시 계산
+const _cbOrigSetTheme = setTheme;
+setTheme = function(mode){
+  _cbOrigSetTheme(mode);
+  cbRerender();
+};
