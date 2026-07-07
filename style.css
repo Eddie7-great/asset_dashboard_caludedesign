@@ -56,9 +56,10 @@
     }
     [data-theme="dark"]{--upSoft:rgba(52,211,153,.12)}
     [data-theme="navy"]{--upSoft:rgba(77,222,128,.12)}
-    /* 시안식 용어 툴팁 — 점선 밑줄 + 호버 말풍선 */
-    [data-tip]{position:relative;cursor:help;border-bottom:1px dashed var(--dim)}
-    [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 7px);z-index:99;width:max-content;max-width:250px;white-space:normal;background:var(--tipbg);color:var(--tiptx);font-size:11.5px;font-weight:400;line-height:1.55;padding:8px 11px;border-radius:8px;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.35);pointer-events:none;letter-spacing:0;text-transform:none}
+    /* 시안식 용어 툴팁 — 점선 밑줄. 말풍선은 JS(#global-tip, position:fixed)로 표시해
+       패널 overflow/스크롤 컨테이너에 잘리지 않도록 함 */
+    [data-tip]{cursor:help;border-bottom:1px dashed var(--dim)}
+    #global-tip{position:fixed;display:none;z-index:99999;width:max-content;max-width:280px;white-space:normal;background:var(--tipbg);color:var(--tiptx);font-size:11.5px;font-weight:400;line-height:1.55;padding:8px 11px;border-radius:8px;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.35);pointer-events:none;letter-spacing:0;text-transform:none;text-align:left}
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
@@ -432,13 +433,6 @@
     .rsk-owner-pill:hover { color: var(--acc); border-color: var(--acc); }
     .rsk-owner-pill.active { background: var(--acc); color: #fff; border-color: var(--acc); }
 
-    /* 목표 & 리밸런싱 view: 패널 헤더의 info-tip 은 외부 overflow-y:auto 래퍼에
-       의해 위쪽이 잘리므로 아래쪽으로 펼치도록 override. */
-    #view-target_rebal .info-tip:hover::after,
-    #view-target_rebal .info-tip:focus::after {
-      bottom: auto; top: calc(100% + 8px);
-    }
-
     /* === 목표 & 리밸런싱 View === */
     .tgt-top5-row {
       display: grid;
@@ -773,33 +767,7 @@
     .info-tip::before { content: '?'; }
     .info-tip:hover,
     .info-tip:focus { background: var(--acc); color: #fff; border-color: var(--acc); }
-    .info-tip:hover::after,
-    .info-tip:focus::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--tipbg);
-      color: var(--tiptx);
-      border: 1px solid var(--border-dark);
-      padding: 9px 12px;
-      border-radius: 8px;
-      font-size: .72rem;
-      font-weight: 500;
-      white-space: normal;
-      width: max-content;
-      max-width: 280px;
-      text-align: left;
-      z-index: 100;
-      line-height: 1.5;
-      box-shadow: 0 6px 18px rgba(0,0,0,.32);
-      pointer-events: none;
-    }
-    .info-tip:hover::before,
-    .info-tip:focus::before {
-      /* keep the ? showing on hover too */
-    }
+    /* 말풍선은 전역 #global-tip(JS)로 표시 — overflow 잘림 방지 */
 
 
     /* ── Cobalt 시안 페이지 공통 컴포넌트 ─────────────────────── */

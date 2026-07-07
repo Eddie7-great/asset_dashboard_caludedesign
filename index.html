@@ -314,76 +314,8 @@
           <div id="portfolio-tables" class="f-col" style="gap:12px"></div>
         </div>
 
-        <!-- ② 부동산 섹션 - 아코디언 -->
-        <div id="htab-realestate" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('re-accordion-body','re-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부동산</span>
-              <span id="re-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-              <div style="display:flex;gap:16px;font-size:.75rem">
-                <span style="color:var(--t3)">총 시세: <strong id="re-header-cur" style="color:var(--t1)">₩0</strong></span>
-                <span style="color:var(--t3)">미실현 손익: <strong id="re-header-gain">₩0</strong></span>
-              </div>
-              <button class="api-btn" onclick="event.stopPropagation();openREModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
-              <span id="re-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
-            </div>
-          </div>
-          <!-- 아코디언 바디: 목록만 표시 -->
-          <div id="re-accordion-body" style="display:none;flex-direction:column;gap:10px;margin-top:10px">
-            <div class="glass-panel" style="flex:1;overflow-y:auto">
-              <div class="card-title f-between">보유 부동산 목록
-                <div style="display:flex;gap:16px;font-size:.75rem">
-                  <span style="color:var(--t3)">매입가: <strong id="re-total-purch">₩0</strong></span>
-                  <span style="color:var(--t3)">대출잔여: <strong class="c-dn" id="re-total-mort">₩0</strong></span>
-                  <span style="color:var(--t3)">순자산: <strong id="re-net">₩0</strong></span>
-                </div>
-              </div>
-              <!-- JS 호환용 숨김 ID -->
-              <span id="re-total-cur" style="display:none"></span>
-              <span id="re-total-gain" style="display:none"></span>
-              <table class="pt-table">
-                <thead><tr><th class="text-left">소유주</th><th class="text-left">물건명</th><th>매입가</th><th>현재 시세</th><th>담보대출 잔여</th><th>미실현 손익</th><th>수익률</th><th>관리</th></tr></thead>
-                <tbody id="re-table-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부동산이 없습니다.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ③ 부채 섹션 - 아코디언 -->
-        <div id="htab-liability" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('liab-accordion-body','liab-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부채</span>
-              <span id="liab-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-              <div style="display:flex;gap:16px;font-size:.75rem">
-                <span style="color:var(--t3)">대출총액: <strong class="c-dn" id="liab-summary-total">₩0</strong></span>
-                <span style="color:var(--t3)">연간이자: <strong class="c-dn" id="liab-summary-interest">₩0/년</strong></span>
-                <span style="color:var(--t3)">잔여원금: <strong class="c-dn" id="liab-summary-balance">₩0</strong></span>
-              </div>
-              <button class="api-btn" onclick="event.stopPropagation();openLiabModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
-              <span id="liab-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
-            </div>
-          </div>
-          <!-- 아코디언 바디: 목록만 표시 (순자산 요약/도넛 제거) -->
-          <div id="liab-accordion-body" style="display:none;flex-direction:column;gap:12px;margin-top:10px">
-            <!-- JS 호환용 숨김 요소 -->
-            <span id="liab-summary-assets" style="display:none"></span>
-            <span id="liab-summary-re" style="display:none"></span>
-            <span id="liab-summary-net" style="display:none"></span>
-            <canvas id="liabDonutChart" style="display:none"></canvas>
-            <div class="glass-panel" style="overflow-y:auto">
-              <div class="card-title">부채 상세 내역</div>
-              <table class="pt-table">
-                <thead><tr><th class="text-left" style="font-size:.75rem">소유주</th><th class="text-left" style="font-size:.75rem">부채명</th><th class="text-left" style="font-size:.75rem">금융기관</th><th style="font-size:.75rem">대출총액</th><th style="font-size:.75rem">잔여원금</th><th style="font-size:.75rem">금리</th><th style="font-size:.75rem">월 납부액(PMT)</th><th style="font-size:.75rem">관리</th></tr></thead>
-                <tbody id="liab-table-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부채가 없습니다.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <!-- 부동산/부채 섹션 삭제됨 — JS 호환용 숨김 캔버스만 유지 -->
+        <div style="display:none"><canvas id="liabDonutChart"></canvas></div>
       </div>
     </div>
 

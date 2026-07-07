@@ -822,6 +822,42 @@ try{
 }catch(e){}
 
 // =============================================
+// 전역 툴팁 — [data-tip] 말풍선을 position:fixed 단일 엘리먼트로 표시
+// (CSS ::after 방식은 패널 overflow/스크롤 컨테이너에 잘리므로 대체)
+// =============================================
+(function(){
+  let _tipEl = null;
+  function _tipEnsure(){
+    if (!_tipEl){ _tipEl = document.createElement('div'); _tipEl.id = 'global-tip'; document.body.appendChild(_tipEl); }
+    return _tipEl;
+  }
+  function _tipShow(target){
+    const txt = target.getAttribute('data-tip'); if (!txt) return;
+    const el = _tipEnsure();
+    el.textContent = txt; el.style.display = 'block';
+    const r = target.getBoundingClientRect();
+    const tw = el.offsetWidth, th = el.offsetHeight;
+    let x = r.left + r.width/2 - tw/2;
+    x = Math.max(8, Math.min(x, window.innerWidth - tw - 8));
+    let y = r.top - th - 8;               // 기본: 대상 위
+    if (y < 8) y = r.bottom + 8;          // 화면 위로 넘치면 아래로 플립
+    y = Math.min(y, window.innerHeight - th - 8);
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+  function _tipHide(){ if (_tipEl) _tipEl.style.display = 'none'; }
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (t) _tipShow(t); else _tipHide();
+  });
+  document.addEventListener('focusin', e => {
+    const t = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (t) _tipShow(t);
+  });
+  document.addEventListener('focusout', _tipHide);
+  document.addEventListener('scroll', _tipHide, true);
+})();
+
+// =============================================
 // 모바일 내비게이션 (사이드바 드로어)
 // =============================================
 const _mobileMQ = window.matchMedia('(max-width: 768px)');
@@ -910,10 +946,7 @@ function switchView(viewId, btn) {
     const hOwner = currentOwner;
     _holdingsBrokerFilter = '전체';
     renderPortfolio(hOwner);
-    renderRealEstate();
-    renderLiabilities();
     updateNetAssetDisplay();
-    if (window.liabDonutChartInst) setTimeout(()=>window.liabDonutChartInst.resize(), 100);
   }
   if (viewId==='realestate'){switchView('holdings',document.querySelector('.menu-btn[onclick*="holdings"]'));setTimeout(()=>switchHoldingsTab('realestate',document.getElementById('htab-btn-realestate')),50);return;}
   if (viewId==='liability'){switchView('holdings',document.querySelector('.menu-btn[onclick*="holdings"]'));setTimeout(()=>switchHoldingsTab('liability',document.getElementById('htab-btn-liability')),50);return;}
