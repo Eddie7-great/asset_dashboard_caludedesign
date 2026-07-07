@@ -74,6 +74,14 @@
     /* 세로 스크롤은 허용하되 스크롤바는 표시하지 않음 (사이드메뉴 요구사항) */
     .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0;scrollbar-width:none}
     .menu-list::-webkit-scrollbar{display:none;width:0;height:0}
+    /* ── 사이드바 환율/금 위젯 (Cobalt) ─────────────────────── */
+    .side-rates{margin-bottom:12px;padding:11px 12px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+    .side-rates-date{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--lab);letter-spacing:.06em;text-align:center;border-bottom:1px solid var(--bd);padding-bottom:7px;margin-bottom:1px}
+    .side-rate-row{display:flex;justify-content:space-between;align-items:center;gap:6px}
+    .side-rate-label{font-size:10px;letter-spacing:.08em;color:var(--lab);font-weight:600}
+    .side-rate-val{font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:var(--tx)}
+    .side-rates-sep{height:1px;background:var(--bd);margin:1px 0}
+    #gold-unit-select{background:transparent;border:none;color:var(--lab);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;padding:0;outline:none}
     .cf-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:center;justify-content:center}
     .cf-modal.active{display:flex;animation:fadeIn .2s}
     .cf-modal-content{background:var(--bg1);border-radius:12px;padding:20px;width:400px;max-width:90%;position:relative;box-shadow:var(--gshadow);border:1px solid var(--border-light);max-height:80vh;overflow-y:auto}
@@ -97,9 +105,10 @@
     .view-section.active{display:flex;flex-direction:column}
     @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
     .page-title{margin:0;font-weight:700;font-size:1.3rem}
-    .api-btn{background:var(--acc);color:#fff!important;border:none;padding:6px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:.8rem;transition:.2s;font-family:inherit}
-    .api-btn:hover{opacity:.85}
-    .owner-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    /* 추가/검색 버튼 — Cobalt cb-btn과 동일 타이포그래피 */
+    .api-btn{background:var(--acc);color:#fff!important;border:none;padding:6px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12.5px;transition:.2s;font-family:'Noto Sans KR',sans-serif}
+    .api-btn:hover{opacity:.9}
+    .owner-tabs{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
     .dash-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);gap:12px;flex:1;min-height:550px}
     .dash-main{gap:12px;min-width:0;min-height:0}
     .dash-side{gap:12px;min-width:0;min-height:0}
@@ -164,8 +173,8 @@
     .form-label{font-size:.75rem;font-weight:600;color:var(--t3)}
     .form-input{padding:10px 12px;border-radius:8px;border:1px solid var(--border-dark);background:var(--inner-bg);outline:none;transition:.2s;font-family:inherit;color:var(--t1)}
     .form-input:focus{background:var(--modal-bg);border-color:var(--acc);box-shadow:0 0 0 2px rgba(120,140,190,.32)}
-    .btn-submit{padding:10px 20px;background:var(--acc);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;height:39px;transition:.2s}
-    .btn-submit:hover{opacity:.85}
+    .btn-submit{padding:10px 20px;background:var(--acc);color:white;border:none;border-radius:9px;font-weight:700;font-size:12.5px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;height:39px;transition:.2s}
+    .btn-submit:hover{opacity:.9}
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.55);display:none;justify-content:center;align-items:center;z-index:1000}
     .modal-overlay.active{display:flex}
     .modal-content{background:var(--modal-bg);color:var(--t1);width:450px;border-radius:16px;padding:25px;box-shadow:0 10px 40px rgba(0,0,0,.4);gap:15px;border:1px solid var(--border-dark)}
@@ -193,27 +202,32 @@
       box-shadow: var(--gshadow);
     }
     /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
-    /* 기본 소유주 버튼 (우상단/정밀분석) – 이전 버전 클린 스타일 복귀 */
+    /* 소유주 버튼 — Cobalt 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
+    .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
+      background: var(--inner-bg);
+      border: 1px solid var(--border-dark);
+      border-radius: 10px;
+      padding: 3px;
+    }
     .owner-btn {
-      padding: 5px 14px;
-      border-radius: 15px;
-      border: 1px solid var(--panel-border);
-      background: var(--glass);
-      font-weight: 600;
-      font-size: .8rem;
+      padding: 5px 13px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      font-weight: 700;
+      font-size: .76rem;
       cursor: pointer;
-      color: var(--t2);
-      transition: .2s;
+      color: var(--t3);
+      transition: background .15s, color .15s;
+      font-family: inherit;
     }
     .owner-btn:hover {
       background: var(--hover-bg);
-      color: var(--acc);
-      border-color: var(--acc);
+      color: var(--t1);
     }
     .owner-btn.active {
-      background: var(--acc);
-      color: white;
-      border-color: var(--acc);
+      background: var(--acc-soft2);
+      color: var(--t1);
     }
     /* 선버스트 패널 내부 owner-btn은 공통 스타일 그대로 사용 (다른 페이지와 통일) */
     #sunburst-container {
@@ -805,6 +819,8 @@
     .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
     .cb-num{font-family:'IBM Plex Mono',monospace}
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
+    /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
+    .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
 
     /* =============================================
        모바일 (≤768px): 햄버거 드로어 + 전체 뷰 세로 재배치

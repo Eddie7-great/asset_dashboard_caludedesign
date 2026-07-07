@@ -33,24 +33,22 @@
 
 <div class="layout">
   <aside class="glass-panel menu-col">
-    <!-- 환율/금 사이드바: USD/KRW → USD/JPY → JPY100/KRW → GOLD, 색상 통일 -->
-    <div class="f-col" style="margin-bottom:12px;padding:10px;background:var(--inner-bg);border-radius:12px;border:1px solid var(--border-light);font-size:0.76rem;">
-      <div id="side-date-display" style="font-weight:700;color:var(--t1);margin-bottom:8px;text-align:center;font-size:0.85rem;border-bottom:1px solid var(--border-dark);padding-bottom:6px;">-</div>
-      <div class="f-col" style="gap:7px;font-family:'JetBrains Mono';">
-        <div class="f-between"><span style="color:var(--t3)">USD/KRW</span><strong id="side-usd-rate" style="color:var(--acc)">-</strong></div>
-        <div class="f-between"><span style="color:var(--t3)">USD/JPY</span><strong id="side-usdjpy-rate" style="color:var(--acc)">-</strong></div>
-        <div class="f-between"><span style="color:var(--t3)">JPY100/KRW</span><strong id="side-jpy-rate" style="color:var(--acc)">-</strong></div>
-        <div style="height:1px;background:var(--border-dark);margin:4px 0;"></div>
-        <div class="f-between" style="align-items:center;gap:4px">
-          <span style="color:var(--t3);white-space:nowrap">GOLD
-            <select id="gold-unit-select" onchange="changeGoldUnit(this.value)" style="background:transparent;border:none;color:var(--t3);font-size:.75rem;font-family:'JetBrains Mono';cursor:pointer;padding:0;outline:none">
-              <option value="g" selected>(g)</option>
-              <option value="돈">(돈)</option>
-              <option value="kg">(kg)</option>
-            </select>
-          </span>
-          <strong id="side-gold-rate" style="color:var(--acc)">-</strong>
-        </div>
+    <!-- 환율/금 사이드바 (Cobalt 스타일): USD/KRW → USD/JPY → JPY100/KRW → GOLD -->
+    <div class="side-rates">
+      <div id="side-date-display" class="side-rates-date">-</div>
+      <div class="side-rate-row"><span class="side-rate-label">USD/KRW</span><strong id="side-usd-rate" class="side-rate-val">-</strong></div>
+      <div class="side-rate-row"><span class="side-rate-label">USD/JPY</span><strong id="side-usdjpy-rate" class="side-rate-val">-</strong></div>
+      <div class="side-rate-row"><span class="side-rate-label">JPY100/KRW</span><strong id="side-jpy-rate" class="side-rate-val">-</strong></div>
+      <div class="side-rates-sep"></div>
+      <div class="side-rate-row">
+        <span class="side-rate-label" style="white-space:nowrap">GOLD
+          <select id="gold-unit-select" onchange="changeGoldUnit(this.value)">
+            <option value="g" selected>(g)</option>
+            <option value="돈">(돈)</option>
+            <option value="kg">(kg)</option>
+          </select>
+        </span>
+        <strong id="side-gold-rate" class="side-rate-val">-</strong>
       </div>
     </div>
     <div class="menu-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
@@ -398,11 +396,11 @@
         <div class="f-col" style="gap:15px;height:100%;min-height:0;overflow-y:auto">
           <!-- 통합 수입/지출 내역 관리 -->
           <div id="cf-input-panel" class="glass-panel" style="flex-shrink:0">
-            <div class="card-title f-between">수입 / 지출 내역 관리
+            <div class="cb-label f-between" style="margin-bottom:10px">수입 / 지출 내역 관리
               <div style="display:flex;align-items:center;gap:10px">
-                <div style="display:flex;gap:6px">
-                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2)"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()"> 일회성</label>
-                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2)"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()"> 자동이체</label>
+                <div style="display:flex;gap:8px">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()" style="accent-color:var(--acc)"> 일회성</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()" style="accent-color:var(--acc)"> 자동이체</label>
                 </div>
               </div>
             </div>
@@ -431,11 +429,11 @@
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>
           </div>
           <div class="glass-panel" style="flex:1;overflow-y:auto">
-            <div class="card-title f-between">
+            <div class="cb-label f-between" style="margin-bottom:10px">
               <span>상세 내역 리스트 (전체)</span>
-              <div class="f-row" style="gap:8px">
-                <select id="cf-sel-year" class="form-input" style="padding:4px 8px;font-size:0.75rem;height:auto" onchange="changeCfDate()"></select>
-                <select id="cf-sel-month" class="form-input" style="padding:4px 8px;font-size:0.75rem;height:auto" onchange="changeCfDate()"></select>
+              <div class="f-row" style="gap:6px">
+                <select id="cf-sel-year" class="cb-input" onchange="changeCfDate()"></select>
+                <select id="cf-sel-month" class="cb-input" onchange="changeCfDate()"></select>
               </div>
             </div>
             <table id="cf-detail-table" class="pt-table">
@@ -457,7 +455,7 @@
         <div class="f-col" style="gap:15px;height:100%;min-height:0">
           <div class="glass-panel f-col" style="flex:2;min-height:0">
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
-              <div class="card-title f-between" style="align-items:center;margin-bottom:0">
+              <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
                 <div class="tf-btns"><button class="tf-btn" style="padding:3px 9px;font-size:.72rem;line-height:1" onclick="prevCfMonth()" title="이전 달">◀</button><button class="tf-btn" style="padding:3px 9px;font-size:.72rem;line-height:1" onclick="nextCfMonth()" title="다음 달">▶</button></div>
               </div>
@@ -470,7 +468,7 @@
             </div>
           </div>
           <div class="glass-panel f-col" style="flex:1;min-height:0">
-            <div class="card-title f-between" style="align-items:center">순현금흐름 추이 (6개월) <span style="font-size:.68rem;color:var(--acc);font-weight:normal">배당 수입 포함</span></div>
+            <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:.68rem;color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
             <div class="chart-container"><canvas id="cfTrendChart"></canvas></div>
           </div>
           <div class="glass-panel" id="cf-div-panel" style="flex-shrink:0;display:none"></div>

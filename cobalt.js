@@ -287,7 +287,7 @@ function cbRenderDash(){
         <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:16px;background:var(--accSoft);color:var(--tx)">연 배당 ${cbDisp(divAnnual)}</span>
         <span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:16px;background:var(--accSoft);color:var(--tx);cursor:pointer" onclick="switchView('risk2',document.getElementById('menu-risk2'))">리스크 ${risk.score}점</span>
       </div>
-      <button onclick="openAddModal('주식')" class="cb-btn" style="margin-left:auto">＋ 종목 추가</button>
+      <span style="margin-left:auto;font-size:10.5px;color:var(--dim)">종목 추가·삭제는 "자산 내역"에서</span>
     </div>
 
     <div style="display:flex;gap:12px;margin-top:14px;align-items:stretch;flex-wrap:wrap">
@@ -424,7 +424,6 @@ function cbRenderFam(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="cb-title">가족 자산 현황</div>
       <div style="font-size:11.5px;color:var(--lab)">카드 클릭 시 해당 구성원만 필터링</div>
-      <button onclick="openAddModal('주식')" class="cb-btn" style="margin-left:auto;padding:8px 14px;font-size:12px">＋ 종목 추가</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px">
       ${cards.map(f=>`
@@ -598,6 +597,20 @@ function cbGiftFmtInput(el){
   const digits = el.value.replace(/[^\d]/g,'');
   el.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
 }
+function cbGiftBirth(){
+  const b = (window._giftActual||{}).birth;
+  return /^\d{4}-\d{2}$/.test(b||'') ? b : '2023-08';
+}
+function cbGiftSetBirth(v){
+  if (!/^\d{4}-\d{2}$/.test(v||'')) return;
+  window._giftActual = window._giftActual || {};
+  window._giftActual.birth = v;
+  try{ localStorage.setItem('giftActual', JSON.stringify(window._giftActual)); }catch(e){}
+  try{ saveExtDataToKV(); }catch(e){}
+  cbRenderGift();
+}
+// 구간별 색 (코발트 팔레트 — 데이터 색이므로 테마 무관 고정)
+const CB_GIFT_SEG_COLORS = ['#5b9bff','#4ecdc4','#f2a33c','#c084fc'];
 function cbGiftSegs(){
   const r = Math.pow(1.03, 1/12);
   const pvf = (1 - Math.pow(1.03, -10)) / (1 - 1/r);
@@ -606,119 +619,148 @@ function cbGiftSegs(){
     {label:'미성년 후기', ages:'10~19세', a0:10, limit:20000000},
     {label:'성년 전기',   ages:'20~29세', a0:20, limit:50000000},
     {label:'성년 후기',   ages:'30~39세', a0:30, limit:50000000},
-  ].map((g,i)=>{ const M=g.limit/pvf, nominal=M*120; return {...g, idx:i, monthly:M, nominal, extra:nominal-g.limit, actual:cbGiftActualOf(i)}; });
+  ].map((g,i)=>{ const M=g.limit/pvf, nominal=M*120; return {...g, idx:i, color:CB_GIFT_SEG_COLORS[i], monthly:M, nominal, extra:nominal-g.limit, actual:cbGiftActualOf(i)}; });
 }
+// 연도별 누적 막대 그래프 — x축: 연도(출생 연월 기준), y축: 금액
 function cbGiftChartSvg(w,h){
   const segs = cbGiftSegs();
   const wn = (typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706');
-  const maxY = segs.reduce((s,g)=>s+g.nominal,0)*1.08;
-  const X=a=>a/40*w, Y=v=>h-18-(v/maxY)*(h-30);
-  let cum=0; const lumpPts=[[0,0]];
-  segs.forEach(g=>{ lumpPts.push([g.a0,cum]); cum+=g.limit; lumpPts.push([g.a0,cum]); });
-  lumpPts.push([40,cum]);
-  const lumpD='M'+lumpPts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' L');
-  let cumA=0; const annPts=[[0,0]];
-  segs.forEach(g=>{ annPts.push([g.a0,cumA]); cumA+=g.nominal; annPts.push([g.a0+10,cumA]); });
-  annPts.push([40,cumA]);
-  const annD='M'+annPts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' L');
+  const birth = cbGiftBirth();
+  const by = parseInt(birth.slice(0,4),10);
+  const N = 40; // 0~39세
+  const totalNominal = segs.reduce((s,g)=>s+g.nominal,0);
+  const maxY = totalNominal*1.12;
+  const padL=52, padR=8, padT=10, padB=22;
+  const plotW=w-padL-padR, plotH=h-padT-padB;
+  const X=a=>padL + a*(plotW/N);
+  const bw=plotW/N-2.4;
+  const Y=v=>padT + plotH - (v/maxY)*plotH;
   let out='';
-  [0,10,20,30,40].forEach(a=>{
-    out+=`<line x1="${X(a)}" x2="${X(a)}" y1="0" y2="${h-18}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    out+=`<text x="${X(a)+3}" y="${h-5}" style="fill:var(--lab)" font-size="11" font-family="Noto Sans KR">${a}세</text>`;
+  // Y축 그리드 + 라벨 (4,000만원 간격)
+  for(let v=0; v<=maxY; v+=40000000){
+    out+=`<line x1="${padL}" x2="${w-padR}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--grid)" stroke-width="1"></line>`;
+    out+=`<text x="${padL-6}" y="${Y(v)+4}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="IBM Plex Mono">${v===0?'0':Math.round(v/10000).toLocaleString()+'만'}</text>`;
+  }
+  // 누적 명목 이체액 막대 (구간별 색)
+  let cum=0; const cumByAge=[];
+  segs.forEach(g=>{
+    const annual=g.nominal/10;
+    for(let k=0;k<10;k++){
+      cum+=annual; cumByAge.push(cum);
+      const a=g.a0+k, y=Y(cum);
+      out+=`<rect x="${(X(a)+1.2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-y).toFixed(1)}" rx="1.5" fill="${g.color}" opacity="0.82"><title>${by+a}년 (${a}세) — 누적 ${Math.round(cum/10000).toLocaleString()}만원</title></rect>`;
+    }
   });
-  // 구간별 비과세 한도(누적) — 경고색 굵은 점선 + 눈에 띄는 라벨 (가시성 개선)
+  // X축 라벨: 5년 간격 연도
+  for(let a=0;a<=N;a+=5){
+    out+=`<text x="${X(a)+(a<N?bw/2:0)}" y="${h-6}" style="fill:var(--lab)" font-size="10" text-anchor="middle" font-family="IBM Plex Mono">${by+a}</text>`;
+  }
+  // 구간별 비과세 한도(누적) — 경고색 점선 + 라벨
   let c2=0;
-  segs.forEach((g,i)=>{ c2+=g.limit;
+  segs.forEach(g=>{ c2+=g.limit;
     out+=`<line x1="${X(g.a0)}" x2="${X(g.a0+10)}" y1="${Y(c2)}" y2="${Y(c2)}" stroke="${wn}" stroke-width="2" stroke-dasharray="7 5" opacity="0.95"></line>`;
-    out+=`<text x="${X(g.a0)+4}" y="${Y(c2)-6}" fill="${wn}" font-size="11.5" font-weight="700" font-family="Noto Sans KR">한도 누적 ${Math.round(c2/10000).toLocaleString()}만</text>`;
+    out+=`<text x="${X(g.a0)+4}" y="${Y(c2)-6}" fill="${wn}" font-size="11" font-weight="700" font-family="Noto Sans KR">한도 누적 ${Math.round(c2/10000).toLocaleString()}만</text>`;
   });
-  // 실제 증여 누적 추이 (구간 내 선형 증가로 표현)
+  // 실제 증여 누적 라인 (구간 내 선형 증가)
   let cumR=0; const actPts=[[0,0]]; let anyActual=false;
   segs.forEach(g=>{ actPts.push([g.a0,cumR]); if(g.actual>0) anyActual=true; cumR+=g.actual; actPts.push([g.a0+10,cumR]); });
-  actPts.push([40,cumR]);
+  actPts.push([N,cumR]);
   if (anyActual){
     const actD='M'+actPts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' L');
-    out+=`<path d="${actD}" fill="none" style="stroke:var(--acc3)" stroke-width="2.6" stroke-linejoin="round"></path>`;
-    out+=`<text x="${w-4}" y="${Math.max(14, Y(cumR)+16)}" style="fill:var(--acc3)" font-size="12" font-weight="700" text-anchor="end" font-family="Noto Sans KR">실제 증여 ${Math.round(cumR/10000).toLocaleString()}만원</text>`;
+    out+=`<path d="${actD}" fill="none" style="stroke:var(--tx)" stroke-width="2.4" stroke-linejoin="round"></path>`;
   }
-  out+=`<path d="${lumpD}" fill="none" style="stroke:var(--acc)" stroke-width="2.2" stroke-linejoin="round"></path>`;
-  out+=`<path d="${annD}" fill="none" style="stroke:var(--up)" stroke-width="2.6" stroke-linejoin="round"></path>`;
-  out+=`<text x="${w-4}" y="${Y(cumA)-8}" style="fill:var(--up)" font-size="12" font-weight="700" text-anchor="end" font-family="Noto Sans KR">명목 ${Math.round(cumA/10000).toLocaleString()}만원</text>`;
+  // 현재 시점 마커 (출생 연월 기준 나이)
+  const now=new Date();
+  const ageNow=(now - new Date(birth+'-01'))/(365.25*86400000);
+  if (ageNow>=0 && ageNow<=N){
+    out+=`<line x1="${X(ageNow)}" x2="${X(ageNow)}" y1="${padT}" y2="${padT+plotH}" style="stroke:var(--acc)" stroke-width="1.4" stroke-dasharray="3 4"></line>`;
+    out+=`<text x="${X(ageNow)+4}" y="${padT+11}" style="fill:var(--acc)" font-size="10.5" font-weight="700" font-family="Noto Sans KR">현재 (${Math.floor(ageNow)}세)</text>`;
+  }
   return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">${out}</svg>`;
 }
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
   const segs = cbGiftSegs();
   const wn = (typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706');
+  const birth = cbGiftBirth();
+  const by = parseInt(birth.slice(0,4),10);
   const lumpT = segs.reduce((s,g)=>s+g.limit,0), annT = segs.reduce((s,g)=>s+g.nominal,0);
   const actT = segs.reduce((s,g)=>s+g.actual,0);
   const actPct = lumpT ? actT/lumpT*100 : 0;
   el.innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><div class="cb-title">자녀 증여 플랜</div><div style="font-size:11.5px;color:var(--lab)"><span data-tip="일정 기간 동안 정기적으로 나누어 주는 증여. 미래 지급분을 연 3% 할인율로 현재가치 평가하므로, 같은 비과세 한도로 더 많은 금액을 이체할 수 있습니다.">유기정기금</span> 방식 · 연 3.0% 할인율 적용</div></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="cb-title">자녀 증여 플랜</div>
+      <div style="font-size:11.5px;color:var(--lab)"><span data-tip="일정 기간 동안 정기적으로 나누어 주는 증여. 미래 지급분을 연 3% 할인율로 현재가치 평가하므로, 같은 비과세 한도로 더 많은 금액을 이체할 수 있습니다.">유기정기금</span> 방식 · 연 3.0% 할인율 적용</div>
+      <label style="margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--lab);font-weight:600">자녀 출생 연월
+        <input type="month" id="cb-gift-birth" class="cb-input cb-num" value="${birth}" onchange="cbGiftSetBirth(this.value)" style="padding:6px 9px" />
+      </label>
+    </div>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-      <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">일시금 한도 합계 (0~39세)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(lumpT)}</div></div>
-      <div style="flex:1;min-width:190px;background:var(--upSoft);border:1px solid var(--bd);border-radius:12px;padding:12px 14px"><div style="font-size:11px;color:var(--mut)">유기정기금 이체 가능 총액</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">${cbManwon(annT)}</div></div>
-      <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">할인율 효과 (추가 이체분)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">+${cbManwon(annT-lumpT)}</div></div>
-      <div class="cb-panel" style="flex:1;min-width:190px;padding:12px 14px;border-top:3px solid var(--acc3)"><div style="font-size:11px;color:var(--lab)">실제 증여 누적 / 총 한도</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(actT)} <span style="font-size:12px;color:var(--lab);font-weight:600">(${actPct.toFixed(1)}%)</span></div></div>
+      <div class="cb-panel" style="flex:1;min-width:180px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">일시금 한도 합계 (0~39세)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(lumpT)}</div></div>
+      <div style="flex:1;min-width:180px;background:var(--upSoft);border:1px solid var(--bd);border-radius:12px;padding:12px 14px"><div style="font-size:11px;color:var(--mut)">유기정기금 이체 가능 총액</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">${cbManwon(annT)}</div></div>
+      <div class="cb-panel" style="flex:1;min-width:180px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">할인율 효과 (추가 이체분)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;color:var(--up);margin-top:2px">+${cbManwon(annT-lumpT)}</div></div>
+      <div class="cb-panel" style="flex:1;min-width:180px;padding:12px 14px;border-top:3px solid var(--acc)"><div style="font-size:11px;color:var(--lab)">실제 증여 누적 / 총 한도</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbManwon(actT)} <span style="font-size:12px;color:var(--lab);font-weight:600">(${actPct.toFixed(1)}%)</span></div></div>
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">실제 증여 진행 현황</div><div style="font-size:10.5px;color:var(--dim)">구간별로 실제 증여(이체)한 금액을 입력하면 비과세 한도 대비 진행률을 추적합니다</div></div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap"><div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">구간별 플랜 · 진행 현황</div><div style="font-size:10.5px;color:var(--dim)">실제 증여(이체)한 금액을 입력하면 비과세 한도 대비 진행률을 추적합니다</div></div>
+      <div style="display:flex;font-size:10px;color:var(--dim);padding:0 0 6px;border-bottom:1px solid var(--bd);gap:12px">
+        <span style="width:178px;flex-shrink:0">구간</span>
+        <span style="width:86px;text-align:right;flex-shrink:0"><span data-tip="10년 단위로 재적용되는 증여세 비과세 한도 (미성년 2,000만원 / 성년 5,000만원)">비과세 한도</span></span>
+        <span style="width:118px;text-align:right;flex-shrink:0">월 이체액 <span data-tip="10년간 매월 이체 시 명목 총액 — 할인율 덕분에 한도보다 커집니다">(10년 명목)</span></span>
+        <span style="width:136px;text-align:right;flex-shrink:0">실제 증여액</span>
+        <span style="flex:1;min-width:120px">진행률</span>
+        <span style="width:120px;text-align:right;flex-shrink:0">잔여</span>
+      </div>
       ${segs.map(g=>{
         const pct = g.limit ? g.actual/g.limit*100 : 0;
         const over = g.actual > g.limit;
-        const remain = g.limit - g.actual;
-        const barColor = over ? wn : 'var(--acc3)';
         return `
-        <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-          <span style="width:150px;font-size:12.5px;font-weight:700;flex-shrink:0">${g.label} <span style="font-size:10.5px;color:var(--lab);font-weight:500">${g.ages}</span></span>
-          <span style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-            <input class="cb-input cb-num" value="${g.actual?g.actual.toLocaleString('ko-KR'):''}" placeholder="0"
-              inputmode="numeric" style="width:130px;text-align:right;padding:6px 8px"
-              oninput="cbGiftFmtInput(this)" onchange="cbGiftSetActual(${g.idx}, this.value)" />
-            <span style="font-size:11px;color:var(--lab)">원</span>
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+          <span style="width:178px;flex-shrink:0;display:flex;align-items:center;gap:7px">
+            <span style="width:8px;height:8px;border-radius:2px;background:${g.color};flex-shrink:0"></span>
+            <span style="line-height:1.35"><span style="font-size:12.5px;font-weight:700">${g.label}</span><br><span style="font-size:10px;color:var(--lab);white-space:nowrap">${g.ages} · ${by+g.a0}~${by+g.a0+10}년</span></span>
           </span>
-          <div style="flex:1;min-width:160px">
-            <div style="height:9px;border-radius:5px;background:var(--inner);overflow:hidden;border:1px solid var(--bd)">
-              <div style="height:100%;border-radius:5px;background:${barColor};width:${Math.max(g.actual>0?2:0, Math.min(100, Math.round(pct)))}%;transition:width .25s"></div>
-            </div>
-          </div>
-          <span style="width:64px;text-align:right;font-weight:800;font-size:12.5px;color:${over?wn:'var(--tx)'}">${pct.toFixed(1)}%</span>
-          <span style="width:150px;text-align:right;font-size:11px;color:${over?wn:'var(--mut)'}">${over?'한도 초과 +'+cbManwon(g.actual-g.limit):'잔여 한도 '+cbManwon(remain)}</span>
+          <span style="width:86px;text-align:right;font-size:12px;font-weight:600;flex-shrink:0">${cbManwon(g.limit)}</span>
+          <span style="width:118px;text-align:right;flex-shrink:0;line-height:1.35"><span class="cb-num" style="font-size:11.5px;font-weight:600">${cbKrw(g.monthly)}</span><br><span style="font-size:9.5px;color:var(--lab);white-space:nowrap">명목 ${cbManwon(g.nominal)}</span></span>
+          <span style="width:136px;display:flex;align-items:center;gap:4px;justify-content:flex-end;flex-shrink:0">
+            <input class="cb-input cb-num" value="${g.actual?g.actual.toLocaleString('ko-KR'):''}" placeholder="0"
+              inputmode="numeric" style="width:112px;text-align:right;padding:6px 8px"
+              oninput="cbGiftFmtInput(this)" onchange="cbGiftSetActual(${g.idx}, this.value)" />
+            <span style="font-size:10.5px;color:var(--lab)">원</span>
+          </span>
+          <span style="flex:1;min-width:120px;display:flex;align-items:center;gap:8px">
+            <span style="flex:1;height:8px;border-radius:4px;background:var(--inner);overflow:hidden;border:1px solid var(--bd);display:block">
+              <span style="display:block;height:100%;border-radius:4px;background:${over?wn:g.color};width:${Math.max(g.actual>0?2:0, Math.min(100, Math.round(pct)))}%;transition:width .25s"></span>
+            </span>
+            <span style="width:48px;text-align:right;font-weight:800;font-size:12px;color:${over?wn:'var(--tx)'}">${pct.toFixed(1)}%</span>
+          </span>
+          <span style="width:120px;text-align:right;font-size:10.5px;color:${over?wn:'var(--mut)'};flex-shrink:0">${over?'한도 초과 +'+cbManwon(g.actual-g.limit):cbManwon(g.limit-g.actual)}</span>
         </div>`;}).join('')}
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 0 2px;flex-wrap:wrap">
-        <span style="width:150px;font-size:12.5px;font-weight:800;flex-shrink:0">전체 (0~39세)</span>
-        <span class="cb-num" style="width:140px;text-align:right;font-weight:800;font-size:12.5px;flex-shrink:0">${cbKrw(actT)}</span>
-        <div style="flex:1;min-width:160px">
-          <div style="height:9px;border-radius:5px;background:var(--inner);overflow:hidden;border:1px solid var(--bd)">
-            <div style="height:100%;border-radius:5px;background:var(--up);width:${Math.max(actT>0?2:0, Math.min(100, Math.round(actPct)))}%;transition:width .25s"></div>
-          </div>
-        </div>
-        <span style="width:64px;text-align:right;font-weight:800;font-size:12.5px">${actPct.toFixed(1)}%</span>
-        <span style="width:150px;text-align:right;font-size:11px;color:var(--mut)">잔여 한도 ${cbManwon(Math.max(0,lumpT-actT))}</span>
+      <div style="display:flex;align-items:center;gap:12px;padding:9px 0 2px;flex-wrap:wrap">
+        <span style="width:178px;font-size:12.5px;font-weight:800;flex-shrink:0">전체 (0~39세)</span>
+        <span style="width:86px;text-align:right;font-size:12px;font-weight:700;flex-shrink:0">${cbManwon(lumpT)}</span>
+        <span style="width:118px;text-align:right;flex-shrink:0"><span style="font-size:9.5px;color:var(--lab);white-space:nowrap">명목 ${cbManwon(annT)}</span></span>
+        <span class="cb-num" style="width:136px;text-align:right;font-weight:800;font-size:12px;flex-shrink:0">${cbKrw(actT)}</span>
+        <span style="flex:1;min-width:120px;display:flex;align-items:center;gap:8px">
+          <span style="flex:1;height:8px;border-radius:4px;background:var(--inner);overflow:hidden;border:1px solid var(--bd);display:block">
+            <span style="display:block;height:100%;border-radius:4px;background:var(--up);width:${Math.max(actT>0?2:0, Math.min(100, Math.round(actPct)))}%;transition:width .25s"></span>
+          </span>
+          <span style="width:48px;text-align:right;font-weight:800;font-size:12px">${actPct.toFixed(1)}%</span>
+        </span>
+        <span style="width:120px;text-align:right;font-size:10.5px;color:var(--mut);flex-shrink:0">${cbManwon(Math.max(0,lumpT-actT))}</span>
       </div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.6">※ 상속세 및 증여세법 기준 참고용 시뮬레이션입니다. 실제 신고 시 세무 전문가 확인이 필요합니다. 할인율(기획재정부령 고시 연 3.0%)은 변경될 수 있습니다. 실제 이체 기록 관리가 필요하면 "현금 흐름" 페이지를 사용하세요.</div>
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
-      <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--mut);flex-wrap:wrap">
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--acc)"></span>일시금 증여 (한도 그대로)</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--up)"></span>유기정기금 월 이체 (할인율 반영)</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--acc3)"></span>실제 증여 누적</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:0;border-top:2px dashed ${wn}"></span>구간별 비과세 한도 (누적)</span>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">연도별 누적 증여 시뮬레이션</div>
+        <div style="display:flex;gap:14px;font-size:11px;color:var(--mut);flex-wrap:wrap;margin-left:auto">
+          ${segs.map(g=>`<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${g.color}"></span>${g.label}</span>`).join('')}
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:0;border-top:2px dashed ${wn}"></span>비과세 한도 (누적)</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:var(--tx)"></span>실제 증여 누적</span>
+        </div>
       </div>
-      ${cbGiftChartSvg(1100,230)}
-    </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
-      <div style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 7px;border-bottom:1px solid var(--bd)">
-        <span style="flex:1">구간</span><span style="width:110px;text-align:right"><span data-tip="10년 단위로 재적용되는 증여세 비과세 한도 (미성년 2,000만원 / 성년 5,000만원)">비과세 한도</span></span><span style="width:110px;text-align:right">월 이체액</span><span style="width:130px;text-align:right">10년 명목 이체 총액</span><span style="width:110px;text-align:right">추가 이체분</span>
-      </div>
-      ${segs.map(g=>`
-        <div style="display:flex;align-items:center;padding:10px 8px;border-bottom:1px solid var(--bd);font-size:12.5px">
-          <span style="flex:1;font-weight:700">${g.label} <span style="font-size:10.5px;color:var(--lab);font-weight:500">${g.ages}</span></span>
-          <span style="width:110px;text-align:right;font-weight:600">${cbManwon(g.limit)}</span>
-          <span class="cb-num" style="width:110px;text-align:right;font-size:12px">${cbKrw(g.monthly)}/월</span>
-          <span style="width:130px;text-align:right;font-weight:700">${cbManwon(g.nominal)}</span>
-          <span style="width:110px;text-align:right;font-weight:700;color:var(--up)">+${cbManwon(g.extra)}</span>
-        </div>`).join('')}
-      <div style="font-size:10.5px;color:var(--dim);margin-top:9px;line-height:1.6">※ 상속세 및 증여세법 기준 참고용 시뮬레이션입니다. 실제 신고 시 세무 전문가 확인이 필요합니다. 할인율(기획재정부령 고시 연 3.0%)은 변경될 수 있습니다. 실제 이체 기록 관리가 필요하면 "현금 흐름" 페이지를 사용하세요.</div>
+      ${cbGiftChartSvg(1100,250)}
     </div>`;
 }
 
