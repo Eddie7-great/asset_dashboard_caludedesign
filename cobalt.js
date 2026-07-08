@@ -9,7 +9,7 @@
    _gicsSector, _divpAggregateByYear, _divpComputeCagr, loadMonthlyPL,
    saveMonthlyPL, saveAssetsToKV, loadAssetsFromKV, saveExtDataToKV, cssVar,
    openAddModal, editItem, closeSidebar, fetchDivData, fetchDividendHistory,
-   switchView, changeOwner, updateBenchmark, setTheme, isMobileLayout */
+   switchView, changeOwner, updateBenchmark, setTheme, isMobileLayout, authFetch */
 
 // ───────────────────────── 상태 ─────────────────────────
 // 평가금액 표시 통화는 KRW 고정 (표시 통화 선택 UI 제거됨).
@@ -17,12 +17,15 @@
 const _dispCur = 'KRW';
 let _cobaltActive = null;
 let _cdashQ = '', _cdashSel = null;
+let _cdashAllocOpen = null;   // 자산 배분 펼침 자산군 키 (재클릭 시 닫힘)
+let _cdashSecOpen = null;     // 섹터 집중도 펼침 섹터 라벨 (재클릭 시 닫힘)
+let _cdashSecList = [];       // 렌더 시점 섹터 라벨 목록 (onclick 인덱스 → 라벨 해석용)
 let _famKey = 'all', _famQ = '';
 let _cbDivHistRequested = false;
 
 // ───────────────────────── 상수 (시안 팔레트) ─────────────────────────
 const CB_CLS = {
-  crypto:{label:'크립토',   color:'#f2a33c'},
+  crypto:{label:'가상화폐', color:'#f2a33c'},
   us:    {label:'미국 주식', color:'#5b9bff'},
   kr:    {label:'한국 주식', color:'#4ecdc4'},
   jp:    {label:'일본 주식', color:'#c084fc'},
@@ -102,6 +105,7 @@ function cbRow(i, idx){
   const val = cbValKRW(i), cost = cbCostKRW(i), gain = cbGainKRW(i);
   return {
     i, idx, cls, cl, title,
+    subTitle: nameFirst ? (i.tkr||'') : (i.name||''),
     sub: (nameFirst ? (i.tkr||'') : (i.name||'')) + ' · ' + qtyFmt,
     chip: nameFirst ? String(i.name||i.tkr||'?').slice(0,2) : String(i.tkr||'?').slice(0,4),
     val, cost, gain,
@@ -110,17 +114,103 @@ function cbRow(i, idx){
 }
 function cbAllRows(){ return (pfolioData||[]).filter(i=>(i.qty||0)>0).map((i,idx)=>cbRow(i,idx)).sort((a,b)=>b.val-a.val); }
 
-// 섹터 집계 (주식만)
-function cbSectors(){
-  const eq = (pfolioData||[]).filter(i=>i.grp==='주식' && (i.qty||0)>0);
+// 섹터 집계 (주식 기준. includeCrypto=true면 가상화폐를 'Crypto'로 별도 분류해 포함)
+function cbSectors(includeCrypto){
+  const eq = (pfolioData||[]).filter(i=>(i.grp==='주식' || (includeCrypto && i.grp==='가상화폐')) && (i.qty||0)>0);
   const totals = {}; let total = 0;
   eq.forEach(i=>{ const v = cbValKRW(i); if(v<=0) return;
-    const s = (typeof _gicsSector==='function' ? _gicsSector(i) : '기타') || '기타';
+    const s = i.grp==='가상화폐' ? 'Crypto'
+      : ((typeof _gicsSector==='function' ? _gicsSector(i) : '기타') || '기타');
     totals[s] = (totals[s]||0) + v; total += v; });
-  const list = Object.keys(totals).map((s,n)=>({label:s, v:totals[s], pct:total? totals[s]/total*100 : 0}))
+  const list = Object.keys(totals).map(s=>({label:s, v:totals[s], pct:total? totals[s]/total*100 : 0}))
     .sort((a,b)=>b.v-a.v);
-  list.forEach((s,n)=>{ s.color = CB_SEC_PALETTE[n % CB_SEC_PALETTE.length]; });
+  let n=0; // Crypto는 자산군 고정색, 나머지 섹터만 팔레트 순번 배정
+  list.forEach(s=>{ s.color = s.label==='Crypto' ? CB_CLS.crypto.color : CB_SEC_PALETTE[(n++) % CB_SEC_PALETTE.length]; });
   return { list, total };
+}
+
+// ───────────────────────── ETF 룩스루 (구성종목 합산) ─────────────────────────
+// /api/dashboard?type=etf_holdings 로 보유 ETF의 구성종목·비중을 조회해
+// "직접 보유 + ETF를 통한 간접 보유"를 합산한 실질 종목 비중을 계산한다.
+// 개별 주식으로 직접 보유하지 않은 구성종목은 계산하지 않는다(요구사항).
+let _cbEtfFetching = false;
+
+function cbIsEtf(i){
+  return i.grp==='주식' && typeof _gicsSector==='function' && /ETF$/.test(_gicsSector(i)||'');
+}
+function cbEtfCacheLoad(){
+  if (window._etfHoldingsCache) return;
+  const key = 'etfHold_' + new Date().toISOString().slice(0,10);
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(key)||'{}') || {}; }catch(e){ saved = {}; }
+  window._etfHoldingsCache = saved; // { STRIP: {holdings:[{tkr,name,weight}]} | null(조회 실패) }
+}
+function cbEtfCacheSave(){
+  const key = 'etfHold_' + new Date().toISOString().slice(0,10);
+  try{
+    Object.keys(localStorage).forEach(k=>{ if(k.indexOf('etfHold_')===0 && k!==key) localStorage.removeItem(k); });
+    // 성공 건만 영속화 — 일시 실패(null)는 세션 내에서만 기억해 다음 방문 때 재시도
+    const ok = {};
+    Object.keys(window._etfHoldingsCache||{}).forEach(s=>{ if(window._etfHoldingsCache[s]) ok[s]=window._etfHoldingsCache[s]; });
+    localStorage.setItem(key, JSON.stringify(ok));
+  }catch(e){}
+}
+async function cbEnsureEtfHoldings(){
+  cbEtfCacheLoad();
+  if (_cbEtfFetching) return;
+  const need = [];
+  (pfolioData||[]).forEach(i=>{
+    if (!cbIsEtf(i) || !((i.qty||0)>0)) return;
+    const s = cbStrip(i.tkr);
+    if (s && window._etfHoldingsCache[s] === undefined && need.indexOf(s)<0) need.push(s);
+  });
+  if (!need.length) return;
+  _cbEtfFetching = true;
+  try{
+    await Promise.all(need.map(async s=>{
+      try{
+        const r = await authFetch('/api/dashboard?type=etf_holdings&tkr=' + encodeURIComponent(s));
+        const j = await r.json();
+        window._etfHoldingsCache[s] = (j && j.success && Array.isArray(j.holdings) && j.holdings.length)
+          ? { holdings: j.holdings } : null;
+      }catch(e){ window._etfHoldingsCache[s] = null; }
+    }));
+    cbEtfCacheSave();
+  } finally { _cbEtfFetching = false; }
+  cbRerender();
+}
+function cbLookThrough(){
+  cbEtfCacheLoad();
+  const rows = cbAllRows();
+  const nw = rows.reduce((s,r)=>s+r.val,0) || 1;
+  // 직접 보유한 개별 종목 (주식만, ETF 제외) — 계좌/소유주가 달라도 티커로 합산
+  const direct = new Map();
+  rows.forEach(r=>{
+    if (r.i.grp!=='주식' || cbIsEtf(r.i)) return;
+    const s = cbStrip(r.i.tkr); if(!s) return;
+    const d = direct.get(s) || { tkr:s, title:r.title, val:0, via:0, etfs:[] };
+    d.val += r.val; direct.set(s, d);
+  });
+  let etfCount = 0, pending = false; const etfMiss = [];
+  rows.forEach(r=>{
+    if (!cbIsEtf(r.i)) return;
+    etfCount++;
+    const c = window._etfHoldingsCache[cbStrip(r.i.tkr)];
+    if (c === undefined){ pending = true; return; }
+    if (!c){ if(etfMiss.indexOf(r.title)<0) etfMiss.push(r.title); return; }
+    c.holdings.forEach(h=>{
+      const d = direct.get(cbStrip(h.tkr));
+      if (!d) return; // 개별 보유가 없는 구성종목은 계산 제외
+      const add = r.val * (Number(h.weight)||0) / 100;
+      if (add<=0) return;
+      d.via += add;
+      d.etfs.push({ etf: r.title, w: Number(h.weight)||0, val: add });
+    });
+  });
+  const list = Array.from(direct.values())
+    .map(d=>({ ...d, tot:d.val+d.via, pct:(d.val+d.via)/nw*100, dPct:d.val/nw*100, vPct:d.via/nw*100 }))
+    .sort((a,b)=>b.tot-a.tot);
+  return { list, nw, etfCount, etfMiss, pending };
 }
 
 // 리스크 규칙 진단 (시안 로직 이식)
@@ -155,8 +245,8 @@ function cbRisk(){
   const cards = [
     mk('단일 종목 집중도', topPct, topPct.toFixed(1)+'%', 20, 30,
       ['최대 종목 비중 20% 이하로 분산이 잘 되어 있습니다.','최대 종목 '+topName+' 비중이 20%를 넘습니다. 부분 익절을 고려하세요.','단일 종목 의존도가 30%를 초과합니다. 급락 시 타격이 큽니다.']),
-    mk('크립토 비중', cryptoPct, cryptoPct.toFixed(1)+'%', 20, 35,
-      ['크립토 비중이 관리 가능한 수준입니다.','크립토가 20%를 넘습니다. 일반 권고(5–15%)보다 높습니다.','크립토가 35%를 초과해 변동성을 지배합니다.']),
+    mk('가상화폐 비중', cryptoPct, cryptoPct.toFixed(1)+'%', 20, 35,
+      ['가상화폐 비중이 관리 가능한 수준입니다.','가상화폐가 20%를 넘습니다. 일반 권고(5–15%)보다 높습니다.','가상화폐가 35%를 초과해 변동성을 지배합니다.']),
     mk('섹터 집중도', topSec.pct, Math.round(topSec.pct)+'%', 35, 50,
       ['주식 섹터 분산이 양호합니다.','최대 섹터 '+topSec.label+' 비중이 35%를 넘습니다.',topSec.label+' 편중이 50%를 초과합니다. 섹터 분산이 시급합니다.']),
     mk('추정 연 변동성', vol, vol.toFixed(1)+'%', 22, 32,
@@ -176,12 +266,13 @@ function cbRisk(){
 }
 
 // ───────────────────────── SVG 빌더 ─────────────────────────
-function cbDonutSvg(segs, size){
+function cbDonutSvg(segs, size, clickFn){
   const stroke=size*0.16, r=size/2-stroke/2, c=2*Math.PI*r; let off=0;
   let arcs='';
   (segs||[]).forEach(s=>{
     const len=c*s.pct/100;
-    arcs+=`<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${len} ${c-len}" stroke-dashoffset="${-off}"></circle>`;
+    const click = (clickFn && s.key!=null) ? ` onclick="${clickFn}('${s.key}')" style="cursor:pointer"` : '';
+    arcs+=`<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${len} ${c-len}" stroke-dashoffset="${-off}"${click}></circle>`;
     off+=len;
   });
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
@@ -225,18 +316,28 @@ function cbRenderDash(){
   const divAnnual = rows.reduce((s,r)=>s+cbDivIncomeKRW(r.i),0);
   const risk = cbRisk();
 
-  // 자산 배분
+  // 자산 배분 (도넛/범례 클릭 → 해당 자산군 종목 펼침)
   const byCls={}; rows.forEach(r=>{ byCls[r.cls]=(byCls[r.cls]||0)+r.val; });
   const alloc = Object.keys(CB_CLS).filter(k=>byCls[k]).map(k=>({
-    label:CB_CLS[k].label, color:CB_CLS[k].color,
+    key:k, label:CB_CLS[k].label, color:CB_CLS[k].color, v:byCls[k],
     pct: nw? byCls[k]/nw*100 : 0 }));
 
-  // 섹터
-  const secs = cbSectors().list.slice(0,6);
+  // 섹터 (가상화폐는 'Crypto'로 별도 분류해 비중 표기)
+  const secs = cbSectors(true).list.slice(0,8);
+  _cdashSecList = secs.map(s=>s.label);
   const topSec = secs[0];
-  const sectorNote = !topSec ? '주식 자산이 없습니다'
+  const sectorNote = !topSec ? '주식·가상화폐 자산이 없습니다'
     : topSec.pct>=50 ? '⚠ '+topSec.label+' 편중이 심합니다 (50%+)'
     : topSec.pct>=35 ? topSec.label+' 비중이 높은 편입니다' : '섹터 분산이 양호합니다';
+
+  // 펼침 목록 공통 행 (자산군/섹터 클릭 시 노출되는 종목)
+  const miniRow = (r, baseV) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 10px 4px 24px;font-size:11px">
+      <span style="width:6px;height:6px;border-radius:50%;background:${cbOwnerColor(r.i.owner)};flex-shrink:0"></span>
+      <span style="flex:1;min-width:0;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.title)} <span style="color:var(--dim)">· ${cbEsc(r.i.owner)}</span></span>
+      <span style="font-weight:600;flex-shrink:0">${cbDisp(r.val)}</span>
+      <span class="cb-num" style="width:46px;text-align:right;font-weight:700;color:var(--lab);flex-shrink:0">${baseV>0?(r.val/baseV*100).toFixed(1):'0.0'}%</span>
+    </div>`;
 
   // 검색 필터
   const q=(_cdashQ||'').trim().toLowerCase();
@@ -279,7 +380,7 @@ function cbRenderDash(){
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
       <div>
-        <div style="font-size:10.5px;letter-spacing:.14em;color:var(--lab);font-weight:600">가족 순자산 · <span data-tip="주식·크립토·금·현금 전체 평가액 합계. 전일 종가 및 최근 고시 환율 기준입니다.">전일 종가 기준</span></div>
+        <div style="font-size:10.5px;letter-spacing:.14em;color:var(--lab);font-weight:600">가족 순자산 · <span data-tip="주식·가상화폐·금·현금 전체 평가액 합계. 전일 종가 및 최근 고시 환율 기준입니다.">전일 종가 기준</span></div>
         <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.02em;margin-top:1px">${cbDisp(nw)}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -291,37 +392,61 @@ function cbRenderDash(){
     </div>
 
     <div style="display:flex;gap:12px;margin-top:14px;align-items:stretch;flex-wrap:wrap">
-      <div class="cb-panel" style="width:212px;flex-shrink:0;padding:14px">
-        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab);margin-bottom:9px">자산 배분</div>
-        <div style="display:flex;justify-content:center;margin-bottom:10px">${cbDonutSvg(alloc,116)}</div>
-        ${alloc.map(c=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:3.5px 0;font-size:11.5px">
-            <span style="width:8px;height:8px;border-radius:2px;background:${c.color}"></span>
+      <div class="cb-panel" style="flex:1;min-width:300px;padding:16px 18px">
+        <div style="font-size:11px;letter-spacing:.08em;color:var(--lab);margin-bottom:10px">자산 배분 <span style="color:var(--dim)">· 차트/항목 클릭 시 종목 표시</span></div>
+        <div style="display:flex;justify-content:center;margin:4px 0 14px">${cbDonutSvg(alloc,176,'cbDashAllocToggle')}</div>
+        ${alloc.map(c=>{
+          const open = _cdashAllocOpen===c.key;
+          return `
+          <div class="cb-hrow" onclick="cbDashAllocToggle('${c.key}')" style="display:flex;align-items:center;gap:9px;padding:6px 8px;cursor:pointer;font-size:12.5px;${open?'background:var(--accSoft)':''}">
+            <span style="width:9px;height:9px;border-radius:2px;background:${c.color};flex-shrink:0"></span>
             <span style="flex:1;color:var(--mut)">${c.label}</span>
-            <span style="font-weight:700">${c.pct.toFixed(1)}%</span>
-          </div>`).join('')}
+            <span class="cb-num" style="font-size:11px;color:var(--lab)">${cbDisp(c.v)}</span>
+            <span style="width:52px;text-align:right;font-weight:700">${c.pct.toFixed(1)}%</span>
+            <span style="width:11px;text-align:right;color:var(--dim);font-size:10px">${open?'▾':'▸'}</span>
+          </div>
+          ${open? rows.filter(r=>r.cls===c.key).map(r=>miniRow(r,c.v)).join('') : ''}`;
+        }).join('')}
       </div>
 
-      <div class="cb-panel" style="width:236px;flex-shrink:0;padding:14px">
-        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab);margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다.">섹터</span> 집중도 <span style="color:var(--dim)">· 주식 기준</span></div>
-        ${secs.map(s=>`
-          <div style="padding:5px 0">
-            <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px">
-              <span style="color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">${cbEsc(s.label)}</span>
-              <span style="font-weight:700">${s.pct.toFixed(1)}%</span>
+      <div class="cb-panel" style="flex:1;min-width:300px;padding:16px 18px">
+        <div style="font-size:11px;letter-spacing:.08em;color:var(--lab);margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다. 가상화폐는 Crypto로 별도 분류해 비중을 표기합니다.">섹터 집중도</span> <span style="color:var(--dim)">· 주식+가상화폐 · 막대 클릭 시 종목 표시</span></div>
+        ${secs.map((s,n)=>{
+          const open = _cdashSecOpen===s.label;
+          const items = open ? rows.filter(r=> s.label==='Crypto' ? r.cls==='crypto'
+            : (r.i.grp==='주식' && ((typeof _gicsSector==='function' ? _gicsSector(r.i) : '기타') || '기타')===s.label)) : [];
+          return `
+          <div class="cb-hrow" onclick="cbDashSecToggle(${n})" style="padding:6px 8px;cursor:pointer;${open?'background:var(--accSoft)':''}">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:5px">
+              <span style="color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cbEsc(s.label)} <span style="color:var(--dim);font-size:10px">${open?'▾':'▸'}</span></span>
+              <span style="font-weight:700;flex-shrink:0">${s.pct.toFixed(1)}%</span>
             </div>
-            <div style="height:6px;border-radius:3px;background:var(--inner);overflow:hidden"><div style="height:100%;border-radius:3px;background:${s.color};width:${Math.round(s.pct)}%"></div></div>
-          </div>`).join('') || '<div style="font-size:11px;color:var(--dim)">주식 자산이 없습니다</div>'}
+            <div style="height:8px;border-radius:4px;background:var(--inner);overflow:hidden"><div style="height:100%;border-radius:4px;background:${s.color};width:${Math.round(s.pct)}%"></div></div>
+          </div>
+          ${open? items.map(r=>miniRow(r,s.v)).join('') : ''}`;
+        }).join('') || '<div style="font-size:11px;color:var(--dim)">주식·가상화폐 자산이 없습니다</div>'}
         <div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">${sectorNote}</div>
       </div>
+    </div>
 
-      <div class="cb-panel" style="flex:1;min-width:340px;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
-          <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">보유 자산 · ${held.length}</div>
-          <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
-            <span style="color:var(--dim);font-size:12px">⌕</span>
-            <input value="${cbEsc(_cdashQ)}" oninput="cbDashSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:'Noto Sans KR',sans-serif;font-size:12px;width:100%;outline:none" />
-          </div>
+    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
+        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">보유 자산 내역 · ${held.length}종목</div>
+        <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
+          <span style="color:var(--dim);font-size:12px">⌕</span>
+          <input value="${cbEsc(_cdashQ)}" oninput="cbDashSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:'Noto Sans KR',sans-serif;font-size:12px;width:100%;outline:none" />
+        </div>
+      </div>
+      <div style="overflow-x:auto"><div style="min-width:800px">
+        <div style="display:flex;align-items:center;gap:10px;padding:0 9px 7px;border-bottom:1px solid var(--bd);font-size:10.5px;color:var(--dim)">
+          <span style="width:30px;flex-shrink:0"></span>
+          <span style="flex:1;min-width:0">종목</span>
+          <span style="width:62px;flex-shrink:0">소유주</span>
+          <span style="width:82px;text-align:right;flex-shrink:0">주수</span>
+          <span style="width:96px;text-align:right;flex-shrink:0"><span data-tip="보유 수량 전체의 평균 매수 단가">평단가</span></span>
+          <span style="width:96px;text-align:right;flex-shrink:0">현재가</span>
+          <span style="width:100px;text-align:right;flex-shrink:0">평가금액</span>
+          <span style="width:60px;text-align:right;flex-shrink:0">수익률</span>
         </div>
         ${held.map(r=>`
           <div class="cb-hrow" onclick="cbDashPick(${r.idx})" style="display:flex;align-items:center;gap:10px;padding:7px 9px;cursor:pointer;${String(r.idx)===String(_cdashSel)?'background:var(--accSoft);box-shadow:inset 0 0 0 1px var(--bd2)':''}">
@@ -331,22 +456,31 @@ function cbRenderDash(){
                 <span style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.title)}</span>
                 <span style="font-size:9.5px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0">${cbEsc(r.i.cur||'KRW')}</span>
               </div>
-              <div style="font-size:10.5px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.sub)}</div>
+              <div style="font-size:10.5px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.subTitle)}</div>
             </div>
             <span style="display:flex;align-items:center;gap:5px;width:62px;font-size:11px;color:var(--mut);flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(r.i.owner)}"></span>${cbEsc(r.i.owner)}</span>
+            <span class="cb-num" style="width:82px;text-align:right;font-size:12px;flex-shrink:0">${r.i.grp==='현금'?'—':cbEsc(Number(r.i.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})+(r.i.unit||'주'))}</span>
+            <span class="cb-num" style="width:96px;text-align:right;font-size:12px;flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(r.i.avgP,r.i.cur)}</span>
             <span class="cb-num" style="width:96px;text-align:right;font-size:12px;font-weight:600;flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</span>
-            <span style="width:96px;text-align:right;font-size:12.5px;font-weight:700;flex-shrink:0">${cbDisp(r.val)}</span>
+            <span style="width:100px;text-align:right;font-size:12.5px;font-weight:700;flex-shrink:0">${cbDisp(r.val)}</span>
             <span style="width:60px;text-align:right;font-size:12px;font-weight:600;flex-shrink:0;${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gainPct)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
-            <span class="cb-edit" onclick="event.stopPropagation();editItem('${cbEsc(r.i.owner)}','${cbEsc(r.i.tkr)}',${r.idx})">✎</span>
           </div>`).join('')}
-        ${selHtml}
-      </div>
+      </div></div>
+      ${selHtml}
     </div>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
   const inp=document.querySelector('#cb-cdash input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
 function cbDashPick(idx){ _cdashSel=idx; cbRenderDash(); }
+// 자산 배분 도넛/범례 클릭 → 해당 자산군 종목 펼침, 재클릭 시 닫힘
+function cbDashAllocToggle(key){ _cdashAllocOpen = (_cdashAllocOpen===key ? null : key); cbRenderDash(); }
+// 섹터 집중도 막대 클릭 → 해당 섹터 종목 펼침, 재클릭 시 닫힘 (인덱스 → 렌더 시점 라벨)
+function cbDashSecToggle(n){
+  const label = _cdashSecList[n]; if (label==null) return;
+  _cdashSecOpen = (_cdashSecOpen===label ? null : label);
+  cbRenderDash();
+}
 
 // ───────────────────────── 페이지: 성과 비교 ─────────────────────────
 function cbLastVal(arr){ if(!Array.isArray(arr)) return null; for(let k=arr.length-1;k>=0;k--){ if(arr[k]!=null) return arr[k]; } return null; }
@@ -466,8 +600,67 @@ function cbFamSearch(v){ _famQ=v; cbRenderFam();
   const inp=document.querySelector('#cb-fam2 input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
 
 // ───────────────────────── 페이지: 리스크 진단 ─────────────────────────
+// 종목 집중도(ETF 룩스루) 패널 — 직접 보유(파랑) + ETF 간접 보유(주황) 스택 바
+function cbLookThroughPanel(){
+  const C_DIR = '#5b9bff', C_VIA = '#f2a33c';
+  const lt = cbLookThrough();
+  const upC=(typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52'),
+        wnC=(typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706'),
+        dnC=(typeof cssVar==='function'?cssVar('--dn','#cf3d5c'):'#cf3d5c');
+  // ETF 간접 보유가 있는 종목은 모두 표시 + 나머지는 상위 직접 보유로 채움 (최대 12)
+  const withVia = lt.list.filter(x=>x.via>0);
+  const rest = lt.list.filter(x=>x.via<=0).slice(0, Math.max(0, 10-withVia.length));
+  const shown = withVia.concat(rest).sort((a,b)=>b.tot-a.tot).slice(0,12);
+  const mx = Math.max(...shown.map(x=>x.pct), 1);
+
+  let body;
+  if (!lt.list.length){
+    body = '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">개별 주식 보유가 없습니다.</div>';
+  } else {
+    body = shown.map(x=>{
+      const pctColor = x.pct>30 ? dnC : x.pct>20 ? wnC : 'var(--tx)';
+      const tip = x.etfs.length
+        ? x.etfs.map(e=>`${e.etf} 내 비중 ${e.w}% → ${cbDisp(e.val)}`).join(' · ')
+        : '';
+      return `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px">
+        <span style="width:148px;flex-shrink:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.title)}</span>
+        <div style="flex:1;min-width:120px;height:14px;border-radius:4px;background:var(--inner);overflow:hidden">
+          <div style="display:flex;gap:2px;height:100%">
+            ${x.dPct>0?`<span style="display:block;height:100%;width:${Math.max(0.6,(x.dPct/mx*100)).toFixed(2)}%;background:${C_DIR};border-radius:3px" title="직접 보유 ${x.dPct.toFixed(1)}%"></span>`:''}
+            ${x.vPct>0?`<span style="display:block;height:100%;width:${Math.max(0.6,(x.vPct/mx*100)).toFixed(2)}%;background:${C_VIA};border-radius:3px" title="ETF 간접 보유 ${x.vPct.toFixed(1)}%"></span>`:''}
+          </div>
+        </div>
+        <span class="cb-num" style="width:54px;text-align:right;font-weight:800;color:${pctColor};flex-shrink:0">${x.pct.toFixed(1)}%</span>
+        <span style="width:190px;flex-shrink:0;font-size:10.5px;color:var(--lab);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${
+          x.vPct>0 ? `직접 ${x.dPct.toFixed(1)}% + <span ${tip?`data-tip="${cbEsc(tip)}"`:''} style="color:${C_VIA};font-weight:700">ETF ${x.vPct.toFixed(1)}%</span>` : '직접 보유만'
+        }</span>
+      </div>`;
+    }).join('');
+  }
+
+  const notes = [];
+  if (lt.pending) notes.push('ETF 구성종목 조회 중… 잠시 후 자동 갱신됩니다.');
+  if (lt.etfMiss.length) notes.push('구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ') + ' (해당 ETF의 간접 보유분은 제외된 수치입니다)');
+  if (!lt.pending && !lt.etfCount) notes.push('보유 중인 ETF가 없어 직접 보유 비중과 동일합니다.');
+
+  return `
+    <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)"><span data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· 전체 순자산 대비</span></span>
+        <div style="display:flex;gap:12px;font-size:10.5px;color:var(--mut);margin-left:auto;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_DIR}"></span>직접 보유</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_VIA}"></span>ETF 간접 보유</span>
+        </div>
+      </div>
+      ${body}
+      ${notes.length?`<div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.6">${notes.map(t=>'※ '+t).join('<br>')}</div>`:''}
+    </div>`;
+}
+
 function cbRenderRisk(){
   const el = document.getElementById('cb-risk2'); if(!el) return;
+  cbEnsureEtfHoldings();
   const r = cbRisk();
   el.innerHTML = `
     <div style="display:flex;align-items:baseline;gap:10px"><div class="cb-title">리스크 진단</div><div style="font-size:11.5px;color:var(--lab)">규칙 기반 자동 점검</div></div>
@@ -499,7 +692,8 @@ function cbRenderRisk(){
             <div style="height:5px;border-radius:3px;background:var(--inner);margin-top:8px;overflow:hidden"><div style="height:100%;width:${c.fill}%;background:${c.color}"></div></div>
           </div>`).join('')}
       </div>
-    </div>`;
+    </div>
+    ${cbLookThroughPanel()}`;
 }
 
 // ───────────────────────── 페이지: 배당 관리 ─────────────────────────
