@@ -819,6 +819,13 @@
     .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
     .cb-num{font-family:'IBM Plex Mono',monospace}
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
+    /* ETF 룩스루 간접 보유 상세 팝오버 — 위젯 경계에 잘리지 않도록 패널 overflow:visible + 절대배치 */
+    .cb-lt-tip{position:relative;display:inline-block}
+    .cb-lt-pop{display:none;position:absolute;right:0;bottom:calc(100% + 8px);z-index:120;width:max-content;max-width:280px;
+      background:var(--tipbg);color:var(--tiptx);border:1px solid var(--bd2);border-radius:9px;padding:9px 11px;
+      box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:11px;font-weight:400;line-height:1.7;letter-spacing:0;
+      text-align:left;white-space:nowrap;display:none;flex-direction:column;gap:2px}
+    .cb-lt-tip:hover .cb-lt-pop,.cb-lt-tip:focus .cb-lt-pop,.cb-lt-tip:focus-within .cb-lt-pop{display:flex}
     /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
 

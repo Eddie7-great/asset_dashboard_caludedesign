@@ -364,8 +364,77 @@ def get_dividends(tickers):
 def _is_kr_code(t):
     return len(t) == 6 and all(c.isdigit() or ('A' <= c <= 'Z') for c in t)
 
+def _parse_krx_pdf(df):
+    """pykrx PDF DataFrame → [{'tkr','name','weight'}]. 실패/빈 프레임은 []."""
+    out = []
+    if df is None or df.empty:
+        return out
+    total_amt = 0.0
+    if '금액' in df.columns:
+        try:
+            total_amt = float(df['금액'].sum())
+        except Exception:
+            total_amt = 0.0
+    for code, row in df.iterrows():
+        code_s = str(code).strip().upper()
+        if not _is_kr_code(code_s):
+            continue  # 원화현금·선물 등 비종목 행 제외
+        w = None
+        if '비중' in df.columns:
+            try:
+                v = float(row['비중'])
+                if v == v and v > 0:  # NaN 방지
+                    w = v
+            except Exception:
+                pass
+        if w is None and total_amt > 0 and '금액' in df.columns:
+            try:
+                w = float(row['금액']) / total_amt * 100
+            except Exception:
+                pass
+        if w is None or w <= 0:
+            continue
+        name = None
+        try:
+            name = krx.get_market_ticker_name(code_s)
+        except Exception:
+            pass
+        out.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
+                    'weight': round(w, 2)})
+    return out
+
+
+def _yf_top_holdings(sym):
+    """yfinance funds_data.top_holdings → [{'tkr','name','weight'}]. 해외 ETF + KR ETF(.KS/.KQ) 폴백용."""
+    if not YF_OK or not sym:
+        return []
+    try:
+        fd = yf.Ticker(sym).funds_data
+        th = fd.top_holdings if fd is not None else None
+    except Exception as e:
+        print('[etf_holdings yfinance]', sym, e)
+        return []
+    if th is None or th.empty:
+        return []
+    wcol = 'Holding Percent' if 'Holding Percent' in th.columns else None
+    raw = []
+    for s, row in th.iterrows():
+        try:
+            w = float(row[wcol]) if wcol else None
+        except Exception:
+            w = None
+        if w is None or w != w or w <= 0:
+            continue
+        nm = row.get('Name') if hasattr(row, 'get') else None
+        raw.append((str(s).strip().upper(), str(nm) if nm else str(s), w))
+    if not raw:
+        return []
+    scale = 100 if max(r[2] for r in raw) <= 1.5 else 1  # 소수(0.31)면 %로 환산
+    return [{'tkr': s, 'name': n, 'weight': round(w * scale, 2)} for s, n, w in raw]
+
+
 def get_etf_holdings(tkr):
-    """ETF 구성종목과 비중(%) 반환 — KR ETF는 pykrx PDF, 해외 ETF는 yfinance funds_data.
+    """ETF 구성종목과 비중(%) 반환 — KR ETF는 pykrx PDF(최근 영업일 재시도), 해외/폴백은 yfinance funds_data.
     응답: {'success': bool, 'tkr': ..., 'holdings': [{'tkr','name','weight'}], 'source': ...}
     비중은 % 단위(0~100). 현금 등 비종목 행은 제외한다."""
     t_up = (tkr or '').strip().upper().replace('.KS', '').replace('.KQ', '')
@@ -373,71 +442,43 @@ def get_etf_holdings(tkr):
         return {'success': False, 'error': 'ticker required', 'holdings': []}
     holdings = []
     source = None
+    is_kr = _is_kr_code(t_up)
 
-    if _is_kr_code(t_up) and PYKRX_OK:
+    # 1) 국내 상장 ETF → pykrx PDF. 최신 일자 미발행/휴장 대비 최근 영업일들로 재시도.
+    if is_kr and PYKRX_OK:
+        dates = [None]  # None = pykrx가 자동으로 최근 영업일 선택
         try:
-            df = krx.get_etf_portfolio_deposit_file(t_up)
-            if df is not None and not df.empty:
-                total_amt = 0.0
-                if '금액' in df.columns:
-                    try:
-                        total_amt = float(df['금액'].sum())
-                    except Exception:
-                        total_amt = 0.0
-                for code, row in df.iterrows():
-                    code_s = str(code).strip().upper()
-                    if not _is_kr_code(code_s):
-                        continue  # 원화현금·선물 등 비종목 행 제외
-                    w = None
-                    if '비중' in df.columns:
-                        try:
-                            v = float(row['비중'])
-                            if v == v and v > 0:  # NaN 방지
-                                w = v
-                        except Exception:
-                            pass
-                    if w is None and total_amt > 0 and '금액' in df.columns:
-                        try:
-                            w = float(row['금액']) / total_amt * 100
-                        except Exception:
-                            pass
-                    if w is None or w <= 0:
-                        continue
-                    name = None
-                    try:
-                        name = krx.get_market_ticker_name(code_s)
-                    except Exception:
-                        pass
-                    holdings.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
-                                     'weight': round(w, 2)})
-                if holdings:
+            d = datetime.date.today()
+            for _ in range(7):
+                d -= datetime.timedelta(days=1)
+                if d.weekday() < 5:
+                    dates.append(d.strftime('%Y%m%d'))
+        except Exception:
+            pass
+        for dt in dates:
+            try:
+                df = krx.get_etf_portfolio_deposit_file(t_up) if dt is None \
+                    else krx.get_etf_portfolio_deposit_file(t_up, dt)
+                parsed = _parse_krx_pdf(df)
+                if parsed:
+                    holdings = parsed
                     source = 'pykrx'
-        except Exception as e:
-            print('[etf_holdings pykrx]', t_up, e)
+                    break
+            except Exception as e:
+                print('[etf_holdings pykrx]', t_up, dt, e)
 
-    if not holdings and YF_OK and not _is_kr_code(t_up):
-        try:
-            fd = yf.Ticker(t_up).funds_data
-            th = fd.top_holdings if fd is not None else None
-            if th is not None and not th.empty:
-                # 'Holding Percent'가 소수(0.31)면 %로 환산
-                wcol = 'Holding Percent' if 'Holding Percent' in th.columns else None
-                raw = []
-                for sym, row in th.iterrows():
-                    try:
-                        w = float(row[wcol]) if wcol else None
-                    except Exception:
-                        w = None
-                    if w is None or w != w or w <= 0:
-                        continue
-                    nm = row.get('Name') if hasattr(row, 'get') else None
-                    raw.append((str(sym).strip().upper(), str(nm) if nm else str(sym), w))
-                if raw:
-                    scale = 100 if max(r[2] for r in raw) <= 1.5 else 1
-                    holdings = [{'tkr': s, 'name': n, 'weight': round(w * scale, 2)} for s, n, w in raw]
+    # 2) 해외 ETF, 또는 국내 ETF가 pykrx로 안 잡힐 때 → yfinance funds_data 폴백
+    if not holdings and YF_OK:
+        if is_kr:
+            for suf in ('.KS', '.KQ'):
+                holdings = _yf_top_holdings(t_up + suf)
+                if holdings:
                     source = 'yfinance'
-        except Exception as e:
-            print('[etf_holdings yfinance]', t_up, e)
+                    break
+        else:
+            holdings = _yf_top_holdings(t_up)
+            if holdings:
+                source = 'yfinance'
 
     return {'success': bool(holdings), 'tkr': t_up, 'holdings': holdings, 'source': source}
 
