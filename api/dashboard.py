@@ -360,6 +360,88 @@ def get_dividends(tickers):
     return {'success': True, 'result': result}
 
 
+# ── 5. ETF 구성종목 (룩스루) ────────────────────────────────────
+def _is_kr_code(t):
+    return len(t) == 6 and all(c.isdigit() or ('A' <= c <= 'Z') for c in t)
+
+def get_etf_holdings(tkr):
+    """ETF 구성종목과 비중(%) 반환 — KR ETF는 pykrx PDF, 해외 ETF는 yfinance funds_data.
+    응답: {'success': bool, 'tkr': ..., 'holdings': [{'tkr','name','weight'}], 'source': ...}
+    비중은 % 단위(0~100). 현금 등 비종목 행은 제외한다."""
+    t_up = (tkr or '').strip().upper().replace('.KS', '').replace('.KQ', '')
+    if not t_up:
+        return {'success': False, 'error': 'ticker required', 'holdings': []}
+    holdings = []
+    source = None
+
+    if _is_kr_code(t_up) and PYKRX_OK:
+        try:
+            df = krx.get_etf_portfolio_deposit_file(t_up)
+            if df is not None and not df.empty:
+                total_amt = 0.0
+                if '금액' in df.columns:
+                    try:
+                        total_amt = float(df['금액'].sum())
+                    except Exception:
+                        total_amt = 0.0
+                for code, row in df.iterrows():
+                    code_s = str(code).strip().upper()
+                    if not _is_kr_code(code_s):
+                        continue  # 원화현금·선물 등 비종목 행 제외
+                    w = None
+                    if '비중' in df.columns:
+                        try:
+                            v = float(row['비중'])
+                            if v == v and v > 0:  # NaN 방지
+                                w = v
+                        except Exception:
+                            pass
+                    if w is None and total_amt > 0 and '금액' in df.columns:
+                        try:
+                            w = float(row['금액']) / total_amt * 100
+                        except Exception:
+                            pass
+                    if w is None or w <= 0:
+                        continue
+                    name = None
+                    try:
+                        name = krx.get_market_ticker_name(code_s)
+                    except Exception:
+                        pass
+                    holdings.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
+                                     'weight': round(w, 2)})
+                if holdings:
+                    source = 'pykrx'
+        except Exception as e:
+            print('[etf_holdings pykrx]', t_up, e)
+
+    if not holdings and YF_OK and not _is_kr_code(t_up):
+        try:
+            fd = yf.Ticker(t_up).funds_data
+            th = fd.top_holdings if fd is not None else None
+            if th is not None and not th.empty:
+                # 'Holding Percent'가 소수(0.31)면 %로 환산
+                wcol = 'Holding Percent' if 'Holding Percent' in th.columns else None
+                raw = []
+                for sym, row in th.iterrows():
+                    try:
+                        w = float(row[wcol]) if wcol else None
+                    except Exception:
+                        w = None
+                    if w is None or w != w or w <= 0:
+                        continue
+                    nm = row.get('Name') if hasattr(row, 'get') else None
+                    raw.append((str(sym).strip().upper(), str(nm) if nm else str(sym), w))
+                if raw:
+                    scale = 100 if max(r[2] for r in raw) <= 1.5 else 1
+                    holdings = [{'tkr': s, 'name': n, 'weight': round(w * scale, 2)} for s, n, w in raw]
+                    source = 'yfinance'
+        except Exception as e:
+            print('[etf_holdings yfinance]', t_up, e)
+
+    return {'success': bool(holdings), 'tkr': t_up, 'holdings': holdings, 'source': source}
+
+
 # ── 6. 헬스체크 ─────────────────────────────────────────────────
 def get_health():
     return {
@@ -693,6 +775,8 @@ class handler(BaseHTTPRequestHandler):
                 tlist = [t.strip() for t in batch_raw.split(',') if t.strip()] if batch_raw else ([single] if single else [])
                 tlist = tlist[:8]  # 30s maxDuration 보호 — 최대 8개
                 data = get_fundamentals(tlist)
+            elif qtype == 'etf_holdings':
+                data = get_etf_holdings(params.get('tkr', [''])[0])
             elif qtype == 'resolve':
                 name = params.get('name', [''])[0]
                 data = {'success': True, 'name': name, 'code': resolve_kr_ticker(name)}
