@@ -6391,69 +6391,74 @@ function _gicsSector(item) {
   //    (예: "SPACE Exploration"의 ACE, "SOLAR"의 SOL 이 ETF로 잘못 분류되지 않도록)
   const isETF = /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF/.test(nameU)
     || /(^|\s)(ACE|SOL|PLUS)(\s|\d|$)/.test(nameU)
-    || ['SPY','IVV','VOO','QQQ','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
-        'SCHD','VYM','JEPI','JEPQ','DVY','HDV','NOBL'].includes(tStrip);
+    || /QQQ|NASDAQ\s*100|S&P\s*500|PROSHARES|DIREXION/i.test(name)
+    || ['SPY','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
+        'SCHD','VYM','JEPI','JEPQ','DVY','HDV','NOBL',
+        // 레버리지/인버스 지수 ETF (지수 추종)
+        'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','SOXL','SOXS','UDOW','SDOW','TNA','TZA','FNGU'].includes(tStrip);
   if (isETF) {
-    // 지수/시장 전체 추종 → Index ETF
-    if (/지수|S&P|SP500|나스닥|NASDAQ|다우|DOW|KOSPI\s*200|코스피\s*200|전체|시장|WORLD|GLOBAL|\s200/i.test(name)
-        || ['SPY','IVV','VOO','QQQ','DIA','VTI','IWM','VEA','VWO','EFA'].includes(tStrip)) return 'Index ETF';
+    // 지수/시장 전체 추종 → Index ETF (레버리지/인버스 지수 ETF 포함)
+    if (/지수|S&P|SP500|나스닥|NASDAQ|다우|DOW|KOSPI\s*200|코스피\s*200|전체|시장|WORLD|GLOBAL|\s200|QQQ|러셀|RUSSELL/i.test(name)
+        || ['SPY','IVV','VOO','QQQ','QQQM','DIA','VTI','IWM','VEA','VWO','EFA',
+            'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','UDOW','SDOW','TNA','TZA'].includes(tStrip)) return 'Index ETF';
     // 그 외 모든 ETF (배당, 섹터, 채권, 원자재 등) → Sector ETF
     return 'Sector ETF';
   }
 
   // 2) 대표 티커 / 주요 종목명 키워드 → RBICS L1
   // Technology (반도체 포함, 소프트웨어/하드웨어/IT 인프라 전반)
-  if (['NVDA','AMD','INTC','QCOM','AVGO','MU','AMAT','LRCX','KLAC','SMCI','TXN','TSM',
-       'AAPL','MSFT','CRM','ORCL','ADBE','CSCO','PLTR','NOW','IBM','ANET','SNOW','PANW','CRWD','DDOG'].includes(tStrip)
+  if (['NVDA','AMD','INTC','QCOM','AVGO','MU','AMAT','LRCX','KLAC','SMCI','TXN','TSM','ARM','ASML','MRVL','MCHP','ADI','ON','WDC','STX','NXPI','GFS','ONTO','ALAB','CRDO',
+       'AAPL','MSFT','CRM','ORCL','ADBE','CSCO','PLTR','NOW','IBM','ANET','SNOW','PANW','CRWD','DDOG','FTNT','ZS','OKTA','NET','SHOP','U','TEAM','WDAY','HUBS','MDB','TWLO','APP','DELL','HPQ','HPE','INTU','ADSK','CDNS','SNPS','ROP','FICO'].includes(tStrip)
       || ['005930','000660','000990','066570'].includes(tStrip)
       || /반도체|파운드리|웨이퍼|DRAM|낸드|NAND|칩|메모리|소프트웨어|전자|테크|IT|소프트|시스템|솔루션|클라우드|디스플레이|OLED|LED|SW|테크놀로지|하드웨어|로봇|AI|인공지능|빅데이터|보안|사이버|정보기술|전산|네트워크|통신장비/i.test(name)) return 'Technology';
 
   // Financial Services
-  if (['JPM','BAC','C','WFC','V','MA','AXP','GS','MS','BLK','SCHW','BRK.B','BRKB','COF'].includes(tStrip)
+  if (['JPM','BAC','C','WFC','V','MA','AXP','GS','MS','BLK','SCHW','BRK.B','BRKB','COF','SOFI','HOOD','COIN','UPST','AFRM','PYPL','SQ','XYZ','ALLY','DFS','ICE','CME','SPGI','MCO','KKR','APO','BX','ARES','PGR','TRV','MET','PRU','AIG','ALL','CB','MMC','AON','USB','PNC','TFC','FITB'].includes(tStrip)
       || /금융|은행|지주|카드|증권|보험|캐피탈|핀테크|홀딩스|인베스트|저축|선물|자산운용/i.test(name)
       || ['055550','105560','086790','316140','071050','032830','088350','138930','024110'].includes(tStrip)) return 'Financial Services';
 
   // Health Care
-  if (['JNJ','UNH','LLY','PFE','MRK','ABBV','TMO','ABT','DHR','AMGN','GILD','BMY','CVS','ISRG','REGN','VRTX'].includes(tStrip)
+  if (['JNJ','UNH','LLY','PFE','MRK','ABBV','TMO','ABT','DHR','AMGN','GILD','BMY','CVS','ISRG','REGN','VRTX','MRNA','BNTX','HIMS','DXCM','MDT','SYK','BSX','ZTS','ELV','CI','HCA','MCK','IQV','BIIB','HUM','CNC','GEHC','IDXX','RMD','A','WST','ALNY','NBIX','VEEV'].includes(tStrip)
       || /헬스|바이오|제약|의료|병원|진단|생명과학|제네릭|백신|신약|메디|의약품|의료기기|임플란트|치료제/i.test(name)
       || ['068270','207940','326030','196170','128940','302440','091990','145020','196300'].includes(tStrip)) return 'Health Care';
 
   // Consumer Discretionary
-  if (['TSLA','AMZN','HD','NKE','MCD','LOW','SBUX','BKNG','TJX','F','GM','TM','CMG','LULU'].includes(tStrip)
+  if (['TSLA','AMZN','HD','NKE','MCD','LOW','SBUX','BKNG','TJX','F','GM','TM','CMG','LULU','RIVN','LCID','ABNB','MAR','HLT','RCL','CCL','NCLH','EBAY','ETSY','DKNG','YUM','DRI','ORLY','AZO','ROST','DECK','GRMN','EXPE','DASH','CVNA','W','BABA','PDD','JD','NIO','LI','XPEV'].includes(tStrip)
       || /자동차|현대차|기아|유통|백화점|의류|호텔|면세|레저|화장품|뷰티|패션|커머스|리조트|엔터테인|카지노|가구|인테리어|완구|여행|화장/i.test(name)
       || ['005380','000270','012330','282330','035250','272210','161390','090430','161890'].includes(tStrip)) return 'Consumer Discretionary';
 
   // Energy
-  if (['XOM','CVX','COP','SLB','OXY','EOG','PSX','MPC','VLO'].includes(tStrip)
+  if (['XOM','CVX','COP','SLB','OXY','EOG','PSX','MPC','VLO','ET','KMI','WMB','OKE','LNG','DVN','FANG','HES','HAL','BKR','TRGP','CTRA','MRO','APA'].includes(tStrip)
       || /에너지|정유|석유|오일|가스|친환경|태양광|풍력|수소|원전|태양|ESS|신재생|셰일/i.test(name)
       || ['096770','010950','011170','267250','009830'].includes(tStrip)) return 'Energy';
 
   // Communications Services
-  if (['GOOGL','GOOG','META','NFLX','DIS','CMCSA','T','VZ','TMUS','EA','TTWO','SPOT','PINS','ROKU'].includes(tStrip)
+  if (['GOOGL','GOOG','META','NFLX','DIS','CMCSA','T','VZ','TMUS','EA','TTWO','SPOT','PINS','ROKU','SKM','LUMN','WBD','PARA','FOXA','FOX','OMC','IPG','MTCH','SE','SNAP','RBLX','BIDU','LYV','NWSA','TME'].includes(tStrip)
       || /커뮤니케이션|미디어|엔터|통신|네이버|카카오|하이브|스튜디오|플랫폼|콘텐츠|방송|광고|신문|영상|웹툰|노래|게임/i.test(name)
       || ['035420','035720','017670','030200','032640','352820','251270','259960'].includes(tStrip)) return 'Communications Services';
 
   // Consumer Staples
-  if (['PG','KO','PEP','WMT','COST','KMB','CL','MO','PM','MDLZ','CLX','GIS'].includes(tStrip)
+  if (['PG','KO','PEP','WMT','COST','KMB','CL','MO','PM','MDLZ','CLX','GIS','TGT','KHC','STZ','KDP','HSY','SYY','ADM','KR','DG','DLTR','MNST','KVUE','EL','CHD','K','HRL','TSN'].includes(tStrip)
       || /식품|음료|담배|필수소비재|농산|사료|생필품|라면|제과|유제품|주류|곡류|정육/i.test(name)
       || ['097950','271560','280360','004170','139480','005300'].includes(tStrip)) return 'Consumer Staples';
 
   // Industrial Services
-  if (['UNP','BA','CAT','LMT','GE','MMM','HON','DE','RTX','ETN','CSX','NSC','UPS','FDX'].includes(tStrip)
-      || /산업|조선|항공|방산|기계|중공업|건설|전기|물류|운송|해운|운송|육상|항공기|터미널/i.test(name)
+  if (['UNP','BA','CAT','LMT','GE','MMM','HON','DE','RTX','ETN','CSX','NSC','UPS','FDX',
+       'RKLB','ASTS','LUNR','ACHR','JOBY','NOC','GD','LHX','TDG','HWM','AXON','PH','EMR','ROK','CMI','PCAR','WM','RSG','GEV','PWR','URI','FAST','ODFL','CARR','OTIS','JCI'].includes(tStrip)
+      || /산업|조선|항공|방산|기계|중공업|건설|전기|물류|운송|해운|운송|육상|항공기|터미널|우주|로켓|위성|발사체|드론/i.test(name)
       || ['329180','042660','010140','028050','047810','064350','034020','204320'].includes(tStrip)) return 'Industrial Services';
 
   // Materials & Processing
-  if (['LIN','APD','SHW','FCX','ECL','DD','NEM','NUE'].includes(tStrip)
+  if (['LIN','APD','SHW','FCX','ECL','DD','NEM','NUE','ALB','SQM','CTVA','DOW','LYB','PPG','VMC','MLM','FMC','MOS','CF','STLD','RS','IP'].includes(tStrip)
       || /소재|화학|철강|비철|금속|배터리|이차전지|2차전지|양극재|음극재|전해질|리튬|니켈|시멘트|유리|섬유|펄프|제지|비료/i.test(name)
       || ['051910','005490','010130','004020','006400','373220'].includes(tStrip)) return 'Materials & Processing';
 
   // Real Estate
-  if (['AMT','PLD','CCI','EQIX','SPG','O','VICI','WELL'].includes(tStrip)
+  if (['AMT','PLD','CCI','EQIX','SPG','O','VICI','WELL','PSA','DLR','SBAC','EXR','AVB','EQR','VTR','ARE','WY','IRM','CBRE','CSGP','INVH'].includes(tStrip)
       || /리츠|부동산|REIT|오피스|물류센터|리테일|매장|건물|토지/i.test(name)) return 'Real Estate';
 
   // Utilities
-  if (['NEE','DUK','SO','AEP','D','EXC','SRE','XEL'].includes(tStrip)
+  if (['NEE','DUK','SO','AEP','D','EXC','SRE','XEL','CEG','VST','ED','PEG','ETR','WEC','ES','AEE','DTE','PCG','EIX','FE','PPL','AWK'].includes(tStrip)
       || /유틸리티|전력|가스공사|한국전력|수도|상수도|하수도/i.test(name)
       || ['015760','036460'].includes(tStrip)) return 'Utilities';
 
