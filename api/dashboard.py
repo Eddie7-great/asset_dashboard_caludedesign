@@ -364,8 +364,77 @@ def get_dividends(tickers):
 def _is_kr_code(t):
     return len(t) == 6 and all(c.isdigit() or ('A' <= c <= 'Z') for c in t)
 
+def _recent_biz_days(n=6):
+    """오늘부터 거슬러 올라간 최근 영업일(YYYYMMDD) n개. ETF PDF가 미공시된 당일/휴장일을 건너뛴다."""
+    out, d = [], datetime.date.today()
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d.strftime('%Y%m%d'))
+        d -= datetime.timedelta(days=1)
+    return out
+
+def _parse_pdf_df(df):
+    """pykrx ETF PDF(구성종목) DataFrame → [{'tkr','name','weight'}]. 원화현금·선물 등 비종목 행 제외."""
+    holdings = []
+    if df is None or getattr(df, 'empty', True):
+        return holdings
+    total_amt = 0.0
+    if '금액' in df.columns:
+        try:
+            total_amt = float(df['금액'].sum())
+        except Exception:
+            total_amt = 0.0
+    for code, row in df.iterrows():
+        code_s = str(code).strip().upper()
+        if not _is_kr_code(code_s):
+            continue
+        w = None
+        if '비중' in df.columns:
+            try:
+                v = float(row['비중'])
+                if v == v and v > 0:  # NaN 방지
+                    w = v
+            except Exception:
+                pass
+        if w is None and total_amt > 0 and '금액' in df.columns:
+            try:
+                w = float(row['금액']) / total_amt * 100
+            except Exception:
+                pass
+        if w is None or w <= 0:
+            continue
+        name = None
+        try:
+            name = krx.get_market_ticker_name(code_s)
+        except Exception:
+            pass
+        holdings.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
+                         'weight': round(w, 2)})
+    return holdings
+
+def _kr_etf_holdings(t_up):
+    """KR ETF 구성종목 — KRX 공시(PDF, funetf 등이 노출하는 것과 동일한 원천).
+    당일 미공시/휴장으로 최신본이 비어 있으면 최근 영업일들로 날짜를 지정해 재시도한다.
+    pykrx 버전별 시그니처((ticker) / (ticker, date) / (date, ticker))를 모두 방어적으로 시도."""
+    try:
+        h = _parse_pdf_df(krx.get_etf_portfolio_deposit_file(t_up))
+        if h:
+            return h
+    except Exception as e:
+        print('[etf_holdings pykrx latest]', t_up, e)
+    for d in _recent_biz_days(6):
+        for call in (lambda: krx.get_etf_portfolio_deposit_file(t_up, d),
+                     lambda: krx.get_etf_portfolio_deposit_file(d, t_up)):
+            try:
+                h = _parse_pdf_df(call())
+                if h:
+                    return h
+            except Exception:
+                pass
+    return []
+
 def get_etf_holdings(tkr):
-    """ETF 구성종목과 비중(%) 반환 — KR ETF는 pykrx PDF, 해외 ETF는 yfinance funds_data.
+    """ETF 구성종목과 비중(%) 반환 — KR ETF는 KRX 공시 PDF, 해외 ETF는 yfinance funds_data.
     응답: {'success': bool, 'tkr': ..., 'holdings': [{'tkr','name','weight'}], 'source': ...}
     비중은 % 단위(0~100). 현금 등 비종목 행은 제외한다."""
     t_up = (tkr or '').strip().upper().replace('.KS', '').replace('.KQ', '')
@@ -376,42 +445,9 @@ def get_etf_holdings(tkr):
 
     if _is_kr_code(t_up) and PYKRX_OK:
         try:
-            df = krx.get_etf_portfolio_deposit_file(t_up)
-            if df is not None and not df.empty:
-                total_amt = 0.0
-                if '금액' in df.columns:
-                    try:
-                        total_amt = float(df['금액'].sum())
-                    except Exception:
-                        total_amt = 0.0
-                for code, row in df.iterrows():
-                    code_s = str(code).strip().upper()
-                    if not _is_kr_code(code_s):
-                        continue  # 원화현금·선물 등 비종목 행 제외
-                    w = None
-                    if '비중' in df.columns:
-                        try:
-                            v = float(row['비중'])
-                            if v == v and v > 0:  # NaN 방지
-                                w = v
-                        except Exception:
-                            pass
-                    if w is None and total_amt > 0 and '금액' in df.columns:
-                        try:
-                            w = float(row['금액']) / total_amt * 100
-                        except Exception:
-                            pass
-                    if w is None or w <= 0:
-                        continue
-                    name = None
-                    try:
-                        name = krx.get_market_ticker_name(code_s)
-                    except Exception:
-                        pass
-                    holdings.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
-                                     'weight': round(w, 2)})
-                if holdings:
-                    source = 'pykrx'
+            holdings = _kr_etf_holdings(t_up)
+            if holdings:
+                source = 'pykrx'
         except Exception as e:
             print('[etf_holdings pykrx]', t_up, e)
 
