@@ -821,6 +821,11 @@
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
+    /* 대시보드: 보유 자산 내역(좌) + 종목 상세(우, sticky) 2열 — 좁은 폭에서는 상세를 아래로 접음 */
+    @media (max-width: 1080px){
+      .cb-dash-split{flex-direction:column!important}
+      .cb-dash-split > .cb-dash-detail{width:100%!important;position:static!important}
+    }
 
     /* =============================================
        모바일 (≤768px): 햄버거 드로어 + 전체 뷰 세로 재배치

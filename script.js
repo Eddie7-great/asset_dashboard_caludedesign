@@ -5599,6 +5599,39 @@ async function _advisorOnSearchInput(q) {
   }
 }
 
+// 국기 인라인 SVG — 이모지 폰트 미지원 환경에서도 태극기(건곤감리)·일장기·성조기를 정확히 렌더
+function _mktFlagSvg(market, px) {
+  const h = px || 13, w = Math.round(h * 1.5);
+  const open = `<svg width="${w}" height="${h}" viewBox="0 0 36 24" style="display:inline-block;vertical-align:-2px;border:1px solid rgba(0,0,0,.15);border-radius:2px">`;
+  if (market === 'JP') {
+    return `${open}<rect width="36" height="24" fill="#fff"/><circle cx="18" cy="12" r="7" fill="#bc002d"/></svg>`;
+  }
+  if (market === 'US') {
+    let s = '';
+    for (let i = 0; i < 13; i++) s += `<rect x="0" y="${(i * 24 / 13).toFixed(2)}" width="36" height="${(24 / 13).toFixed(2)}" fill="${i % 2 === 0 ? '#b22234' : '#fff'}"/>`;
+    s += `<rect x="0" y="0" width="15" height="${(7 * 24 / 13).toFixed(2)}" fill="#3c3b6e"/>`;
+    // 별 대용 흰 점 격자 (작은 아이콘에서 성조기 식별용)
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) s += `<circle cx="${(1.6 + c * 2.9).toFixed(2)}" cy="${(1.8 + r * 3).toFixed(2)}" r="0.6" fill="#fff"/>`;
+    return `${open}${s}</svg>`;
+  }
+  // KR — 태극기: 흰 바탕 + 태극(적/청) + 건곤감리 4괘
+  const cx = 18, cy = 12, R = 7, r = R / 2;
+  const taeguk = `<g transform="rotate(-33.69 ${cx} ${cy})"><circle cx="${cx}" cy="${cy}" r="${R}" fill="#0047a0"/>`
+    + `<path d="M ${cx - R} ${cy} a ${R} ${R} 0 0 1 ${2 * R} 0 a ${r} ${r} 0 0 1 ${-R} 0 a ${r} ${r} 0 0 0 ${-R} 0 z" fill="#cd2e3a"/></g>`;
+  // 3바 괘: pat=[상,중,하] (true=이어진 막대, false=끊긴 막대), (cx,cy) 중심
+  const tw = 8, th = 1.5, gap = 1.4, brk = 1.8;
+  const tri = (tcx, tcy, pat) => pat.map((solid, i) => {
+    const y = (tcy + (i - 1) * (th + gap) - th / 2).toFixed(2);
+    if (solid) return `<rect x="${(tcx - tw / 2).toFixed(2)}" y="${y}" width="${tw}" height="${th}" fill="#111"/>`;
+    const seg = ((tw - brk) / 2).toFixed(2);
+    return `<rect x="${(tcx - tw / 2).toFixed(2)}" y="${y}" width="${seg}" height="${th}" fill="#111"/><rect x="${(tcx + brk / 2).toFixed(2)}" y="${y}" width="${seg}" height="${th}" fill="#111"/>`;
+  }).join('');
+  const gwae = tri(7.5, 5, [true, true, true])       // 건 ☰ 좌상
+    + tri(28.5, 5, [false, true, false])              // 감 ☵ 우상
+    + tri(7.5, 19, [true, false, true])               // 리 ☲ 좌하
+    + tri(28.5, 19, [false, false, false]);           // 곤 ☷ 우하
+  return `${open}<rect width="36" height="24" fill="#fff"/>${taeguk}${gwae}</svg>`;
+}
 function _advisorRenderResults(items) {
   const el = document.getElementById('advisor-search-results');
   if (!el) return;
@@ -5607,7 +5640,7 @@ function _advisorRenderResults(items) {
     const ticker = it.symbol || it.tkr || '';
     const name = it.name || ticker;
     const market = _advisorInferMarket(ticker, it.currency);
-    const mLabel = market === 'KR' ? '🇰🇷 KR' : (market === 'JP' ? '🇯🇵 JP' : '🇺🇸 US');
+    const mLabel = _mktFlagSvg(market, 13) + ' ' + (market === 'KR' ? 'KR' : market === 'JP' ? 'JP' : 'US');
     return `<div class="advisor-result-row" data-tkr="${_advisorEscape(ticker)}" data-name="${_advisorEscape(name)}" data-market="${market}">
       <span class="advisor-result-name">${_advisorEscape(name)}</span>
       <span class="advisor-result-tkr">${_advisorEscape(ticker)}</span>
