@@ -59,6 +59,11 @@
     /* 시안식 용어 툴팁 — 점선 밑줄 + 호버 말풍선 */
     [data-tip]{position:relative;cursor:help;border-bottom:1px dashed var(--dim)}
     [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 7px);z-index:99;width:max-content;max-width:250px;white-space:normal;background:var(--tipbg);color:var(--tiptx);font-size:11.5px;font-weight:400;line-height:1.55;padding:8px 11px;border-radius:8px;border:1px solid var(--bd2);box-shadow:0 10px 26px rgba(0,0,0,.35);pointer-events:none;letter-spacing:0;text-transform:none}
+    /* 상단 글로벌 헤더/페이지 첫 행의 툴팁은 위로 잘리지 않게 아래쪽으로 펼침 */
+    #page-head [data-tip]:hover::after,
+    .cb-scroll > div:first-child [data-tip]:hover::after{bottom:auto;top:calc(100% + 7px)}
+    /* 블록형 툴팁 대상(progress bar 세그먼트 등) — 점선 밑줄 제거 */
+    [data-tip].cb-tip-block{border-bottom:none}
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
@@ -105,9 +110,9 @@
     .view-section.active{display:flex;flex-direction:column}
     @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
     .page-title{margin:0;font-weight:700;font-size:1.3rem}
-    /* 추가/검색 버튼 — Cobalt cb-btn과 동일 타이포그래피 */
-    .api-btn{background:var(--acc);color:#fff!important;border:none;padding:6px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12.5px;transition:.2s;font-family:'Noto Sans KR',sans-serif}
-    .api-btn:hover{opacity:.9}
+    /* 추가/검색 버튼 — 소유주 버튼(.owner-btn)과 동일한 소프트 필 형태 */
+    .api-btn{background:var(--acc-soft2);color:var(--t1)!important;border:1px solid var(--border-dark);padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:.76rem;transition:background .15s,color .15s;font-family:inherit}
+    .api-btn:hover{background:var(--hover-bg)}
     .owner-tabs{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
     .dash-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);gap:12px;flex:1;min-height:550px}
     .dash-main{gap:12px;min-width:0;min-height:0}
@@ -140,7 +145,8 @@
     .pt-table td{padding:10px 12px;border-bottom:1px solid var(--border-light);font-weight:500;font-family:'IBM Plex Mono','DM Sans',sans-serif}
     .pt-table th.text-left,.pt-table td.text-left{text-align:left;font-family:'DM Sans',sans-serif}
     .pt-table tbody tr:hover{background:var(--hover-bg)}
-    .pt-table .tkr-txt{font-size:.7rem;color:var(--t3);font-weight:bold;background:var(--border-dark);padding:2px 6px;border-radius:4px}
+    /* 티커: 음영(배경) 없이 텍스트만 */
+    .pt-table .tkr-txt{font-size:.7rem;color:var(--t3);font-weight:bold}
     .pt-table .broker-txt{font-size:.7rem;color:var(--acc);font-weight:600}
     #div-table-body td:first-child{white-space:normal}
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
@@ -173,8 +179,8 @@
     .form-label{font-size:.75rem;font-weight:600;color:var(--t3)}
     .form-input{padding:10px 12px;border-radius:8px;border:1px solid var(--border-dark);background:var(--inner-bg);outline:none;transition:.2s;font-family:inherit;color:var(--t1)}
     .form-input:focus{background:var(--modal-bg);border-color:var(--acc);box-shadow:0 0 0 2px rgba(120,140,190,.32)}
-    .btn-submit{padding:10px 20px;background:var(--acc);color:white;border:none;border-radius:9px;font-weight:700;font-size:12.5px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;height:39px;transition:.2s}
-    .btn-submit:hover{opacity:.9}
+    .btn-submit{padding:10px 20px;background:var(--acc-soft2);color:var(--t1);border:1px solid var(--border-dark);border-radius:8px;font-weight:700;font-size:.76rem;font-family:inherit;cursor:pointer;height:39px;transition:background .15s,color .15s}
+    .btn-submit:hover{background:var(--hover-bg)}
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.55);display:none;justify-content:center;align-items:center;z-index:1000}
     .modal-overlay.active{display:flex}
     .modal-content{background:var(--modal-bg);color:var(--t1);width:450px;border-radius:16px;padding:25px;box-shadow:0 10px 40px rgba(0,0,0,.4);gap:15px;border:1px solid var(--border-dark)}
@@ -805,13 +811,18 @@
     /* ── Cobalt 시안 페이지 공통 컴포넌트 ─────────────────────── */
     .cb-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding:14px 6px 60px 0}
     .cb-panel{background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);box-sizing:border-box}
-    .cb-btn{cursor:pointer;background:var(--acc);border:none;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:9px}
-    .cb-btn:hover{opacity:.9}
+    .cb-btn{cursor:pointer;background:var(--acc-soft2);border:1px solid var(--border-dark);color:var(--tx);font-family:inherit;font-size:.76rem;font-weight:700;padding:8px 15px;border-radius:8px;transition:background .15s,color .15s}
+    .cb-btn:hover{background:var(--hover-bg)}
     .cb-input{background:var(--inner);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box}
     .cb-input:focus{border-color:var(--acc)}
     select.cb-input option{background:var(--panelSolid);color:var(--tx)}
     .cb-hrow{border-radius:9px;transition:background .12s}
     .cb-hrow:hover{background:var(--hover)}
+    /* 성과 비교 라인 차트 — 렌더 시 자연스러운 드로잉/페이드 인 */
+    @keyframes cbLineDraw{to{stroke-dashoffset:0}}
+    @keyframes cbLineFade{from{opacity:0}to{opacity:var(--o,1)}}
+    .cb-line-draw{stroke-dasharray:1;stroke-dashoffset:1;animation:cbLineDraw 1.1s cubic-bezier(.4,0,.2,1) forwards}
+    .cb-line-fade{opacity:0;animation:cbLineFade .9s ease .25s forwards}
     .cb-edit{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim);cursor:pointer;border:1px solid var(--bd);flex-shrink:0}
     .cb-edit:hover{color:var(--tx);border-color:var(--bd2)}
     .cb-del{color:var(--dim);cursor:pointer;font-size:11px}
@@ -854,6 +865,9 @@
         background:var(--modal-bg);padding:10px 12px;gap:8px}
       .hamburger-btn{grid-row:1;grid-column:1}
       .page-title{grid-row:1;grid-column:2;text-align:center;font-size:1.05rem!important}
+      /* 헤더 소제목은 모바일에서 숨김, 페이지 컨트롤(기간 버튼 등)은 둘째 줄 중앙 */
+      #main-title-sub{display:none}
+      #cb-head-widgets{grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center;flex-wrap:wrap}
       #owner-tabs-container,#cf-owner-bar,#bubble-owner-bar,#analysis-owner-bar{
         grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center}
       .owner-btn{padding:4px 10px;font-size:.72rem}
