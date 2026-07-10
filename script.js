@@ -2214,13 +2214,18 @@ function renderPortfolio(owner) {
       const fb=_holdingsBrokerFilter.slice(0,_si),fa=_holdingsBrokerFilter.slice(_si+_BROKER_ACC_SEP.length);
       grpItems=grpItems.filter(i=>(i.broker||'')===fb&&(i.acc||'')===fa);
     }
-    // 정렬: 소유주 → 증권사 → 계좌 → 티커
+    // 정렬: 소유주 → 국가 → 종목명 (자산군은 섹션 자체가 분리) — 대시보드/가족 자산과 동일 규칙
+    const _ctryLbl=i=>{
+      if(i.grp!=='주식') return '';
+      if(i.cur==='JPY'||/\.T$/i.test(i.tkr||'')) return '일본';
+      if(i.cur==='USD') return '미국';
+      return '한국';
+    };
     grpItems.sort((a,b)=>{
-      const ow=(a.owner||'').localeCompare(b.owner||''); if(ow!==0)return ow;
-      const ta=(a.tkr||'').replace(/\.(KS|KQ)$/,'').toUpperCase();
-      const tb=(b.tkr||'').replace(/\.(KS|KQ)$/,'').toUpperCase();
-      const tk=ta.localeCompare(tb); if(tk!==0)return tk;
-      const nm=(a.name||'').localeCompare(b.name||''); if(nm!==0)return nm;
+      const oa=OWNERS.indexOf(a.owner), ob=OWNERS.indexOf(b.owner);
+      const ow=(oa<0?99:oa)-(ob<0?99:ob); if(ow!==0)return ow;
+      const ct=_ctryLbl(a).localeCompare(_ctryLbl(b),'ko'); if(ct!==0)return ct;
+      const nm=(a.name||a.tkr||'').localeCompare(b.name||b.tkr||'','ko'); if(nm!==0)return nm;
       const br=(a.broker||'').localeCompare(b.broker||''); if(br!==0)return br;
       return (a.acc||'').localeCompare(b.acc||'');
     });
@@ -6390,17 +6395,20 @@ function _gicsSector(item) {
   //    짧은 브랜드(ACE/SOL/PLUS)는 단어 경계로 제한해 오탐 방지
   //    (예: "SPACE Exploration"의 ACE, "SOLAR"의 SOL 이 ETF로 잘못 분류되지 않도록)
   const isETF = /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF/.test(nameU)
-    || /(^|\s)(ACE|SOL|PLUS)(\s|\d|$)/.test(nameU)
+    || /(^|\s)(ACE|SOL|PLUS|RISE)(\s|\d|$)/.test(nameU)
     || /QQQ|NASDAQ\s*100|S&P\s*500|PROSHARES|DIREXION/i.test(name)
-    || ['SPY','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
+    || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
         'SCHD','VYM','JEPI','JEPQ','DVY','HDV','NOBL',
         // 레버리지/인버스 지수 ETF (지수 추종)
-        'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','SOXL','SOXS','UDOW','SDOW','TNA','TZA','FNGU'].includes(tStrip);
+        'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','SOXL','SOXS','UDOW','SDOW','TNA','TZA','FNGU',
+        // KR 지수 ETF 대표 코드 (KODEX 200 / RISE 200TR / KODEX 200TR)
+        '069500','361580','278530'].includes(tStrip);
   if (isETF) {
     // 지수/시장 전체 추종 → Index ETF (레버리지/인버스 지수 ETF 포함)
     if (/지수|S&P|SP500|나스닥|NASDAQ|다우|DOW|KOSPI\s*200|코스피\s*200|전체|시장|WORLD|GLOBAL|\s200|QQQ|러셀|RUSSELL/i.test(name)
-        || ['SPY','IVV','VOO','QQQ','QQQM','DIA','VTI','IWM','VEA','VWO','EFA',
-            'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','UDOW','SDOW','TNA','TZA'].includes(tStrip)) return 'Index ETF';
+        || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','VTI','IWM','VEA','VWO','EFA',
+            'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','UDOW','SDOW','TNA','TZA',
+            '069500','361580','278530'].includes(tStrip)) return 'Index ETF';
     // 그 외 모든 ETF (배당, 섹터, 채권, 원자재 등) → Sector ETF
     return 'Sector ETF';
   }

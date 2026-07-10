@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -82,9 +82,12 @@
   </aside>
 
   <main class="content-area f-col">
-    <div class="f-between" style="padding:15px 24px;border-bottom:1px solid var(--border-dark);flex-shrink:0;">
+    <div class="f-between" id="page-head" style="padding:15px 24px;border-bottom:1px solid var(--border-dark);flex-shrink:0;gap:10px;">
       <button id="sidebar-toggle" class="hamburger-btn" onclick="toggleSidebar()" aria-label="메뉴 열기" aria-expanded="false">☰</button>
       <h2 class="page-title" id="main-title" style="font-size:1.4rem;margin:0;">가족 자산 관리</h2>
+      <!-- 페이지 소제목 (메인 제목 옆 작은 글씨) + 페이지 컨트롤 — cobalt.js cbSetHead()가 채움 -->
+      <span id="main-title-sub" style="font-size:11.5px;color:var(--lab);min-width:0"></span>
+      <div id="cb-head-widgets" style="display:none;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap"></div>
       <div id="cf-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
         <button class="owner-btn active" id="cf-owner-전체" onclick="setCfOwner('전체',this)">전체</button>
         <button class="owner-btn" id="cf-owner-본인" onclick="setCfOwner('본인',this)">본인</button>
@@ -934,7 +937,7 @@
     <button class="btn-submit" id="btn-liab-submit" onclick="addLiability()" style="margin-top:6px;width:100%">저장하기</button>
   </div>
 </div>
-<script src="script.js?v=22"></script>
-<script src="cobalt.js?v=2"></script>
+<script src="script.js?v=23"></script>
+<script src="cobalt.js?v=3"></script>
 </body>
 </html>
