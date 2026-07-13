@@ -1791,7 +1791,7 @@ function renderTreemap(market) {
   });
   const containerId = 'heatmap-'+market;
   const opts = {
-    chart:{type:'treemap',backgroundColor:'transparent',margin:0,spacing:[0,0,0,0],style:{fontFamily:'DM Sans'}},
+    chart:{type:'treemap',backgroundColor:'transparent',margin:0,spacing:[0,0,0,0],style:{fontFamily:'Noto Sans KR'}},
     title:{text:null},credits:{enabled:false},
     colorAxis:{min:-3,max:3,stops:[[0,'#EF4444'],[0.5,'#475569'],[1,'#10B981']]},
     tooltip:{useHTML:true,pointFormat:'<b style="color:#222">{point.name}</b><br/><span style="color:#333">등락률: {point.perfStr}</span>',backgroundColor:'rgba(255,255,255,0.95)'},
@@ -2264,7 +2264,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong></td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong></td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="pl-cell ${cCls}">${fProfit}</td><td class="pl-cell ${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2288,7 +2288,7 @@ function renderPortfolio(owner) {
           const dcaSym2=i.dcaMode!=='qty'?(i.dcaCur==='USD'?'$':'₩'):'';
           const _cryptoDcaDisp=i.dcaMode==='qty'?`${(i.dcaQty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주`:`${dcaSym2}${(i.dcaAmt||0).toLocaleString()}`;
           const dcaNextStr=i.dca?getDcaNextDateStr(i):'';const dcaTag=i.dca?`<span class="dca-tag">DCA</span><span style="font-size:.65rem;color:var(--t3);margin-left:4px">${getDcaCycleLabel(i)} ${_cryptoDcaDisp}${dcaNextStr?` · 다음 ${dcaNextStr.slice(5).replace('-','/')}`:''}</span>`:'';
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${i.tkr}</span><br>${dcaTag}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${i.tkr}</span><br>${dcaTag}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="pl-cell ${cCls}">${fProfit}</td><td class="pl-cell ${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2314,7 +2314,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${dispTkr}</span><br>${dcaTag}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${dispTkr}</span><br>${dcaTag}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td>${weight.toFixed(1)}%</td><td class="pl-cell ${cCls}">${fProfit}</td><td class="pl-cell ${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -2327,10 +2327,10 @@ function renderPortfolio(owner) {
     if(grpName==='현금'){
       theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th>비중</th><th>관리</th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','weight',this)">비중</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','weight',this)">비중</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">평가손익</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','weight',this)">비중</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','weight',this)">비중</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">평가손익</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
@@ -2346,7 +2346,7 @@ function renderPortfolio(owner) {
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
-    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span></div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}">${grpName==='주식'?brokerFilterHtml:''}<table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
+    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span></div><div class="pt-group-stats f-row" style="gap:18px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2);min-width:190px;text-align:right">총 평가: <strong style="color:var(--t1);font-family:'IBM Plex Mono',monospace">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}" style="min-width:240px;text-align:right;font-family:'IBM Plex Mono',monospace">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 0;font-size:.72rem;width:72px;text-align:center;flex-shrink:0" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}">${grpName==='주식'?brokerFilterHtml:''}<table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
   });
   document.getElementById('portfolio-tables').innerHTML=html;
 }
@@ -4434,7 +4434,7 @@ async function loadExtDataFromKV() {
 // Chart.js 플러그인 등록
 // =============================================
 Chart.register(
-  {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
+  {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px "Noto Sans KR"';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
   {id:'gaugeNeedle',afterDatasetDraw(c){if(c.config.data.datasets[0].needleValue===undefined)return;const{ctx,data}=c,m=c.getDatasetMeta(0);if(!m.data.length)return;const cx=m.data[0].x,cy=m.data[0].y,or=m.data[0].outerRadius,ang=Math.PI+(data.datasets[0].needleValue/100*Math.PI);ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(or-6,0);ctx.lineTo(0,2);ctx.fillStyle=_chartNeedleColor;ctx.fill();ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fillStyle=_chartHubColor;ctx.fill();ctx.restore();}}
 );
 // 버블 차트 관련 Highcharts 설정 삭제됨
@@ -6648,13 +6648,15 @@ function renderBubbleChart(mode) {
   const ownerKeys = Object.keys(ownerAgg).sort((a, b) => ownerAgg[b] - ownerAgg[a]);
   const ownersForLayer = filterOwner ? [filterOwner] : ownerKeys;
 
+  // 소유주 링 색상 — 앱 공통 ownerColors(Cobalt 팔레트)와 같은 계열 hue 로 고정
+  const OWNER_HUES = { '본인': 217, '아내': 38, '자녀1': 140, '아버지': 272 };
   ownersForLayer.forEach((owner, oi) => {
     const ownerVal = ownerAgg[owner] || 0;
     const ownerWeight = (ownerVal / totalVal) * 100;
     let parentIdForSec;
     if (!filterOwner) {
       const oid = `O::${owner}`;
-      const ohue = (_neonHash(owner) + oi * 23) % 360;
+      const ohue = (OWNER_HUES[owner] != null) ? OWNER_HUES[owner] : (_neonHash(owner) + oi * 23) % 360;
       ids.push(oid);
       labels.push(owner);
       parents.push(rootId);
@@ -7115,7 +7117,7 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
   const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
   const fmtKRW = (v) => '₩' + Math.round(v).toLocaleString('ko-KR');
   const html = [
-    `<div style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;padding:2px 8px 10px;text-transform:uppercase;">Composition</div>`,
+    `<div style="font-family:'IBM Plex Mono','Noto Sans KR',sans-serif;font-size:.66rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;padding:2px 8px 10px;text-transform:uppercase;">Composition</div>`,
     `<div style="display:flex;flex-direction:column;gap:5px;">`
   ];
   rows.forEach(([sec, val]) => {
@@ -7135,13 +7137,13 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
             <span style="width:8px;height:8px;border-radius:50%;background:${c};box-shadow:0 0 6px ${c}88;flex-shrink:0;"></span>
-            <span style="font-family:'DM Sans','Inter',sans-serif;font-size:.78rem;font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sec}</span>
+            <span style="font-family:'Noto Sans KR','Inter',sans-serif;font-size:.78rem;font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sec}</span>
           </div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-shrink:0;">
-            <span style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.82rem;font-weight:800;color:${textPrimary};letter-spacing:.2px;">${pctStr}%</span>
+            <span style="font-family:'IBM Plex Mono','Noto Sans KR',sans-serif;font-size:.82rem;font-weight:800;color:${textPrimary};letter-spacing:.2px;">${pctStr}%</span>
           </div>
         </div>
-        <div style="position:relative;font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;color:${headerColor};margin-top:2px;letter-spacing:.2px;pointer-events:none;">${fmtKRW(val)}</div>
+        <div style="position:relative;font-family:'IBM Plex Mono','Noto Sans KR',sans-serif;font-size:.66rem;color:${headerColor};margin-top:2px;letter-spacing:.2px;pointer-events:none;">${fmtKRW(val)}</div>
       </div>
       ${detailHtml}
       </div>
@@ -7186,8 +7188,8 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const html = [
     `<div class="bubble-inline-leaves" style="padding:4px 8px 9px;border-top:1px solid ${rowBorder};">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 7px;">
-      <div style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.64rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;text-transform:uppercase;">${sector}</div>
-      <div onclick="handleBubbleSectorClick('${String(sector).replace(/'/g,"\\'")}')" style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;color:${accent};cursor:pointer;font-weight:700;letter-spacing:.4px;">CLOSE</div>
+      <div style="font-family:'IBM Plex Mono','Noto Sans KR',sans-serif;font-size:.64rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;text-transform:uppercase;">${sector}</div>
+      <div onclick="handleBubbleSectorClick('${String(sector).replace(/'/g,"\\'")}')" style="font-family:'IBM Plex Mono','Noto Sans KR',sans-serif;font-size:.66rem;color:${accent};cursor:pointer;font-weight:700;letter-spacing:.4px;">CLOSE</div>
     </div>`,
     `<div style="display:flex;flex-direction:column;gap:${gap}px;">`
   ];
