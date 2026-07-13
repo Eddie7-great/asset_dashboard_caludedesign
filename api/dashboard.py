@@ -373,8 +373,70 @@ def _recent_biz_days(n=6):
         d -= datetime.timedelta(days=1)
     return out
 
+# ── 주요 미국 종목 ISIN → 티커 매핑 ──────────────────────────────
+# KRX ETF PDF(구성종목)는 해외 편입 종목을 ISIN(예: US67066G1040)으로 공시한다.
+# ISIN은 상장 후 변하지 않는 식별자이므로 이 표는 '비중표'와 달리 갱신이 필요 없다 —
+# 비중은 KRX 공시에서 실시간으로 받고, 여기서는 식별자만 티커로 되돌린다.
+# (미등재 ISIN은 원문 그대로 통과 → 직접 보유 종목과 매칭되지 않을 뿐, 오류는 아님)
+_ISIN_TICKER = {
+    'US0378331005': 'AAPL',  'US5949181045': 'MSFT',  'US67066G1040': 'NVDA',
+    'US0231351067': 'AMZN',  'US02079K3059': 'GOOGL', 'US02079K1079': 'GOOG',
+    'US30303M1027': 'META',  'US88160R1014': 'TSLA',  'US11135F1012': 'AVGO',
+    'US64110L1061': 'NFLX',  'US22160K1051': 'COST',  'US0846707026': 'BRKB',
+    'US46625H1005': 'JPM',   'US5324571083': 'LLY',   'US92826C8394': 'V',
+    'US30231G1022': 'XOM',   'US91324P1021': 'UNH',   'US57636Q1040': 'MA',
+    'US9311421039': 'WMT',   'US4370761029': 'HD',    'US7427181091': 'PG',
+    'US4781601046': 'JNJ',   'US00287Y1091': 'ABBV',  'US0079031078': 'AMD',
+    'US69608A1088': 'PLTR',  'US7475251036': 'QCOM',  'US8825081040': 'TXN',
+    'US4581401001': 'INTC',  'US5951121038': 'MU',    'US00724F1012': 'ADBE',
+    'US79466L3024': 'CRM',   'US68389X1054': 'ORCL',  'US17275R1023': 'CSCO',
+    'US7134481081': 'PEP',   'US1912161007': 'KO',    'US4612021034': 'INTU',
+    'US46120E6023': 'ISRG',  'US0311621009': 'AMGN',  'US09857L1089': 'BKNG',
+    'US4385161066': 'HON',   'US6974351057': 'PANW',  'US0530151036': 'ADP',
+    'US8725901040': 'TMUS',  'US20030N1019': 'CMCSA', 'US8552441094': 'SBUX',
+    'US3755581036': 'GILD',  'US92532F1003': 'VRTX',  'US75886F1075': 'REGN',
+    'US58933Y1055': 'MRK',   'US7170811035': 'PFE',   'US1667641005': 'CVX',
+    'US0605051046': 'BAC',   'US9497461015': 'WFC',   'US38141G1040': 'GS',
+    'US6174464486': 'MS',    'US1491231015': 'CAT',   'US3696043013': 'GE',
+    'US0970231058': 'BA',    'US4592001014': 'IBM',   'US5801351017': 'MCD',
+    'US6541061031': 'NKE',   'US2546871060': 'DIS',   'US92343V1044': 'VZ',
+    'US00206R1023': 'T',     'US92840M1027': 'VST',   'US21037T1097': 'CEG',
+    'US36828A1016': 'GEV',   'US65339F1012': 'NEE',   'US26441C2044': 'DUK',
+    'US8425871071': 'SO',    'US86800U3023': 'SMCI',  'US0420682058': 'ARM',
+    'US8740391003': 'TSM',   'US0326541051': 'ADI',   'US5128071082': 'LRCX',
+    'US0382221051': 'AMAT',  'US4824801009': 'KLAC',  'US5738741041': 'MRVL',
+    'US8716071076': 'SNPS',  'US1273871087': 'CDNS',  'US22788C1053': 'CRWD',
+    'US81762P1021': 'NOW',   'US90353T1007': 'UBER',  'US19260Q1076': 'COIN',
+    'US7707001027': 'HOOD',  'US03831W1080': 'APP',   'US0404132054': 'ANET',
+}
+
+_KR_ISIN_RE = re.compile(r'^KR7([0-9A-Z]{6})\d{3}$')
+_US_ISIN_RE = re.compile(r'^US[0-9A-Z]{9}\d$')
+
+def _norm_holding_code(code_s):
+    """PDF/외부 소스의 구성종목 코드 정규화 → 매칭 가능한 티커.
+    KR 6자리 단축코드·KR ISIN·미국 ISIN(매핑표)·일반 티커를 처리하고,
+    원화현금(KRD...)·선물 등 비종목 코드는 None."""
+    if not code_s:
+        return None
+    if _is_kr_code(code_s):
+        return code_s
+    m = _KR_ISIN_RE.match(code_s)          # KR7005930003 → 005930
+    if m:
+        return m.group(1)
+    if _US_ISIN_RE.match(code_s):          # US67066G1040 → NVDA (미등재 ISIN은 원문 유지)
+        return _ISIN_TICKER.get(code_s, code_s)
+    if code_s.startswith('KR'):            # KRD010010001(원화현금) 등 비종목
+        return None
+    # 로이터형 접미사(NVDA.O / AAPL.OQ 등) 제거 후 일반 티커로
+    base = re.sub(r'\.(O|OQ|N|K|A)$', '', code_s)
+    if re.fullmatch(r'[A-Z0-9.\-]{1,10}', base):
+        return base
+    return None
+
 def _parse_pdf_df(df):
-    """pykrx ETF PDF(구성종목) DataFrame → [{'tkr','name','weight'}]. 원화현금·선물 등 비종목 행 제외."""
+    """pykrx ETF PDF(구성종목) DataFrame → [{'tkr','name','weight'}]. 원화현금·선물 등 비종목 행 제외.
+    해외 편입 종목(ISIN 공시)도 티커로 정규화해 포함한다 — 미국 지수 추종 국내 ETF 룩스루용."""
     holdings = []
     if df is None or getattr(df, 'empty', True):
         return holdings
@@ -386,7 +448,8 @@ def _parse_pdf_df(df):
             total_amt = 0.0
     for code, row in df.iterrows():
         code_s = str(code).strip().upper()
-        if not _is_kr_code(code_s):
+        tkr = _norm_holding_code(code_s)
+        if not tkr:
             continue
         w = None
         if '비중' in df.columns:
@@ -404,11 +467,12 @@ def _parse_pdf_df(df):
         if w is None or w <= 0:
             continue
         name = None
-        try:
-            name = krx.get_market_ticker_name(code_s)
-        except Exception:
-            pass
-        holdings.append({'tkr': code_s, 'name': name if isinstance(name, str) and name else code_s,
+        if _is_kr_code(tkr):
+            try:
+                name = krx.get_market_ticker_name(tkr)
+            except Exception:
+                pass
+        holdings.append({'tkr': tkr, 'name': name if isinstance(name, str) and name else tkr,
                          'weight': round(w, 2)})
     return holdings
 
@@ -433,8 +497,104 @@ def _kr_etf_holdings(t_up):
                 pass
     return []
 
+def _kr_etf_holdings_naver(t_up):
+    """KR ETF 구성종목 2차 소스 — 네이버 모바일 증권 API (pykrx/KRX 실패 시 폴백).
+    응답 스키마가 예고 없이 바뀔 수 있어 JSON 트리를 순회하며
+    '종목코드/종목명 + 비중' 꼴의 배열을 관대하게 찾아낸다. 실패하면 조용히 []."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            'https://m.stock.naver.com/api/stock/%s/etfAnalysis' % t_up,
+            headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode('utf-8', 'replace'))
+    except Exception as e:
+        print('[etf_holdings naver]', t_up, e)
+        return []
+
+    def _weight_of(d):
+        for k, v in d.items():
+            if not re.search(r'(weight|percent|ratio)', k, re.I):
+                continue
+            try:
+                w = float(str(v).replace('%', '').replace(',', '').strip())
+                if w == w and 0 < w <= 100:
+                    return w
+            except Exception:
+                pass
+        return None
+
+    def _code_of(d):
+        for key in ('itemCode', 'stockCode', 'code', 'reutersCode', 'symbolCode'):
+            v = d.get(key)
+            if v:
+                return _norm_holding_code(str(v).strip().upper())
+        return None
+
+    def _name_of(d):
+        for key in ('itemName', 'stockName', 'name', 'stockEndItemName'):
+            v = d.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+
+    best = []
+    stack = [data]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            rows = []
+            for it in node:
+                if not isinstance(it, dict):
+                    continue
+                w = _weight_of(it)
+                if w is None:
+                    continue
+                code, name = _code_of(it), _name_of(it)
+                if not (code or name):
+                    continue
+                rows.append({'tkr': code or (name or ''), 'name': name or code, 'weight': round(w, 2)})
+            if len(rows) > len(best):
+                best = rows
+            stack.extend(node)
+    return best
+
+# 티커 변경/병기 별칭 — 원 티커로 못 찾으면 별칭으로 재시도 (SPYM은 SPDR Portfolio S&P500의 2025-10 변경 티커)
+_ETF_ALIAS = {'SPYM': 'SPLG', 'SPLG': 'SPYM'}
+
+def _yf_etf_holdings(sym):
+    """yfinance funds_data.top_holdings → [{'tkr','name','weight'}] (실패 시 [])."""
+    try:
+        fd = yf.Ticker(sym).funds_data
+        th = fd.top_holdings if fd is not None else None
+        if th is None or th.empty:
+            return []
+        # 'Holding Percent'가 소수(0.31)면 %로 환산
+        wcol = 'Holding Percent' if 'Holding Percent' in th.columns else None
+        raw = []
+        for s, row in th.iterrows():
+            try:
+                w = float(row[wcol]) if wcol else None
+            except Exception:
+                w = None
+            if w is None or w != w or w <= 0:
+                continue
+            nm = row.get('Name') if hasattr(row, 'get') else None
+            raw.append((str(s).strip().upper(), str(nm) if nm else str(s), w))
+        if not raw:
+            return []
+        scale = 100 if max(r[2] for r in raw) <= 1.5 else 1
+        return [{'tkr': s, 'name': n, 'weight': round(w * scale, 2)} for s, n, w in raw]
+    except Exception as e:
+        print('[etf_holdings yfinance]', sym, e)
+        return []
+
 def get_etf_holdings(tkr):
-    """ETF 구성종목과 비중(%) 반환 — KR ETF는 KRX 공시 PDF, 해외 ETF는 yfinance funds_data.
+    """ETF 구성종목과 비중(%) 반환.
+    KR ETF: KRX 공시 PDF(pykrx) → 네이버 증권 → yfinance(.KS/.KQ) 순 폴백.
+    해외 ETF: yfinance funds_data → 티커 별칭 재시도.
     응답: {'success': bool, 'tkr': ..., 'holdings': [{'tkr','name','weight'}], 'source': ...}
     비중은 % 단위(0~100). 현금 등 비종목 행은 제외한다."""
     t_up = (tkr or '').strip().upper().replace('.KS', '').replace('.KQ', '')
@@ -443,37 +603,32 @@ def get_etf_holdings(tkr):
     holdings = []
     source = None
 
-    if _is_kr_code(t_up) and PYKRX_OK:
-        try:
-            holdings = _kr_etf_holdings(t_up)
+    if _is_kr_code(t_up):
+        if PYKRX_OK:
+            try:
+                holdings = _kr_etf_holdings(t_up)
+                if holdings:
+                    source = 'pykrx'
+            except Exception as e:
+                print('[etf_holdings pykrx]', t_up, e)
+        if not holdings:
+            holdings = _kr_etf_holdings_naver(t_up)
             if holdings:
-                source = 'pykrx'
-        except Exception as e:
-            print('[etf_holdings pykrx]', t_up, e)
-
-    if not holdings and YF_OK and not _is_kr_code(t_up):
-        try:
-            fd = yf.Ticker(t_up).funds_data
-            th = fd.top_holdings if fd is not None else None
-            if th is not None and not th.empty:
-                # 'Holding Percent'가 소수(0.31)면 %로 환산
-                wcol = 'Holding Percent' if 'Holding Percent' in th.columns else None
-                raw = []
-                for sym, row in th.iterrows():
-                    try:
-                        w = float(row[wcol]) if wcol else None
-                    except Exception:
-                        w = None
-                    if w is None or w != w or w <= 0:
-                        continue
-                    nm = row.get('Name') if hasattr(row, 'get') else None
-                    raw.append((str(sym).strip().upper(), str(nm) if nm else str(sym), w))
-                if raw:
-                    scale = 100 if max(r[2] for r in raw) <= 1.5 else 1
-                    holdings = [{'tkr': s, 'name': n, 'weight': round(w * scale, 2)} for s, n, w in raw]
+                source = 'naver'
+        if not holdings and YF_OK:
+            for suf in ('.KS', '.KQ'):
+                holdings = _yf_etf_holdings(t_up + suf)
+                if holdings:
                     source = 'yfinance'
-        except Exception as e:
-            print('[etf_holdings yfinance]', t_up, e)
+                    break
+    elif YF_OK:
+        holdings = _yf_etf_holdings(t_up)
+        if holdings:
+            source = 'yfinance'
+        elif t_up in _ETF_ALIAS:
+            holdings = _yf_etf_holdings(_ETF_ALIAS[t_up])
+            if holdings:
+                source = 'yfinance:' + _ETF_ALIAS[t_up]
 
     return {'success': bool(holdings), 'tkr': t_up, 'holdings': holdings, 'source': source}
 
