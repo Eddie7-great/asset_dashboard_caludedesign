@@ -247,6 +247,10 @@ const CB_ETF_FALLBACK = {
   SPY: [['NVDA',7.3],['AAPL',6.6],['MSFT',6.3],['AMZN',3.9],['META',2.7],['AVGO',2.5],['GOOGL',2.1],['TSLA',1.9],['GOOG',1.7],['BRKB',1.6],['JPM',1.5],['LLY',1.2],['V',1.0],['XOM',1.0],['UNH',1.0],['NFLX',1.2],['MA',0.9],['COST',0.9],['WMT',0.9],['HD',0.8],['PG',0.8],['JNJ',0.8],['ABBV',0.8]],
   SCHD: [['CVX',4.3],['KO',4.1],['MRK',4.0],['ABBV',4.0],['AMGN',4.0],['HD',4.0],['PEP',3.9],['TXN',3.8],['CSCO',3.8],['VZ',3.7],['LMT',3.6],['BMY',3.4],['PFE',3.2],['BLK',3.1],['ADP',3.0]],
   DIA: [['GS',9.0],['MSFT',6.5],['CAT',6.0],['HD',5.8],['V',5.0],['UNH',4.8],['AMGN',4.5],['CRM',4.0],['MCD',4.0],['AXP',3.8],['TRV',3.4],['JPM',3.2],['HON',3.0],['AAPL',3.0],['IBM',3.0],['AMZN',2.8]],
+  // 반도체 (SOXX/SMH — 상위 편입 반도체 대형주 바스켓 근사)
+  SOXX: [['NVDA',9.5],['AVGO',8.5],['TSM',8.0],['AMD',7.0],['MU',5.0],['QCOM',4.5],['TXN',4.3],['LRCX',4.2],['AMAT',4.1],['KLAC',4.0],['ADI',4.0],['MRVL',3.8],['MCHP',3.2],['NXPI',3.0],['ON',2.5]],
+  // 기술 섹터 (XLK — 상위 편입 근사)
+  XLK: [['AAPL',15.0],['MSFT',14.0],['NVDA',13.5],['AVGO',5.0],['CRM',3.0],['ORCL',3.0],['AMD',2.6],['CSCO',2.4],['ACN',2.3],['ADBE',2.2],['NOW',2.0],['QCOM',1.9],['TXN',1.9],['INTU',1.9],['AMAT',1.7]],
   // KODEX 200 / KOSPI200 (069500) — 상위 편입 근사 비중
   '069500': [['005930',30.0],['000660',9.0],['373220',3.2],['207940',2.6],['005380',2.3],['035420',1.9],['105560',1.8],['068270',1.8],['000270',1.6],['055550',1.5],['012330',1.3],['051910',1.3],['006400',1.1],['028260',1.1],['035720',1.1]],
 };
@@ -254,6 +258,8 @@ const CB_ETF_FALLBACK = {
 ['QQQM','QLD','TQQQ'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.QQQ; });
 // S&P500 바스켓 공유 — SPYM은 SPDR Portfolio S&P500(구 SPLG)의 2025-10-31 변경 티커
 ['VOO','IVV','VTI','SPYM','SPLG'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.SPY; });
+// 반도체 바스켓 공유 (SMH ≈ SOXX 상위 편입 근사)
+['SMH'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.SOXX; });
 // KOSPI200 TR 계열 — RISE 200TR(361580)·KODEX 200TR(278530)은 KOSPI200 바스켓 공유 (funetf.co.kr 편입 비중 확인)
 ['361580','278530'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK['069500']; });
 function cbEtfFallback(strip){
@@ -462,7 +468,8 @@ function cbMultiLineSvg(seriesArr, w, h){
     const anim = s.dash ? `class="cb-line-fade" style="--o:${op}"` : 'class="cb-line-draw" pathLength="1"';
     out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.bold?2.8:1.8}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}" ${s.dash?'stroke-dasharray="5 5"':''} ${anim}></path>`;
   });
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">${out}</svg>`;
+  // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
 }
 
 // ───────────────────────── 페이지: 대시보드 ─────────────────────────
@@ -781,7 +788,10 @@ function _cbPerfTipEl(){
   let t = document.getElementById('cb-perf-tip');
   if(!t){
     t = document.createElement('div'); t.id = 'cb-perf-tip';
-    t.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;background:var(--tipbg);color:var(--tiptx);border:1px solid var(--bd2);border-radius:9px;padding:9px 11px;box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:11.5px;min-width:158px;letter-spacing:0';
+    // 배경은 테마 표면색(--panelSolid), 글씨는 페이지 텍스트색(--tx)을 써서
+    // 라이트/다크/네이비 모두에서 내부 페이지 토큰 텍스트(--mut/--lab/상승·하락색)가 정상 대비되게 한다.
+    // (기존 --tipbg 고정 어두운 박스에 어두운 페이지 토큰 글씨가 얹혀 라이트 모드에서 안 보이던 문제 수정)
+    t.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;background:var(--panelSolid);color:var(--tx);border:1px solid var(--bd2);border-radius:9px;padding:9px 11px;box-shadow:0 12px 30px rgba(0,0,0,.28);font-size:11.5px;min-width:158px;letter-spacing:0';
     document.body.appendChild(t);
   }
   return t;
@@ -930,7 +940,7 @@ function cbLookThroughPanel(){
   const notes = [];
   if (lt.pending) notes.push('ETF 구성종목 조회 중… 잠시 후 자동 갱신됩니다.');
   if (lt.etfFallback && lt.etfFallback.length) notes.push('구성종목 실시간 미조회로 내장 비중표(funetf.co.kr 상위 편입 비중 참조)를 적용한 ETF: ' + lt.etfFallback.map(cbEsc).join(', ') + ' (상위 편입 종목 근사치 — 소유주 직접 보유 종목과 매칭해 간접 보유분 반영)');
-  if (lt.etfMiss.length) notes.push('구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ') + ' (간접 보유분이 제외된 수치입니다 — KRX 공시·네이버 증권·야후 순으로 매일 첫 방문 시 자동 재조회하며, 성공하면 즉시 반영됩니다)');
+  if (lt.etfMiss.length) notes.push('구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ') + ' (간접 보유분이 제외된 수치입니다 — 국내: KRX 공시·네이버 증권, 해외: 야후·ETF 구성종목 사이트 순으로 매일 첫 방문 시 자동 재조회하며, 성공하면 즉시 반영됩니다)');
   if (!lt.pending && !lt.etfCount) notes.push('보유 중인 ETF가 없어 직접 보유 비중과 동일합니다.');
 
   return `
@@ -1043,7 +1053,8 @@ function cbDivCalendarSvg(monthAmt, w, h){
     }
     out+=`<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="11" text-anchor="middle" font-family="Noto Sans KR">${m+1}월</text>`;
   }
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">${out}</svg>`;
+  // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
 }
 function cbRenderDiv(){
   cbEnsureDivHist();
@@ -1235,7 +1246,8 @@ function cbGiftChartSvg(w,h){
     out+=`<line x1="${X(ageNow)}" x2="${X(ageNow)}" y1="${padT}" y2="${padT+plotH}" style="stroke:var(--acc)" stroke-width="1.4" stroke-dasharray="3 4"></line>`;
     out+=`<text x="${X(ageNow)+4}" y="${padT+11}" style="fill:var(--acc)" font-size="10.5" font-weight="700" font-family="Noto Sans KR">현재 (${Math.floor(ageNow)}세)</text>`;
   }
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">${out}</svg>`;
+  // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
 }
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
@@ -1266,8 +1278,8 @@ function cbRenderGift(){
         <span style="width:178px;flex-shrink:0">구간</span>
         <span style="width:86px;text-align:right;flex-shrink:0"><span data-tip="10년 단위로 재적용되는 증여세 비과세 한도 (미성년 2,000만원 / 성년 5,000만원)">비과세 한도</span></span>
         <span style="width:118px;text-align:right;flex-shrink:0">월 이체액 <span data-tip="10년간 매월 이체 시 명목 총액 — 할인율 덕분에 한도보다 커집니다">(10년 명목)</span></span>
-        <span style="width:136px;text-align:right;flex-shrink:0">실제 증여액</span>
-        <span style="flex:1;min-width:220px;text-align:right;padding-right:56px">진행률</span>
+        <span style="width:120px;text-align:right;padding-right:16px;flex-shrink:0">실제 증여액</span>
+        <span style="flex:1;min-width:220px;padding-left:8px">진행률</span>
         <span style="width:120px;text-align:right;flex-shrink:0">잔여</span>
       </div>
       ${segs.map(g=>{
@@ -1285,7 +1297,7 @@ function cbRenderGift(){
             <input class="cb-input cb-num" value="${g.actual?g.actual.toLocaleString('ko-KR'):''}" placeholder="0"
               inputmode="numeric" style="width:112px;text-align:right;padding:6px 8px"
               oninput="cbGiftFmtInput(this)" onchange="cbGiftSetActual(${g.idx}, this.value)" />
-            <span style="font-size:10.5px;color:var(--lab)">원</span>
+            <span style="width:12px;font-size:10.5px;color:var(--lab);flex-shrink:0">원</span>
           </span>
           <span style="flex:1;min-width:220px;display:flex;align-items:center;gap:10px;padding-left:8px">
             <span style="flex:1;height:8px;border-radius:4px;background:var(--inner);overflow:hidden;border:1px solid var(--bd);display:block">
@@ -1299,7 +1311,7 @@ function cbRenderGift(){
         <span style="width:178px;font-size:12.5px;font-weight:800;flex-shrink:0">전체 (0~39세)</span>
         <span style="width:86px;text-align:right;font-size:12px;font-weight:700;flex-shrink:0">${cbManwon(lumpT)}</span>
         <span style="width:118px;text-align:right;flex-shrink:0"><span style="font-size:9.5px;color:var(--lab);white-space:nowrap">명목 ${cbManwon(annT)}</span></span>
-        <span class="cb-num" style="width:136px;text-align:right;font-weight:800;font-size:12px;flex-shrink:0">${cbKrw(actT)}</span>
+        <span class="cb-num" style="width:120px;text-align:right;padding-right:16px;font-weight:800;font-size:12px;flex-shrink:0">${cbKrw(actT)}</span>
         <span style="flex:1;min-width:220px;display:flex;align-items:center;gap:10px;padding-left:8px">
           <span style="flex:1;height:8px;border-radius:4px;background:var(--inner);overflow:hidden;border:1px solid var(--bd);display:block">
             <span style="display:block;height:100%;border-radius:4px;background:var(--up);width:${Math.max(actT>0?2:0, Math.min(100, Math.round(actPct)))}%;transition:width .25s"></span>
@@ -1320,8 +1332,8 @@ function cbRenderGift(){
         </div>
       </div>
       <div style="position:relative" onmouseleave="cbGiftHide()">
-        ${cbGiftChartSvg(1100,580)}
-        <div style="position:absolute;top:0;bottom:${(22/580*100).toFixed(1)}%;left:${(52/1100*100).toFixed(2)}%;right:${(8/1100*100).toFixed(2)}%">
+        ${cbGiftChartSvg(1100,440)}
+        <div style="position:absolute;top:0;bottom:${(22/440*100).toFixed(1)}%;left:${(52/1100*100).toFixed(2)}%;right:${(8/1100*100).toFixed(2)}%">
           ${Array.from({length:40},(_,k)=>`<div style="position:absolute;top:0;bottom:0;left:${(k*2.5).toFixed(1)}%;width:2.5%;cursor:crosshair" onmousemove="cbGiftHover(event,${k})"></div>`).join('')}
         </div>
       </div>
@@ -1433,7 +1445,8 @@ function cbTaxChartSvg(w,h,list){
     const x0=padL+(m-1)/12*plotW;
     out+=`<rect x="${x0.toFixed(1)}" y="${padT}" width="${(plotW/12).toFixed(1)}" height="${plotH}" fill="transparent" style="cursor:crosshair" onmousemove="cbTaxHover(event,${m})" onmouseleave="cbTaxHide()"></rect>`;
   }
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">${out}</svg>`;
+  // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
 }
 // 차트 hover — 해당 월 실현손익/누적/예상 세액 상세 (body 레벨 고정 툴팁 재사용)
 function cbTaxHover(ev, m){

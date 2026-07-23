@@ -591,6 +591,80 @@ def _yf_etf_holdings(sym):
         print('[etf_holdings yfinance]', sym, e)
         return []
 
+def _sa_etf_holdings(sym):
+    """해외 ETF 전체 구성종목 소스 — stockanalysis.com 공개 API.
+    yfinance top_holdings가 빈 값이거나 상위 ~10개만 주는 경우를 보완해 전체 편입 비중을 가져온다.
+    응답 스키마가 바뀔 수 있어 JSON 트리를 순회하며 '심볼 + 비중' 배열을 관대하게 찾는다. 실패 시 []."""
+    import urllib.request
+    s = (sym or '').strip().upper()
+    if not s:
+        return []
+    try:
+        req = urllib.request.Request(
+            'https://stockanalysis.com/api/symbol/e/%s/holdings' % s,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                     'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode('utf-8', 'replace'))
+    except Exception as e:
+        print('[etf_holdings stockanalysis]', s, e)
+        return []
+
+    def _w(d):
+        for k, v in d.items():
+            if not re.search(r'(percent|weight|portfolio|allocation)', k, re.I):
+                continue
+            try:
+                w = float(str(v).replace('%', '').replace(',', '').strip())
+                if w == w and 0 < w <= 100:
+                    return w
+            except Exception:
+                pass
+        return None
+
+    def _sym_of(d):
+        for key in ('symbol', 's', 'ticker', 'code'):
+            v = d.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip().upper()
+        return None
+
+    def _name_of(d):
+        for key in ('name', 'n', 'companyName', 'title'):
+            v = d.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+
+    best = []
+    stack = [data]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            rows = []
+            for it in node:
+                if not isinstance(it, dict):
+                    continue
+                w = _w(it)
+                if w is None:
+                    continue
+                tk, nm = _sym_of(it), _name_of(it)
+                if not (tk or nm):
+                    continue
+                rows.append((tk or (nm or ''), nm or tk, w))
+            if len(rows) > len(best):
+                best = rows
+    if not best:
+        return []
+    scale = 100 if max(r[2] for r in best) <= 1.5 else 1
+    out = []
+    for tk, nm, w in best:
+        t = re.sub(r'\.(US|USD)$', '', tk).strip().upper()
+        out.append({'tkr': t, 'name': nm or t, 'weight': round(w * scale, 2)})
+    return out
+
 def get_etf_holdings(tkr):
     """ETF 구성종목과 비중(%) 반환.
     KR ETF: KRX 공시 PDF(pykrx) → 네이버 증권 → yfinance(.KS/.KQ) 순 폴백.
@@ -621,14 +695,26 @@ def get_etf_holdings(tkr):
                 if holdings:
                     source = 'yfinance'
                     break
-    elif YF_OK:
-        holdings = _yf_etf_holdings(t_up)
-        if holdings:
-            source = 'yfinance'
-        elif t_up in _ETF_ALIAS:
-            holdings = _yf_etf_holdings(_ETF_ALIAS[t_up])
+    else:
+        # 해외 ETF: yfinance(상위 편입) → stockanalysis(전체 편입) → 티커 별칭 순 폴백
+        if YF_OK:
+            holdings = _yf_etf_holdings(t_up)
             if holdings:
-                source = 'yfinance:' + _ETF_ALIAS[t_up]
+                source = 'yfinance'
+        if not holdings:
+            holdings = _sa_etf_holdings(t_up)
+            if holdings:
+                source = 'stockanalysis'
+        if not holdings and t_up in _ETF_ALIAS:
+            alias = _ETF_ALIAS[t_up]
+            if YF_OK:
+                holdings = _yf_etf_holdings(alias)
+                if holdings:
+                    source = 'yfinance:' + alias
+            if not holdings:
+                holdings = _sa_etf_holdings(alias)
+                if holdings:
+                    source = 'stockanalysis:' + alias
 
     return {'success': bool(holdings), 'tkr': t_up, 'holdings': holdings, 'source': source}
 
