@@ -1790,11 +1790,16 @@ function renderTreemap(market) {
     return {name:s.name, value:s.marketCap||100, colorValue:parseFloat(perf.toFixed(2)), perfStr:fmtPct(perf,2)};
   });
   const containerId = 'heatmap-'+market;
+  // 툴팁 색을 테마에 맞춰 반전 — 라이트는 흰 박스+어두운 글씨, 다크/네이비는 어두운 박스+밝은 글씨
+  const _hmDark = isDarkTheme();
+  const _hmTipBg = _hmDark ? 'rgba(20,24,32,0.96)' : 'rgba(255,255,255,0.96)';
+  const _hmTipName = _hmDark ? '#f2f5fa' : '#222';
+  const _hmTipSub = _hmDark ? '#c7cdd8' : '#333';
   const opts = {
     chart:{type:'treemap',backgroundColor:'transparent',margin:0,spacing:[0,0,0,0],style:{fontFamily:'DM Sans'}},
     title:{text:null},credits:{enabled:false},
     colorAxis:{min:-3,max:3,stops:[[0,'#EF4444'],[0.5,'#475569'],[1,'#10B981']]},
-    tooltip:{useHTML:true,pointFormat:'<b style="color:#222">{point.name}</b><br/><span style="color:#333">등락률: {point.perfStr}</span>',backgroundColor:'rgba(255,255,255,0.95)'},
+    tooltip:{useHTML:true,pointFormat:'<b style="color:'+_hmTipName+'">{point.name}</b><br/><span style="color:'+_hmTipSub+'">등락률: {point.perfStr}</span>',backgroundColor:_hmTipBg,borderColor:_hmDark?'rgba(255,255,255,0.14)':'rgba(0,0,0,0.10)'},
     series:[{type:'treemap',layoutAlgorithm:'squarified',data:chartData,
       dataLabels:{enabled:true,align:'center',style:{color:'#ffffff',textOutline:'none',fontWeight:'bold',fontSize:'11px'}},
       borderWidth:1,borderColor:'rgba(255,255,255,0.15)'}]
@@ -4397,7 +4402,8 @@ function switchDashTab(tab, btn) {
 // =============================================
 async function saveExtDataToKV() {
   const ext = { liabilities: liabilityData, realEstate: realEstateData, assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
-  await setKV('ext_data', ext);
+  const res = await setKV('ext_data', ext);
+  if (!(res && res.result === "OK")) showSaveError();
 }
 
 async function loadExtDataFromKV() {
@@ -6393,6 +6399,9 @@ function _gicsSector(item) {
     || /QQQ|NASDAQ\s*100|S&P\s*500|PROSHARES|DIREXION/i.test(name)
     || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
         'SCHD','VYM','JEPI','JEPQ','DVY','HDV','NOBL',
+        // 섹터/테마/광범위 시장 ETF (자주 보유 — 룩스루 대상 확대)
+        'SMH','SOXX','XLK','XLF','XLE','XLV','XLY','XLI','XLP','XLU','XLB','XLC','VGT','VUG','VTV','SCHG','SCHX','RSP','MOAT','SPMO',
+        'IEFA','IEMG','ACWI','ARKK','ARKG','IJH','IJR','VIG','VONG','QUAL',
         // 레버리지/인버스 지수 ETF (지수 추종)
         'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','SOXL','SOXS','UDOW','SDOW','TNA','TZA','FNGU',
         // KR 지수 ETF 대표 코드 (KODEX 200 / RISE 200TR / KODEX 200TR)
@@ -7280,11 +7289,26 @@ window.handleBubbleSectorClick = function(sector) {
 // Upstash KV
 // =============================================
 // KV 접근은 /api/kv 서버측 프록시를 통해서만 (토큰은 Vercel 환경변수 KV_REST_API_*에 보관)
-async function setKV(key,value){try{const bodyValue=typeof value==='object'?JSON.stringify(value):value;const res=await fetch(`/api/kv?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:bodyValue})});if(!res.ok)console.warn("[KV SET] 비정상 응답 status",res.status,key);const data=await res.json();return data;}catch(err){console.error("[KV SET Error]",err);}}
+async function setKV(key,value){try{const bodyValue=typeof value==='object'?JSON.stringify(value):value;const res=await fetch(`/api/kv?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:bodyValue})});if(!res.ok){console.warn("[KV SET] 비정상 응답 status",res.status,key);return {ok:false,status:res.status};}const data=await res.json();return data;}catch(err){console.error("[KV SET Error]",err);return {ok:false};}}
 
 async function getKV(key){try{const res=await fetch(`/api/kv?key=${encodeURIComponent(key)}`);if(!res.ok)console.warn("[KV GET] 비정상 응답 status",res.status,key);const data=await res.json();if(data.result&&(data.result.startsWith('{')||data.result.startsWith('['))){try{return JSON.parse(data.result);}catch(e){return data.result;}}return data.result;}catch(err){console.error("[KV GET Error]",err);}}
 
-async function saveAssetsToKV(){const res=await setKV("assets",pfolioData);if(res&&res.result==="OK")console.log("KV 저장 성공");}
+// KV 저장 실패 시 사용자에게 보이는 자동 소멸 토스트 (재호출 시 타이머만 리셋 — 중복 방지)
+function showSaveError(msg){
+  let el=document.getElementById('kv-save-toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='kv-save-toast';
+    el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;background:#EF4444;color:#fff;padding:11px 18px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.28);max-width:90vw;text-align:center;transition:opacity .3s';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg||'⚠️ 저장 실패 — 변경사항이 저장되지 않았습니다. 네트워크 상태를 확인해 주세요.';
+  el.style.display='block';
+  el.style.opacity='1';
+  clearTimeout(window._kvSaveToastT);
+  window._kvSaveToastT=setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>{ if(el)el.style.display='none'; },350); },4500);
+}
+async function saveAssetsToKV(){const res=await setKV("assets",pfolioData);if(res&&res.result==="OK"){console.log("KV 저장 성공");}else{showSaveError();}}
 
 // 알려진 US 주식 티커 목록 (cur 자동 교정용)
 const KNOWN_US_TICKERS = new Set(['NVDA','AAPL','MSFT','TSLA','AMZN','GOOGL','META','JPM','JEPI','JEPQ','MU','AMD','INTC','NFLX','DIS','VTI','SPY','QQQ','IWM','GLD','SLV','TLT','BND','VYM','SCHD',
