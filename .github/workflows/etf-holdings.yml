@@ -37,7 +37,12 @@ jobs:
 
       # 수집 경로가 살아 있는지 먼저 확인한다. 133690 은 100종목 내외가 정상이고,
       # 1~2줄만 나오면 잘못된 것이므로 여기서 job 을 실패시켜 잘못된 데이터 커밋을 막는다.
+      # KRX_ID/KRX_PW 는 선택 사항 — 없으면 네이버 등 대체 소스로 수집한다.
+      # (KRX 는 회원 로그인을 요구하도록 바뀌어, 자격이 없으면 400 만 돌아온다)
       - name: 스모크 테스트 (133690)
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
         run: python scripts/collect_etf_holdings.py --smoke 133690
 
       - name: 파서 단위 테스트
@@ -47,6 +52,8 @@ jobs:
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
         run: python scripts/collect_etf_holdings.py
 
       - name: 변경분 커밋

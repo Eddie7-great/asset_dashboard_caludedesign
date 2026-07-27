@@ -44,7 +44,10 @@ KRX_HEADERS = {'Referer': 'https://data.krx.co.kr/contents/MDC/MDI/outerLoader/i
 BLD_ETF_MASTER = 'dbms/MDC/STAT/standard/MDCSTAT04601'
 BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
 
-SMOKE_MIN_ROWS = 30   # 스모크 기준 — 1~2줄만 나오면 잘못된 것이므로 실패시킨다
+# 스모크 기준. KRX 는 133690 에 100종목 내외를 주지만 네이버 등 대체 소스는 상위 N개만
+# 줄 수 있어, "정상인데 수가 적은" 경우와 "파싱이 깨진" 경우를 구분한다.
+SMOKE_HARD_MIN = 5    # 이하이면 명백히 깨진 것 → job 실패 (요구사항: "1~2줄만 나오면 멈추고 보고")
+SMOKE_EXPECT_ROWS = 30  # 이하이면 경고만 — 데이터는 쓸 수 있으나 소스가 상위 일부만 준 상태
 
 
 # ── KRX ─────────────────────────────────────────────────────────
@@ -64,15 +67,33 @@ except Exception:
     _PykrxEtfMaster = None
     _PykrxPdf = None
 
+
+def krx_available():
+    """KRX 회원 로그인 자격이 있는지.
+
+    KRX 는 이제 이 API 들에 회원 로그인을 요구한다 (pykrx 1.2.8 README:
+    "환경변수가 설정되지 않으면 KRX 로그인이 실패하고 인증이 필요한 데이터를 조회할 수 없습니다").
+    자격 없이 호출하면 400 Bad Request 만 돌아오므로, 아예 시도하지 않고 다음 소스로 넘어간다.
+    KRX_ID/KRX_PW 를 나중에 넣으면 코드 수정 없이 이 경로가 다시 1순위가 된다.
+    """
+    return bool(os.environ.get('KRX_ID') and os.environ.get('KRX_PW'))
+
+
 _isin_map = None
 
 
 def krx_isin_map():
-    """단축코드(6자리) → 표준코드(12자리 ISIN). 실행당 1회만 받아 캐싱한다."""
+    """단축코드(6자리) → 표준코드(12자리 ISIN). 실행당 1회만 받아 캐싱한다.
+
+    KRX 로그인 자격이 없으면 빈 맵을 돌려준다 — 이 목록은 KRX PDF 조회에만 쓰이고,
+    ETF 판별은 로컬 data/stocks.json 이 담당하므로 없어도 수집이 진행된다.
+    """
     global _isin_map
     if _isin_map is not None:
         return _isin_map
     _isin_map = {}
+    if not krx_available():
+        return _isin_map
     rows = None
     if _PykrxEtfMaster is not None:
         try:
@@ -108,7 +129,10 @@ def fetch_krx(code):
     """KRX PDF(구성종목). → (holdings, equityWeight, asOf) / 실패 시 ([], 0, None).
 
     당일 미공시·휴장 대비로 최근 영업일을 역순으로 훑는다.
+    KRX 로그인 자격이 없으면 조용히 건너뛴다(네이버 등 다음 소스가 받는다).
     """
+    if not krx_available():
+        return [], 0.0, None
     ent = krx_isin_map().get(code)
     if not ent:
         return [], 0.0, None
@@ -257,6 +281,33 @@ def is_overseas_etf(sym):
         return False
 
 
+_kr_etf_master = None
+
+
+def kr_etf_master():
+    """국내 ETF 단축코드 → 종목명. 로컬 data/stocks.json 의 시장구분=='ETF' 행을 쓴다.
+
+    KRX 전종목 API 는 이제 회원 로그인을 요구하므로 ETF 판별을 여기에 의존할 수 없다.
+    이 파일은 이미 프런트 자동완성(window._krStocksDB)용으로 커밋돼 있어 추가 요청이 없고,
+    이름 휴리스틱(브랜드 정규식)보다 정확하다.
+    """
+    global _kr_etf_master
+    if _kr_etf_master is not None:
+        return _kr_etf_master
+    _kr_etf_master = {}
+    try:
+        with open(os.path.join(ROOT, 'data', 'stocks.json'), encoding='utf-8') as f:
+            for row in json.load(f):
+                if not isinstance(row, dict) or row.get('시장구분') != 'ETF':
+                    continue
+                code = str(row.get('종목코드') or '').strip().upper()
+                if code:
+                    _kr_etf_master[code] = str(row.get('종목명') or '').strip()
+    except Exception as e:
+        print('[etf master] %s: %s' % (type(e).__name__, e), file=sys.stderr)
+    return _kr_etf_master
+
+
 def resolve_targets(explicit=None):
     """수집 대상 [(code, name)] 결정."""
     if explicit:
@@ -265,11 +316,10 @@ def resolve_targets(explicit=None):
             c = strip_ticker(t)
             if not c:
                 continue
-            ent = krx_isin_map().get(c) if is_kr_code(c) else None
-            out.append((c, ent['name'] if ent else c))
+            out.append((c, kr_etf_master().get(c) or c))
         return out
 
-    master = krx_isin_map()
+    master = kr_etf_master()
     targets, seen = [], set()
     for item in kv_assets():
         if not isinstance(item, dict) or item.get('grp') != '주식':
@@ -283,11 +333,10 @@ def resolve_targets(explicit=None):
         if not code or code in seen:
             continue
         if is_kr_code(code):
-            ent = master.get(code)            # KRX ETF 마스터에 있으면 국내 ETF (정확한 판별)
-            if not ent:
+            if code not in master:            # 로컬 ETF 목록에 있으면 국내 ETF
                 continue
             seen.add(code)
-            targets.append((code, ent['name'] or item.get('name') or code))
+            targets.append((code, master.get(code) or item.get('name') or code))
         else:
             if not is_overseas_etf(code):     # yfinance 펀드 데이터가 있으면 해외 ETF
                 continue
@@ -376,17 +425,28 @@ def run(targets, dry_run=False):
 
 
 def smoke(code):
-    """수집 경로가 살아 있는지 확인. 행 수가 기준 미만이면 실패시킨다."""
-    ent = krx_isin_map().get(code)
-    print('스모크 테스트: %s (ISIN %s)' % (code, ent['isin'] if ent else '조회 실패'))
-    holdings, eq, as_of = fetch_krx(code)
-    print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s' % (len(holdings), eq, as_of))
+    """수집 경로가 살아 있는지 확인. 행 수가 기준 미만이면 실패시킨다.
+
+    KRX 하나만 보지 않고 실제 수집과 같은 폴백 사슬(collect_one)을 그대로 태운다 —
+    어느 소스든 정상 데이터를 주면 통과다. KRX 만 검사하면 자격 없이도 동작하는
+    네이버 경로가 살아 있는데 job 이 실패해버린다.
+    """
+    name = kr_etf_master().get(code) or code
+    print('스모크 테스트: %s (%s)' % (code, name))
+    print('  KRX 로그인 자격: %s' % ('있음' if krx_available() else '없음 → 네이버 등 대체 소스 사용'))
+    holdings, eq, as_of, source = collect_one(code, name)
+    print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s · 소스 %s'
+          % (len(holdings), eq, as_of, source))
     for h in holdings[:5]:
-        print('    %-10s %-28s %6.2f%%' % (h['t'], h['n'][:28], h['w']))
-    if len(holdings) < SMOKE_MIN_ROWS:
-        print('\n실패: %d행은 정상 범위(%d행 이상)가 아닙니다. 수집 경로를 점검해야 합니다.'
-              % (len(holdings), SMOKE_MIN_ROWS), file=sys.stderr)
+        print('    %-12s %-28s %6.2f%%' % (h['t'], h['n'][:28], h['w']))
+    if len(holdings) < SMOKE_HARD_MIN:
+        print('\n실패: %d행은 정상 범위가 아닙니다(최소 %d행). 수집 경로를 점검해야 합니다.'
+              % (len(holdings), SMOKE_HARD_MIN), file=sys.stderr)
         return 1
+    if len(holdings) < SMOKE_EXPECT_ROWS:
+        print('\n경고: %d행 — 소스가 상위 일부만 제공하는 것으로 보입니다(기대 %d행 이상). '
+              '데이터는 사용하되 룩스루가 과소 집계될 수 있습니다.'
+              % (len(holdings), SMOKE_EXPECT_ROWS))
     print('\n통과')
     return 0
 
