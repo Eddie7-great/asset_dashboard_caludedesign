@@ -139,6 +139,9 @@
     .pt-group-header:hover{background:var(--hover-bg)}
     .pt-group-title{font-weight:700;font-size:.95rem;gap:8px;color:var(--t1)}
     .pt-group-stats{font-size:.8rem;font-weight:600}
+    /* 아코디언 화살표 고정폭 — 투자자산/부동산/부채 헤더의 ＋ 추가 버튼 x좌표를 맞춘다 */
+    .pt-arrow,#re-accordion-arrow,#liab-accordion-arrow{
+      width:14px;flex-shrink:0;display:inline-block;text-align:center}
     .pt-table-wrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 10px 10px;overflow:hidden}
     .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:.75rem;white-space:nowrap;color:var(--t2)}
     .pt-table th{padding:10px 12px;background:var(--glass);color:var(--t3);font-weight:600;text-align:right;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border-dark)}
@@ -832,6 +835,15 @@
     .cb-del:hover{color:var(--dn)}
     .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
     .cb-num{font-family:'IBM Plex Mono',monospace}
+    /* 표 래퍼 + 고정 칼럼 헤더 — overflow-x:auto 는 세로 스크롤 컨텍스트도 만들어
+       내부 position:sticky 를 무력화하므로, 표가 잘리지 않는 넓은 폭에서는 overflow 를 풀고
+       헤더를 .cb-scroll 기준으로 sticky 시킨다. 좁은 폭에서는 가로 스크롤을 우선한다. */
+    .cb-tblwrap{overflow-x:visible}
+    .cb-thead{position:sticky;top:0;z-index:3;background:var(--panel)}
+    @media (max-width:1200px){
+      .cb-tblwrap{overflow-x:auto}
+      .cb-thead{position:static}
+    }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
@@ -938,14 +950,14 @@
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
       .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
       #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{overflow-x:auto}
-      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·3·2번째) */
+      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·4·3번째) */
       #portfolio-tables .pt-table:not([data-grp="현금"]) :is(th,td):not([colspan]):is(
-        :nth-last-child(1),:nth-last-child(4),:nth-last-child(5),:nth-last-child(6),
+        :nth-last-child(1),:nth-last-child(2),:nth-last-child(5),:nth-last-child(6),
         :nth-last-child(7),:nth-last-child(8),:nth-last-child(10),:nth-last-child(11)){display:none}
-      /* 현금: 자산명 · 평가금액(KRW) */
+      /* 현금: 자산명 · 평가금액(KRW) (오른쪽 기준 4·2번째) */
       #portfolio-tables .pt-table[data-grp="현금"] :is(th,td):not([colspan]):is(
-        :nth-last-child(1),:nth-last-child(2),:nth-last-child(4),
-        :nth-last-child(6),:nth-last-child(7)){display:none}
+        :nth-last-child(1),:nth-last-child(3),
+        :nth-last-child(5),:nth-last-child(6)){display:none}
       #portfolio-tables .pt-table td.text-left{white-space:normal;word-break:break-word}
       #portfolio-tables .pt-table th,#portfolio-tables .pt-table td{padding:8px 6px}
       /* 그룹 카드 헤더: 1행 [제목 (N종목) · 총평가 ──────── ▼] / 2행 [수익]

@@ -319,12 +319,12 @@
 
         <!-- ② 부동산 섹션 - 아코디언 -->
         <div id="htab-realestate" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('re-accordion-body','re-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
+          <div class="pt-group-header" onclick="toggleHoldingsSection('re-accordion-body','re-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
             <div style="display:flex;align-items:center;gap:10px">
               <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부동산</span>
               <span id="re-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
             </div>
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:flex-end">
               <div style="display:flex;gap:16px;font-size:.75rem">
                 <span style="color:var(--t3)">총 시세: <strong id="re-header-cur" style="color:var(--t1)">₩0</strong></span>
                 <span style="color:var(--t3)">미실현 손익: <strong id="re-header-gain">₩0</strong></span>
@@ -356,12 +356,12 @@
 
         <!-- ③ 부채 섹션 - 아코디언 -->
         <div id="htab-liability" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('liab-accordion-body','liab-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
+          <div class="pt-group-header" onclick="toggleHoldingsSection('liab-accordion-body','liab-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
             <div style="display:flex;align-items:center;gap:10px">
               <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부채</span>
               <span id="liab-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
             </div>
-            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:flex-end">
               <div style="display:flex;gap:16px;font-size:.75rem">
                 <span style="color:var(--t3)">대출총액: <strong class="c-dn" id="liab-summary-total">₩0</strong></span>
                 <span style="color:var(--t3)">연간이자: <strong class="c-dn" id="liab-summary-interest">₩0/년</strong></span>
