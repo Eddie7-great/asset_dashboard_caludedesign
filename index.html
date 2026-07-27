@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
       <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>가족 자산</button>
       <button class="menu-btn" id="menu-risk2" onclick="switchView('risk2',this)"><span class="menu-ico">◬</span>리스크 진단</button>
       <button class="menu-btn" id="menu-divm" onclick="switchView('divm',this)"><span class="menu-ico">₪</span>배당 관리</button>
-      <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>증여 플랜</button>
+      <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>가족 증여</button>
       <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
       <button class="menu-btn" id="menu-dca2" onclick="switchView('dca2',this)"><span class="menu-ico">⟳</span>DCA 자동매수</button>
       <div class="cb-menu-sep"></div>
@@ -148,9 +148,7 @@
                 <div id="dash-net-toggle" onclick="toggleNetSummary()" style="display:none;justify-content:space-between;align-items:center;cursor:pointer;font-size:.75rem;font-weight:600;color:var(--t3)">자산 구성 상세 <span id="dash-net-arrow" style="transition:transform .2s">▾</span></div>
                 <div id="dash-net-summary-body">
                 <div class="gain-row f-between" style="margin-top:0"><span class="form-label">포트폴리오</span><span id="dash-portfolio-val" style="font-weight:600">₩0</span></div>
-                <div class="gain-row f-between" style="margin-top:3px"><span class="form-label">부동산</span><span id="dash-re-val" style="font-weight:600">₩0</span></div>
                 <div class="gain-row f-between" style="margin-top:3px"><span class="form-label">현금흐름 누적</span><span id="dash-cf-val" style="font-weight:600">₩0</span></div>
-                <div class="gain-row f-between" style="margin-top:3px;padding-top:4px;border-top:1px dashed var(--border-dark)"><span class="form-label">총부채</span><span class="c-dn" id="dash-total-liab">₩0</span></div>
                 <div class="gain-row f-between" style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--border-dark)">
                   <span class="form-label" style="font-weight:700">순자산 NET</span><span id="dash-net-asset" style="font-weight:700">₩0</span>
                 </div>
@@ -181,17 +179,8 @@
           <div id="div-breakdown" style="display:none;font-size:.75rem;padding:8px;background:var(--inner-bg);border-radius:6px;flex-shrink:0;z-index:20"></div>
           <canvas id="miniDivChart" style="display:none"></canvas>
           <div class="glass-panel f-col" style="flex:1;overflow:hidden;min-height:200px">
-            <div class="card-title f-between" id="donut-main-title">자산 배분
-              <label style="display:flex;align-items:center;gap:4px;font-size:.7rem;font-weight:400;cursor:pointer;color:var(--t2)">
-                <input type="checkbox" id="re-exclude-toggle" onchange="changeOwner(currentOwner,null,true)" style="cursor:pointer;accent-color:var(--acc)">
-                부동산 제외
-              </label>
-            </div>
+            <div class="card-title f-between" id="donut-main-title">자산 배분</div>
             <div class="chart-container" style="flex:1;overflow:hidden"><canvas id="donutChart"></canvas></div>
-          </div>
-          <!-- 부동산 요약 위젯 (숨김, JS 호환용) -->
-          <div style="display:none">
-            <span id="side-re-cur"></span><span id="side-re-mort"></span><span id="side-re-net"></span>
           </div>
           <!-- 이외 자산 요약 위젯 (스크롤바 없이 자동 높이) -->
           <div class="glass-panel f-col" style="flex-shrink:0">
@@ -309,83 +298,10 @@
         <option value="아내">아내</option><option value="자녀1">자녀1</option><option value="아버지">아버지</option>
       </select>
       <button id="htab-btn-assets" style="display:none"></button>
-      <button id="htab-btn-realestate" style="display:none"></button>
-      <button id="htab-btn-liability" style="display:none"></button>
       <div class="holdings-main-col" style="display:flex;flex-direction:column;gap:18px;height:100%;overflow-y:auto;padding-right:5px">
         <!-- ① 투자 자산 섹션 (헤더 제거, 그룹별 아코디언은 portfolio-tables에서 처리) -->
         <div id="htab-assets" style="display:flex;flex-direction:column;gap:12px;flex-shrink:0">
           <div id="portfolio-tables" class="f-col" style="gap:12px"></div>
-        </div>
-
-        <!-- ② 부동산 섹션 - 아코디언 -->
-        <div id="htab-realestate" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('re-accordion-body','re-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부동산</span>
-              <span id="re-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:flex-end">
-              <div style="display:flex;gap:16px;font-size:.75rem">
-                <span style="color:var(--t3)">총 시세: <strong id="re-header-cur" style="color:var(--t1)">₩0</strong></span>
-                <span style="color:var(--t3)">미실현 손익: <strong id="re-header-gain">₩0</strong></span>
-              </div>
-              <button class="api-btn" onclick="event.stopPropagation();openREModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
-              <span id="re-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
-            </div>
-          </div>
-          <!-- 아코디언 바디: 목록만 표시 -->
-          <div id="re-accordion-body" style="display:none;flex-direction:column;gap:10px;margin-top:10px">
-            <div class="glass-panel" style="flex:1;overflow-y:auto">
-              <div class="card-title f-between">보유 부동산 목록
-                <div style="display:flex;gap:16px;font-size:.75rem">
-                  <span style="color:var(--t3)">매입가: <strong id="re-total-purch">₩0</strong></span>
-                  <span style="color:var(--t3)">대출잔여: <strong class="c-dn" id="re-total-mort">₩0</strong></span>
-                  <span style="color:var(--t3)">순자산: <strong id="re-net">₩0</strong></span>
-                </div>
-              </div>
-              <!-- JS 호환용 숨김 ID -->
-              <span id="re-total-cur" style="display:none"></span>
-              <span id="re-total-gain" style="display:none"></span>
-              <table class="pt-table">
-                <thead><tr><th class="text-left">소유주</th><th class="text-left">물건명</th><th>매입가</th><th>현재 시세</th><th>담보대출 잔여</th><th>미실현 손익</th><th>수익률</th><th>관리</th></tr></thead>
-                <tbody id="re-table-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부동산이 없습니다.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ③ 부채 섹션 - 아코디언 -->
-        <div id="htab-liability" style="flex-shrink:0">
-          <div class="pt-group-header" onclick="toggleHoldingsSection('liab-accordion-body','liab-accordion-arrow')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--glass);border-radius:10px;border:1px solid var(--border-light);margin-bottom:0;user-select:none;flex-wrap:wrap;gap:8px">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-weight:700;font-size:.95rem;color:var(--t1)">부채</span>
-              <span id="liab-accordion-summary" style="font-size:.72rem;color:var(--t3)"></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:flex-end">
-              <div style="display:flex;gap:16px;font-size:.75rem">
-                <span style="color:var(--t3)">대출총액: <strong class="c-dn" id="liab-summary-total">₩0</strong></span>
-                <span style="color:var(--t3)">연간이자: <strong class="c-dn" id="liab-summary-interest">₩0/년</strong></span>
-                <span style="color:var(--t3)">잔여원금: <strong class="c-dn" id="liab-summary-balance">₩0</strong></span>
-              </div>
-              <button class="api-btn" onclick="event.stopPropagation();openLiabModal()" style="padding:4px 10px;font-size:.7rem">＋ 추가</button>
-              <span id="liab-accordion-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s">▼</span>
-            </div>
-          </div>
-          <!-- 아코디언 바디: 목록만 표시 (순자산 요약/도넛 제거) -->
-          <div id="liab-accordion-body" style="display:none;flex-direction:column;gap:12px;margin-top:10px">
-            <!-- JS 호환용 숨김 요소 -->
-            <span id="liab-summary-assets" style="display:none"></span>
-            <span id="liab-summary-re" style="display:none"></span>
-            <span id="liab-summary-net" style="display:none"></span>
-            <canvas id="liabDonutChart" style="display:none"></canvas>
-            <div class="glass-panel" style="overflow-y:auto">
-              <div class="card-title">부채 상세 내역</div>
-              <table class="pt-table">
-                <thead><tr><th class="text-left" style="font-size:.75rem">소유주</th><th class="text-left" style="font-size:.75rem">부채명</th><th class="text-left" style="font-size:.75rem">금융기관</th><th style="font-size:.75rem">대출총액</th><th style="font-size:.75rem">잔여원금</th><th style="font-size:.75rem">금리</th><th style="font-size:.75rem">월 납부액(PMT)</th><th style="font-size:.75rem">관리</th></tr></thead>
-                <tbody id="liab-table-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부채가 없습니다.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -516,12 +432,6 @@
         </div>
       </div>
     </div>
-
-    <!-- REAL ESTATE (통합됨 - 자산 내역 탭으로 이동) -->
-    <div id="view-realestate" class="view-section" style="display:none!important"></div>
-
-    <!-- LIABILITY (통합됨 - 자산 내역 탭으로 이동) -->
-    <div id="view-liability" class="view-section" style="display:none!important"></div>
 
     <!-- FAMILY -->
     <div id="view-family" class="view-section">
@@ -887,57 +797,7 @@
   </div>
 </div>
 
-<!-- 부동산 추가/수정 모달 -->
-<div class="modal-overlay" id="re-modal">
-  <div class="modal-content f-col" style="max-width:500px">
-    <div class="modal-header f-between"><h3 style="margin:0" id="re-modal-title">부동산 추가</h3><button class="modal-close" onclick="closeREModal()">×</button></div>
-    <input type="hidden" id="re-edit-idx" value="-1">
-    <div class="form-row">
-      <div class="form-group f-col"><label class="form-label">소유주</label><select id="re-owner" class="form-input"><option value="본인">본인</option><option value="아내">아내</option><option value="자녀1">자녀1</option><option value="아버지">아버지</option></select></div>
-      <div class="form-group f-col" style="flex:1.5"><label class="form-label">물건명</label><input type="text" id="re-name" class="form-input" placeholder="예: 서울 아파트"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group f-col"><label class="form-label">매입가 (원)</label><input type="text" id="re-purchase" class="form-input" placeholder="0" oninput="handleAmtInput(this)"></div>
-      <div class="form-group f-col"><label class="form-label">현재 시세 (원)</label><input type="text" id="re-current" class="form-input" placeholder="0" oninput="handleAmtInput(this)"></div>
-      <div class="form-group f-col"><label class="form-label">담보대출 잔여 (원)</label><input type="text" id="re-mortgage" class="form-input" placeholder="0" oninput="handleAmtInput(this)"></div>
-    </div>
-    <button class="btn-submit" id="btn-re-submit" onclick="addRealEstate()" style="margin-top:10px;width:100%">저장하기</button>
-  </div>
-</div>
-
-<!-- 부채 추가/수정 모달 -->
-<div class="modal-overlay" id="liab-modal">
-  <div class="modal-content f-col" style="max-width:540px">
-    <div class="modal-header f-between"><h3 style="margin:0" id="liab-modal-title">부채 추가</h3><button class="modal-close" onclick="closeLiabModal()">×</button></div>
-    <input type="hidden" id="liab-edit-idx" value="-1">
-    <div class="form-row">
-      <div class="form-group f-col"><label class="form-label">소유주</label><select id="liab-owner" class="form-input"><option value="본인">본인</option><option value="아내">아내</option><option value="자녀1">자녀1</option><option value="아버지">아버지</option></select></div>
-      <div class="form-group f-col" style="flex:1.5"><label class="form-label">부채명</label><input type="text" id="liab-name" class="form-input" placeholder="예: 주택담보대출"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group f-col"><label class="form-label">대출총액 (원)</label><input type="text" id="liab-total" class="form-input" placeholder="0" oninput="handleAmtInput(this)"></div>
-      <div class="form-group f-col"><label class="form-label">잔여원금 (원)</label><input type="text" id="liab-balance" class="form-input" placeholder="0" oninput="handleAmtInput(this)"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group f-col" style="max-width:130px"><label class="form-label">금리 (%)</label><input type="number" id="liab-rate" class="form-input" placeholder="0.0" step="0.01"></div>
-      <div class="form-group f-col" style="max-width:130px"><label class="form-label">잔여기간 (개월)</label><input type="number" id="liab-months" class="form-input" placeholder="240" min="1"></div>
-      <div class="form-group f-col"><label class="form-label">금융기관</label><input type="text" id="liab-bank" class="form-input" placeholder="국민은행 등"></div>
-    </div>
-    <div class="form-row" style="align-items:flex-end">
-      <div class="form-group f-col" style="max-width:160px">
-        <label class="form-label">자동상환일 (매월)</label>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="number" id="liab-pay-day" class="form-input" placeholder="미설정" min="1" max="31" style="width:80px">
-          <span style="font-size:.75rem;color:var(--t3)">일</span>
-        </div>
-      </div>
-      <div style="flex:1;padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3)">상환일 설정 시 매달 해당 일자에 현금흐름 자동이체가 등록되고 대출 잔액이 자동으로 감소합니다.</div>
-    </div>
-    <div style="padding:8px 10px;background:var(--inner-bg);border-radius:6px;font-size:.7rem;color:var(--t3);margin-bottom:4px">원리금균등상환(PMT) 방식으로 월 납부액을 자동 계산합니다.</div>
-    <button class="btn-submit" id="btn-liab-submit" onclick="addLiability()" style="margin-top:6px;width:100%">저장하기</button>
-  </div>
-</div>
-<script src="script.js?v=24"></script>
-<script src="cobalt.js?v=4"></script>
+<script src="script.js?v=25"></script>
+<script src="cobalt.js?v=5"></script>
 </body>
 </html>

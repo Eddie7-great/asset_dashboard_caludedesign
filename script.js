@@ -464,17 +464,6 @@ function applyAutoTransfers() {
       cfData.push({date:dateStr, type:at.type, cat:at.cat, desc:'[자동] '+at.desc, amt:effAmt, isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
       at.lastApplied = ym;
       changed = true;
-      // 원리금균등상환: 부채 자동이체 시 원금 감소 처리
-      if (at.type === '지출' && at.liabIdx !== undefined) {
-        const liab = liabilityData[at.liabIdx];
-        if (liab && liab.balance > 0 && liab.rate > 0 && liab.remainMonths > 0) {
-          const pmt = calcPMT(liab.balance, liab.rate, liab.remainMonths);
-          const monthlyInterest = Math.round(liab.balance * liab.rate / 100 / 12);
-          const principalPaid = pmt - monthlyInterest;
-          liab.balance = Math.max(0, liab.balance - principalPaid);
-          liab.remainMonths = Math.max(0, liab.remainMonths - 1);
-        }
-      }
     }
   });
   if (changed) { saveAutoTransfers(); saveCfData(); renderCashFlow(); saveExtDataToKV(); updateNetAssetDisplay(); }
@@ -880,7 +869,7 @@ function switchView(viewId, btn) {
   const dispOwner = currentOwner==='전체'?'통합':currentOwner;
   const baseTitles={'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역','dividend':'배당 현황 상세','cashflow':'현금 흐름 관리 (가계부)','gift':'유기정기금 증여 현황','family':'가족 자산 현황','analysis':'세금 & 배당 분석','target_rebal':'목표 & 리밸런싱'};
   let title;
-  if (viewId==='portfolio') title=`부동산 제외 ${currentOwner} 자산`;
+  if (viewId==='portfolio') title=`${currentOwner} 자산`;
   else if (viewId==='dashboard'||viewId==='holdings') title=dispOwner+(baseTitles[viewId]||'');
   else if (viewId==='bubble') {
     const _o = _bubbleOwner || currentOwner || '전체';
@@ -910,13 +899,8 @@ function switchView(viewId, btn) {
     const hOwner = currentOwner;
     _holdingsBrokerFilter = '전체';
     renderPortfolio(hOwner);
-    renderRealEstate();
-    renderLiabilities();
     updateNetAssetDisplay();
-    if (window.liabDonutChartInst) setTimeout(()=>window.liabDonutChartInst.resize(), 100);
   }
-  if (viewId==='realestate'){switchView('holdings',document.querySelector('.menu-btn[onclick*="holdings"]'));setTimeout(()=>switchHoldingsTab('realestate',document.getElementById('htab-btn-realestate')),50);return;}
-  if (viewId==='liability'){switchView('holdings',document.querySelector('.menu-btn[onclick*="holdings"]'));setTimeout(()=>switchHoldingsTab('liability',document.getElementById('htab-btn-liability')),50);return;}
   if (viewId==='family')renderFamilyView();
   if (viewId==='analysis'){renderAnalysisView();}
   if (viewId==='target_rebal'){renderTargetRebalView();}
@@ -1748,12 +1732,6 @@ function switchHoldingsTab(tab, btn) {
   // 레거시 탭 전환 API - 단일 페이지에서는 스크롤 이동으로 대체
   const el = document.getElementById('htab-'+tab);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  if (tab === 'realestate') renderRealEstate();
-  if (tab === 'liability') {
-    renderLiabilities();
-    updateNetAssetDisplay();
-    if (window.liabDonutChartInst) window.liabDonutChartInst.resize();
-  }
 }
 
 function applyHoldingsOwnerFilter() {
@@ -1874,7 +1852,7 @@ function changeOwner(owner, btn, isRefresh=false) {
     const activeViewId = activeViewEl ? activeViewEl.id.replace('view-','') : 'dashboard';
     const baseTitles = {'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역'};
     if (baseTitles[activeViewId] !== undefined) {
-      if (activeViewId==='portfolio') mainTitleEl.textContent = `부동산 제외 ${owner} 자산`;
+      if (activeViewId==='portfolio') mainTitleEl.textContent = `${owner} 자산`;
       else mainTitleEl.textContent = dispOwnerTitle + baseTitles[activeViewId];
     }
   }
@@ -1885,9 +1863,6 @@ function changeOwner(owner, btn, isRefresh=false) {
 
   const filtered=getFilteredAssets(owner);
   renderPortfolio(owner);updatePortPerfChart(owner);updateSectorChart(owner);renderFxExposure(owner);renderDcaWidget(owner);
-  if (document.getElementById('view-holdings')&&document.getElementById('view-holdings').classList.contains('active')) {
-    renderRealEstate();renderLiabilities();
-  }
 
   let gT=0,gInv=0;
   let grpTotals={'주식':0,'가상화폐':0,'금':0,'현금':0};
@@ -1920,13 +1895,11 @@ function changeOwner(owner, btn, isRefresh=false) {
   bestArr.sort((a,b)=>b.r-a.r);worstArr.sort((a,b)=>a.r-b.r);
   let dProfit=gT-gInv,dPct=gInv>0?(dProfit/gInv)*100:0;
 
-  const _reTotal=getOwnerRealEstate(owner);
   const _cfNet=(owner==='전체'||owner==='본인')?cfData.reduce((s,i)=>i.type==='수입'?s+i.amt:s-i.amt,0):0;
-  const _dispTotal=gT+_reTotal;
+  const _dispTotal=gT;
   document.getElementById('dash-val-total').innerText=_dispTotal===0?'₩0':`₩${Math.round(_dispTotal).toLocaleString()}`;
   document.getElementById('dash-val-total').style.fontFamily="'IBM Plex Mono',monospace";
   const _pvEl=document.getElementById('dash-portfolio-val');if(_pvEl)_pvEl.innerText='₩'+Math.round(gT).toLocaleString();
-  const _reEl=document.getElementById('dash-re-val');if(_reEl)_reEl.innerText='₩'+Math.round(_reTotal).toLocaleString();
   const _cfEl=document.getElementById('dash-cf-val');if(_cfEl){_cfEl.innerText=(_cfNet>=0?'₩':'-₩')+Math.abs(Math.round(_cfNet)).toLocaleString();_cfEl.className=_cfNet>=0?'c-up':'c-dn';}
   const elOver=document.getElementById('dash-val-over');
   elOver.innerText=`${dProfit>=0?'+':''}₩${Math.round(Math.abs(dProfit)).toLocaleString()} (${dProfit>=0?'+':''}${dPct.toFixed(2)}%)`;
@@ -1966,8 +1939,8 @@ function changeOwner(owner, btn, isRefresh=false) {
   if (!isRefresh) {const db=document.getElementById('div-breakdown');if(db)db.style.display='none';}
 
   if (myDonutChart) {
-    // 소유주별 자산배분 (한국주식/해외주식/연금/가상화폐/금/부동산/현금)
-    const catTotals={'한국주식':0,'해외주식':0,'연금':0,'가상화폐':0,'금':0,'부동산':0,'현금':0};
+    // 소유주별 자산배분 (한국주식/해외주식/연금/가상화폐/금/현금)
+    const catTotals={'한국주식':0,'해외주식':0,'연금':0,'가상화폐':0,'금':0,'현금':0};
     filtered.forEach(i=>{
       const val=i.qty*i.curP*(RATES[i.cur]||1);
       if(i.grp==='가상화폐') catTotals['가상화폐']+=val;
@@ -1979,11 +1952,8 @@ function changeOwner(owner, btn, isRefresh=false) {
         else catTotals['해외주식']+=val;
       }
     });
-    // 부동산 제외 토글 체크 여부 확인
-    const reExclude=document.getElementById('re-exclude-toggle')?.checked||false;
-    catTotals['부동산']=reExclude?0:getOwnerRealEstate(owner);
-    const catColors={'한국주식':'#4ecdc4','해외주식':'#5b9bff','연금':'#c084fc','가상화폐':'#f2a33c','금':'#d4b24a','부동산':'#56c596','현금':'#94a3c8'};
-    const catOrder=['한국주식','해외주식','연금','가상화폐','금','부동산','현금'];
+    const catColors={'한국주식':'#4ecdc4','해외주식':'#5b9bff','연금':'#c084fc','가상화폐':'#f2a33c','금':'#d4b24a','현금':'#94a3c8'};
+    const catOrder=['한국주식','해외주식','연금','가상화폐','금','현금'];
     const dLabels=[],dData=[],dBg=[];
     const totalVal=catOrder.reduce((s,c)=>s+(catTotals[c]>0?catTotals[c]:0),0)||1;
     catOrder.forEach(cat=>{if(catTotals[cat]>0){dLabels.push(`${cat} (${Math.round(catTotals[cat]/totalVal*100)}%)`);dData.push(Math.round(catTotals[cat]));dBg.push(catColors[cat]);}});
@@ -2090,7 +2060,7 @@ function changeOwner(owner, btn, isRefresh=false) {
 function updateValueChartYear() {
   const y=document.getElementById('valYearSelect').value;
   // 금은 curP가 단위당 가격 (환율 불필요), 그 외 assets는 RATES 적용
-  const totalNow=Math.round(getFilteredAssets(currentOwner).reduce((a,b)=>a+(b.grp==='금'?b.qty*b.curP:b.qty*b.curP*(RATES[b.cur]||1)),0)+getOwnerRealEstate(currentOwner));
+  const totalNow=Math.round(getFilteredAssets(currentOwner).reduce((a,b)=>a+(b.grp==='금'?b.qty*b.curP:b.qty*b.curP*(RATES[b.cur]||1)),0));
   const allMonthLabels=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const curMonth=new Date().getMonth(); // 0-based, April = 3
   let dVals, dLbls=allMonthLabels;
@@ -2262,7 +2232,7 @@ function renderPortfolio(owner) {
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<span class="editable-val" onclick="makeEditable(this,'${i.owner}','${i.tkr}','qty',true,${pIdx})">${fBal}</span>`;
           // [9] 자산명 + 통화 배지 나란히
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${i.cur}</span></td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.cur}</span></td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
@@ -2282,7 +2252,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong></td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td style="text-align:center">${getDcaCellHtml(i)}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2302,7 +2272,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${i.tkr}</span></td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td style="text-align:center">${getDcaCellHtml(i)}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2323,7 +2293,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong> <span class="tkr-txt">${dispTkr}</span></td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td style="text-align:center">${getDcaCellHtml(i)}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -2336,10 +2306,10 @@ function renderPortfolio(owner) {
     if(grpName==='현금'){
       theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th>관리</th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>DCA</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th style="text-align:center">DCA</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>DCA</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th style="text-align:center">DCA</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
@@ -2348,11 +2318,11 @@ function renderPortfolio(owner) {
     let colgroupHtml='';
     if(_isFixed){
       const ownerCol=showOwner?'<col style="width:7%">':'';
-      // 순서: [소유주] 증권사/계좌 · 종목명 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · DCA · 관리
+      // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       // 관리 칼럼 6% — 3%였을 때 table-layout:fixed + overflow:hidden 으로 삭제(✕) 버튼이 잘려 보이지 않던 문제 해결
       const widths=showOwner
-        ?['9%','15%','7%','9%','9%','11%','10%','7%','10%','6%']
-        :['10%','17%','8%','9%','10%','11%','10%','8%','11%','6%'];
+        ?['9%','15%','10%','7%','9%','9%','11%','10%','7%','6%']
+        :['10%','17%','11%','8%','9%','10%','11%','10%','8%','6%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -2399,21 +2369,6 @@ function updatePortPerfChart(owner) {
     dList.sort((a,b)=>b.rate-a.rate);
     dData[g]={labels:dList.map(x=>x.name),data:dList.map(x=>x.rate),amounts:dList.map(x=>x.amt),colors:dList.map(x=>x.rate>=0?'#10B981':'#EF4444')};
   });
-  // 부동산: 소유주별 필터링 후 수익률 계산
-  const reItems=filterByOwner(realEstateData, owner);
-  if(reItems.length>0){
-    let reTInv=0,reTCur=0,reDList=[];
-    reItems.forEach(re=>{
-      const cur=re.currentValue||0,inv=re.purchasePrice||0;
-      reTInv+=inv;reTCur+=cur;
-      const profit=cur-inv,pct=inv>0?(profit/inv)*100:0;
-      reDList.push({name:re.name||'부동산',rate:parseFloat(pct.toFixed(2)),amt:Math.round(profit)});
-    });
-    const reProfit=reTCur-reTInv,rePct=reTInv>0?(reProfit/reTInv)*100:0;
-    gData.labels.push('부동산');gData.data.push(parseFloat(rePct.toFixed(2)));gData.amounts.push(Math.round(reProfit));gData.colors.push(rePct>=0?'#10B981':'#EF4444');
-    reDList.sort((a,b)=>b.rate-a.rate);
-    dData['부동산']={labels:reDList.map(x=>x.name),data:reDList.map(x=>x.rate),amounts:reDList.map(x=>x.amt),colors:reDList.map(x=>x.rate>=0?'#10B981':'#EF4444')};
-  }
   window.portPerfGroupData=gData;window.portPerfDetailData=dData;window.portPerfIsDetail=false;
   portPerfChartInst.data.labels=gData.labels;portPerfChartInst.data.datasets[0].data=gData.data;portPerfChartInst.data.datasets[0].profitData=gData.amounts;portPerfChartInst.data.datasets[0].backgroundColor=gData.colors;portPerfChartInst.update();
 }
@@ -3581,31 +3536,10 @@ function applyFNG(sfg,cfg) {
 // 위험이 있어 삭제했다.
 
 // =============================================
-// 부채 / 부동산 / 자산이력 데이터
+// 자산이력 데이터
 // =============================================
-let liabilityData = [];
-let realEstateData = [];
 let assetHistory = [];
 
-// =============================================
-// 합산 헬퍼
-// =============================================
-function getTotalLiabilities() {
-  return liabilityData.reduce((s, l) => s + (l.balance || 0), 0);
-}
-function getOwnerLiabilities(owner) {
-  if (!owner || owner === '전체') return getTotalLiabilities();
-  return filterByOwner(liabilityData, owner)
-    .reduce((s, l) => s + (l.balance || 0), 0);
-}
-function getTotalRealEstate() {
-  return realEstateData.reduce((s, re) => s + (re.currentValue || 0), 0);
-}
-function getOwnerRealEstate(owner) {
-  if (!owner || owner === '전체') return getTotalRealEstate();
-  return filterByOwner(realEstateData, owner)
-    .reduce((s, re) => s + (re.currentValue || 0), 0);
-}
 function getTotalPortfolioAssets() {
   let total = 0;
   pfolioData.forEach(i => {
@@ -3639,9 +3573,6 @@ function getItemsByDonutCategory(label, owner) {
     case '가상화폐': items = all.filter(i => i.grp === '가상화폐'); break;
     case '금': items = all.filter(i => i.grp === '금'); break;
     case '현금': items = all.filter(i => i.grp === '현금'); break;
-    case '부동산':
-      return realEstateData.map(re => ({name: re.name, value: Math.round(re.currentValue)}))
-             .sort((a, b) => b.value - a.value);
     default: items = all.filter(i => i.grp === label);
   }
   return items.map(i => ({
@@ -3656,58 +3587,18 @@ function getItemsByDonutCategory(label, owner) {
 // 순자산 표시 업데이트
 // =============================================
 function updateNetAssetDisplay() {
-  // 소유주 필터 반영 — '전체' 일 때만 전체 합산
+  // 소유주 필터 반영 — '전체' 일 때만 전체 합산. 부동산·부채 제거 후 순자산 = 투자자산 합계
   const portAssets = getOwnerPortfolioAssets(currentOwner);
-  const reAssets = getOwnerRealEstate(currentOwner);
-  const totalAssets = portAssets + reAssets;
-  const totalLiab = getOwnerLiabilities(currentOwner);
-  const netAsset = totalAssets - totalLiab;
-  const _liabFilteredForInterest = (currentOwner==='전체')
-    ? liabilityData
-    : liabilityData.filter(l => (l.owner||'본인')===currentOwner);
-  const annualInterest = _liabFilteredForInterest.reduce((s, l) => s + (l.balance || 0) * (l.rate || 0) / 100, 0);
+  const netAsset = portAssets;
 
   // Dashboard net asset panel
-  const liabEl = document.getElementById('dash-total-liab');
   const netEl = document.getElementById('dash-net-asset');
-  if (liabEl) liabEl.innerText = totalLiab > 0 ? '-₩' + Math.round(totalLiab).toLocaleString() : '₩0';
   if (netEl) {
     netEl.innerText = (netAsset < 0 ? '-₩' : '₩') + Math.round(Math.abs(netAsset)).toLocaleString();
     netEl.className = netAsset >= 0 ? 'c-up' : 'c-dn';
   }
 
-  // Liability view summary (header) - 소유주 필터 반영, 대출총액 노출
-  const filterLiabOwner = currentOwner === '전체' ? null : currentOwner;
-  const filteredLiabForSummary = filterLiabOwner ? liabilityData.filter(l=>(l.owner||'본인')===filterLiabOwner) : liabilityData;
-  const ownerLiabTotal = filteredLiabForSummary.reduce((s,l)=>s+(l.totalAmt||l.balance||0),0);
-  const ownerLiabBalance = filteredLiabForSummary.reduce((s,l)=>s+(l.balance||0),0);
-  const ownerAnnualInterest = filteredLiabForSummary.reduce((s,l)=>s+(l.balance||0)*(l.rate||0)/100,0);
-  const lsTotal = document.getElementById('liab-summary-total');
-  const lsInt = document.getElementById('liab-summary-interest');
-  const lsBal = document.getElementById('liab-summary-balance');
-  if (lsTotal) lsTotal.innerText = '₩' + Math.round(ownerLiabTotal).toLocaleString();
-  if (lsInt) lsInt.innerText = '-₩' + Math.round(ownerAnnualInterest).toLocaleString() + '/년';
-  if (lsBal) lsBal.innerText = '-₩' + Math.round(ownerLiabBalance).toLocaleString();
-  // JS 호환용 숨김 요소 업데이트
-  const lsAssets = document.getElementById('liab-summary-assets');
-  const lsRe = document.getElementById('liab-summary-re');
-  const lsNet = document.getElementById('liab-summary-net');
-  if (lsAssets) lsAssets.innerText = '₩' + Math.round(portAssets).toLocaleString();
-  if (lsRe) lsRe.innerText = '₩' + Math.round(reAssets).toLocaleString();
-  if (lsNet) lsNet.innerText = (netAsset < 0 ? '-₩' : '₩') + Math.round(Math.abs(netAsset)).toLocaleString();
-  // 사이드바 부동산 요약 위젯 (소유주 필터 반영)
-  const _reFiltered = (currentOwner==='전체')
-    ? realEstateData
-    : realEstateData.filter(r => (r.owner||'본인')===currentOwner);
-  const totalMort = _reFiltered.reduce((s,r)=>s+(r.mortgage||0),0);
-  const reNetVal = reAssets - totalMort;
-  const sReCur = document.getElementById('side-re-cur');
-  const sReMort = document.getElementById('side-re-mort');
-  const sReNet = document.getElementById('side-re-net');
-  if(sReCur) sReCur.innerText = '₩'+Math.round(reAssets).toLocaleString();
-  if(sReMort) sReMort.innerText = totalMort>0?'-₩'+Math.round(totalMort).toLocaleString():'₩0';
-  if(sReNet) { sReNet.innerText=(reNetVal<0?'-₩':'₩')+Math.round(Math.abs(reNetVal)).toLocaleString(); sReNet.className=reNetVal>=0?'c-up':'c-dn'; }
-  // 사이드바 이외 자산 요약 위젯 (소유주 필터 반영)
+  // 사이드바 자산 요약 위젯 (소유주 필터 반영)
   const sOther = document.getElementById('side-other-assets');
   if(sOther) {
     const filteredForSide = getFilteredAssets(currentOwner);
@@ -3736,286 +3627,6 @@ function updateNetAssetDisplay() {
   }
 }
 
-// =============================================
-// 아코디언 토글 (부동산/부채 섹션)
-// =============================================
-function toggleHoldingsSection(bodyId, arrowId) {
-  const body = document.getElementById(bodyId);
-  const arrow = document.getElementById(arrowId);
-  if (!body) return;
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'flex';
-  if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
-  if (!isOpen && bodyId === 're-accordion-body') { renderRealEstate(); if(window.liabDonutChartInst) setTimeout(()=>window.liabDonutChartInst.resize(),100); }
-  if (!isOpen && bodyId === 'liab-accordion-body') { renderLiabilities(); if(window.liabDonutChartInst) setTimeout(()=>window.liabDonutChartInst.resize(),100); }
-}
-
-// =============================================
-// 부동산 CRUD
-// =============================================
-function openREModal(idx=-1) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  const modal = document.getElementById('re-modal'); if(!modal) return;
-  document.getElementById('re-edit-idx').value = idx;
-  const titleEl = document.getElementById('re-modal-title');
-  const submitBtn = document.getElementById('btn-re-submit');
-  if(idx > -1) {
-    const re = realEstateData[idx]; if(!re) return;
-    if(titleEl) titleEl.innerText = '부동산 수정';
-    if(submitBtn) submitBtn.innerText = '수정하기';
-    if(document.getElementById('re-owner')) document.getElementById('re-owner').value = re.owner||'본인';
-    document.getElementById('re-name').value = re.name||'';
-    document.getElementById('re-purchase').value = re.purchasePrice ? Math.round(re.purchasePrice).toLocaleString() : '';
-    document.getElementById('re-current').value = re.currentValue ? Math.round(re.currentValue).toLocaleString() : '';
-    document.getElementById('re-mortgage').value = re.mortgage ? Math.round(re.mortgage).toLocaleString() : '';
-  } else {
-    if(titleEl) titleEl.innerText = '부동산 추가';
-    if(submitBtn) submitBtn.innerText = '저장하기';
-    ['re-name','re-purchase','re-current','re-mortgage'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  }
-  modal.classList.add('active');
-}
-function closeREModal() { const m=document.getElementById('re-modal');if(m)m.classList.remove('active'); }
-
-function addRealEstate() {
-  const idx = parseInt(document.getElementById('re-edit-idx').value);
-  const owner = document.getElementById('re-owner')?.value || '본인';
-  const name = document.getElementById('re-name').value.trim();
-  const purchasePrice = parseFloat((document.getElementById('re-purchase').value||'').replace(/,/g,'')) || 0;
-  const currentValue = parseFloat((document.getElementById('re-current').value||'').replace(/,/g,'')) || 0;
-  const mortgage = parseFloat((document.getElementById('re-mortgage').value||'').replace(/,/g,'')) || 0;
-  if (!name || !currentValue) { alert('물건명과 현재 시세를 입력하세요.'); return; }
-  const entry = { owner, name, purchasePrice, currentValue, mortgage };
-  if (idx > -1) {
-    realEstateData[idx] = entry;
-  } else {
-    realEstateData.push(entry);
-  }
-  closeREModal();
-  renderRealEstate();
-  updateNetAssetDisplay();
-  saveExtDataToKV();
-  changeOwner(currentOwner, null, true);
-}
-
-function editRealEstate(idx) { openREModal(idx); }
-
-function deleteRealEstate(idx) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  if (confirm('부동산 자산을 삭제하시겠습니까?')) {
-    realEstateData.splice(idx, 1);
-    renderRealEstate();
-    updateNetAssetDisplay();
-    saveExtDataToKV();
-    changeOwner(currentOwner, null, true);
-  }
-}
-
-function renderRealEstate() {
-  const tbody = document.getElementById('re-table-body'); if (!tbody) return;
-  let html = '', totalCur = 0, totalPurch = 0, totalMort = 0;
-  const filterOwner = currentOwner === '전체' ? null : currentOwner;
-  const filtered = filterOwner ? realEstateData.filter(re => (re.owner || '본인') === filterOwner) : realEstateData;
-  filtered.forEach((re, i) => {
-    const origIdx = realEstateData.indexOf(re);
-    const gain = re.currentValue - (re.purchasePrice || 0);
-    const gainPct = re.purchasePrice > 0 ? (gain / re.purchasePrice) * 100 : 0;
-    const gainCls = gain >= 0 ? 'c-up' : 'c-dn';
-    const gainSign = gain >= 0 ? '+' : '';
-    totalCur += re.currentValue; totalPurch += re.purchasePrice || 0; totalMort += re.mortgage || 0;
-    html += `<tr>
-      <td class="text-left" style="color:var(--t3);font-size:.75rem">${re.owner||'본인'}</td>
-      <td class="text-left"><strong>${re.name}</strong></td>
-      <td>₩${Math.round(re.purchasePrice||0).toLocaleString()}</td>
-      <td style="font-weight:700">₩${Math.round(re.currentValue).toLocaleString()}</td>
-      <td class="c-dn">${re.mortgage>0?'-₩'+Math.round(re.mortgage).toLocaleString():'-'}</td>
-      <td class="${gainCls}">${gainSign}₩${Math.round(Math.abs(gain)).toLocaleString()}</td>
-      <td class="${gainCls}">${gainSign}${gainPct.toFixed(1)}%</td>
-      <td><button class="btn-action" onclick="editRealEstate(${origIdx})">✎</button><button class="btn-action" onclick="deleteRealEstate(${origIdx})">✕</button></td>
-    </tr>`;
-  });
-  if (!html) html = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부동산이 없습니다.</td></tr>';
-  tbody.innerHTML = html;
-  // accordion header stats (소유주 필터 반영)
-  const reSummEl = document.getElementById('re-accordion-summary');
-  if (reSummEl) reSummEl.textContent = filtered.length > 0 ? `(${filtered.length}건)` : '등록 없음';
-  const totalGain = totalCur - totalPurch;
-  const gainCls2 = totalGain >= 0 ? 'c-up' : 'c-dn';
-  const netRe = totalCur - totalMort;
-  // 헤더 통계
-  const reHdrCur = document.getElementById('re-header-cur'); if(reHdrCur) reHdrCur.innerText = '₩'+Math.round(totalCur).toLocaleString();
-  const reHdrGain = document.getElementById('re-header-gain'); if(reHdrGain) { reHdrGain.innerText=(totalGain>=0?'+₩':'-₩')+Math.round(Math.abs(totalGain)).toLocaleString(); reHdrGain.className=gainCls2; }
-  // 아코디언 바디 내 소계
-  const reTotPurch = document.getElementById('re-total-purch'); if(reTotPurch) reTotPurch.innerText = '₩'+Math.round(totalPurch).toLocaleString();
-  const reTotMort = document.getElementById('re-total-mort'); if(reTotMort) reTotMort.innerText = totalMort>0?'-₩'+Math.round(totalMort).toLocaleString():'₩0';
-  const reNet = document.getElementById('re-net'); if(reNet) { reNet.innerText=(netRe<0?'-₩':'₩')+Math.round(Math.abs(netRe)).toLocaleString(); reNet.className=netRe>=0?'c-up':'c-dn'; }
-  // JS 호환용 숨김 요소
-  const reTotCur = document.getElementById('re-total-cur'); if(reTotCur) reTotCur.innerText = '₩'+Math.round(totalCur).toLocaleString();
-  const reTotGain = document.getElementById('re-total-gain'); if(reTotGain) { reTotGain.innerText=(totalGain>=0?'+₩':'-₩')+Math.round(Math.abs(totalGain)).toLocaleString(); reTotGain.className=gainCls2; }
-}
-
-// =============================================
-// 부채 CRUD
-// =============================================
-function openLiabModal(idx=-1) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  const modal = document.getElementById('liab-modal'); if(!modal) return;
-  document.getElementById('liab-edit-idx').value = idx;
-  const titleEl = document.getElementById('liab-modal-title');
-  const submitBtn = document.getElementById('btn-liab-submit');
-  if(idx > -1) {
-    const l = liabilityData[idx]; if(!l) return;
-    if(titleEl) titleEl.innerText = '부채 수정';
-    if(submitBtn) submitBtn.innerText = '수정하기';
-    if(document.getElementById('liab-owner')) document.getElementById('liab-owner').value = l.owner||'본인';
-    document.getElementById('liab-name').value = l.name||'';
-    document.getElementById('liab-total').value = l.totalAmt ? Math.round(l.totalAmt).toLocaleString() : '';
-    document.getElementById('liab-balance').value = l.balance ? Math.round(l.balance).toLocaleString() : '';
-    document.getElementById('liab-rate').value = l.rate||'';
-    document.getElementById('liab-months').value = l.remainMonths||'';
-    document.getElementById('liab-bank').value = l.bank||'';
-    document.getElementById('liab-pay-day').value = l.payDay||'';
-  } else {
-    if(titleEl) titleEl.innerText = '부채 추가';
-    if(submitBtn) submitBtn.innerText = '저장하기';
-    ['liab-name','liab-total','liab-balance','liab-rate','liab-months','liab-bank','liab-pay-day'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  }
-  modal.classList.add('active');
-}
-function closeLiabModal() { const m=document.getElementById('liab-modal');if(m)m.classList.remove('active'); }
-
-// 원리금균등상환(PMT) 월 납부액 계산
-function calcPMT(balance, annualRate, remainMonths) {
-  if (!balance || !remainMonths) return 0;
-  if (!annualRate || annualRate === 0) return Math.round(balance / remainMonths);
-  const r = annualRate / 100 / 12;
-  const n = remainMonths;
-  return Math.round(balance * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1));
-}
-
-function _syncLiabAutoTransfer(liabIdx, liab) {
-  // 기존 연동 자동이체 제거 (payDay 변경·삭제 모두 대응)
-  const existingIdx = autoTransferData.findIndex(at => at.liabIdx === liabIdx);
-  if (existingIdx > -1) autoTransferData.splice(existingIdx, 1);
-
-  if (!liab.payDay || liab.payDay < 1 || liab.remainMonths <= 0) {
-    saveAutoTransfers();
-    return;
-  }
-
-  const pmt = calcPMT(liab.balance, liab.rate, liab.remainMonths) || Math.round(liab.balance / liab.remainMonths);
-  if (pmt <= 0) return;
-
-  const today = new Date();
-  const ym = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-  // lastApplied = 현재 월 → 다음 달 payDay부터 자동 적용 (이번 달 중복 방지)
-  autoTransferData.push({
-    id: Date.now(),
-    type: '지출',
-    cat: '대출납입금',
-    desc: liab.name,
-    amt: pmt,
-    cycle: 'monthly',
-    dayOfMonth: liab.payDay,
-    lastApplied: ym,
-    startMonth: ym,
-    liabIdx,
-  });
-  saveAutoTransfers();
-}
-
-function addLiability() {
-  const idx = parseInt(document.getElementById('liab-edit-idx').value);
-  const owner = document.getElementById('liab-owner')?.value || '본인';
-  const name = document.getElementById('liab-name').value.trim();
-  const totalAmt = parseFloat((document.getElementById('liab-total').value||'').replace(/,/g,'')) || 0;
-  const balance = parseFloat((document.getElementById('liab-balance').value||'').replace(/,/g,'')) || 0;
-  const rate = parseFloat(document.getElementById('liab-rate').value) || 0;
-  const remainMonths = parseInt(document.getElementById('liab-months').value) || 0;
-  const bank = document.getElementById('liab-bank').value.trim();
-  const payDay = parseInt(document.getElementById('liab-pay-day').value) || 0;
-  if (!name || !balance) { alert('부채명과 잔여원금을 입력하세요.'); return; }
-  const entry = { owner, name, totalAmt, balance, rate, remainMonths, bank, payDay };
-  if (idx > -1) {
-    liabilityData[idx] = entry;
-    document.getElementById('liab-edit-idx').value = '-1';
-    document.getElementById('btn-liab-submit').innerText = '저장';
-  } else {
-    liabilityData.push(entry);
-  }
-  const savedIdx = idx > -1 ? idx : liabilityData.length - 1;
-  _syncLiabAutoTransfer(savedIdx, entry);
-  closeLiabModal();
-  renderLiabilities();
-  updateNetAssetDisplay();
-  saveExtDataToKV();
-}
-
-function editLiability(idx) { openLiabModal(idx); }
-
-function deleteLiability(idx) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  if (confirm('부채 내역을 삭제하시겠습니까?\n연동된 자동상환 이체도 함께 삭제됩니다.')) {
-    autoTransferData = autoTransferData.filter(at => at.liabIdx !== idx);
-    liabilityData.splice(idx, 1);
-    // 삭제된 인덱스 이후 항목의 liabIdx 재매핑
-    autoTransferData.forEach(at => {
-      if (at.liabIdx !== undefined && at.liabIdx > idx) at.liabIdx -= 1;
-    });
-    saveAutoTransfers();
-    renderLiabilities();
-    updateNetAssetDisplay();
-    saveExtDataToKV();
-  }
-}
-
-function renderLiabilities() {
-  const tbody = document.getElementById('liab-table-body'); if (!tbody) return;
-  let html = '', totalBalance = 0;
-  const filterOwner = currentOwner === '전체' ? null : currentOwner;
-  const filteredLiab = filterOwner ? liabilityData.filter(l => (l.owner || '본인') === filterOwner) : liabilityData;
-  filteredLiab.forEach((l) => {
-    const origIdx = liabilityData.indexOf(l);
-    const pmt = l.remainMonths > 0 ? calcPMT(l.balance, l.rate, l.remainMonths) : (l.rate > 0 ? Math.round(l.balance * l.rate / 100 / 12) : 0);
-    totalBalance += l.balance || 0;
-    const hasAutoTransfer = autoTransferData.some(at => at.liabIdx === origIdx);
-    const autoLabel = l.payDay
-      ? (hasAutoTransfer
-          ? `<span style="font-size:.63rem;color:var(--up);display:block;margin-top:2px">매월 ${l.payDay}일 자동상환</span>`
-          : `<span style="font-size:.63rem;color:var(--t3);display:block;margin-top:2px">${l.payDay}일 (미등록)</span>`)
-      : '';
-    html += `<tr>
-      <td class="text-left" style="color:var(--t3);font-size:.75rem">${l.owner||'본인'}</td>
-      <td class="text-left"><strong>${l.name}</strong>${autoLabel}</td>
-      <td class="text-left">${l.bank||'-'}</td>
-      <td>₩${Math.round(l.totalAmt||0).toLocaleString()}</td>
-      <td class="c-dn">₩${Math.round(l.balance).toLocaleString()}</td>
-      <td>${l.rate?l.rate.toFixed(2)+'%':'-'}</td>
-      <td class="c-dn" title="${l.remainMonths?l.remainMonths+'개월 잔여':'이자만납부'}">${pmt>0?'₩'+pmt.toLocaleString():'-'}</td>
-      <td><button class="btn-action" onclick="editLiability(${origIdx})">✎</button><button class="btn-action" onclick="deleteLiability(${origIdx})">✕</button></td>
-    </tr>`;
-  });
-  if (!html) html = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">등록된 부채가 없습니다.</td></tr>';
-  tbody.innerHTML = html;
-  // accordion summary (소유주 필터 반영)
-  const liabSummEl = document.getElementById('liab-accordion-summary');
-  if (liabSummEl) {
-    const fOwner = currentOwner === '전체' ? null : currentOwner;
-    const fLiab = fOwner ? liabilityData.filter(l=>(l.owner||'본인')===fOwner) : liabilityData;
-    const fLiabTotal = fLiab.reduce((s,l)=>s+(l.balance||0),0);
-    liabSummEl.textContent = fLiab.length > 0 ? `(${fLiab.length}건)` : '등록 없음';
-  }
-  if (window.liabDonutChartInst && liabilityData.length > 0) {
-    window.liabDonutChartInst.data.labels = liabilityData.map(l => l.name);
-    window.liabDonutChartInst.data.datasets[0].data = liabilityData.map(l => l.balance);
-    window.liabDonutChartInst.data.datasets[0].backgroundColor = liabilityData.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]);
-    window.liabDonutChartInst.update();
-  }
-}
 
 // =============================================
 // 자산 이력 스냅샷
@@ -4023,10 +3634,8 @@ function renderLiabilities() {
 function saveSnapshot() {
   const now = new Date();
   const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const totalAssets = getTotalPortfolioAssets() + getTotalRealEstate();
-  const totalLiab = getTotalLiabilities();
-  const netAsset = totalAssets - totalLiab;
-  const entry = { date: monthStr, totalAssets: Math.round(totalAssets), totalLiab: Math.round(totalLiab), netAssets: Math.round(netAsset) };
+  const totalAssets = getTotalPortfolioAssets();
+  const entry = { date: monthStr, totalAssets: Math.round(totalAssets), totalLiab: 0, netAssets: Math.round(totalAssets) };
   const existing = assetHistory.findIndex(h => h.date === monthStr);
   if (existing > -1) assetHistory[existing] = entry;
   else {
@@ -4036,7 +3645,7 @@ function saveSnapshot() {
   }
   renderHistoryChart();
   saveExtDataToKV();
-  alert(monthStr + ' 자산 스냅샷이 저장되었습니다.\n총자산: ₩' + Math.round(totalAssets).toLocaleString() + '\n순자산: ₩' + Math.round(netAsset).toLocaleString());
+  alert(monthStr + ' 자산 스냅샷이 저장되었습니다.\n총자산: ₩' + Math.round(totalAssets).toLocaleString());
 }
 
 function renderHistoryChart() {
@@ -4091,11 +3700,6 @@ function renderFamilyView() {
 
   const data = {}; owners.forEach(o => data[o] = getMemberCats(o));
 
-  // 각 멤버별 부동산 자산 (owner 필드로 매핑)
-  function getMemberRE(owner) {
-    return filterByOwner(realEstateData, owner)
-      .reduce((s, re) => s + (re.currentValue || 0), 0);
-  }
   // 연간 배당 예상 (divHistory 기준)
   function getMemberAnnualDiv(owner) {
     const yr = String(new Date().getFullYear());
@@ -4121,16 +3725,14 @@ function renderFamilyView() {
     {key:'annualDiv', label:'연간배당', fmt: v=>v>0?fmtKRW1(v):'-'},
   ];
   owners.forEach(o => { data[o].annualDiv = getMemberAnnualDiv(o); });
-  // 부동산 행 (소유주별 매핑)
-  const reRow = `<tr><td class="text-left" style="font-weight:600;color:var(--t2)">부동산</td>${owners.map(o=>{const rv=getMemberRE(o);return`<td style="text-align:right">${rv>0?fmtKRW1(rv):'-'}</td>`}).join('')}</tr>`;
-  // 소유주별 총자산 행 (포트폴리오 + 본인 부동산)
-  const totalRow = `<tr style="border-top:2px solid var(--border-dark);background:var(--inner-bg)"><td class="text-left" style="font-weight:700;color:var(--t1)">총자산</td>${owners.map(o=>`<td style="text-align:right;font-weight:700">${fmtKRW1(data[o].total + getMemberRE(o))}</td>`).join('')}</tr>`;
+  // 소유주별 총자산 행
+  const totalRow = `<tr style="border-top:2px solid var(--border-dark);background:var(--inner-bg)"><td class="text-left" style="font-weight:700;color:var(--t1)">총자산</td>${owners.map(o=>`<td style="text-align:right;font-weight:700">${fmtKRW1(data[o].total)}</td>`).join('')}</tr>`;
   // 수익률 행 (맨 아래)
   const profitRow = `<tr><td class="text-left" style="font-weight:600;color:var(--t2)">수익률</td>${owners.map(o=>{const v=data[o].profitPct;const c=v>=0?'var(--up)':'var(--dn)';return`<td style="text-align:right"><span style="color:${c};font-weight:700">${fmtPct(v,1)}</span></td>`}).join('')}</tr>`;
   tbody.innerHTML = rows.map(r=>`<tr>
     <td class="text-left" style="font-weight:600;color:var(--t2)">${r.label}</td>
     ${owners.map(o=>`<td style="text-align:right">${r.fmt(data[o][r.key])}</td>`).join('')}
-  </tr>`).join('') + reRow + totalRow + profitRow;
+  </tr>`).join('') + totalRow + profitRow;
 
   // 총자산 막대 차트
   if (window.familyBarChartInst) { window.familyBarChartInst.destroy(); window.familyBarChartInst = null; }
@@ -4138,7 +3740,7 @@ function renderFamilyView() {
   if (fbc) {
     window.familyBarChartInst = new Chart(fbc.getContext('2d'), {
       type:'bar',
-      data:{ labels:owners, datasets:[{data:owners.map(o=>Math.round(data[o].total+getMemberRE(o))), backgroundColor:owners.map(o=>ownerColors[o]||'#9CA3AF'), borderRadius:6}] },
+      data:{ labels:owners, datasets:[{data:owners.map(o=>Math.round(data[o].total)), backgroundColor:owners.map(o=>ownerColors[o]||'#9CA3AF'), borderRadius:6}] },
       options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ₩${c.raw.toLocaleString()}`}}}, scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:KRW_TICK}}}}
     });
   }
@@ -4151,7 +3753,7 @@ function renderFamilyView() {
       type:'bar',
       data:{
         labels:owners,
-        datasets: [...cats.map(cat=>({ label:cat, data:owners.map(o=>Math.round(data[o][cat])), backgroundColor:catColors[cat], stack:'s' })), {label:'부동산', data:owners.map(o=>Math.round(getMemberRE(o))), backgroundColor:'#10B981', stack:'s'}]
+        datasets: [...cats.map(cat=>({ label:cat, data:owners.map(o=>Math.round(data[o][cat])), backgroundColor:catColors[cat], stack:'s' }))]
       },
       options:{ plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.raw>0?` ${c.dataset.label}: ₩${c.raw.toLocaleString()}`:'',footer:items=>'합계: ₩'+items.reduce((s,c)=>s+(c.raw||0),0).toLocaleString()}}}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:KRW_TICK}}}}
     });
@@ -4330,10 +3932,7 @@ async function saveNetWorthSnapshot() {
   const owners = OWNERS;
   const portfolioByOwner = {};
   owners.forEach(o => { portfolioByOwner[o] = Math.round(sumAssets(getFilteredAssets(o))); });
-  const realestate = getTotalRealEstate();
-  const liabilities = getTotalLiabilities();
-  const total = portfolio + realestate - liabilities;
-  const entry = { date: todayStr, total: Math.round(total), portfolio: Math.round(portfolio), realestate: Math.round(realestate), liabilities: Math.round(liabilities), portfolioByOwner };
+  const entry = { date: todayStr, total: Math.round(portfolio), portfolio: Math.round(portfolio), realestate: 0, liabilities: 0, portfolioByOwner };
   const hist = window._netWorthHistory;
   const idx = hist.findIndex(h => h.date === todayStr);
   if (idx > -1) hist[idx] = entry;
@@ -4365,8 +3964,7 @@ function renderNetWorthHistoryChart(tf, btn) {
       type: 'line',
       data: { labels: [], datasets: [
         { label: '순자산', data: [], borderColor: '#3B82F6', tension: .4, pointRadius: 0, borderWidth: 2, fill: false, spanGaps: true },
-        { label: '포트폴리오', data: [], borderColor: '#3B82F6', tension: .4, pointRadius: 0, borderWidth: 1.5, borderDash: [4,4], fill: false, spanGaps: true },
-        { label: '부동산', data: [], borderColor: '#10B981', tension: .4, pointRadius: 0, borderWidth: 1.5, borderDash: [4,4], fill: false, spanGaps: true }
+        { label: '포트폴리오', data: [], borderColor: '#3B82F6', tension: .4, pointRadius: 0, borderWidth: 1.5, borderDash: [4,4], fill: false, spanGaps: true }
       ]},
       options: {
         interaction: { mode: 'index', intersect: false },
@@ -4382,7 +3980,6 @@ function renderNetWorthHistoryChart(tf, btn) {
   chart.data.labels = filtered.map(h => h.date.slice(5).replace('-', '/'));
   chart.data.datasets[0].data = filtered.map(h => h.total);
   chart.data.datasets[1].data = filtered.map(h => h.portfolio);
-  chart.data.datasets[2].data = filtered.map(h => h.realestate);
   chart.update();
 }
 
@@ -4406,7 +4003,7 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
-  const ext = { liabilities: liabilityData, realEstate: realEstateData, assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
   const res = await setKV('ext_data', ext);
   if (!(res && res.result === "OK")) showSaveError();
 }
@@ -4414,8 +4011,6 @@ async function saveExtDataToKV() {
 async function loadExtDataFromKV() {
   const data = await getKV('ext_data');
   if (data && typeof data === 'object') {
-    if (Array.isArray(data.liabilities)) liabilityData = data.liabilities;
-    if (Array.isArray(data.realEstate)) realEstateData = data.realEstate;
     if (Array.isArray(data.assetHistory)) assetHistory = data.assetHistory;
     if (Array.isArray(data.goalData)) goalData = data.goalData;
     if (Array.isArray(data.netWorthHistory)) window._netWorthHistory = data.netWorthHistory;
@@ -4433,8 +4028,6 @@ async function loadExtDataFromKV() {
       try { localStorage.setItem('cfData', JSON.stringify(cfData)); } catch(e) {}
       if (document.getElementById('view-cashflow')?.classList.contains('active')) renderCashFlow();
     }
-    renderLiabilities();
-    renderRealEstate();
     renderHistoryChart();
     updateNetAssetDisplay();
     changeOwner(currentOwner, null, true);
@@ -4578,9 +4171,9 @@ function sortPortfolioTable(grpName, field, thEl) {
   const tbody = table.querySelector('tbody');
   const rows = Array.from(tbody.querySelectorAll('tr'));
   rows.sort((a, b) => {
-    // 칼럼 인덱스(소유주 칼럼 제외 기준) — 비중 칼럼 제거로 수익금/수익률이 한 칸씩 앞으로 당겨졌다
+    // 칼럼 인덱스(소유주 칼럼 제외 기준) — 3번 칼럼이 DCA 라 수치 칼럼이 한 칸씩 뒤로 밀린다
     const cells = {
-      qty: 2, avgP: 3, curP: 4, valKRW: 5, profit: 6, profitPct: 7
+      qty: 3, avgP: 4, curP: 5, valKRW: 6, profit: 7, profitPct: 8
     };
     const ci = cells[field] ?? 5;
     const getVal = (row) => {
@@ -4782,13 +4375,6 @@ function initDashboard(){
     }
   });
 
-  // 부채 도넛 차트
-  window.liabDonutChartInst=new Chart(document.getElementById('liabDonutChart').getContext('2d'),{
-    type:'doughnut',
-    data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},
-    options:{cutout:'65%',layout:{padding:{right:10}},plugins:{legend:{position:'right',labels:{font:{size:10},generateLabels:c=>{const ds=c.data.datasets[0],t=ds.data.reduce((a,b)=>a+b,0)||1;return c.data.labels.map((l,i)=>({text:`${l} (${Math.round((ds.data[i]/t)*100)}%)`,fillStyle:ds.backgroundColor[i],hidden:false,index:i,fontColor:Chart.defaults.color}));}}},tooltip:{callbacks:{label:c=>` ₩${c.raw.toLocaleString()}`}}}}
-  });
-
   // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 네이비 기본
   try{
     const savedTheme=localStorage.getItem('theme');
@@ -4796,7 +4382,7 @@ function initDashboard(){
   }catch(e){ setTheme('navy'); }
 
   // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
-  ['re-purchase','re-current','re-mortgage','liab-total','liab-balance','goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
+  ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
     const el=document.getElementById(id);if(el)applyCommaFormatting(el);
   });
   // 2-1. 대시보드 전체 자동 쉼표 — inputmode=numeric/decimal 모든 input에 실시간 콤마 삽입
