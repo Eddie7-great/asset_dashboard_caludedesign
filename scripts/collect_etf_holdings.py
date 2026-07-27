@@ -34,8 +34,11 @@ from etf_common import (  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_PATH = os.path.join(ROOT, 'data', 'etf_holdings.json')
 
-KRX_URL = 'http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd'
-KRX_HEADERS = {'Referer': 'http://data.krx.co.kr/', 'X-Requested-With': 'XMLHttpRequest'}
+KRX_URL = 'https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd'
+# Referer 는 정확히 이 경로여야 한다 — pykrx(website/comm/webio.py Post.__init__)가
+# 로그인 세션 없이 보내는 요청도 이 값을 쓴다. 루트 경로(data.krx.co.kr/)로는 400이 난다.
+KRX_HEADERS = {'Referer': 'https://data.krx.co.kr/contents/MDC/MDI/outerLoader/index.cmd',
+               'X-Requested-With': 'XMLHttpRequest'}
 # bld 값은 추측하지 않았다 — pykrx/website/krx/etx/core.py 에서 확인:
 #   ETF_전종목기본종목 → MDCSTAT04601, PDF(Portfolio Deposit File)[13108] → MDCSTAT05001
 BLD_ETF_MASTER = 'dbms/MDC/STAT/standard/MDCSTAT04601'
