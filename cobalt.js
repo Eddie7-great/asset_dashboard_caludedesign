@@ -1,5 +1,5 @@
 // =====================================================================
-// cobalt.js — Claude Design "Cobalt Portfolio v2" 시안 8페이지 구현
+// cobalt.js — 메인 8페이지 렌더러
 // script.js(데이터 엔진)를 그대로 사용하고, 시안 레이아웃으로 렌더링한다.
 // 페이지: 대시보드 / 성과 비교 / 가족 자산 / 리스크 진단 / 배당 관리
 //        / 증여 플랜 / 양도소득세 / DCA 자동매수
@@ -1195,7 +1195,7 @@ function cbGiftSetBirth(v){
   try{ saveExtDataToKV(); }catch(e){}
   cbRenderGift();
 }
-// 구간별 색 (코발트 팔레트 — 데이터 색이므로 테마 무관 고정)
+// 구간별 색 (기본 팔레트 — 데이터 색이므로 테마 무관 고정)
 const CB_GIFT_SEG_COLORS = ['#5b9bff','#4ecdc4','#f2a33c','#c084fc'];
 function cbGiftSegs(){
   const r = Math.pow(1.03, 1/12);
@@ -1771,13 +1771,13 @@ switchView = function(id, btn){
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
 };
 
-// 데이터 변경/갱신 시 활성 Cobalt 페이지 재렌더
+// 데이터 변경/갱신 시 활성 페이지 재렌더
 const _cbOrigChangeOwner = changeOwner;
 changeOwner = function(owner, btn, isRefresh){
   _cbOrigChangeOwner(owner, btn, isRefresh);
   cbRerender();
 };
-// 자산 내역에서 추가/수정/삭제 → KV 저장이 일어나면 활성 Cobalt 페이지(대시보드 등)에 즉시 반영
+// 자산 내역에서 추가/수정/삭제 → KV 저장이 일어나면 활성 페이지(대시보드 등)에 즉시 반영
 const _cbOrigSaveAssets = saveAssetsToKV;
 saveAssetsToKV = async function(){
   const r = await _cbOrigSaveAssets();
@@ -1801,7 +1801,7 @@ updateBenchmark = function(tf, btn){
   _cbOrigUpdateBenchmark(tf, btn);
   if (_cobaltActive === 'perf2') cbRerender();
 };
-// 테마 전환 시 활성 Cobalt 페이지 재렌더 — 인라인으로 해석된 테마 색(hex)을 새 테마 기준으로 다시 계산
+// 테마 전환 시 활성 페이지 재렌더 — 인라인으로 해석된 테마 색(hex)을 새 테마 기준으로 다시 계산
 const _cbOrigSetTheme = setTheme;
 setTheme = function(mode){
   _cbOrigSetTheme(mode);

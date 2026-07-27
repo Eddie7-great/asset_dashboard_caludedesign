@@ -1,4 +1,4 @@
-    /* ── Cobalt 디자인 토큰 ─ 라이트 ────────────────────────────── */
+    /* ── 디자인 토큰 ─ 라이트 ────────────────────────────── */
     :root {
       --bg1:#f4f6fa;--bg2:#e9edf5;--bg3:#dfe5f0;
       --glass:#ffffff;--glass-hover:#f7f9fc;
@@ -13,7 +13,7 @@
       --grid:#e6eaf2;
       --tipbg:#18213a;--tiptx:#f2f5fa
     }
-    /* ── Cobalt 디자인 토큰 ─ 다크 ──────────────────────────────── */
+    /* ── 디자인 토큰 ─ 다크 ──────────────────────────────── */
     [data-theme="dark"] {
       --bg1:#0d0e12;--bg2:#08090c;--bg3:#060708;
       --glass:#15181e;--glass-hover:#1a1e26;
@@ -28,7 +28,7 @@
       --grid:#1f232b;
       --tipbg:#1a1d24;--tiptx:#e7e9ee
     }
-    /* ── Cobalt 디자인 토큰 ─ 네이비 (기본) ─────────────────────── */
+    /* ── 디자인 토큰 ─ 네이비 (기본) ─────────────────────── */
     [data-theme="navy"] {
       --bg1:#0c1a3a;--bg2:#080f24;--bg3:#060b1c;
       --glass:#0e1c3f;--glass-hover:#122349;
@@ -43,7 +43,7 @@
       --grid:#17274a;
       --tipbg:#0a142e;--tiptx:#dbe6ff
     }
-    /* ── Cobalt 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
+    /* ── 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
        주의: 테마 토큰이 body[data-theme]에 정의되므로, var() 참조 별칭은 body에도
        선언해야 테마별 값으로 재계산된다 (:root에서만 선언하면 라이트 값으로 고정됨) */
     :root, body {
@@ -79,7 +79,7 @@
     /* 세로 스크롤은 허용하되 스크롤바는 표시하지 않음 (사이드메뉴 요구사항) */
     .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0;scrollbar-width:none}
     .menu-list::-webkit-scrollbar{display:none;width:0;height:0}
-    /* ── 사이드바 환율/금 위젯 (Cobalt) ─────────────────────── */
+    /* ── 사이드바 환율/금 위젯 ─────────────────────── */
     .side-rates{margin-bottom:12px;padding:11px 12px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;display:flex;flex-direction:column;gap:7px;flex-shrink:0}
     .side-rates-date{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--lab);letter-spacing:.06em;text-align:center;border-bottom:1px solid var(--bd);padding-bottom:7px;margin-bottom:1px}
     .side-rate-row{display:flex;justify-content:space-between;align-items:center;gap:6px}
@@ -97,7 +97,7 @@
     .sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:9px;flex-shrink:0}
     .footer-btn{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
     .footer-btn:hover{background:var(--acc-soft2)}
-    /* Cobalt 세그먼트 컨트롤 (테마 선택) */
+    /* 세그먼트 컨트롤 (테마 선택) */
     .side-seg-label{font-size:9.5px;letter-spacing:.1em;color:var(--t3);margin:0 3px 5px}
     .side-seg{display:flex;gap:4px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:9px;padding:3px}
     .side-seg-btn{flex:1;text-align:center;padding:5px 0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:var(--t3);border:none;background:transparent;font-family:inherit;transition:background .15s,color .15s}
@@ -214,7 +214,7 @@
       box-shadow: var(--gshadow);
     }
     /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
-    /* 소유주 버튼 — Cobalt 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
+    /* 소유주 버튼 — 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
     .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
       background: var(--inner-bg);
       border: 1px solid var(--border-dark);
@@ -814,7 +814,7 @@
     }
 
 
-    /* ── Cobalt 시안 페이지 공통 컴포넌트 ─────────────────────── */
+    /* ── 메인 페이지 공통 컴포넌트 ─────────────────────── */
     .cb-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding:14px 6px 60px 0}
     .cb-panel{background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);box-sizing:border-box}
     .cb-btn{cursor:pointer;background:var(--acc-soft2);border:1px solid var(--border-dark);color:var(--tx);font-family:inherit;font-size:.76rem;font-weight:700;padding:8px 15px;border-radius:8px;transition:background .15s,color .15s}
@@ -845,7 +845,7 @@
       .cb-thead{position:static}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
-    /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
+    /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
     /* 대시보드: 보유 자산 내역(좌) + 종목 상세(우, sticky) 2열 — 좁은 폭에서는 상세를 아래로 접음 */
     @media (max-width: 1080px){

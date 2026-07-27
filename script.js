@@ -27,7 +27,7 @@ function getFilteredAssets(owner) {
   return filterByOwner(pfolioData, owner);
 }
 
-// Cobalt 팔레트 — 소유주/차트 색상
+// 기본 팔레트 — 소유주/차트 색상
 const ownerColors = {'전체':'#4ecdc4','본인':'#5b9bff','아내':'#f2a33c','자녀1':'#4ade80','아버지':'#c084fc'};
 // 벤치마크 차트 전용 소유주 색상: 아내(#f2a33c)가 KOSPI 라인(주황)과, 자녀1(#4ade80)이 S&P 라인(녹색)과 겹치므로 분리
 const BENCH_OWNER_COLORS = { ...ownerColors, '아내': '#f472b6', '자녀1': '#4ecdc4' };
@@ -784,7 +784,7 @@ if (sideDate) sideDate.innerText = `${now.getFullYear()}.${String(now.getMonth()
 // =============================================
 // 테마
 // =============================================
-// Cobalt 3-테마: 'light' | 'dark' | 'navy' (기본: navy)
+// 3-테마: 'light' | 'dark' | 'navy' (기본: navy)
 const THEMES = ['light','dark','navy'];
 function isDarkTheme() {
   const t = document.body.getAttribute('data-theme');
@@ -4789,7 +4789,7 @@ function initDashboard(){
     options:{cutout:'65%',layout:{padding:{right:10}},plugins:{legend:{position:'right',labels:{font:{size:10},generateLabels:c=>{const ds=c.data.datasets[0],t=ds.data.reduce((a,b)=>a+b,0)||1;return c.data.labels.map((l,i)=>({text:`${l} (${Math.round((ds.data[i]/t)*100)}%)`,fillStyle:ds.backgroundColor[i],hidden:false,index:i,fontColor:Chart.defaults.color}));}}},tooltip:{callbacks:{label:c=>` ₩${c.raw.toLocaleString()}`}}}}
   });
 
-  // 테마 복원 — Cobalt 3테마 (light/dark/navy), 저장값 없으면 네이비 기본
+  // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 네이비 기본
   try{
     const savedTheme=localStorage.getItem('theme');
     setTheme(THEMES.includes(savedTheme) ? savedTheme : 'navy');
@@ -6066,7 +6066,7 @@ function updatePLBarChart(){
   const labels=Object.keys(monthMap);
   const foreignData=labels.map(m=>monthMap[m].foreign);
   const domesticData=labels.map(m=>monthMap[m].domestic);
-  // 2개 데이터셋: 해외(코발트 블루), 국내(틸)
+  // 2개 데이터셋: 해외(블루), 국내(틸)
   window.plBarChartInst.data.labels=labels;
   window.plBarChartInst.data.datasets=[
     {label:'해외',data:foreignData,backgroundColor:'rgba(91,155,255,.75)',borderRadius:4,stack:'s'},
