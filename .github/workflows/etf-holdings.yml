@@ -1,0 +1,62 @@
+name: ETF 구성종목 수집
+
+# 브라우저에서 외부 사이트를 직접 부르면 CORS 로 막히므로 수집은 CI 에서만 한다.
+# 결과(data/etf_holdings.json)를 커밋하고, 대시보드는 그 파일만 읽는다.
+on:
+  schedule:
+    - cron: '30 9 * * 1-5'      # UTC 09:30 = KST 18:30, 평일
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: etf-holdings
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright          # 3순위 폴백용
+
+      - name: Chromium 설치
+        run: playwright install --with-deps chromium
+
+      # 수집 경로가 살아 있는지 먼저 확인한다. 133690 은 100종목 내외가 정상이고,
+      # 1~2줄만 나오면 잘못된 것이므로 여기서 job 을 실패시켜 잘못된 데이터 커밋을 막는다.
+      - name: 스모크 테스트 (133690)
+        run: python scripts/collect_etf_holdings.py --smoke 133690
+
+      - name: 파서 단위 테스트
+        run: python scripts/tests/test_parse_krx_pdf.py
+
+      - name: 구성종목 수집
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: python scripts/collect_etf_holdings.py
+
+      - name: 변경분 커밋
+        run: |
+          if git diff --quiet -- data/etf_holdings.json; then
+            echo "변경 없음 — 커밋하지 않습니다."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/etf_holdings.json
+          git commit -m "chore(data): ETF 구성종목 갱신 $(date -u -d '+9 hours' +%Y-%m-%d)"
+          git push
