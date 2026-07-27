@@ -1,0 +1,381 @@
+#!/usr/bin/env python3
+"""보유 ETF 구성종목 수집 → data/etf_holdings.json.
+
+GitHub Actions 배치 전용이다. 브라우저에서 외부 사이트를 직접 부르면 CORS 로 막히므로
+수집은 전부 CI 에서 하고, 대시보드는 커밋된 JSON 만 읽는다.
+
+수집 우선순위
+  1순위  KRX 내부 JSON API (국내 ETF)  — bld 값은 pykrx 소스에서 확인한 것
+  2순위  네이버 증권(국내) / yfinance·stockanalysis(해외) / 운용사 어댑터
+  3순위  Playwright 헤드리스 브라우저 (1·2순위 실패 ETF만)
+
+사용법
+  python scripts/collect_etf_holdings.py                 # KV 보유 ETF 전체 수집
+  python scripts/collect_etf_holdings.py --tickers 133690,QQQ
+  python scripts/collect_etf_holdings.py --smoke 133690  # 스모크 테스트(행 수 부족하면 exit 1)
+  python scripts/collect_etf_holdings.py --dry-run       # 파일을 쓰지 않고 요약만 출력
+"""
+
+import argparse
+import datetime
+import json
+import os
+import re
+import sys
+import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from etf_common import (  # noqa: E402
+    ETF_ALIAS, UA, fetch_naver, fetch_stockanalysis, fetch_yfinance,
+    http_json, is_kr_code, merge_holdings, parse_krx_pdf,
+)
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_PATH = os.path.join(ROOT, 'data', 'etf_holdings.json')
+
+KRX_URL = 'http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd'
+KRX_HEADERS = {'Referer': 'http://data.krx.co.kr/', 'X-Requested-With': 'XMLHttpRequest'}
+# bld 값은 추측하지 않았다 — pykrx/website/krx/etx/core.py 에서 확인:
+#   ETF_전종목기본종목 → MDCSTAT04601, PDF(Portfolio Deposit File)[13108] → MDCSTAT05001
+BLD_ETF_MASTER = 'dbms/MDC/STAT/standard/MDCSTAT04601'
+BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
+
+SMOKE_MIN_ROWS = 30   # 스모크 기준 — 1~2줄만 나오면 잘못된 것이므로 실패시킨다
+
+
+# ── KRX ─────────────────────────────────────────────────────────
+_isin_map = None
+
+
+def krx_isin_map():
+    """단축코드(6자리) → 표준코드(12자리 ISIN). 실행당 1회만 받아 캐싱한다."""
+    global _isin_map
+    if _isin_map is not None:
+        return _isin_map
+    _isin_map = {}
+    try:
+        j = http_json(KRX_URL, data={'bld': BLD_ETF_MASTER}, headers=KRX_HEADERS, timeout=30)
+        for row in (j.get('output') or j.get('OutBlock_1') or []):
+            srt = str(row.get('ISU_SRT_CD') or '').strip()
+            isin = str(row.get('ISU_CD') or '').strip()
+            name = str(row.get('ISU_ABBRV') or '').strip()
+            if srt and isin:
+                _isin_map[srt] = {'isin': isin, 'name': name}
+    except Exception as e:
+        print('[krx master] %s: %s' % (type(e).__name__, e), file=sys.stderr)
+    return _isin_map
+
+
+def recent_biz_days(n=5):
+    out, d = [], datetime.date.today()
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d.strftime('%Y%m%d'))
+        d -= datetime.timedelta(days=1)
+    return out
+
+
+def fetch_krx(code):
+    """KRX PDF(구성종목). → (holdings, equityWeight, asOf) / 실패 시 ([], 0, None).
+
+    당일 미공시·휴장 대비로 최근 영업일을 역순으로 훑는다.
+    pykrx 래퍼를 거치지 않고 raw JSON 을 파싱한다 — 래퍼는 COMPST_ISU_CD 를 [3:9] 로 잘라
+    US ISIN(US67066G1040)을 '066G10' 으로 망가뜨려 해외 편입 종목을 매칭할 수 없게 만든다.
+    """
+    ent = krx_isin_map().get(code)
+    if not ent:
+        return [], 0.0, None
+    for d in recent_biz_days(5):
+        try:
+            j = http_json(KRX_URL, data={'bld': BLD_ETF_PDF, 'trdDd': d, 'isuCd': ent['isin']},
+                          headers=KRX_HEADERS, timeout=25)
+        except Exception as e:
+            print('[krx pdf] %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
+            continue
+        holdings, eq = parse_krx_pdf(j.get('output') or j.get('OutBlock_1') or [])
+        if holdings:
+            return holdings, eq, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
+    return [], 0.0, None
+
+
+# ── 2순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+# 브랜드 → callable(code) -> [{'t','n','w'}]
+# 각 운용사의 자산구성 XHR 엔드포인트는 실제 Network 탭 관찰이 필요해 아직 비어 있다.
+# 추측한 URL 을 넣으면 죽은 코드가 되므로, 첫 수집 실행의 failures 를 근거로 채운다.
+PROVIDER_ADAPTERS = {}
+
+BRAND_RE = re.compile(r'^(TIGER|KODEX|RISE|PLUS|TIME|ACE|SOL|KOSEF|HANARO|KBSTAR|ARIRANG)', re.I)
+
+
+def brand_of(name):
+    m = BRAND_RE.match((name or '').strip())
+    return m.group(1).upper() if m else None
+
+
+def fetch_provider(code, name):
+    fn = PROVIDER_ADAPTERS.get(brand_of(name) or '')
+    if not fn:
+        return []
+    try:
+        return fn(code) or []
+    except Exception as e:
+        print('[provider] %s: %s' % (code, type(e).__name__), file=sys.stderr)
+        return []
+
+
+# ── 3순위 · Playwright ──────────────────────────────────────────
+# 브랜드 → {'url': '...{code}...', 'table': 'CSS 셀렉터'}
+# 위와 같은 이유로 비어 있다. 레지스트리가 비면 이 티어는 통째로 건너뛴다.
+BROWSER_SOURCES = {}
+
+
+def fetch_via_browser(url, table_selector, timeout_ms=20000):
+    """페이지 로드 → 테이블 렌더 대기 → DOM 에서 (코드, 종목명, 비중) 추출."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return []
+    rows = []
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_context(user_agent=UA).new_page()
+            page.goto(url, wait_until='domcontentloaded', timeout=timeout_ms)
+            page.wait_for_selector('%s tbody tr' % table_selector, timeout=timeout_ms)
+            rows = page.eval_on_selector_all(
+                '%s tbody tr' % table_selector,
+                'els => els.map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => td.innerText.trim()))')
+            browser.close()
+    except Exception as e:
+        print('[browser] %s: %s' % (url, type(e).__name__), file=sys.stderr)
+        return []
+    return rows
+
+
+def fetch_browser_tier(code, name):
+    src = BROWSER_SOURCES.get(brand_of(name) or '')
+    if not src:
+        return []
+    cells = fetch_via_browser(src['url'].format(code=code), src['table'])
+    parsed = []
+    for row in cells:
+        # 각 행에서 6자리 코드/티커 한 칸과 마지막 숫자 칸(비중)을 찾는다
+        code_cell = next((c for c in row if is_kr_code(c.upper()) or re.fullmatch(r'[A-Z.]{1,6}', c.upper())), None)
+        weight = None
+        for c in reversed(row):
+            try:
+                v = float(c.replace('%', '').replace(',', ''))
+                if 0 < v <= 100:
+                    weight = v
+                    break
+            except Exception:
+                continue
+        nm = next((c for c in row if len(c) > 1 and not re.fullmatch(r'[\d.,%\-]+', c)), None)
+        if code_cell and weight:
+            parsed.append((code_cell.upper(), nm or code_cell, weight))
+    return merge_holdings(parsed)
+
+
+# ── 수집 대상 (KV 보유 종목) ─────────────────────────────────────
+def kv_assets():
+    url = os.environ.get('KV_REST_API_URL', '').rstrip('/')
+    token = os.environ.get('KV_REST_API_TOKEN', '')
+    if not url or not token:
+        print('[kv] KV_REST_API_URL / KV_REST_API_TOKEN 미설정', file=sys.stderr)
+        return []
+    try:
+        req = urllib.request.Request(url + '/get/assets',
+                                     headers={'Authorization': 'Bearer ' + token})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            body = json.loads(r.read().decode('utf-8', 'replace'))
+        raw = body.get('result')
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+    except Exception as e:
+        print('[kv] %s: %s' % (type(e).__name__, e), file=sys.stderr)
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):                       # {소유주: [자산...]} 형태도 지원
+        flat = []
+        for owner, items in raw.items():
+            if isinstance(items, list):
+                for it in items:
+                    if isinstance(it, dict):
+                        it.setdefault('owner', owner)
+                        flat.append(it)
+        return flat
+    return []
+
+
+def strip_ticker(t):
+    return re.sub(r'\.(KS|KQ|T)$', '', str(t or '').strip().upper())
+
+
+def is_overseas_etf(sym):
+    """해외 ETF 판별 — 이름 휴리스틱 대신 yfinance 펀드 데이터 접근 가능 여부로 본다."""
+    try:
+        import yfinance as yf
+        fd = yf.Ticker(sym).funds_data
+        return fd is not None and fd.top_holdings is not None and not fd.top_holdings.empty
+    except Exception:
+        return False
+
+
+def resolve_targets(explicit=None):
+    """수집 대상 [(code, name)] 결정."""
+    if explicit:
+        out = []
+        for t in explicit:
+            c = strip_ticker(t)
+            if not c:
+                continue
+            ent = krx_isin_map().get(c) if is_kr_code(c) else None
+            out.append((c, ent['name'] if ent else c))
+        return out
+
+    master = krx_isin_map()
+    targets, seen = [], set()
+    for item in kv_assets():
+        if not isinstance(item, dict) or item.get('grp') != '주식':
+            continue
+        try:
+            if float(item.get('qty') or 0) <= 0:
+                continue
+        except Exception:
+            continue
+        code = strip_ticker(item.get('tkr'))
+        if not code or code in seen:
+            continue
+        if is_kr_code(code):
+            ent = master.get(code)            # KRX ETF 마스터에 있으면 국내 ETF (정확한 판별)
+            if not ent:
+                continue
+            seen.add(code)
+            targets.append((code, ent['name'] or item.get('name') or code))
+        else:
+            if not is_overseas_etf(code):     # yfinance 펀드 데이터가 있으면 해외 ETF
+                continue
+            seen.add(code)
+            targets.append((code, item.get('name') or code))
+    return targets
+
+
+# ── 수집 ────────────────────────────────────────────────────────
+def collect_one(code, name):
+    """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None)."""
+    today = datetime.date.today().isoformat()
+
+    if is_kr_code(code):
+        h, eq, as_of = fetch_krx(code)
+        if h:
+            return h, eq, as_of, 'krx'
+        h = fetch_provider(code, name)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), today, 'provider'
+        h = fetch_naver(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), today, 'naver'
+    else:
+        h = fetch_yfinance(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), today, 'yfinance'
+        h = fetch_stockanalysis(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), today, 'stockanalysis'
+        alias = ETF_ALIAS.get(code)
+        if alias:
+            h = fetch_yfinance(alias) or fetch_stockanalysis(alias)
+            if h:
+                return h, round(sum(x['w'] for x in h), 2), today, 'alias:' + alias
+
+    h = fetch_browser_tier(code, name)        # 3순위
+    if h:
+        return h, round(sum(x['w'] for x in h), 2), today, 'browser'
+    return [], 0.0, None, None
+
+
+def load_previous():
+    try:
+        with open(OUT_PATH, encoding='utf-8') as f:
+            prev = json.load(f)
+        if isinstance(prev, dict) and isinstance(prev.get('etfs'), dict):
+            return prev
+    except Exception:
+        pass
+    return {'etfs': {}}
+
+
+def run(targets, dry_run=False):
+    prev = load_previous()
+    etfs, failures = {}, []
+
+    for code, name in targets:
+        holdings, eq, as_of, source = collect_one(code, name)
+        if holdings:
+            etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
+                          'equityWeight': eq, 'holdings': holdings}
+            print('  %-8s %-28s %4d종목  주식비중 %5.1f%%  (%s, %s)'
+                  % (code, name[:28], len(holdings), eq, source, as_of))
+        else:
+            old = prev['etfs'].get(code)
+            if old and old.get('holdings'):
+                # 수집 실패 + 직전 데이터 있음 → 직전 스냅샷 유지 (asOf 가 곧 stale 표시)
+                etfs[code] = old
+                print('  %-8s %-28s 수집 실패 → 직전 스냅샷 유지 (%s)' % (code, name[:28], old.get('asOf')))
+            else:
+                failures.append(name or code)
+                print('  %-8s %-28s 수집 실패' % (code, name[:28]))
+
+    doc = {'asOf': datetime.date.today().isoformat(), 'etfs': etfs, 'failures': failures}
+    print('\n수집 %d / 실패 %d' % (len(etfs), len(failures)))
+    if dry_run:
+        print('(--dry-run: 파일을 쓰지 않음)')
+        return doc
+    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
+    with open(OUT_PATH, 'w', encoding='utf-8') as f:
+        json.dump(doc, f, ensure_ascii=False, indent=1, sort_keys=True)
+        f.write('\n')
+    print('→ %s' % os.path.relpath(OUT_PATH, ROOT))
+    return doc
+
+
+def smoke(code):
+    """수집 경로가 살아 있는지 확인. 행 수가 기준 미만이면 실패시킨다."""
+    ent = krx_isin_map().get(code)
+    print('스모크 테스트: %s (ISIN %s)' % (code, ent['isin'] if ent else '조회 실패'))
+    holdings, eq, as_of = fetch_krx(code)
+    print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s' % (len(holdings), eq, as_of))
+    for h in holdings[:5]:
+        print('    %-10s %-28s %6.2f%%' % (h['t'], h['n'][:28], h['w']))
+    if len(holdings) < SMOKE_MIN_ROWS:
+        print('\n실패: %d행은 정상 범위(%d행 이상)가 아닙니다. 수집 경로를 점검해야 합니다.'
+              % (len(holdings), SMOKE_MIN_ROWS), file=sys.stderr)
+        return 1
+    print('\n통과')
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--tickers', help='쉼표로 구분한 수집 대상 (미지정 시 KV 보유 ETF)')
+    ap.add_argument('--smoke', metavar='CODE', help='단일 국내 ETF 스모크 테스트')
+    ap.add_argument('--dry-run', action='store_true', help='파일을 쓰지 않고 요약만 출력')
+    args = ap.parse_args()
+
+    if args.smoke:
+        return smoke(args.smoke.strip())
+
+    explicit = [t for t in (args.tickers or '').split(',') if t.strip()] or None
+    targets = resolve_targets(explicit)
+    if not targets:
+        print('수집 대상 ETF가 없습니다.', file=sys.stderr)
+        return 0
+    print('수집 대상 %d종목' % len(targets))
+    run(targets, dry_run=args.dry_run)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

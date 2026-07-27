@@ -247,87 +247,30 @@ function cbSectors(includeCrypto, ownerFilter){
 }
 
 // ───────────────────────── ETF 룩스루 (구성종목 합산) ─────────────────────────
-// /api/dashboard?type=etf_holdings 로 보유 ETF의 구성종목·비중을 조회해
-// "직접 보유 + ETF를 통한 간접 보유"를 합산한 실질 종목 비중을 계산한다.
+// 구성종목은 GitHub Actions 배치(scripts/collect_etf_holdings.py)가 평일 18:30에 수집해
+// data/etf_holdings.json 으로 커밋한다. 브라우저는 그 파일만 읽는다 —
+// 외부 사이트를 직접 fetch 하면 CORS 로 막히고, 서버리스 경유는 KRX 왕복이 함수 제한시간을 넘긴다.
 // 개별 주식으로 직접 보유하지 않은 구성종목은 계산하지 않는다(요구사항).
-let _cbEtfFetching = false;
+let _cbEtfLoading = false;
 
-// 대표 ETF 구성종목 비중(%) 내장 폴백표 — funetf.co.kr 공시 상위 편입 비중 기준으로 재확인해 유지한다.
-// 실시간 조회(pykrx PDF / yfinance)가 실패한 "미조회 ETF"에 대해,
-// 소유주가 직접 보유한 개별 종목과 매칭시켜 룩스루 비중을 계산할 수 있도록 상위 편입 비중을 담아둔다.
-// (지수 구성은 서서히 변하므로 상위권 근사치 — 실시간 조회가 성공하면 그 값이 우선한다.)
-const CB_ETF_FALLBACK = {
-  // Nasdaq-100 계열 (QQQ/QQQM 및 레버리지 QLD·TQQQ 는 동일 지수 바스켓 비중 사용)
-  QQQ: [['NVDA',8.9],['AAPL',8.8],['MSFT',8.0],['AMZN',5.5],['AVGO',5.0],['META',4.8],['NFLX',3.1],['TSLA',3.0],['COST',2.7],['GOOGL',2.6],['GOOG',2.5],['PLTR',1.6],['AMD',1.5],['TMUS',1.6],['CSCO',1.5],['PEP',1.5],['LIN',1.4],['INTU',1.4],['QCOM',1.3],['ISRG',1.3],['AMGN',1.3],['BKNG',1.3],['TXN',1.2],['ADBE',1.2],['HON',1.1],['PANW',1.1],['MU',1.0],['ADP',0.9]],
-  SPY: [['NVDA',7.3],['AAPL',6.6],['MSFT',6.3],['AMZN',3.9],['META',2.7],['AVGO',2.5],['GOOGL',2.1],['TSLA',1.9],['GOOG',1.7],['BRKB',1.6],['JPM',1.5],['LLY',1.2],['V',1.0],['XOM',1.0],['UNH',1.0],['NFLX',1.2],['MA',0.9],['COST',0.9],['WMT',0.9],['HD',0.8],['PG',0.8],['JNJ',0.8],['ABBV',0.8]],
-  SCHD: [['CVX',4.3],['KO',4.1],['MRK',4.0],['ABBV',4.0],['AMGN',4.0],['HD',4.0],['PEP',3.9],['TXN',3.8],['CSCO',3.8],['VZ',3.7],['LMT',3.6],['BMY',3.4],['PFE',3.2],['BLK',3.1],['ADP',3.0]],
-  DIA: [['GS',9.0],['MSFT',6.5],['CAT',6.0],['HD',5.8],['V',5.0],['UNH',4.8],['AMGN',4.5],['CRM',4.0],['MCD',4.0],['AXP',3.8],['TRV',3.4],['JPM',3.2],['HON',3.0],['AAPL',3.0],['IBM',3.0],['AMZN',2.8]],
-  // 반도체 (SOXX/SMH — 상위 편입 반도체 대형주 바스켓 근사)
-  SOXX: [['NVDA',9.5],['AVGO',8.5],['TSM',8.0],['AMD',7.0],['MU',5.0],['QCOM',4.5],['TXN',4.3],['LRCX',4.2],['AMAT',4.1],['KLAC',4.0],['ADI',4.0],['MRVL',3.8],['MCHP',3.2],['NXPI',3.0],['ON',2.5]],
-  // 기술 섹터 (XLK — 상위 편입 근사)
-  XLK: [['AAPL',15.0],['MSFT',14.0],['NVDA',13.5],['AVGO',5.0],['CRM',3.0],['ORCL',3.0],['AMD',2.6],['CSCO',2.4],['ACN',2.3],['ADBE',2.2],['NOW',2.0],['QCOM',1.9],['TXN',1.9],['INTU',1.9],['AMAT',1.7]],
-  // KODEX 200 / KOSPI200 (069500) — 상위 편입 근사 비중
-  '069500': [['005930',30.0],['000660',9.0],['373220',3.2],['207940',2.6],['005380',2.3],['035420',1.9],['105560',1.8],['068270',1.8],['000270',1.6],['055550',1.5],['012330',1.3],['051910',1.3],['006400',1.1],['028260',1.1],['035720',1.1]],
-};
-// QQQ 바스켓을 공유하는 지수 ETF (일반/레버리지/미니)
-['QQQM','QLD','TQQQ'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.QQQ; });
-// S&P500 바스켓 공유 — SPYM은 SPDR Portfolio S&P500(구 SPLG)의 2025-10-31 변경 티커
-['VOO','IVV','VTI','SPYM','SPLG'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.SPY; });
-// 반도체 바스켓 공유 (SMH ≈ SOXX 상위 편입 근사)
-['SMH'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK.SOXX; });
-// KOSPI200 TR 계열 — RISE 200TR(361580)·KODEX 200TR(278530)은 KOSPI200 바스켓 공유 (funetf.co.kr 편입 비중 확인)
-['361580','278530'].forEach(t=>{ CB_ETF_FALLBACK[t] = CB_ETF_FALLBACK['069500']; });
-function cbEtfFallback(strip){
-  const f = CB_ETF_FALLBACK[strip]; if (!f) return null;
-  return f.map(p=>({ tkr:p[0], name:p[0], weight:p[1] }));
+function cbEtfDoc(){ return window._etfHoldings || null; }
+
+async function cbEnsureEtfHoldings(){
+  if (_cbEtfLoading || window._etfHoldings !== undefined) return;
+  _cbEtfLoading = true;
+  try{
+    const r = await fetch('data/etf_holdings.json');
+    window._etfHoldings = r.ok ? await r.json() : null;
+  }catch(e){ window._etfHoldings = null; }
+  finally{ _cbEtfLoading = false; }
+  cbRerender();
 }
 
 function cbIsEtf(i){
   return i.grp==='주식' && typeof _gicsSector==='function' && /ETF$/.test(_gicsSector(i)||'');
 }
-function cbEtfCacheLoad(){
-  if (window._etfHoldingsCache) return;
-  const key = 'etfHold_' + new Date().toISOString().slice(0,10);
-  let saved = {};
-  try{ saved = JSON.parse(localStorage.getItem(key)||'{}') || {}; }catch(e){ saved = {}; }
-  window._etfHoldingsCache = saved; // { STRIP: {holdings:[{tkr,name,weight}]} | null(조회 실패) }
-}
-function cbEtfCacheSave(){
-  const key = 'etfHold_' + new Date().toISOString().slice(0,10);
-  try{
-    Object.keys(localStorage).forEach(k=>{ if(k.indexOf('etfHold_')===0 && k!==key) localStorage.removeItem(k); });
-    // 성공 건만 영속화 — 일시 실패(null)는 세션 내에서만 기억해 다음 방문 때 재시도
-    const ok = {};
-    Object.keys(window._etfHoldingsCache||{}).forEach(s=>{ if(window._etfHoldingsCache[s]) ok[s]=window._etfHoldingsCache[s]; });
-    localStorage.setItem(key, JSON.stringify(ok));
-  }catch(e){}
-}
-async function cbEnsureEtfHoldings(){
-  cbEtfCacheLoad();
-  if (_cbEtfFetching) return;
-  const need = [];
-  (pfolioData||[]).forEach(i=>{
-    if (!cbIsEtf(i) || !((i.qty||0)>0)) return;
-    const s = cbStrip(i.tkr);
-    if (s && window._etfHoldingsCache[s] === undefined && need.indexOf(s)<0) need.push(s);
-  });
-  if (!need.length) return;
-  _cbEtfFetching = true;
-  try{
-    await Promise.all(need.map(async s=>{
-      try{
-        const r = await authFetch('/api/dashboard?type=etf_holdings&tkr=' + encodeURIComponent(s));
-        const j = await r.json();
-        window._etfHoldingsCache[s] = (j && j.success && Array.isArray(j.holdings) && j.holdings.length)
-          ? { holdings: j.holdings } : null;
-      }catch(e){ window._etfHoldingsCache[s] = null; }
-    }));
-    cbEtfCacheSave();
-  } finally { _cbEtfFetching = false; }
-  cbRerender();
-}
 function cbLookThrough(ownerFilter){
-  cbEtfCacheLoad();
+  const doc = cbEtfDoc();
   const rows = cbAllRows().filter(r=>!ownerFilter || r.i.owner===ownerFilter);
   const nw = rows.reduce((s,r)=>s+r.val,0) || 1;
   // 직접 보유한 개별 종목 (주식만, ETF 제외) — 계좌/소유주가 달라도 티커로 합산
@@ -338,35 +281,32 @@ function cbLookThrough(ownerFilter){
     const d = direct.get(s) || { tkr:s, title:r.title, val:0, via:0, etfs:[] };
     d.val += r.val; direct.set(s, d);
   });
-  let etfCount = 0, pending = false; const etfMiss = [], etfFallback = [];
+  let etfCount = 0; const etfMiss = [];
   rows.forEach(r=>{
     if (!cbIsEtf(r.i)) return;
     etfCount++;
     const strip = cbStrip(r.i.tkr);
-    const c = window._etfHoldingsCache[strip];
-    // 실시간 조회 성공값 우선, 실패(null)/미도착(undefined) 시 내장 폴백표로 대체
-    let holdings = (c && Array.isArray(c.holdings)) ? c.holdings : null;
-    let isFallback = false;
-    if (!holdings){
-      const fb = cbEtfFallback(strip);
-      if (fb){ holdings = fb; isFallback = true; }
-      else if (c === undefined){ pending = true; return; }
-      else { if(etfMiss.indexOf(r.title)<0) etfMiss.push(r.title); return; }
+    const ent = doc && doc.etfs ? doc.etfs[strip] : null;
+    const holdings = (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    // 수집 데이터가 없는 ETF는 간접 보유분 없이 넘어가고 각주에 이름만 남긴다
+    if (!holdings || !holdings.length){
+      if (doc && etfMiss.indexOf(r.title)<0) etfMiss.push(r.title);
+      return;
     }
-    if (isFallback && etfFallback.indexOf(r.title)<0) etfFallback.push(r.title);
     holdings.forEach(h=>{
-      const d = direct.get(cbStrip(h.tkr));
+      const d = direct.get(cbStrip(h.t));
       if (!d) return; // 개별 보유가 없는 구성종목은 계산 제외
-      const add = r.val * (Number(h.weight)||0) / 100;
+      const w = Number(h.w)||0;
+      const add = r.val * w / 100;
       if (add<=0) return;
       d.via += add;
-      d.etfs.push({ etf: r.title, w: Number(h.weight)||0, val: add, fb: isFallback });
+      d.etfs.push({ etf: r.title, w: w, val: add });
     });
   });
   const list = Array.from(direct.values())
     .map(d=>({ ...d, tot:d.val+d.via, pct:(d.val+d.via)/nw*100, dPct:d.val/nw*100, vPct:d.via/nw*100 }))
     .sort((a,b)=>b.tot-a.tot);
-  return { list, nw, etfCount, etfMiss, etfFallback, pending };
+  return { list, nw, etfCount, etfMiss, loaded: !!doc };
 }
 
 // 리스크 규칙 진단 (시안 로직 이식)
@@ -939,7 +879,7 @@ function cbLookThroughPanel(ownerFilter){
       const pctColor = x.pct>30 ? dnC : x.pct>20 ? wnC : 'var(--tx)';
       // hover 설명: 직접 보유 + 어떤 ETF를 통해 얼마나 간접 보유하는지 — 세그먼트별로 노출
       const etfTip = x.etfs.length
-        ? x.etfs.map(e=>`${e.etf}${e.fb?'(내장 비중표)':''} 편입 ${e.w}% → ${cbDisp(e.val)} 간접 보유`).join(' · ')
+        ? x.etfs.map(e=>`${e.etf} 편입 ${e.w}% → ${cbDisp(e.val)} 간접 보유`).join(' · ')
         : '';
       const dirTip = `${cbEsc(x.title)} 직접 보유 ${x.dPct.toFixed(1)}% (${cbDisp(x.val)})${x.vPct>0?` · 합계 ${x.pct.toFixed(1)}%`:''}`;
       const viaTip = `${cbEsc(x.title)} ETF 간접 보유 ${x.vPct.toFixed(1)}% (${cbDisp(x.via)}) — ${cbEsc(etfTip)}`;
@@ -960,11 +900,10 @@ function cbLookThroughPanel(ownerFilter){
     }).join('');
   }
 
-  const notes = [];
-  if (lt.pending) notes.push('ETF 구성종목 조회 중… 잠시 후 자동 갱신됩니다.');
-  if (lt.etfFallback && lt.etfFallback.length) notes.push('구성종목 실시간 미조회로 내장 비중표(funetf.co.kr 상위 편입 비중 참조)를 적용한 ETF: ' + lt.etfFallback.map(cbEsc).join(', ') + ' (상위 편입 종목 근사치 — 소유주 직접 보유 종목과 매칭해 간접 보유분 반영)');
-  if (lt.etfMiss.length) notes.push('구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ') + ' (간접 보유분이 제외된 수치입니다 — 국내: KRX 공시·네이버 증권, 해외: 야후·ETF 구성종목 사이트 순으로 매일 첫 방문 시 자동 재조회하며, 성공하면 즉시 반영됩니다)');
-  if (!lt.pending && !lt.etfCount) notes.push('보유 중인 ETF가 없어 직접 보유 비중과 동일합니다.');
+  // 각주는 구성종목을 못 받은 ETF 이름만 나열한다 (사유·소스는 노출하지 않음).
+  // lt.etfMiss 는 이미 소유주 필터가 적용된 '보유 중인데 데이터가 없는' ETF 목록이고,
+  // 수집기의 failures 에 오른 ETF 는 JSON 에 항목이 없으므로 그대로 여기에 잡힌다.
+  const notes = lt.etfMiss.length ? ['구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ')] : [];
 
   return `
     <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
