@@ -1,4 +1,4 @@
-    /* ── Cobalt 디자인 토큰 ─ 라이트 ────────────────────────────── */
+    /* ── 디자인 토큰 ─ 라이트 ────────────────────────────── */
     :root {
       --bg1:#f4f6fa;--bg2:#e9edf5;--bg3:#dfe5f0;
       --glass:#ffffff;--glass-hover:#f7f9fc;
@@ -13,7 +13,7 @@
       --grid:#e6eaf2;
       --tipbg:#18213a;--tiptx:#f2f5fa
     }
-    /* ── Cobalt 디자인 토큰 ─ 다크 ──────────────────────────────── */
+    /* ── 디자인 토큰 ─ 다크 ──────────────────────────────── */
     [data-theme="dark"] {
       --bg1:#0d0e12;--bg2:#08090c;--bg3:#060708;
       --glass:#15181e;--glass-hover:#1a1e26;
@@ -28,7 +28,7 @@
       --grid:#1f232b;
       --tipbg:#1a1d24;--tiptx:#e7e9ee
     }
-    /* ── Cobalt 디자인 토큰 ─ 네이비 (기본) ─────────────────────── */
+    /* ── 디자인 토큰 ─ 네이비 (기본) ─────────────────────── */
     [data-theme="navy"] {
       --bg1:#0c1a3a;--bg2:#080f24;--bg3:#060b1c;
       --glass:#0e1c3f;--glass-hover:#122349;
@@ -43,7 +43,7 @@
       --grid:#17274a;
       --tipbg:#0a142e;--tiptx:#dbe6ff
     }
-    /* ── Cobalt 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
+    /* ── 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
        주의: 테마 토큰이 body[data-theme]에 정의되므로, var() 참조 별칭은 body에도
        선언해야 테마별 값으로 재계산된다 (:root에서만 선언하면 라이트 값으로 고정됨) */
     :root, body {
@@ -79,7 +79,7 @@
     /* 세로 스크롤은 허용하되 스크롤바는 표시하지 않음 (사이드메뉴 요구사항) */
     .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0;scrollbar-width:none}
     .menu-list::-webkit-scrollbar{display:none;width:0;height:0}
-    /* ── 사이드바 환율/금 위젯 (Cobalt) ─────────────────────── */
+    /* ── 사이드바 환율/금 위젯 ─────────────────────── */
     .side-rates{margin-bottom:12px;padding:11px 12px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;display:flex;flex-direction:column;gap:7px;flex-shrink:0}
     .side-rates-date{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--lab);letter-spacing:.06em;text-align:center;border-bottom:1px solid var(--bd);padding-bottom:7px;margin-bottom:1px}
     .side-rate-row{display:flex;justify-content:space-between;align-items:center;gap:6px}
@@ -97,7 +97,7 @@
     .sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:9px;flex-shrink:0}
     .footer-btn{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
     .footer-btn:hover{background:var(--acc-soft2)}
-    /* Cobalt 세그먼트 컨트롤 (테마 선택) */
+    /* 세그먼트 컨트롤 (테마 선택) */
     .side-seg-label{font-size:9.5px;letter-spacing:.1em;color:var(--t3);margin:0 3px 5px}
     .side-seg{display:flex;gap:4px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:9px;padding:3px}
     .side-seg-btn{flex:1;text-align:center;padding:5px 0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:var(--t3);border:none;background:transparent;font-family:inherit;transition:background .15s,color .15s}
@@ -143,14 +143,16 @@
     .pt-arrow,#re-accordion-arrow,#liab-accordion-arrow{
       width:14px;flex-shrink:0;display:inline-block;text-align:center}
     .pt-table-wrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 10px 10px;overflow:hidden}
-    .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:.75rem;white-space:nowrap;color:var(--t2)}
-    .pt-table th{padding:10px 12px;background:var(--glass);color:var(--t3);font-weight:600;text-align:right;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border-dark)}
-    .pt-table td{padding:10px 12px;border-bottom:1px solid var(--border-light);font-weight:500;font-family:'IBM Plex Mono','DM Sans',sans-serif}
-    .pt-table th.text-left,.pt-table td.text-left{text-align:left;font-family:'DM Sans',sans-serif}
+    .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:12.5px;white-space:nowrap;color:var(--mut)}
+    .pt-table th{padding:10px 12px;background:var(--panel);color:var(--lab);font-size:10.5px;letter-spacing:.08em;font-weight:600;text-align:right;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border-dark)}
+    .pt-table td{padding:10px 12px;border-bottom:1px solid var(--bd);font-weight:500;color:var(--mut);font-family:'IBM Plex Mono',monospace}
+    .pt-table th.text-left,.pt-table td.text-left{text-align:left;font-family:'Noto Sans KR','Manrope',sans-serif}
+    /* 종목명 / 티커 2줄 — Cobalt 페이지의 제목+부제 대비와 동일하게 맞춘다 */
+    .pt-table td.text-left strong{font-size:13px;font-weight:700;color:var(--tx);line-height:1.35}
     .pt-table tbody tr:hover{background:var(--hover-bg)}
     /* 티커: 음영(배경) 없이 텍스트만 */
-    .pt-table .tkr-txt{font-size:.7rem;color:var(--t3);font-weight:bold}
-    .pt-table .broker-txt{font-size:.7rem;color:var(--acc);font-weight:600}
+    .pt-table .tkr-txt{font-size:10.5px;color:var(--lab);font-weight:500}
+    .pt-table .broker-txt{font-size:11.5px;color:var(--acc);font-weight:600}
     #div-table-body td:first-child{white-space:normal}
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
     #cf-detail-table{table-layout:fixed}
@@ -214,7 +216,7 @@
       box-shadow: var(--gshadow);
     }
     /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
-    /* 소유주 버튼 — Cobalt 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
+    /* 소유주 버튼 — 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
     .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
       background: var(--inner-bg);
       border: 1px solid var(--border-dark);
@@ -271,8 +273,8 @@
     }
 
     /* ── 라이트 테마 pt-table 텍스트 가시성 보완 ─────────────── */
-    .pt-table td { color: var(--t2); }
-    .pt-table th { color: var(--t3); }
+    .pt-table td { color: var(--mut); }
+    .pt-table th { color: var(--lab); }
 
     /* ── 다크 테마 form-input 텍스트 ────────────────────────── */
     [data-theme="dark"] .form-input {
@@ -814,8 +816,12 @@
     }
 
 
-    /* ── Cobalt 시안 페이지 공통 컴포넌트 ─────────────────────── */
-    .cb-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding:14px 6px 60px 0}
+    /* ── 메인 페이지 공통 컴포넌트 ─────────────────────── */
+    /* padding-top 을 0 으로 두는 것이 중요하다 — 오버플로 클립은 패딩 박스 상단에서 일어나는데
+       sticky 고정 지점은 콘텐츠 박스 상단(= 패딩 아래)이라, 상단 패딩이 있으면 그 띠에서
+       지나간 행이 계속 비쳐 보인다. 상단 여백은 첫 자식의 margin 으로 옮긴다. */
+    .cb-scroll{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1;padding:0 6px 60px 0}
+    .cb-scroll > *:first-child{margin-top:14px}
     .cb-panel{background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);box-sizing:border-box}
     .cb-btn{cursor:pointer;background:var(--acc-soft2);border:1px solid var(--border-dark);color:var(--tx);font-family:inherit;font-size:.76rem;font-weight:700;padding:8px 15px;border-radius:8px;transition:background .15s,color .15s}
     .cb-btn:hover{background:var(--hover-bg)}
@@ -845,7 +851,7 @@
       .cb-thead{position:static}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
-    /* Cobalt 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
+    /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
     /* 대시보드: 보유 자산 내역(좌) + 종목 상세(우, sticky) 2열 — 좁은 폭에서는 상세를 아래로 접음 */
     @media (max-width: 1080px){
@@ -950,9 +956,9 @@
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
       .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
       #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{overflow-x:auto}
-      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·4·3번째) */
+      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·3·2번째) */
       #portfolio-tables .pt-table:not([data-grp="현금"]) :is(th,td):not([colspan]):is(
-        :nth-last-child(1),:nth-last-child(2),:nth-last-child(5),:nth-last-child(6),
+        :nth-last-child(1),:nth-last-child(4),:nth-last-child(5),:nth-last-child(6),
         :nth-last-child(7),:nth-last-child(8),:nth-last-child(10),:nth-last-child(11)){display:none}
       /* 현금: 자산명 · 평가금액(KRW) (오른쪽 기준 4·2번째) */
       #portfolio-tables .pt-table[data-grp="현금"] :is(th,td):not([colspan]):is(
