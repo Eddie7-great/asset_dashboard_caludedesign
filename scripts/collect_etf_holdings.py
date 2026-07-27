@@ -34,8 +34,11 @@ from etf_common import (  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_PATH = os.path.join(ROOT, 'data', 'etf_holdings.json')
 
-KRX_URL = 'http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd'
-KRX_HEADERS = {'Referer': 'http://data.krx.co.kr/', 'X-Requested-With': 'XMLHttpRequest'}
+KRX_URL = 'https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd'
+# Referer 는 정확히 이 경로여야 한다 — pykrx(website/comm/webio.py Post.__init__)가
+# 로그인 세션 없이 보내는 요청도 이 값을 쓴다. 루트 경로(data.krx.co.kr/)로는 400이 난다.
+KRX_HEADERS = {'Referer': 'https://data.krx.co.kr/contents/MDC/MDI/outerLoader/index.cmd',
+               'X-Requested-With': 'XMLHttpRequest'}
 # bld 값은 추측하지 않았다 — pykrx/website/krx/etx/core.py 에서 확인:
 #   ETF_전종목기본종목 → MDCSTAT04601, PDF(Portfolio Deposit File)[13108] → MDCSTAT05001
 BLD_ETF_MASTER = 'dbms/MDC/STAT/standard/MDCSTAT04601'
@@ -45,6 +48,22 @@ SMOKE_MIN_ROWS = 30   # 스모크 기준 — 1~2줄만 나오면 잘못된 것�
 
 
 # ── KRX ─────────────────────────────────────────────────────────
+# 두 번의 raw urllib 시도(스킴, Referer)가 모두 KRX 로부터 400 Bad Request 를 받았다.
+# 더 이상 요청 헤더를 추측하지 않고, 실제로 배포·검증된 pykrx 의 내부 요청 계층
+# (pykrx.website.krx.etx.core — requests.Session 기반)을 그대로 재사용한다.
+# 이 모듈은 pykrx 의 비공개 내부 경로라 향후 버전에서 구조가 바뀔 수 있으므로,
+# 가져오기/호출이 실패하면 기존 raw urllib 경로로 자동 폴백한다.
+#
+# core.py 의 저수준 fetch() 는 wrap.py 의 공개 함수(get_etf_portfolio_deposit_file)와 달리
+# COMPST_ISU_CD 를 [3:9] 로 자르지 않는다 — 그 절단은 wrap.py 가 core.py 결과를 받은 뒤
+# 추가로 하는 후처리라서, core.py 를 직접 쓰면 US ISIN(US67066G1040)이 안 망가진 채로 온다.
+try:
+    from pykrx.website.krx.etx.core import ETF_전종목기본종목 as _PykrxEtfMaster
+    from pykrx.website.krx.etx.core import PDF as _PykrxPdf
+except Exception:
+    _PykrxEtfMaster = None
+    _PykrxPdf = None
+
 _isin_map = None
 
 
@@ -54,16 +73,25 @@ def krx_isin_map():
     if _isin_map is not None:
         return _isin_map
     _isin_map = {}
-    try:
-        j = http_json(KRX_URL, data={'bld': BLD_ETF_MASTER}, headers=KRX_HEADERS, timeout=30)
-        for row in (j.get('output') or j.get('OutBlock_1') or []):
-            srt = str(row.get('ISU_SRT_CD') or '').strip()
-            isin = str(row.get('ISU_CD') or '').strip()
-            name = str(row.get('ISU_ABBRV') or '').strip()
-            if srt and isin:
-                _isin_map[srt] = {'isin': isin, 'name': name}
-    except Exception as e:
-        print('[krx master] %s: %s' % (type(e).__name__, e), file=sys.stderr)
+    rows = None
+    if _PykrxEtfMaster is not None:
+        try:
+            rows = _PykrxEtfMaster().fetch().to_dict('records')
+        except Exception as e:
+            print('[krx master] pykrx %s: %s' % (type(e).__name__, e), file=sys.stderr)
+    if rows is None:
+        try:
+            j = http_json(KRX_URL, data={'bld': BLD_ETF_MASTER}, headers=KRX_HEADERS, timeout=30)
+            rows = j.get('output') or j.get('OutBlock_1') or []
+        except Exception as e:
+            print('[krx master] http %s: %s' % (type(e).__name__, e), file=sys.stderr)
+            rows = []
+    for row in rows:
+        srt = str(row.get('ISU_SRT_CD') or '').strip()
+        isin = str(row.get('ISU_CD') or '').strip()
+        name = str(row.get('ISU_ABBRV') or '').strip()
+        if srt and isin:
+            _isin_map[srt] = {'isin': isin, 'name': name}
     return _isin_map
 
 
@@ -80,20 +108,26 @@ def fetch_krx(code):
     """KRX PDF(구성종목). → (holdings, equityWeight, asOf) / 실패 시 ([], 0, None).
 
     당일 미공시·휴장 대비로 최근 영업일을 역순으로 훑는다.
-    pykrx 래퍼를 거치지 않고 raw JSON 을 파싱한다 — 래퍼는 COMPST_ISU_CD 를 [3:9] 로 잘라
-    US ISIN(US67066G1040)을 '066G10' 으로 망가뜨려 해외 편입 종목을 매칭할 수 없게 만든다.
     """
     ent = krx_isin_map().get(code)
     if not ent:
         return [], 0.0, None
     for d in recent_biz_days(5):
-        try:
-            j = http_json(KRX_URL, data={'bld': BLD_ETF_PDF, 'trdDd': d, 'isuCd': ent['isin']},
-                          headers=KRX_HEADERS, timeout=25)
-        except Exception as e:
-            print('[krx pdf] %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
-            continue
-        holdings, eq = parse_krx_pdf(j.get('output') or j.get('OutBlock_1') or [])
+        rows = None
+        if _PykrxPdf is not None:
+            try:
+                rows = _PykrxPdf().fetch(d, ent['isin']).to_dict('records')
+            except Exception as e:
+                print('[krx pdf] pykrx %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
+        if rows is None:
+            try:
+                j = http_json(KRX_URL, data={'bld': BLD_ETF_PDF, 'trdDd': d, 'isuCd': ent['isin']},
+                              headers=KRX_HEADERS, timeout=25)
+                rows = j.get('output') or j.get('OutBlock_1') or []
+            except Exception as e:
+                print('[krx pdf] http %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
+                continue
+        holdings, eq = parse_krx_pdf(rows)
         if holdings:
             return holdings, eq, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
     return [], 0.0, None
