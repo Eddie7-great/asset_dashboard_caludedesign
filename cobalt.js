@@ -500,7 +500,7 @@ function cbRisk(ownerFilter){
           ]),
   ];
   cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 순자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
-  const score = Math.max(5, Math.min(98, 100 - cards.reduce((s,c)=>s+c.lvl*10,0)));
+  const score = Math.max(0, Math.min(100, 100 - cards.reduce((s,c)=>s+c.lvl*10,0)));
   return { score, grade: score>=75?'안정적':score>=50?'주의 필요':'고위험',
     color: score>=75?upC:score>=50?wnC:dnC,
     warns: cards.filter(c=>c.lvl>0).length,
@@ -817,6 +817,23 @@ function cbDashSecToggle(n){
 
 // ───────────────────────── 페이지: 성과 비교 ─────────────────────────
 function cbLastVal(arr){ if(!Array.isArray(arr)) return null; for(let k=arr.length-1;k>=0;k--){ if(arr[k]!=null) return arr[k]; } return null; }
+let _cbPerfVerifyPromise = null;
+function cbVerifyPerfOwnersOnOpen(){
+  if (_cbPerfVerifyPromise || typeof fetchBenchmarkData !== 'function') return;
+  const investedOwners = new Set((pfolioData||[])
+    .filter(i=>i && i.qty>0 && (i.grp==='주식' || i.grp==='가상화폐' || i.grp==='금'))
+    .map(i=>i.owner));
+  const missing = OWNERS.filter(owner=>
+    investedOwners.has(owner) &&
+    !CB_PERF_TFS.some(tf=>cbLastVal(((benchData[tf]||{}).data||{})[owner])!=null)
+  );
+  if (!missing.length) return;
+  _cbPerfVerifyPromise = Promise.allSettled(missing.map(owner=>fetchBenchmarkData(owner)))
+    .finally(()=>{
+      _cbPerfVerifyPromise = null;
+      if (_cobaltActive==='perf2') cbRenderPerf();
+    });
+}
 function cbRenderPerf(){
   const el = document.getElementById('cb-perf2'); if(!el) return;
   const fmtR = v => v==null ? '—' : (v>=0?'+':'')+Number(v).toFixed(1)+'%';
@@ -827,10 +844,7 @@ function cbRenderPerf(){
     ...OWNERS.map(o=>({key:o,label:o,color:oc[o]||cbOwnerColor(o),isBench:false,bold:false})),
     {key:'S&P 500',label:'S&P 500',color:'#4ade80',isBench:true},
     {key:'KOSPI',label:'KOSPI',color:'#f2a33c',isBench:true},
-  ].filter(e=>{
-    // 데이터가 하나라도 있는 엔티티만
-    return CB_PERF_TFS.some(tf=>cbLastVal((benchData[tf]||{data:{}}).data[e.key])!=null) || e.isBench;
-  });
+  ];
   const tf = _cbPerfTf;
   const sel = benchData[tf] || {labels:[],data:{}};
   const spSel = cbLastVal(sel.data['S&P 500']);
@@ -870,9 +884,9 @@ function cbRenderPerf(){
   );
 
   el.innerHTML = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div class="cb-perf-card-grid">
       ${cards.map(p=>`
-        <div class="cb-panel" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="flex:1;min-width:130px;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
+        <div class="cb-panel" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="min-width:0;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
           <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut)">${swatch(p,13)}${cbEsc(p.label)}</div>
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:23px;font-weight:800;margin-top:3px;${csR(p.ret)}">${fmtR(p.ret)}</div>
         </div>`).join('')}
@@ -897,27 +911,21 @@ function cbRenderPerf(){
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
       <div class="cb-perf-detail-grid">
-        ${rows.map(r=>`
-          <div class="cb-panel cb-perf-detail-card" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="border-top:3px solid ${r.e.color};${selKey===r.e.key?`box-shadow:0 0 0 1.5px ${r.e.color}`:(selKey?'opacity:.55':'')}">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <span style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800">${swatch(r.e,13)}${cbEsc(r.e.label)}</span>
-              <span style="font-size:9.5px;color:var(--dim)">카드 클릭 시 라인 강조</span>
+        ${[rows.slice(0,3),rows.slice(3,6)].map(group=>`
+          <div class="cb-perf-detail-table">
+            <div class="cb-perf-detail-head">
+              <span>구분</span>
+              ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
+              <span data-tip="같은 기간 S&P 500 수익률을 얼마나 웃돌았는지 (포트폴리오 − 벤치마크)">초과</span>
+              <span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span>
             </div>
-            <div class="cb-perf-metrics">
-              ${r.vals.map((v,k)=>`
-                <div class="cb-perf-metric" style="${CB_PERF_TFS[k]===tf?'box-shadow:inset 0 0 0 1px var(--acc);background:var(--accSoft)':''}">
-                  <div class="cb-perf-metric-label">${CB_PERF_TFS[k]}</div>
-                  <div class="cb-perf-metric-value cb-num" style="${csR(v)}">${fmtR(v)}</div>
-                </div>`).join('')}
-              <div class="cb-perf-metric">
-                <div class="cb-perf-metric-label"><span data-tip="같은 기간 S&P 500 수익률을 얼마나 웃돌았는지 (포트폴리오 − 벤치마크)">초과수익</span> · ${tf}</div>
-                <div class="cb-perf-metric-value cb-num" style="${csR(r.alpha)}">${r.alpha==null?'—':fmtR(r.alpha)}</div>
-              </div>
-              <div class="cb-perf-metric">
-                <div class="cb-perf-metric-label"><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span> · ${tf}</div>
-                <div class="cb-perf-metric-value cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</div>
-              </div>
-            </div>
+            ${group.map(r=>`
+              <div class="cb-perf-detail-row" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
+                <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
+                ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}${CB_PERF_TFS[k]===tf?';background:var(--accSoft);box-shadow:inset 0 0 0 1px var(--bd2)':''}">${fmtR(v)}</span>`).join('')}
+                <span class="cb-num" style="${csR(r.alpha)}">${r.alpha==null?'—':fmtR(r.alpha)}</span>
+                <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span>
+              </div>`).join('')}
           </div>`).join('')}
       </div>
       <div style="font-size:10.5px;color:var(--dim);margin-top:10px">※ 소유주별 라인은 각 소유주 보유 종목의 가중 수익률입니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
@@ -1133,12 +1141,12 @@ function cbRenderRisk(){
           ${cbRingSvg(r.score,136,r.color)}
           <div style="position:absolute;text-align:center">
             <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:34px;font-weight:800;color:${r.color}">${r.score}</div>
-            <div style="font-size:10px;color:var(--lab)">/ 100</div>
+            <div data-tip="0~100점 척도이며 점수가 높을수록 안정적입니다. 위험 신호마다 감점되어 0점까지 내려갈 수 있습니다." style="font-size:10px;color:var(--lab)">/ 100</div>
           </div>
         </div>
         <div style="font-size:14.5px;font-weight:800;margin-top:10px;color:${r.color}">${r.grade}</div>
         <div style="font-size:11.5px;color:var(--mut);text-align:center;line-height:1.6;margin-top:6px">${r.warns===0?'모든 점검 항목이 양호합니다.':r.warns+'개 항목에서 주의·경고가 발견되었습니다.'}</div>
-        <div style="width:100%;margin-top:13px;padding-top:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px">
+        <div style="width:100%;margin-top:auto;padding-top:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;align-self:stretch">
           <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:var(--mut)"><span data-tip="자산군별 역사적 변동성의 보유비중 가중평균. 1년간 수익률이 오르내리는 폭의 추정치입니다.">추정 연 변동성</span></span><span style="font-weight:700">${r.vol.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:var(--mut)"><span data-tip="원화가 아닌 통화(USD·JPY)로 표시된 자산의 비중. 환율 변동에 노출됩니다.">환노출</span></span><span style="font-weight:700">${r.fxPct.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:var(--mut)">현금 비중</span><span style="font-weight:700">${r.cashPct.toFixed(1)}%</span></div>
@@ -1223,7 +1231,7 @@ function cbDivTipEl(){
   if(!tip){
     tip=document.createElement('div');
     tip.id='cb-div-bar-tip';
-    tip.className='table-float-tip';
+    tip.className='table-float-tip cb-dividend-tip';
     tip.setAttribute('role','tooltip');
     document.body.appendChild(tip);
   }
@@ -1237,11 +1245,11 @@ function cbDivBarHover(ev, monthIndex){
   const tip=cbDivTipEl();
   const rows=details.length
     ? details.map(d=>{
-        const ticker=d.ticker&&d.ticker!==d.title?` <span style="opacity:.68">(${cbEsc(d.ticker)})</span>`:'';
-        return `<div style="display:flex;justify-content:space-between;gap:18px"><span>${cbEsc(d.title)}${ticker}</span><b style="white-space:nowrap">${cbKrw(d.amount)}</b></div>`;
+        const ticker=d.ticker&&d.ticker!==d.title?` <span class="cb-div-tip-ticker">(${cbEsc(d.ticker)})</span>`:'';
+        return `<div class="cb-div-tip-row"><span class="cb-div-tip-name">${cbEsc(d.title)}${ticker}</span><b>${cbKrw(d.amount)}</b></div>`;
       }).join('')
     : '<div style="opacity:.72">종목별 내역이 없습니다.</div>';
-  tip.innerHTML=`<div style="font-weight:800;margin-bottom:5px">${monthIndex+1}월 · ${cbKrw(total)}</div>${rows}`;
+  tip.innerHTML=`<div class="cb-div-tip-title">${monthIndex+1}월 · ${cbKrw(total)}</div>${rows}`;
   tip.style.display='block';
   const rect=tip.getBoundingClientRect();
   let left=ev.clientX+12, top=ev.clientY-rect.height-12;
@@ -1733,6 +1741,7 @@ let _cbTaxDraft = { m:String(new Date().getMonth()+1), k:'domestic', acc:'일반
 let _cbTaxYear = null;   // 조회 연도(문자열). null이면 올해.
 let _cbTaxOwner = '전체'; // 소유주 필터 ('전체' 또는 소유주명)
 let _cbTaxMonthFilter = null; // 차트 클릭으로 하단 내역을 거르는 월(1~12)
+let _cbTaxEditId = null; // 수정 중인 실현손익 기록 ID
 const CB_TAX_ACCTS = ['일반','연금저축','ISA'];
 const CB_TAX_FGN_DED = 2500000;   // 해외주식 기본공제(일반계좌)
 const CB_TAX_ISA_DED = 2000000;   // ISA 비과세 한도(일반형 기준)
@@ -1964,13 +1973,14 @@ function cbRenderTax(){
         <select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select>
         <input id="cb-tax-pl" class="cb-input" value="${cbEsc(_cbTaxDraft.pl)}" placeholder="실현손익 (원, 손실은 -)" style="flex:1;min-width:150px" />
         <input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모 (예: NVDA 100주 매도)" style="flex:1;min-width:150px" />
-        <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 14px;font-size:12px">기록</button>
+        <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 14px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
+        ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 12px;font-size:12px;color:var(--mut)">취소</button>':''}
       </div>
       <div style="overflow-x:auto"><div style="min-width:620px">
-        <div style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 6px;border-bottom:1px solid var(--bd)">
-          <span style="width:62px">소유주</span><span style="width:46px">월</span><span style="width:70px">시장</span><span style="width:78px">계좌</span><span style="flex:1.2">메모</span><span style="width:130px;text-align:right">실현손익</span><span style="width:40px"></span>
+        <div class="cb-thead" style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 6px;border-bottom:1px solid var(--bd)">
+          <span style="width:62px">소유주</span><span style="width:46px">월</span><span style="width:70px">시장</span><span style="width:78px">계좌</span><span style="flex:1.2">메모</span><span style="width:130px;text-align:right">실현손익</span><span style="width:58px;text-align:center">관리</span>
         </div>
-        ${sorted.map(t=>`
+        ${sorted.map(t=>{ const taxId=Number(t.id); return `
           <div style="display:flex;align-items:center;padding:7px 8px;border-bottom:1px solid var(--bd);font-size:12.5px">
             <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
             <span style="width:46px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
@@ -1978,8 +1988,11 @@ function cbRenderTax(){
             <span style="width:78px;font-size:11px;color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
             <span style="flex:1.2;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px">${cbEsc(t.memo||'—')}</span>
             <span class="cb-num" style="width:130px;text-align:right;font-weight:700;font-size:12px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
-            <span class="cb-del" onclick="cbTaxDel(${t.id})" style="width:40px;text-align:right">삭제</span>
-          </div>`).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">기록된 실현손익이 없습니다.</div>'}
+            <span class="cb-tax-actions" style="width:58px">
+              <button class="cb-edit" title="수정" onclick="cbTaxEdit(${taxId})">✎</button>
+              <button class="cb-edit cb-edit-danger" title="삭제" onclick="cbTaxDel(${taxId})">✕</button>
+            </span>
+          </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">기록된 실현손익이 없습니다.</div>'}
       </div></div>
     </div>`;
 }
@@ -2018,19 +2031,50 @@ function cbTaxAdd(){
   let owner = document.getElementById('cb-tax-owner')?.value || '';
   if (OWNERS.indexOf(owner)<0) owner = (_cbTaxOwner!=='전체' ? _cbTaxOwner : OWNERS[0]);
   const pl = parseFloat(raw);
-  _cbTaxDraft = { m, k, acc, owner, pl:'', memo:'' };
   if (raw==='' || isNaN(pl)) { alert('실현손익 금액을 입력하세요.'); return; }
   try{ loadMonthlyPL(); }catch(e){}
   const year = (_cbTaxYear && /^\d{4}$/.test(_cbTaxYear)) ? _cbTaxYear : String(new Date().getFullYear());
-  monthlyPLData.push({ id:Date.now(), month:`${year}-${String(m).padStart(2,'0')}`, amt:pl, memo, owner, category:k, account:acc });
+  const entry = { id:_cbTaxEditId!=null?_cbTaxEditId:Date.now(), month:`${year}-${String(m).padStart(2,'0')}`, amt:pl, memo, owner, category:k, account:acc };
+  if (_cbTaxEditId!=null){
+    const idx=monthlyPLData.findIndex(r=>Number(r.id)===Number(_cbTaxEditId));
+    if(idx>=0) monthlyPLData[idx]=entry;
+    else monthlyPLData.push(entry);
+  } else {
+    monthlyPLData.push(entry);
+  }
+  _cbTaxEditId = null;
+  _cbTaxDraft = { m, k, acc, owner, pl:'', memo:'' };
   saveMonthlyPL();
+  cbRenderTax();
+}
+function cbTaxEdit(id){
+  if (typeof isMobileLayout==='function' && isMobileLayout()) return;
+  try{ loadMonthlyPL(); }catch(e){}
+  const r=monthlyPLData.find(x=>Number(x.id)===Number(id)); if(!r) return;
+  _cbTaxEditId=Number(r.id);
+  _cbTaxYear=String(r.month||'').slice(0,4)||_cbTaxYear;
+  _cbTaxDraft={
+    m:String(parseInt(String(r.month||'').split('-')[1]||'1')),
+    k:r.category==='domestic'?'domestic':'foreign',
+    acc:cbTaxAcctOf(r),
+    owner:r.owner||'',
+    pl:String(r.amt==null?'':r.amt),
+    memo:r.memo||''
+  };
+  cbRenderTax();
+  requestAnimationFrame(()=>document.getElementById('cb-tax-pl')?.focus());
+}
+function cbTaxCancelEdit(){
+  _cbTaxEditId=null;
+  _cbTaxDraft={ m:String(new Date().getMonth()+1), k:'domestic', acc:'일반', owner:'', pl:'', memo:'' };
   cbRenderTax();
 }
 function cbTaxDel(id){
   if (typeof isMobileLayout==='function' && isMobileLayout()) return;
   if(!confirm('삭제하시겠습니까?')) return;
   try{ loadMonthlyPL(); }catch(e){}
-  monthlyPLData = monthlyPLData.filter(r=>r.id!==id);
+  monthlyPLData = monthlyPLData.filter(r=>Number(r.id)!==Number(id));
+  if(Number(_cbTaxEditId)===Number(id)) _cbTaxEditId=null;
   saveMonthlyPL();
   cbRenderTax();
 }
@@ -2155,6 +2199,7 @@ switchView = function(id, btn){
     const e=document.getElementById(x); if(e) e.style.display='none';
   });
   if (id==='divm') cbVerifyDividendDataOnOpen();
+  if (id==='perf2') cbVerifyPerfOwnersOnOpen();
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
 };
 
