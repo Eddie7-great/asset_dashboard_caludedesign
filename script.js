@@ -1539,6 +1539,24 @@ function getDcaAmountCellHtml(item){
     : sym + (item.dcaAmt||0).toLocaleString();
   return `<span class="dca-amount">${amt}</span>`;
 }
+function holdingsEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function getHoldingsBrokerCellHtml(item){
+  const broker = item.broker || '—';
+  const account = item.acc || '—';
+  return `<span class="holdings-inline-cell cb-tip-block" data-tip="${holdingsEsc(broker+' / '+account)}">`
+    + `<span class="broker-txt">${holdingsEsc(broker)}</span>`
+    + `<span class="holdings-account">/ ${holdingsEsc(account)}</span></span>`;
+}
+function getHoldingsAssetCellHtml(name,ticker){
+  const parts = [name,ticker].filter(Boolean);
+  return `<span class="holdings-inline-cell cb-tip-block" data-tip="${holdingsEsc(parts.join(' · '))}">`
+    + `<strong class="holdings-inline-name">${holdingsEsc(name||'—')}</strong>`
+    + (ticker?`<span class="tkr-txt holdings-inline-ticker">${holdingsEsc(ticker)}</span>`:'')
+    + `</span>`;
+}
 
 // 다음 체결 예정일 계산 (시장 휴장일·주말 자동 스킵)
 function getDcaNextDateStr(item) {
@@ -1689,7 +1707,7 @@ function toggleModalFields() {
   const isCrypto = grp === '가상화폐';
   const isGold = grp === '금';
   const isCash = grp === '현금';
-  document.getElementById('row-market-search').style.display = isCash ? 'none' : 'block';
+  document.getElementById('row-market-search').style.display = (isCash || isGold) ? 'none' : 'block';
   document.getElementById('row-qty-price').style.display = isCash ? 'none' : 'flex';
   document.getElementById('row-cash-only').style.display = isCash ? 'block' : 'none';
   document.getElementById('wrap-dca-toggle').style.display = (isStock || isCrypto) ? 'block' : 'none';
@@ -2222,7 +2240,7 @@ function renderPortfolio(owner) {
       grpItems.forEach(i=>{
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${i.owner}</span></td>`:'';
-        const brokerCell=`<span class="broker-txt">${i.broker||'—'}</span> <span class="holdings-account">/ ${i.acc||'—'}</span>`;
+        const brokerCell=getHoldingsBrokerCellHtml(i);
         let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" title="수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✎</button><button class="btn-action" title="삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">✕</button></span>`;
 
         if(grpName==='현금'){
@@ -2236,7 +2254,7 @@ function renderPortfolio(owner) {
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<span class="editable-val" onclick="makeEditable(this,'${i.owner}','${i.tkr}','qty',true,${pIdx})">${fBal}</span>`;
           // [9] 자산명 + 통화 배지 나란히
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.cur}</span></td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.cur)}</td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
@@ -2256,7 +2274,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'')}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2276,7 +2294,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2297,7 +2315,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -2308,12 +2326,12 @@ function renderPortfolio(owner) {
     let theadHtml='';
     const ownerTh=showOwner?'<th class="text-left">소유주</th>':'';
     if(grpName==='현금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head">관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head">관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head">관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
@@ -2506,8 +2524,10 @@ function editItem(owner,tkr,idx=-1) {
   const tkrStripped=normTkr(item.tkr);
   const isKrTkr=/^[0-9A-Z]{6}$/i.test(tkrStripped)&&item.cur==='KRW';
   const dispTkrEdit=isKrTkr?tkrStripped+(item.market==='KOSDAQ'?'.KQ':'.KS'):item.tkr;
-  srch.value=item.name+' ('+dispTkrEdit+')';
-  srch.dataset.tkr=item.tkr;srch.dataset.name=item.name;srch.dataset.market=mkt;
+  if(item.grp!=='금'&&item.grp!=='현금'){
+    srch.value=item.name+' ('+dispTkrEdit+')';
+    srch.dataset.tkr=item.tkr;srch.dataset.name=item.name;srch.dataset.market=mkt;
+  }
   if(item.dca){document.getElementById('wrap-dca-detail').style.display='block';document.getElementById('row-qty-price').style.display='none';}
 }
 
@@ -2563,7 +2583,7 @@ function submitAddModal() {
   const dcaDays=dcaCycle==='매주'?Array.from(document.querySelectorAll('.dca-dow:checked')).map(c=>parseInt(c.value)):[];
   const dcaDayVal=dcaCycle==='매월'?parseInt(document.getElementById('add-dca-day').value)||1:undefined;
   if(grp==='현금'){qty=parseFloat((document.getElementById('add-cash-amt').value||'').replace(/,/g,''))||0;unit='';avgP=1;}
-  if(!searchRaw&&grp!=='현금'){alert('종목명을 입력하세요.');return;}
+  if(!searchRaw&&grp!=='현금'&&grp!=='금'){alert('종목명을 입력하세요.');return;}
   let tkr=selectedTkr||searchRaw.toUpperCase();
   let name=selectedName||searchRaw;
   // 시장 저장: KR → KOSPI로 저장 (price.ts 호환)
@@ -2576,6 +2596,11 @@ function submitAddModal() {
     name=(cashName&&cashName.value.trim())||name||cur+' 예수금';
     // 수정 모드에서는 기존 tkr 유지
     if(ownerMode&&tkrMode)tkr=tkrMode;
+  }
+  if(grp==='금'){
+    tkr=(ownerMode&&tkrMode)?tkrMode:'GOLD';
+    name='금';
+    savedMarket='GOLD';
   }
   const newData={grp,owner,broker,acc,name,tkr,qty,unit,avgP,curP:avgP,cur,market:savedMarket,dca:isDca,dcaCycle,dcaAmt,dcaCur,dcaMode,dcaQty,dcaDays,dcaDay:dcaDayVal};
   if(ownerMode&&tkrMode){
