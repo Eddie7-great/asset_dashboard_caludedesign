@@ -3,6 +3,15 @@ name: ETF 구성종목 수집
 # 브라우저에서 외부 사이트를 직접 부르면 CORS 로 막히므로 수집은 CI 에서만 한다.
 # 결과(data/etf_holdings.json)를 커밋하고, 대시보드는 그 파일만 읽는다.
 on:
+  # 수집 코드가 main에 반영되면 예약 시각을 기다리지 않고 즉시 한 번 갱신한다.
+  # Actions가 만든 data/etf_holdings.json 커밋은 아래 경로에 없으므로 재실행 루프가 생기지 않는다.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/etf-holdings.yml'
+      - 'scripts/collect_etf_holdings.py'
+      - 'scripts/etf_common.py'
+      - 'requirements.txt'
   schedule:
     - cron: '30 9 * * 1-5'      # UTC 09:30 = KST 18:30, 평일
   workflow_dispatch:
