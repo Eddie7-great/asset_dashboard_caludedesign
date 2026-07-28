@@ -7,6 +7,7 @@ import vm from 'node:vm'
 const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
 const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`)
@@ -30,6 +31,7 @@ for (const name of [
   'getDcaCellHtml',
   'getDcaAmountCellHtml',
   'holdingsEsc',
+  'updateOverflowTooltip',
   'getHoldingsBrokerCellHtml',
   'getHoldingsAssetCellHtml',
 ]) {
@@ -55,9 +57,28 @@ assert.match(
 )
 const assetCell = dcaContext.getHoldingsAssetCellHtml('Vanguard S&P 500 ETF', 'VOO')
 assert.doesNotMatch(assetCell, /<br>/, '자산 내역 종목명과 티커를 한 줄로 표시')
-assert.match(assetCell, /Vanguard S&amp;P 500 ETF · VOO/, '잘린 종목 셀 툴팁에 종목명과 티커 표시')
+assert.match(assetCell, /data-overflow-tip="Vanguard S&amp;P 500 ETF · VOO"/, '잘린 종목 셀용 전체 문구 보관')
+assert.doesNotMatch(assetCell, /\sdata-tip=/, '잘리지 않은 종목에는 툴팁을 미리 생성하지 않음')
 const brokerCell = dcaContext.getHoldingsBrokerCellHtml({ broker: '토스증권', acc: 'ISA' })
-assert.match(brokerCell, /data-tip="토스증권 \/ ISA"/, '증권사·계좌 셀 툴팁 제공')
+assert.match(brokerCell, /data-overflow-tip="토스증권 \/ ISA"/, '잘린 증권사·계좌 셀용 전체 문구 보관')
+assert.doesNotMatch(brokerCell, /\sdata-tip=/, '잘리지 않은 증권사·계좌에는 툴팁을 미리 생성하지 않음')
+
+function overflowFixture(scrollWidth, clientWidth) {
+  const attrs = new Map([['data-overflow-tip', '전체 문구']])
+  return {
+    attrs,
+    querySelectorAll: () => [{ scrollWidth, clientWidth }],
+    setAttribute: (name, value) => attrs.set(name, value),
+    removeAttribute: name => attrs.delete(name),
+    getAttribute: name => attrs.get(name),
+  }
+}
+const fullCell = overflowFixture(90, 100)
+assert.equal(dcaContext.updateOverflowTooltip(fullCell), false, '문구가 다 보이면 오버플로 툴팁 비활성')
+assert.equal(fullCell.attrs.has('data-tip'), false, '문구가 다 보이면 data-tip 없음')
+const clippedCell = overflowFixture(130, 100)
+assert.equal(dcaContext.updateOverflowTooltip(clippedCell), true, '문구가 잘리면 오버플로 툴팁 활성')
+assert.equal(clippedCell.attrs.get('data-tip'), '전체 문구', '잘린 경우에만 전체 문구 노출')
 
 const mergeContext = {
   cbStrip: ticker => String(ticker || '').toUpperCase(),
@@ -120,18 +141,41 @@ const flagContext = {
   },
 }
 vm.createContext(flagContext)
-for (const name of ['cbFlagMarket', 'cbFlagSvg']) {
+for (const name of ['cbFlagMarket', 'cbGoldBarSvg', 'cbFlagSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), flagContext)
 }
-assert.match(flagContext.cbFlagSvg({ cls: 'gold' }, 16), /🪙/, '금 Au 문자를 금 이모지로 대체')
-assert.doesNotMatch(flagContext.cbFlagSvg({ cls: 'gold' }, 16), />Au</, '금 아이콘에 Au를 노출하지 않음')
+assert.match(flagContext.cbFlagSvg({ cls: 'gold' }, 16), /<polygon/, '금 아이콘을 입체 금괴 SVG로 표시')
+assert.doesNotMatch(flagContext.cbFlagSvg({ cls: 'gold' }, 16), /🪙|>Au</, '금 아이콘에 동전 이모지나 Au를 노출하지 않음')
+
+const taxContext = { OWNERS: ['본인', '아내', '자녀1', '아버지'] }
+vm.createContext(taxContext)
+vm.runInContext(extractFunction(cobaltSource, 'cbSortTaxEntries'), taxContext)
+const taxRows = [
+  { category: 'foreign', owner: '본인', month: '2026-01' },
+  { category: 'domestic', owner: '아내', month: '2026-02' },
+  { category: 'domestic', owner: '본인', month: '2026-03' },
+  { category: 'foreign', owner: '아버지', month: '2026-01' },
+]
+const sortedTax = taxContext.cbSortTaxEntries(taxRows, row => row.owner)
+assert.deepEqual(
+  Array.from(sortedTax, row => [row.category, row.owner]),
+  [['domestic', '본인'], ['domestic', '아내'], ['foreign', '본인'], ['foreign', '아버지']],
+  '양도소득세 내역을 국내 → 해외 순으로 우선 정렬',
+)
 
 assert.match(
   scriptSource,
   /row-market-search'\)\.style\.display = \(isCash \|\| isGold\) \? 'none' : 'block'/,
   '금 입력 시 종목 검색 행 숨김',
 )
-assert.match(scriptSource, /if\(grp==='금'\)\{\s*tkr=.*?'GOLD';\s*name='금'/s, '금은 내부 고정 키와 이름으로 저장')
+assert.match(indexSource, /id="row-gold-name"[\s\S]*id="add-gold-name"/, '금 전용 자산명 입력 메뉴 제공')
+assert.match(scriptSource, /name=\(goldName&&goldName\.value\.trim\(\)\)\|\|'금'/, '입력한 금 자산명을 저장')
+assert.doesNotMatch(indexSource, /class="login-logo"/, '로그인 창의 의미 없는 가 로고 제거')
 assert.match(indexSource, /id="sidebar-refresh-btn"[^>]*>↻ <span[^>]*>새로고침<\/span>/, '좌하단 버튼 문구를 새로고침으로 표시')
+assert.match(cobaltSource, /aria-label="국가"><\/span>/, '배당 관리 국가 헤더 문구는 숨기고 국기 칸 유지')
+assert.match(cobaltSource, /width:44px;text-align:right">관리<\/span>/, 'DCA 삭제 열 위에 관리 헤더 표시')
+assert.match(scriptSource, /holdings-broker-filter-inline/, '주식 종목 수 옆에 증권사·계좌 필터 배치')
+assert.match(scriptSource, /classList\.toggle\('holdings-owner-tabs', viewId==='holdings'\)/, '자산 내역 소유주 탭 전용 여백 적용')
+assert.match(styleSource, /#view-holdings \.pt-table th\.sortable\{position:sticky\}/, '수량부터 수익률까지 정렬 헤더도 스크롤 중 고정')
 
 console.log('PASS 자산 DCA 칼럼 분리·대시보드 실제 계좌 수 집계')

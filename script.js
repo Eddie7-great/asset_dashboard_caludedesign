@@ -878,7 +878,9 @@ function switchView(viewId, btn) {
   }
   else title=baseTitles[viewId]||viewId;
   document.getElementById('main-title').textContent = title;
-  document.getElementById('owner-tabs-container').style.display=(viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal')?'flex':'none';
+  const ownerTabsEl = document.getElementById('owner-tabs-container');
+  ownerTabsEl.style.display=(viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal')?'flex':'none';
+  ownerTabsEl.classList.toggle('holdings-owner-tabs', viewId==='holdings');
   const cfBar = document.getElementById('cf-owner-bar');
   if (cfBar) cfBar.style.display = (viewId==='cashflow') ? 'flex' : 'none';
   const bubbleBar = document.getElementById('bubble-owner-bar');
@@ -1543,18 +1545,40 @@ function holdingsEsc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function updateOverflowTooltip(el){
+  if (!el) return false;
+  const watches = el.querySelectorAll('[data-overflow-watch]');
+  const targets = watches.length ? Array.from(watches) : [el];
+  const clipped = targets.some(node=>node.scrollWidth > node.clientWidth + 1);
+  if (clipped) el.setAttribute('data-tip', el.getAttribute('data-overflow-tip') || '');
+  else el.removeAttribute('data-tip');
+  return clipped;
+}
+if (typeof document!=='undefined' && !window._overflowTipEventsBound){
+  window._overflowTipEventsBound = true;
+  document.addEventListener('mouseover', e=>{
+    const el = e.target.closest?.('[data-overflow-tip]');
+    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    updateOverflowTooltip(el);
+  }, true);
+  document.addEventListener('mouseout', e=>{
+    const el = e.target.closest?.('[data-overflow-tip]');
+    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    el.removeAttribute('data-tip');
+  }, true);
+}
 function getHoldingsBrokerCellHtml(item){
   const broker = item.broker || '—';
   const account = item.acc || '—';
-  return `<span class="holdings-inline-cell cb-tip-block" data-tip="${holdingsEsc(broker+' / '+account)}">`
-    + `<span class="broker-txt">${holdingsEsc(broker)}</span>`
-    + `<span class="holdings-account">/ ${holdingsEsc(account)}</span></span>`;
+  return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(broker+' / '+account)}">`
+    + `<span class="broker-txt" data-overflow-watch>${holdingsEsc(broker)}</span>`
+    + `<span class="holdings-account" data-overflow-watch>/ ${holdingsEsc(account)}</span></span>`;
 }
 function getHoldingsAssetCellHtml(name,ticker){
   const parts = [name,ticker].filter(Boolean);
-  return `<span class="holdings-inline-cell cb-tip-block" data-tip="${holdingsEsc(parts.join(' · '))}">`
-    + `<strong class="holdings-inline-name">${holdingsEsc(name||'—')}</strong>`
-    + (ticker?`<span class="tkr-txt holdings-inline-ticker">${holdingsEsc(ticker)}</span>`:'')
+  return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(parts.join(' · '))}">`
+    + `<strong class="holdings-inline-name" data-overflow-watch>${holdingsEsc(name||'—')}</strong>`
+    + (ticker?`<span class="tkr-txt holdings-inline-ticker" data-overflow-watch>${holdingsEsc(ticker)}</span>`:'')
     + `</span>`;
 }
 
@@ -1708,6 +1732,7 @@ function toggleModalFields() {
   const isGold = grp === '금';
   const isCash = grp === '현금';
   document.getElementById('row-market-search').style.display = (isCash || isGold) ? 'none' : 'block';
+  document.getElementById('row-gold-name').style.display = isGold ? 'block' : 'none';
   document.getElementById('row-qty-price').style.display = isCash ? 'none' : 'flex';
   document.getElementById('row-cash-only').style.display = isCash ? 'block' : 'none';
   document.getElementById('wrap-dca-toggle').style.display = (isStock || isCrypto) ? 'block' : 'none';
@@ -2202,12 +2227,12 @@ function renderPortfolio(owner) {
   });
   stockCombos.sort((a,b)=>{const br=a.broker.localeCompare(b.broker);return br!==0?br:a.acc.localeCompare(b.acc);});
   if(_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
-  const brokerFilterHtml=`<div style="display:flex;align-items:center;gap:8px;padding:8px 6px 10px">`
+  const brokerFilterHtml=`<span class="holdings-broker-filter-inline" onclick="event.stopPropagation()" style="align-items:center;gap:6px;margin-left:10px">`
     +`<span style="font-size:.72rem;color:var(--t3);font-weight:600">증권사·계좌 필터</span>`
     +`<select id="holdings-broker-filter" class="form-input" style="width:auto;padding:3px 8px;font-size:.75rem;height:auto" onchange="applyHoldingsBrokerFilter()">`
     +`<option value="전체"${_holdingsBrokerFilter==='전체'?' selected':''}>전체</option>`
     +stockCombos.map(c=>`<option value="${c.key}"${_holdingsBrokerFilter===c.key?' selected':''}>${c.broker||'(미지정)'} / ${c.acc||'(미지정)'}</option>`).join('')
-    +`</select></div>`;
+    +`</select></span>`;
   let html='',totalPfolioValue=0;
   const showOwner=owner==='전체';
   // [2] 가상화폐 포함 전체 원화 환산
@@ -2335,6 +2360,9 @@ function renderPortfolio(owner) {
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
+    const inlineBrokerFilter=grpName==='주식'
+      ? brokerFilterHtml.replace('style="align-items:', `style="display:${displayState==='block'?'inline-flex':'none'};align-items:`)
+      : '';
     // 주식/가상화폐/금 표 컬럼 폭 동일화: 동일 colgroup + table-layout:fixed → 세 표가 세로로 줄 맞음
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
@@ -2347,7 +2375,7 @@ function renderPortfolio(owner) {
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
-    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span></div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}">${grpName==='주식'?brokerFilterHtml:''}<table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
+    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const f=this.querySelector('.holdings-broker-filter-inline');if(f)f.style.display=isHidden?'inline-flex':'none';const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span>${inlineBrokerFilter}</div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpItems.length===0||grpName==='현금'?'-':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)'}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
   });
   document.getElementById('portfolio-tables').innerHTML=html;
 }
@@ -2428,6 +2456,7 @@ function openAddModal(grp) {
   document.getElementById('add-avgp').value='';
   document.getElementById('add-cash-amt').value='';
   const cn=document.getElementById('add-cash-name');if(cn)cn.value='';
+  const gn=document.getElementById('add-gold-name');if(gn)gn.value='금';
   document.getElementById('add-dca').checked=false;
   document.getElementById('wrap-dca-detail').style.display='none';
   document.getElementById('add-dca-amt').value='';
@@ -2519,6 +2548,10 @@ function editItem(owner,tkr,idx=-1) {
     if(cashNameEl)cashNameEl.value=item.name||'';
   }
   toggleModalFields();
+  if(item.grp==='금'){
+    const goldNameEl=document.getElementById('add-gold-name');
+    if(goldNameEl)goldNameEl.value=item.name||'금';
+  }
   // [2] 종목명/티커 복원: toggleModalFields → onMarketChange 가 srch 를 초기화하므로 반드시 이후에 복원
   const srch=document.getElementById('add-search');
   const tkrStripped=normTkr(item.tkr);
@@ -2598,8 +2631,9 @@ function submitAddModal() {
     if(ownerMode&&tkrMode)tkr=tkrMode;
   }
   if(grp==='금'){
-    tkr=(ownerMode&&tkrMode)?tkrMode:'GOLD';
-    name='금';
+    tkr=(ownerMode&&tkrMode)?tkrMode:'GOLD_'+Date.now();
+    const goldName=document.getElementById('add-gold-name');
+    name=(goldName&&goldName.value.trim())||'금';
     savedMarket='GOLD';
   }
   const newData={grp,owner,broker,acc,name,tkr,qty,unit,avgP,curP:avgP,cur,market:savedMarket,dca:isDca,dcaCycle,dcaAmt,dcaCur,dcaMode,dcaQty,dcaDays,dcaDay:dcaDayVal};
@@ -5228,7 +5262,9 @@ async function _advisorOnSearchInput(q) {
 
 // 국기 인라인 SVG — 이모지 폰트 미지원 환경에서도 태극기(건곤감리)·일장기·성조기를 정확히 렌더
 function _mktFlagSvg(market, px) {
-  const h = px || 13, w = Math.round(h * 1.5);
+  // 태극기는 작은 높이에서 네 괘가 뭉개지기 쉬워 최소 16px을 확보한다.
+  const requestedH = px || 13, h = market === 'KR' ? Math.max(requestedH, 16) : requestedH;
+  const w = Math.round(h * 1.5);
   const open = `<svg width="${w}" height="${h}" viewBox="0 0 36 24" style="display:inline-block;vertical-align:-2px;border:1px solid rgba(0,0,0,.15);border-radius:2px">`;
   if (market === 'JP') {
     return `${open}<rect width="36" height="24" fill="#fff"/><circle cx="18" cy="12" r="7" fill="#bc002d"/></svg>`;
@@ -5242,21 +5278,22 @@ function _mktFlagSvg(market, px) {
     return `${open}${s}</svg>`;
   }
   // KR — 태극기: 흰 바탕 + 태극(적/청) + 건곤감리 4괘
-  const cx = 18, cy = 12, R = 7, r = R / 2;
+  const cx = 18, cy = 12, R = 6.4, r = R / 2;
   const taeguk = `<g transform="rotate(-33.69 ${cx} ${cy})"><circle cx="${cx}" cy="${cy}" r="${R}" fill="#0047a0"/>`
     + `<path d="M ${cx - R} ${cy} a ${R} ${R} 0 0 1 ${2 * R} 0 a ${r} ${r} 0 0 1 ${-R} 0 a ${r} ${r} 0 0 0 ${-R} 0 z" fill="#cd2e3a"/></g>`;
   // 3바 괘: pat=[상,중,하] (true=이어진 막대, false=끊긴 막대), (cx,cy) 중심
-  const tw = 8, th = 1.5, gap = 1.4, brk = 1.8;
+  const tw = 8.4, th = 1.7, gap = 1.15, brk = 1.8;
   const tri = (tcx, tcy, pat) => pat.map((solid, i) => {
     const y = (tcy + (i - 1) * (th + gap) - th / 2).toFixed(2);
     if (solid) return `<rect x="${(tcx - tw / 2).toFixed(2)}" y="${y}" width="${tw}" height="${th}" fill="#111"/>`;
     const seg = ((tw - brk) / 2).toFixed(2);
     return `<rect x="${(tcx - tw / 2).toFixed(2)}" y="${y}" width="${seg}" height="${th}" fill="#111"/><rect x="${(tcx + brk / 2).toFixed(2)}" y="${y}" width="${seg}" height="${th}" fill="#111"/>`;
   }).join('');
-  const gwae = tri(7.5, 5, [true, true, true])       // 건 ☰ 좌상
-    + tri(28.5, 5, [false, true, false])              // 감 ☵ 우상
-    + tri(7.5, 19, [true, false, true])               // 리 ☲ 좌하
-    + tri(28.5, 19, [false, false, false]);           // 곤 ☷ 우하
+  // 법정 도안처럼 네 괘를 태극을 향한 대각선 축으로 배치해 작은 아이콘에서도 눌려 보이지 않게 한다.
+  const gwae = `<g transform="rotate(-33.69 7.5 5.2)">${tri(7.5, 5.2, [true, true, true])}</g>`       // 건 ☰ 좌상
+    + `<g transform="rotate(33.69 28.5 5.2)">${tri(28.5, 5.2, [false, true, false])}</g>`              // 감 ☵ 우상
+    + `<g transform="rotate(33.69 7.5 18.8)">${tri(7.5, 18.8, [true, false, true])}</g>`               // 리 ☲ 좌하
+    + `<g transform="rotate(-33.69 28.5 18.8)">${tri(28.5, 18.8, [false, false, false])}</g>`;          // 곤 ☷ 우하
   return `${open}<rect width="36" height="24" fill="#fff"/>${taeguk}${gwae}</svg>`;
 }
 function _advisorRenderResults(items) {
