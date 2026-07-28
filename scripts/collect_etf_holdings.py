@@ -6,8 +6,9 @@ GitHub Actions 배치 전용이다. 브라우저에서 외부 사이트를 직�
 
 수집 우선순위
   1순위  KRX 내부 JSON API (국내 ETF)  — bld 값은 pykrx 소스에서 확인한 것
-  2순위  네이버 증권(국내) / yfinance·stockanalysis(해외) / 운용사 어댑터
-  3순위  Playwright 헤드리스 브라우저 (1·2순위 실패 ETF만)
+  2순위  ZEROIN 공통 구성종목(국내 ETF·운용사 무관)
+  3순위  운용사 공식 어댑터·네이버(국내) / yfinance·stockanalysis(해외)
+  4순위  Playwright 헤드리스 브라우저 (앞선 소스가 모두 실패한 ETF만)
 
 사용법
   python scripts/collect_etf_holdings.py                 # KV 보유 ETF 전체 수집
@@ -22,13 +23,16 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from etf_common import (  # noqa: E402
     ETF_ALIAS, UA, fetch_naver, fetch_stockanalysis, fetch_yfinance,
-    http_json, is_kr_code, merge_holdings, parse_krx_pdf,
+    http_json, is_equity_row, is_kr_code, merge_holdings,
+    norm_holding_code, parse_krx_pdf,
 )
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,7 +48,7 @@ KRX_HEADERS = {'Referer': 'https://data.krx.co.kr/contents/MDC/MDI/outerLoader/i
 BLD_ETF_MASTER = 'dbms/MDC/STAT/standard/MDCSTAT04601'
 BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
 
-# 스모크 기준. KRX 는 133690 에 100종목 내외를 주지만 네이버 등 대체 소스는 상위 N개만
+# 스모크 기준. KRX·ZEROIN은 133690에 100종목 내외를 주지만 일부 대체 소스는 상위 N개만
 # 줄 수 있어, "정상인데 수가 적은" 경우와 "파싱이 깨진" 경우를 구분한다.
 SMOKE_HARD_MIN = 5    # 이하이면 명백히 깨진 것 → job 실패 (요구사항: "1~2줄만 나오면 멈추고 보고")
 SMOKE_EXPECT_ROWS = 30  # 이하이면 경고만 — 데이터는 쓸 수 있으나 소스가 상위 일부만 준 상태
@@ -132,7 +136,7 @@ def fetch_krx(code):
     """KRX PDF(구성종목). → (holdings, equityWeight, asOf) / 실패 시 ([], 0, None).
 
     당일 미공시·휴장 대비로 최근 영업일을 역순으로 훑는다.
-    KRX 로그인 자격이 없으면 조용히 건너뛴다(네이버 등 다음 소스가 받는다).
+    KRX 로그인 자격이 없으면 조용히 건너뛴다(ZEROIN 등 다음 소스가 받는다).
     """
     if not krx_available():
         return [], 0.0, None
@@ -173,11 +177,183 @@ def fetch_krx(code):
     return [], 0.0, None
 
 
-# ── 2순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+# ── 2순위 · 국내 ETF 공통 구성종목 ───────────────────────────────
+ZEROIN_HOLDINGS_URL = 'https://etf.zeroin.co.kr/etf/{code}/holdings'
+
+
+class _HtmlTableRowsParser(HTMLParser):
+    """단순 HTML 표의 ``<tr><td>…`` 셀을 행 배열로 바꾼다."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows = []
+        self._row = None
+        self._cell = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == 'tr':
+            self._row = []
+        elif tag.lower() == 'td' and self._row is not None:
+            self._cell = []
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == 'td' and self._row is not None and self._cell is not None:
+            self._row.append(' '.join(''.join(self._cell).split()))
+            self._cell = None
+        elif tag.lower() == 'tr' and self._row is not None:
+            if self._row:
+                self.rows.append(self._row)
+            self._row = None
+            self._cell = None
+
+
+def parse_zeroin_holdings_html(text):
+    """ZEROIN 전체 구성종목 표 → (주식 구성종목, 주식비중, 기준일).
+
+    표의 종목코드는 국내 주식이면 6자리, 해외 주식이면
+    ``시장식별자@티커``(예: ``221NAS@NVDA``) 형식이다. 현금·금·채권·파생은
+    공용 주식 판별기로 제외한다.
+    """
+    parser = _HtmlTableRowsParser()
+    parser.feed(text or '')
+    picked = []
+    for cells in parser.rows:
+        if len(cells) < 4:
+            continue
+        name, raw_code = cells[1].strip(), cells[2].strip().upper()
+        base = raw_code.rsplit('@', 1)[-1].replace('/', '.')
+        ticker = norm_holding_code(base)
+        if not ticker or not is_equity_row(ticker, name):
+            continue
+        try:
+            weight = float(cells[3].replace(',', '').replace('%', '').strip())
+        except Exception:
+            continue
+        if weight > 0:
+            picked.append((ticker, name or ticker, weight))
+
+    holdings = merge_holdings(picked)
+    as_of = None
+    m = re.search(r'"dateModified"\s*:\s*"(\d{4}-\d{2}-\d{2})"', text or '')
+    if m:
+        as_of = m.group(1)
+    return holdings, round(sum(x['w'] for x in holdings), 2), as_of
+
+
+def fetch_zeroin(code):
+    """운용사와 무관하게 국내 상장 ETF의 전체 구성종목을 받는다."""
+    url = ZEROIN_HOLDINGS_URL.format(code=urllib.parse.quote(str(code).strip()))
+    headers = {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Referer': 'https://etf.zeroin.co.kr/',
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=25) as r:
+            text = r.read().decode('utf-8', 'replace')
+        holdings, eq, as_of = parse_zeroin_holdings_html(text)
+        print('[zeroin] %s: 주식 %d행 (equityWeight %.1f%%, %s)'
+              % (code, len(holdings), eq, as_of), file=sys.stderr)
+        return holdings, eq, as_of
+    except Exception as e:
+        print('[zeroin] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
+        return [], 0.0, None
+
+
+# ── 3순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+TIGER_PDF_URL = (
+    'https://investments.miraeasset.com/tigeretf/ko/product/search/detail/'
+    'pdfListAjax.ajax'
+)
+
+
+def kr_isin_from_short_code(code):
+    """6자리 숫자 단축코드 → 한국 ETF ISIN.
+
+    한국 ETF ISIN은 ``KR7 + 단축코드 + 00 + ISO 6166 체크숫자`` 형식이다.
+    예: 133690 → KR7133690008.
+    """
+    code = str(code or '').strip()
+    if not re.fullmatch(r'\d{6}', code):
+        return None
+    stem = 'KR7' + code + '00'
+    digits = ''.join(str(ord(c) - 55) if c.isalpha() else c for c in stem)
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        n = int(ch) * (2 if i % 2 else 1)
+        total += n // 10 + n % 10
+    return stem + str((10 - total % 10) % 10)
+
+
+def parse_tiger_pdf_html(text):
+    """TIGER 공식 구성종목 HTML → 정규화된 주식 구성종목."""
+    parser = _HtmlTableRowsParser()
+    parser.feed(text or '')
+    picked = []
+    for cells in parser.rows:
+        if len(cells) < 5:
+            continue
+        raw_code, name = cells[0].strip().upper(), cells[1].strip()
+        # Bloomberg 식별자 예: "NVDA US EQUITY", "005930 KS EQUITY".
+        # CURNCY·FUTURE 등은 이름 휴리스틱에 맡기지 않고 자산 유형으로 먼저 제외한다.
+        if not re.search(r'\bEQUITY\b', raw_code):
+            continue
+        base = raw_code.split()[0].replace('/', '.')
+        ticker = norm_holding_code(base)
+        if not ticker or not is_equity_row(ticker, name):
+            continue
+        try:
+            weight = float(cells[4].replace(',', '').replace('%', '').strip())
+        except Exception:
+            continue
+        if weight > 0:
+            picked.append((ticker, name or ticker, weight))
+    return merge_holdings(picked)
+
+
+def fetch_tiger(code):
+    """미래에셋 TIGER 공식 사이트에서 최신 PDF 구성종목 전체를 받는다."""
+    ksd_fund = kr_isin_from_short_code(code)
+    if not ksd_fund:
+        return []
+    body = urllib.parse.urlencode({
+        'ksdFund': ksd_fund,
+        'pageIndex': '1',
+        'firstIndex': '0',
+        'listCnt': '500',
+    }).encode('utf-8')
+    headers = {
+        'User-Agent': UA,
+        'Accept': 'text/html, */*; q=0.01',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Referer': (
+            'https://investments.miraeasset.com/tigeretf/ko/product/search/'
+            'detail/index.do?ksdFund=' + ksd_fund
+        ),
+        'X-Requested-With': 'XMLHttpRequest',
+    }
+    try:
+        req = urllib.request.Request(TIGER_PDF_URL, data=body, headers=headers)
+        with urllib.request.urlopen(req, timeout=25) as r:
+            text = r.read().decode('utf-8', 'replace')
+        holdings = parse_tiger_pdf_html(text)
+        print('[tiger] %s (%s): 공식 PDF %d행 추출'
+              % (code, ksd_fund, len(holdings)), file=sys.stderr)
+        return holdings
+    except Exception as e:
+        print('[tiger] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
+        return []
+
+
 # 브랜드 → callable(code) -> [{'t','n','w'}]
-# 각 운용사의 자산구성 XHR 엔드포인트는 실제 Network 탭 관찰이 필요해 아직 비어 있다.
-# 추측한 URL 을 넣으면 죽은 코드가 되므로, 첫 수집 실행의 failures 를 근거로 채운다.
-PROVIDER_ADAPTERS = {}
+PROVIDER_ADAPTERS = {
+    'TIGER': fetch_tiger,
+}
 
 BRAND_RE = re.compile(r'^(TIGER|KODEX|RISE|PLUS|TIME|ACE|SOL|KOSEF|HANARO|KBSTAR|ARIRANG)', re.I)
 
@@ -198,7 +374,7 @@ def fetch_provider(code, name):
         return []
 
 
-# ── 3순위 · Playwright ──────────────────────────────────────────
+# ── 4순위 · Playwright ──────────────────────────────────────────
 # 브랜드 → {'url': '...{code}...', 'table': 'CSS 셀렉터'}
 # 위와 같은 이유로 비어 있다. 레지스트리가 비면 이 티어는 통째로 건너뛴다.
 BROWSER_SOURCES = {}
@@ -378,6 +554,9 @@ def collect_one(code, name, lookup=None):
         h, eq, as_of = fetch_krx(code)
         if h:
             return h, eq, as_of, 'krx'
+        h, eq, as_of = fetch_zeroin(code)
+        if h:
+            return h, eq, as_of or today, 'zeroin'
         h = fetch_provider(code, name)
         if h:
             return h, round(sum(x['w'] for x in h), 2), today, 'provider'
@@ -397,7 +576,7 @@ def collect_one(code, name, lookup=None):
             if h:
                 return h, round(sum(x['w'] for x in h), 2), today, 'alias:' + alias
 
-    h = fetch_browser_tier(code, name)        # 3순위
+    h = fetch_browser_tier(code, name)        # 4순위
     if h:
         return h, round(sum(x['w'] for x in h), 2), today, 'browser'
     return [], 0.0, None, None
@@ -457,7 +636,7 @@ def smoke(code):
     """
     name = kr_etf_master().get(code) or code
     print('스모크 테스트: %s (%s)' % (code, name))
-    print('  KRX 로그인 자격: %s' % ('있음' if krx_available() else '없음 → 네이버 등 대체 소스 사용'))
+    print('  KRX 로그인 자격: %s' % ('있음' if krx_available() else '없음 → ZEROIN 등 대체 소스 사용'))
     holdings, eq, as_of, source = collect_one(code, name)
     print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s · 소스 %s'
           % (len(holdings), eq, as_of, source))
