@@ -38,12 +38,13 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 함수 제한시간(15~30s)을 넘겨 룩스루가 자주 비었다. 그래서 수집은 CI 로 옮겼다.
 
 - `.github/workflows/etf-holdings.yml` — 평일 KST 18:30(cron `30 9 * * 1-5` UTC) + 수동 실행.
-  스모크 테스트(133690 이 30행 미만이면 job 실패) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
+  스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
   리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요.
 - `scripts/collect_etf_holdings.py` — KV `assets` 에서 보유 ETF를 추려 수집한다.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
   단축코드→ISIN 매핑은 `MDCSTAT04601`. 두 bld 값 모두 pykrx 소스에서 확인한 것), 실패 시
-  운용사 어댑터 → 네이버 증권 → Playwright 순. 해외는 yfinance → stockanalysis → 티커 별칭.
+  운용사 어댑터(TIGER 공식 PDF AJAX) → 네이버 증권 → Playwright 순. 해외는 yfinance →
+  stockanalysis → 티커 별칭.
   **pykrx 래퍼를 쓰지 않는다** — 래퍼가 `COMPST_ISU_CD` 를 `[3:9]` 로 잘라
   US ISIN(`US67066G1040`)을 `066G10` 으로 망가뜨려 해외 편입 종목을 매칭할 수 없게 만든다.
 - `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,

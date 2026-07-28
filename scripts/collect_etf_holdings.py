@@ -22,13 +22,16 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from etf_common import (  # noqa: E402
     ETF_ALIAS, UA, fetch_naver, fetch_stockanalysis, fetch_yfinance,
-    http_json, is_kr_code, merge_holdings, parse_krx_pdf,
+    http_json, is_equity_row, is_kr_code, merge_holdings,
+    norm_holding_code, parse_krx_pdf,
 )
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -174,10 +177,124 @@ def fetch_krx(code):
 
 
 # ── 2순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+TIGER_PDF_URL = (
+    'https://investments.miraeasset.com/tigeretf/ko/product/search/detail/'
+    'pdfListAjax.ajax'
+)
+
+
+def kr_isin_from_short_code(code):
+    """6자리 숫자 단축코드 → 한국 ETF ISIN.
+
+    한국 ETF ISIN은 ``KR7 + 단축코드 + 00 + ISO 6166 체크숫자`` 형식이다.
+    예: 133690 → KR7133690008.
+    """
+    code = str(code or '').strip()
+    if not re.fullmatch(r'\d{6}', code):
+        return None
+    stem = 'KR7' + code + '00'
+    digits = ''.join(str(ord(c) - 55) if c.isalpha() else c for c in stem)
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        n = int(ch) * (2 if i % 2 else 1)
+        total += n // 10 + n % 10
+    return stem + str((10 - total % 10) % 10)
+
+
+class _TigerPdfTableParser(HTMLParser):
+    """TIGER ``pdfListAjax.ajax`` 의 ``<tr><td>…`` 응답 파서."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows = []
+        self._row = None
+        self._cell = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == 'tr':
+            self._row = []
+        elif tag.lower() == 'td' and self._row is not None:
+            self._cell = []
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == 'td' and self._row is not None and self._cell is not None:
+            self._row.append(' '.join(''.join(self._cell).split()))
+            self._cell = None
+        elif tag.lower() == 'tr' and self._row is not None:
+            if self._row:
+                self.rows.append(self._row)
+            self._row = None
+            self._cell = None
+
+
+def parse_tiger_pdf_html(text):
+    """TIGER 공식 구성종목 HTML → 정규화된 주식 구성종목."""
+    parser = _TigerPdfTableParser()
+    parser.feed(text or '')
+    picked = []
+    for cells in parser.rows:
+        if len(cells) < 5:
+            continue
+        raw_code, name = cells[0].strip().upper(), cells[1].strip()
+        # Bloomberg 식별자 예: "NVDA US EQUITY", "005930 KS EQUITY".
+        # CURNCY·FUTURE 등은 이름 휴리스틱에 맡기지 않고 자산 유형으로 먼저 제외한다.
+        if not re.search(r'\bEQUITY\b', raw_code):
+            continue
+        base = raw_code.split()[0].replace('/', '.')
+        ticker = norm_holding_code(base)
+        if not ticker or not is_equity_row(ticker, name):
+            continue
+        try:
+            weight = float(cells[4].replace(',', '').replace('%', '').strip())
+        except Exception:
+            continue
+        if weight > 0:
+            picked.append((ticker, name or ticker, weight))
+    return merge_holdings(picked)
+
+
+def fetch_tiger(code):
+    """미래에셋 TIGER 공식 사이트에서 최신 PDF 구성종목 전체를 받는다."""
+    ksd_fund = kr_isin_from_short_code(code)
+    if not ksd_fund:
+        return []
+    body = urllib.parse.urlencode({
+        'ksdFund': ksd_fund,
+        'pageIndex': '1',
+        'firstIndex': '0',
+        'listCnt': '500',
+    }).encode('utf-8')
+    headers = {
+        'User-Agent': UA,
+        'Accept': 'text/html, */*; q=0.01',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Referer': (
+            'https://investments.miraeasset.com/tigeretf/ko/product/search/'
+            'detail/index.do?ksdFund=' + ksd_fund
+        ),
+        'X-Requested-With': 'XMLHttpRequest',
+    }
+    try:
+        req = urllib.request.Request(TIGER_PDF_URL, data=body, headers=headers)
+        with urllib.request.urlopen(req, timeout=25) as r:
+            text = r.read().decode('utf-8', 'replace')
+        holdings = parse_tiger_pdf_html(text)
+        print('[tiger] %s (%s): 공식 PDF %d행 추출'
+              % (code, ksd_fund, len(holdings)), file=sys.stderr)
+        return holdings
+    except Exception as e:
+        print('[tiger] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
+        return []
+
+
 # 브랜드 → callable(code) -> [{'t','n','w'}]
-# 각 운용사의 자산구성 XHR 엔드포인트는 실제 Network 탭 관찰이 필요해 아직 비어 있다.
-# 추측한 URL 을 넣으면 죽은 코드가 되므로, 첫 수집 실행의 failures 를 근거로 채운다.
-PROVIDER_ADAPTERS = {}
+PROVIDER_ADAPTERS = {
+    'TIGER': fetch_tiger,
+}
 
 BRAND_RE = re.compile(r'^(TIGER|KODEX|RISE|PLUS|TIME|ACE|SOL|KOSEF|HANARO|KBSTAR|ARIRANG)', re.I)
 

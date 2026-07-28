@@ -46,7 +46,9 @@ jobs:
         run: python scripts/collect_etf_holdings.py --smoke 133690
 
       - name: 파서 단위 테스트
-        run: python scripts/tests/test_parse_krx_pdf.py
+        run: |
+          python scripts/tests/test_parse_krx_pdf.py
+          python scripts/tests/test_tiger_provider.py
 
       - name: 구성종목 수집
         env:
