@@ -269,7 +269,26 @@ async function cbEnsureEtfHoldings(){
 }
 
 function cbIsEtf(i){
-  return i.grp==='주식' && typeof _gicsSector==='function' && /ETF$/.test(_gicsSector(i)||'');
+  if (!i || i.grp!=='주식') return false;
+  const market = String(i.market || i.marketType || i.type || '').toUpperCase();
+  if (market === 'ETF' || market.endsWith(' ETF')) return true;
+  const code = cbStrip(i.tkr);
+  const db = window._krStocksDB;
+  const meta = db && db.byCode && typeof db.byCode.get==='function' ? db.byCode.get(code) : null;
+  if (meta && String(meta.market || '').toUpperCase()==='ETF') return true;
+  return typeof _gicsSector==='function' && /ETF$/.test(_gicsSector(i)||'');
+}
+
+// 단일 기초자산 레버리지 ETF는 일반 구성종목 목록 대신 기초자산·노출배수를 해석한다.
+// 회사 집중도는 직접 보유한 개별 회사와의 교집합만 표시하므로 ETHU 같은 가상화폐
+// 파생 ETF는 회사 행으로 나오지 않고, 이미 해석된 상품이므로 미조회 각주에도 표시하지 않는다.
+function cbSyntheticEtfHoldings(i){
+  const ticker = cbStrip(i && i.tkr);
+  const name = String(i && i.name || '').toUpperCase();
+  if (ticker==='ETHU' || (/(2X|ULTRA)/.test(name) && /(ETHER|ETHEREUM|이더리움)/.test(name))){
+    return [{ t:'ETH', n:'이더리움', w:200 }];
+  }
+  return null;
 }
 function cbLookThrough(ownerFilter){
   const doc = cbEtfDoc();
@@ -294,7 +313,8 @@ function cbLookThrough(ownerFilter){
     etfCount++;
     const strip = cbStrip(r.i.tkr);
     const ent = doc && doc.etfs ? doc.etfs[strip] : null;
-    const holdings = (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    const collected = (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    const holdings = (collected && collected.length) ? collected : cbSyntheticEtfHoldings(r.i);
     // 수집 데이터가 없는 ETF는 간접 보유분 없이 넘어가고 각주에 이름만 남긴다
     if (!holdings || !holdings.length){
       if (doc && etfMiss.indexOf(r.title)<0) etfMiss.push(r.title);
@@ -326,9 +346,10 @@ function cbRisk(ownerFilter){
   const byCls = {}; rows.forEach(r=>{ byCls[r.cls]=(byCls[r.cls]||0)+r.val; });
   const secs0 = cbSectors(false, ownerFilter).list;
   const pctOf = v => v/nw*100;
-  const nonCash = rows.filter(r=>r.cls!=='cash');
-  const top = nonCash[0];
-  const topPct = top ? pctOf(top.val) : 0;
+  // 단일 종목 집중도 역시 개별 회사만 대상으로 하며 ETF 자체·가상화폐·금은 제외한다.
+  // ETF 간접 보유분은 cbLookThrough에서 같은 소유주의 직접 보유 회사와 겹치는 부분만 합산된다.
+  const top = cbLookThrough(ownerFilter).list[0];
+  const topPct = top ? top.pct : 0;
   const cryptoPct = pctOf(byCls.crypto||0), cashPct = pctOf(byCls.cash||0);
   const fxPct = pctOf(rows.filter(r=>r.i.cur && r.i.cur!=='KRW').reduce((s,r)=>s+r.val,0));
   const vol = rows.reduce((s,r)=>s+(r.val/nw)*(CB_VOL[r.cls]||0),0)*100;
@@ -344,8 +365,10 @@ function cbRisk(ownerFilter){
     if(invert){ if(val<thBad) lvl=2; else if(val<thWarn) lvl=1; }
     else { if(val>thBad) lvl=2; else if(val>thWarn) lvl=1; }
     const color=[upC,wnC,dnC][lvl];
+    const fillRaw = invert ? Math.min(100, val/(thWarn*2)*100) : val;
     return { title, valFmt, status:['양호','주의','경고'][lvl], color,
-      fill: Math.max(4, Math.min(100, Math.round(invert ? Math.min(100, val/(thWarn*2)*100) : val))),
+      // 0% 항목에 최소 너비를 강제로 칠하지 않는다. 소유주별 실제 비중과 막대 길이를 일치시킨다.
+      fill: Math.max(0, Math.min(100, Math.round(fillRaw))),
       msg: msgs[lvl], lvl };
   };
   const topName = top ? top.title : '—';
@@ -369,7 +392,7 @@ function cbRisk(ownerFilter){
   return { score, grade: score>=75?'안정적':score>=50?'주의 필요':'고위험',
     color: score>=75?upC:score>=50?wnC:dnC,
     warns: cards.filter(c=>c.lvl>0).length,
-    vol, fxPct, cashPct, cards };
+    vol, cryptoPct, fxPct, cashPct, cards };
 }
 
 // ───────────────────────── SVG 빌더 ─────────────────────────
@@ -887,24 +910,38 @@ function cbLookThroughPanel(ownerFilter){
   } else {
     body = shown.map(x=>{
       const pctColor = x.pct>30 ? dnC : x.pct>20 ? wnC : 'var(--tx)';
-      // hover 설명: 직접 보유 + 어떤 ETF를 통해 얼마나 간접 보유하는지 — 세그먼트별로 노출
-      const etfTip = x.etfs.length
-        ? x.etfs.map(e=>`${ownerFilter?'':(e.owner?e.owner+' · ':'')}${e.etf} 편입 ${e.w}% → ${cbDisp(e.val)} 간접 보유`).join(' · ')
-        : '';
-      const dirTip = `${cbEsc(x.title)} 직접 보유 ${x.dPct.toFixed(1)}% (${cbDisp(x.val)})${x.vPct>0?` · 합계 ${x.pct.toFixed(1)}%`:''}`;
-      const viaTip = `${cbEsc(x.title)} ETF 간접 보유 ${x.vPct.toFixed(1)}% (${cbDisp(x.via)}) — ${cbEsc(etfTip)}`;
+      // 회사명 → 직접/간접 비중 → ETF별 간접 비중 순서로 줄바꿈한다.
+      // 같은 ETF를 여러 계좌에서 보유한 경우 한 줄로 합쳐 표시하며 원화 금액은 노출하지 않는다.
+      const etfMap = new Map();
+      x.etfs.forEach(e=>{
+        const key = (ownerFilter?'':String(e.owner||'')) + '::' + String(e.etf||'');
+        const prev = etfMap.get(key) || { owner:e.owner||'', etf:e.etf||'', val:0 };
+        prev.val += Number(e.val)||0;
+        etfMap.set(key, prev);
+      });
+      const pctText = p => p>0 && p<0.01 ? '<0.01%' : p.toFixed(2)+'%';
+      const tipLines = [
+        x.title,
+        `직접 보유 ${x.dPct.toFixed(1)}%`,
+        `간접 보유 ${x.vPct.toFixed(1)}%`,
+        ...Array.from(etfMap.values()).map(e=>{
+          const prefix = ownerFilter ? '' : (e.owner ? e.owner+' · ' : '');
+          return `· ${prefix}${e.etf} ${pctText(e.val/lt.nw*100)}`;
+        }),
+      ];
+      const stockTip = cbEsc(tipLines.join('\n'));
       return `
       <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px">
         <span style="width:148px;flex-shrink:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.title)}</span>
         <div style="flex:1;min-width:120px;height:14px;border-radius:4px;background:var(--inner)">
           <div style="display:flex;gap:2px;height:100%">
-            ${x.dPct>0?`<span class="cb-tip-block" data-tip="${dirTip}" style="display:block;height:100%;width:${Math.max(0.6,(x.dPct/mx*100)).toFixed(2)}%;background:${C_DIR};border-radius:3px"></span>`:''}
-            ${x.vPct>0?`<span class="cb-tip-block" data-tip="${viaTip}" style="display:block;height:100%;width:${Math.max(0.6,(x.vPct/mx*100)).toFixed(2)}%;background:${C_VIA};border-radius:3px"></span>`:''}
+            ${x.dPct>0?`<span class="cb-tip-block cb-risk-tip" data-tip="${stockTip}" style="display:block;height:100%;width:${Math.max(0.6,(x.dPct/mx*100)).toFixed(2)}%;background:${C_DIR};border-radius:3px"></span>`:''}
+            ${x.vPct>0?`<span class="cb-tip-block cb-risk-tip" data-tip="${stockTip}" style="display:block;height:100%;width:${Math.max(0.6,(x.vPct/mx*100)).toFixed(2)}%;background:${C_VIA};border-radius:3px"></span>`:''}
           </div>
         </div>
         <span class="cb-num" style="width:54px;text-align:right;font-weight:800;color:${pctColor};flex-shrink:0">${x.pct.toFixed(1)}%</span>
         <span style="width:190px;flex-shrink:0;font-size:10.5px;color:var(--lab);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${
-          x.vPct>0 ? `직접 ${x.dPct.toFixed(1)}% + <span ${etfTip?`data-tip="${cbEsc(etfTip)}"`:''} style="color:${C_VIA};font-weight:700">ETF ${x.vPct.toFixed(1)}%</span>` : '직접 보유만'
+          x.vPct>0 ? `직접 ${x.dPct.toFixed(1)}% + <span style="color:${C_VIA};font-weight:700">ETF ${x.vPct.toFixed(1)}%</span>` : '직접 보유만'
         }</span>
       </div>`;
     }).join('');
@@ -918,7 +955,7 @@ function cbLookThroughPanel(ownerFilter){
   return `
     <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)"><span data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 순자산 대비':'전체 순자산 대비'}</span></span>
+        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 순자산 대비':'전체 순자산 대비'}</span></span>
         <div style="display:flex;gap:12px;font-size:10.5px;color:var(--mut);margin-left:auto;flex-wrap:wrap">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_DIR}"></span>직접 보유</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_VIA}"></span>ETF 간접 보유</span>
