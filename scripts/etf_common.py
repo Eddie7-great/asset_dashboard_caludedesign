@@ -7,6 +7,7 @@ GitHub Actions 배치에서만 돌아간다.
 
 import json
 import re
+import sys
 import urllib.parse
 import urllib.request
 
@@ -192,7 +193,8 @@ def fetch_naver(code):
     """m.stock.naver.com etfAnalysis — 응답 스키마가 바뀔 수 있어 JSON 트리를 관대하게 탐색."""
     try:
         data = http_json('https://m.stock.naver.com/api/stock/%s/etfAnalysis' % code, timeout=12)
-    except Exception:
+    except Exception as e:
+        print('[naver] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
         return []
 
     def _w(d):
@@ -240,7 +242,9 @@ def fetch_naver(code):
             if len(rows) > len(best):
                 best = rows
             stack.extend(node)
-    return merge_holdings(best)
+    result = merge_holdings(best)
+    print('[naver] %s: 원시 응답에서 주식 행 %d개 추출' % (code, len(result)), file=sys.stderr)
+    return result
 
 
 # ── yfinance / stockanalysis (해외) ─────────────────────────────

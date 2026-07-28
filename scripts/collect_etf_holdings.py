@@ -98,12 +98,14 @@ def krx_isin_map():
     if _PykrxEtfMaster is not None:
         try:
             rows = _PykrxEtfMaster().fetch().to_dict('records')
+            print('[krx master] pykrx 응답 %d행' % len(rows), file=sys.stderr)
         except Exception as e:
             print('[krx master] pykrx %s: %s' % (type(e).__name__, e), file=sys.stderr)
     if rows is None:
         try:
             j = http_json(KRX_URL, data={'bld': BLD_ETF_MASTER}, headers=KRX_HEADERS, timeout=30)
             rows = j.get('output') or j.get('OutBlock_1') or []
+            print('[krx master] http 응답 %d행' % len(rows), file=sys.stderr)
         except Exception as e:
             print('[krx master] http %s: %s' % (type(e).__name__, e), file=sys.stderr)
             rows = []
@@ -113,6 +115,7 @@ def krx_isin_map():
         name = str(row.get('ISU_ABBRV') or '').strip()
         if srt and isin:
             _isin_map[srt] = {'isin': isin, 'name': name}
+    print('[krx master] ISIN 맵 %d건 구축' % len(_isin_map), file=sys.stderr)
     return _isin_map
 
 
@@ -135,23 +138,29 @@ def fetch_krx(code):
         return [], 0.0, None
     ent = krx_isin_map().get(code)
     if not ent:
+        print('[krx pdf] %s: ISIN 맵에 없음 (마스터 조회 자체가 비었을 가능성)' % code, file=sys.stderr)
         return [], 0.0, None
+    print('[krx pdf] %s → ISIN %s (%s)' % (code, ent['isin'], ent.get('name')), file=sys.stderr)
     for d in recent_biz_days(5):
         rows = None
         if _PykrxPdf is not None:
             try:
                 rows = _PykrxPdf().fetch(d, ent['isin']).to_dict('records')
+                print('[krx pdf] pykrx %s %s: 원본 %d행' % (code, d, len(rows)), file=sys.stderr)
             except Exception as e:
-                print('[krx pdf] pykrx %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
+                print('[krx pdf] pykrx %s %s: %s: %s' % (code, d, type(e).__name__, e), file=sys.stderr)
         if rows is None:
             try:
                 j = http_json(KRX_URL, data={'bld': BLD_ETF_PDF, 'trdDd': d, 'isuCd': ent['isin']},
                               headers=KRX_HEADERS, timeout=25)
                 rows = j.get('output') or j.get('OutBlock_1') or []
+                print('[krx pdf] http %s %s: 원본 %d행' % (code, d, len(rows)), file=sys.stderr)
             except Exception as e:
-                print('[krx pdf] http %s %s: %s' % (code, d, type(e).__name__), file=sys.stderr)
+                print('[krx pdf] http %s %s: %s: %s' % (code, d, type(e).__name__, e), file=sys.stderr)
                 continue
         holdings, eq = parse_krx_pdf(rows)
+        print('[krx pdf] %s %s: 파싱 후 주식 %d행 (equityWeight %.1f%%)'
+              % (code, d, len(holdings), eq), file=sys.stderr)
         if holdings:
             return holdings, eq, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
     return [], 0.0, None
