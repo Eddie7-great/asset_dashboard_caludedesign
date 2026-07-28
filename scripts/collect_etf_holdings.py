@@ -141,6 +141,7 @@ def fetch_krx(code):
         print('[krx pdf] %s: ISIN 맵에 없음 (마스터 조회 자체가 비었을 가능성)' % code, file=sys.stderr)
         return [], 0.0, None
     print('[krx pdf] %s → ISIN %s (%s)' % (code, ent['isin'], ent.get('name')), file=sys.stderr)
+    dumped = False
     for d in recent_biz_days(5):
         rows = None
         if _PykrxPdf is not None:
@@ -158,6 +159,12 @@ def fetch_krx(code):
             except Exception as e:
                 print('[krx pdf] http %s %s: %s: %s' % (code, d, type(e).__name__, e), file=sys.stderr)
                 continue
+        # 파서가 105행 전부를 걸러내는 원인을 모른다 — 실제 필드명/값을 한 번 그대로 찍어본다.
+        # (추측 대신 실측: 해외 편입 종목이 많은 ETF라 코드 필드 포맷이 다를 가능성이 크다)
+        if rows and not dumped:
+            print('[krx pdf] %s %s: 원본 첫 3행 실제 필드 → %s'
+                  % (code, d, json.dumps(rows[:3], ensure_ascii=False, default=str)), file=sys.stderr)
+            dumped = True
         holdings, eq = parse_krx_pdf(rows)
         print('[krx pdf] %s %s: 파싱 후 주식 %d행 (equityWeight %.1f%%)'
               % (code, d, len(holdings), eq), file=sys.stderr)
