@@ -273,11 +273,16 @@ function cbLookThrough(ownerFilter){
   const doc = cbEtfDoc();
   const rows = cbAllRows().filter(r=>!ownerFilter || r.i.owner===ownerFilter);
   const nw = rows.reduce((s,r)=>s+r.val,0) || 1;
-  // 직접 보유한 개별 종목 (주식만, ETF 제외) — 계좌/소유주가 달라도 티커로 합산
+  // 직접 보유한 개별 종목(주식만, ETF 제외).
+  // 화면 표시는 티커별로 합산하되, ETF 간접 보유는 반드시 같은 소유주의 직접 종목에만 더한다.
   const direct = new Map();
+  const directByOwner = new Map();
   rows.forEach(r=>{
     if (r.i.grp!=='주식' || cbIsEtf(r.i)) return;
     const s = cbStrip(r.i.tkr); if(!s) return;
+    const ownerKey = String(r.i.owner||'') + '::' + s;
+    const od = directByOwner.get(ownerKey) || { val:0 };
+    od.val += r.val; directByOwner.set(ownerKey, od);
     const d = direct.get(s) || { tkr:s, title:r.title, val:0, via:0, etfs:[] };
     d.val += r.val; direct.set(s, d);
   });
@@ -294,13 +299,16 @@ function cbLookThrough(ownerFilter){
       return;
     }
     holdings.forEach(h=>{
-      const d = direct.get(cbStrip(h.t));
-      if (!d) return; // 개별 보유가 없는 구성종목은 계산 제외
+      const ticker = cbStrip(h.t);
+      const ownerKey = String(r.i.owner||'') + '::' + ticker;
+      if (!directByOwner.has(ownerKey)) return; // 같은 소유주의 직접 보유가 없으면 계산 제외
+      const d = direct.get(ticker);
+      if (!d) return;
       const w = Number(h.w)||0;
       const add = r.val * w / 100;
       if (add<=0) return;
       d.via += add;
-      d.etfs.push({ etf: r.title, w: w, val: add });
+      d.etfs.push({ owner:r.i.owner||'', etf:r.title, w: w, val:add });
     });
   });
   const list = Array.from(direct.values())
@@ -879,7 +887,7 @@ function cbLookThroughPanel(ownerFilter){
       const pctColor = x.pct>30 ? dnC : x.pct>20 ? wnC : 'var(--tx)';
       // hover 설명: 직접 보유 + 어떤 ETF를 통해 얼마나 간접 보유하는지 — 세그먼트별로 노출
       const etfTip = x.etfs.length
-        ? x.etfs.map(e=>`${e.etf} 편입 ${e.w}% → ${cbDisp(e.val)} 간접 보유`).join(' · ')
+        ? x.etfs.map(e=>`${ownerFilter?'':(e.owner?e.owner+' · ':'')}${e.etf} 편입 ${e.w}% → ${cbDisp(e.val)} 간접 보유`).join(' · ')
         : '';
       const dirTip = `${cbEsc(x.title)} 직접 보유 ${x.dPct.toFixed(1)}% (${cbDisp(x.val)})${x.vPct>0?` · 합계 ${x.pct.toFixed(1)}%`:''}`;
       const viaTip = `${cbEsc(x.title)} ETF 간접 보유 ${x.vPct.toFixed(1)}% (${cbDisp(x.via)}) — ${cbEsc(etfTip)}`;

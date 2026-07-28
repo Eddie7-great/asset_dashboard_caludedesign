@@ -52,6 +52,7 @@ jobs:
         run: |
           python scripts/tests/test_parse_krx_pdf.py
           python scripts/tests/test_domestic_sources.py
+          node scripts/tests/test_lookthrough_owner_scope.mjs
 
       - name: 구성종목 수집
         env:
