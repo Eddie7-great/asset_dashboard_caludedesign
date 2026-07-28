@@ -54,6 +54,8 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   `{asOf, etfs:{code:{name,asOf,source,equityWeight,holdings:[{t,n,w}]}}, failures:[ETF명]}`.
   수집 실패해도 직전 스냅샷이 있으면 유지하고(해당 entry 의 `asOf` 가 곧 stale 표시), 없으면 `failures` 에 이름만 넣는다.
 - 프런트(`cbEnsureEtfHoldings` → `cbLookThrough` → `cbLookThroughPanel`)는 이 파일만 읽는다.
+  앱 시작 시 `cache: 'no-cache'`로 정적 JSON의 ETag/Last-Modified를 재검증하므로,
+  변경이 없으면 캐시 본문을 재사용하고 새 스냅샷이 있을 때만 내려받는다.
   룩스루는 소유주별로 `직접 보유 종목 ∩ 해당 소유주의 ETF 구성종목`만 계산하며,
   전체 보기에서도 서로 다른 소유주의 직접 종목과 ETF를 교차 합산하지 않는다.
   각주에는 구성종목을 못 받은 ETF 이름만 한 줄로 나열하고, 전부 성공이면 각주를 렌더하지 않는다(실패 사유는 비노출).

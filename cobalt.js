@@ -259,7 +259,9 @@ async function cbEnsureEtfHoldings(){
   if (_cbEtfLoading || window._etfHoldings !== undefined) return;
   _cbEtfLoading = true;
   try{
-    const r = await fetch('data/etf_holdings.json');
+    // 페이지를 다시 열 때 서버에 최신 여부만 조건부 확인한다.
+    // 브라우저 캐시가 최신이면 ETag/Last-Modified 재검증 후 기존 본문을 재사용한다.
+    const r = await fetch('data/etf_holdings.json', { cache:'no-cache' });
     window._etfHoldings = r.ok ? await r.json() : null;
   }catch(e){ window._etfHoldings = null; }
   finally{ _cbEtfLoading = false; }
@@ -1900,3 +1902,6 @@ setTheme = function(mode){
   _cbOrigSetTheme(mode);
   cbRerender();
 };
+
+// 리스크 페이지에 들어갈 때까지 기다리지 않고 앱을 열자마자 최신 ETF 스냅샷을 확인한다.
+cbEnsureEtfHoldings();
