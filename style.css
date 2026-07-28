@@ -64,6 +64,15 @@
     .cb-scroll > div:first-child [data-tip]:hover::after{bottom:auto;top:calc(100% + 7px)}
     /* 블록형 툴팁 대상(progress bar 세그먼트 등) — 점선 밑줄 제거 */
     [data-tip].cb-tip-block{border-bottom:none}
+    /* 리스크 룩스루: 문장/ETF 목록이 250px 박스에 갇히지 않도록 가로폭을 확보하고,
+       종목 툴팁의 명시적 줄바꿈을 그대로 보존한다. */
+    [data-tip].cb-risk-tip:hover::after{
+      left:50%;transform:translateX(-50%);width:max-content;min-width:190px;
+      max-width:min(380px,calc(100vw - 36px));white-space:pre-line;overflow-wrap:anywhere
+    }
+    [data-tip].cb-risk-tip-wide:hover::after{
+      width:420px;max-width:min(420px,calc(100vw - 36px));white-space:normal;overflow-wrap:break-word
+    }
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}

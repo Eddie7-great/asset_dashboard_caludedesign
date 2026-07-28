@@ -5984,9 +5984,16 @@ function _gicsSector(item) {
   const tStrip = (item.tkr || '').toUpperCase().replace(/\.(KS|KQ|T)$/, '');
 
   // 1) ETF 우선 분류 (국내/해외 ETF 네이밍 규칙 + 대표 티커) → Index ETF / Sector ETF 두 가지만
+  //    국내 종목은 stocks.json의 시장구분을 최우선으로 사용한다. 브랜드명이 상품명에
+  //    직접 드러나지 않는 TIME 같은 ETF도 이름 추정에 의존하지 않고 정확히 분류된다.
   //    짧은 브랜드(ACE/SOL/PLUS)는 단어 경계로 제한해 오탐 방지
   //    (예: "SPACE Exploration"의 ACE, "SOLAR"의 SOL 이 ETF로 잘못 분류되지 않도록)
-  const isETF = /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF/.test(nameU)
+  const krMeta = window._krStocksDB && window._krStocksDB.byCode
+    ? window._krStocksDB.byCode.get(tStrip)
+    : null;
+  const isKrEtf = !!(krMeta && String(krMeta.market || '').toUpperCase() === 'ETF');
+  const isETF = isKrEtf
+    || /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF|TIMEFOLIO|TIME/.test(nameU)
     || /(^|\s)(ACE|SOL|PLUS|RISE)(\s|\d|$)/.test(nameU)
     || /QQQ|NASDAQ\s*100|S&P\s*500|PROSHARES|DIREXION/i.test(name)
     || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
