@@ -64,6 +64,7 @@
     .cb-scroll > div:first-child [data-tip]:hover::after{bottom:auto;top:calc(100% + 7px)}
     /* 블록형 툴팁 대상(progress bar 세그먼트 등) — 점선 밑줄 제거 */
     [data-tip].cb-tip-block{border-bottom:none}
+    [data-tip].cb-account-tip:hover::after{white-space:pre-line;min-width:150px}
     /* 리스크 룩스루: 문장/ETF 목록이 250px 박스에 갇히지 않도록 가로폭을 확보하고,
        종목 툴팁의 명시적 줄바꿈을 그대로 보존한다. */
     [data-tip].cb-risk-tip:hover::after{
@@ -165,7 +166,7 @@
     /* 자산 내역도 가족 자산·배당 관리와 같은 행 타이포그래피/색상 체계를 사용한다. */
     #view-holdings .pt-group{border-color:var(--bd);border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
     #view-holdings .pt-group-header{padding:13px 15px;background:var(--panel);border-color:var(--bd);border-radius:12px 12px 0 0}
-    #view-holdings .pt-group-title{font-family:'Noto Sans KR','Manrope',sans-serif;font-size:12.5px;font-weight:700;color:var(--tx)}
+    #view-holdings .pt-group-title{font-family:'Noto Sans KR','Manrope',sans-serif;font-size:12.5px;font-weight:700;color:var(--tx);flex-wrap:wrap}
     #view-holdings .pt-group-stats{font-family:'Noto Sans KR','Manrope',sans-serif;font-size:11.5px;color:var(--mut)}
     #view-holdings .pt-table{font-family:'Noto Sans KR','Manrope',sans-serif;color:var(--tx)}
     #view-holdings .pt-table th{padding:9px 8px;background:var(--panel);color:var(--dim);font-family:'Noto Sans KR','Manrope',sans-serif}
@@ -174,6 +175,12 @@
     #view-holdings .pt-table .tkr-txt{color:var(--lab);font-size:10px}
     #view-holdings .pt-table .broker-txt{color:var(--mut);font-size:11.5px;font-weight:600}
     #view-holdings .holdings-account{font-size:10.5px;color:var(--lab)}
+    #view-holdings .holdings-inline-cell{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:100%;white-space:nowrap}
+    #view-holdings .holdings-inline-name,
+    #view-holdings .holdings-inline-cell .broker-txt,
+    #view-holdings .holdings-inline-cell .holdings-account{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #view-holdings .holdings-inline-ticker{flex-shrink:0}
+    #view-holdings .pt-table-fixed td.holdings-tooltip-cell{overflow:visible}
     #view-holdings .holdings-owner{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:11.5px;font-weight:600}
     #view-holdings .holdings-owner-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
     #view-holdings .dca-cycle-head,
@@ -184,8 +191,13 @@
     #view-holdings .dca-amount{color:var(--tx);font-size:12px;font-weight:600}
     #view-holdings .pt-table th.mgmt-head,
     #view-holdings .pt-table td.mgmt-cell{text-align:center;padding-left:4px;padding-right:4px}
+    #view-holdings .mgmt-head-grid{width:46px;display:inline-grid;grid-template-columns:22px 22px;gap:2px;align-items:center;justify-items:center}
+    #view-holdings .mgmt-head-label{grid-column:2}
     #view-holdings .holdings-actions{display:inline-flex;align-items:center;justify-content:center;gap:2px}
     #view-holdings .holdings-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
+    #view-holdings .holdings-broker-filter-inline{max-width:100%;flex-wrap:wrap}
+    #view-holdings .holdings-broker-filter-inline select{max-width:230px}
+    #owner-tabs-container.holdings-owner-tabs{margin-inline:auto!important;padding-inline:12px}
     #div-table-body td:first-child{white-space:normal}
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
     #cf-detail-table{table-layout:fixed}
@@ -861,6 +873,10 @@
     select.cb-input option{background:var(--panelSolid);color:var(--tx)}
     .cb-hrow{border-radius:9px;transition:background .12s}
     .cb-hrow:hover{background:var(--hover)}
+    .cb-asset-inline{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:100%;white-space:nowrap;font-size:13px;font-weight:700}
+    .cb-asset-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cb-asset-ticker{flex-shrink:0;color:var(--lab);font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500}
+    .cb-account-badge{font-size:9px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0}
     /* 성과 비교 라인 차트 — 렌더 시 자연스러운 드로잉/페이드 인 */
     @keyframes cbLineDraw{to{stroke-dashoffset:0}}
     @keyframes cbLineFade{from{opacity:0}to{opacity:var(--o,1)}}
@@ -877,9 +893,17 @@
        헤더를 .cb-scroll 기준으로 sticky 시킨다. 좁은 폭에서는 가로 스크롤을 우선한다. */
     .cb-tblwrap{overflow-x:visible}
     .cb-thead{position:sticky;top:0;z-index:3;background:var(--panel)}
+    .cb-table-panel{overflow-x:visible!important}
+    @media (min-width:1201px){
+      #view-holdings .pt-table-wrap{overflow:visible}
+      #view-holdings .pt-table th{top:0;z-index:4;background:var(--panelSolid)}
+      /* .sortable 의 기존 position:relative가 수량~수익률 헤더의 sticky를 덮지 않도록 복원 */
+      #view-holdings .pt-table th.sortable{position:sticky}
+    }
     @media (max-width:1200px){
       .cb-tblwrap{overflow-x:auto}
       .cb-thead{position:static}
+      .cb-table-panel{overflow-x:auto!important}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */

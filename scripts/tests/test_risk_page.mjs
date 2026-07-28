@@ -75,6 +75,8 @@ const allLookThrough = context.cbLookThrough(null)
 assert.equal(allLookThrough.list.some(x => x.tkr === '426030'), false, 'TIME ETF 자체는 종목 집중도에서 제외')
 assert.equal(allLookThrough.list.some(x => x.tkr === 'ETHU'), false, 'ETHU 자체는 종목 집중도에서 제외')
 assert.equal(allLookThrough.etfMiss.includes('2x Ether ETF'), false, '직접 ETH가 없는 ETHU는 미조회 각주에서도 제외')
+assert.deepEqual(Array.from(allLookThrough.list.find(x => x.tkr === '005930').owners), ['아버지'], '전체 룩스루 행에 직접 보유 소유주 기록')
+assert.match(source, /`소유주 \$\{ownerNames\.join\(' · '\)\}`/, '전체 소유주 막대 툴팁에 소유주명 표시')
 
 const fatherRisk = context.cbRisk('아버지')
 assert.equal(fatherRisk.cryptoPct, 0, '아버지 가상화폐 비중')

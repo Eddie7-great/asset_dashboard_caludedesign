@@ -12,14 +12,13 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
 <!-- 로그인 오버레이 -->
 <div id="login-overlay">
   <div class="login-card glass-panel">
-    <div class="login-logo"><span class="logo-badge" style="width:44px;height:44px;font-size:20px;border-radius:12px;margin:0 auto;">가</span></div>
     <h2 class="login-title">가족 자산 관리</h2>
     <p class="login-sub">비밀번호를 입력하세요</p>
     <div class="login-input-wrap">
@@ -74,7 +73,7 @@
           <button class="side-seg-btn active" id="theme-seg-navy" onclick="setTheme('navy')">네이비</button>
         </div>
       </div>
-      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">전일 종가 갱신</span></button>
+      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);padding:0 3px">
         <span style="width:6px;height:6px;border-radius:50%;background:var(--up);flex-shrink:0"></span><span id="feed-note">시세 연동 대기</span>
       </div>
@@ -669,7 +668,7 @@
       <div class="form-group f-col" style="flex:1"><label class="form-label">금융기관</label><select class="form-input" id="add-broker"></select></div>
       <div class="form-group f-col" style="flex:1"><label class="form-label">계좌종류</label><select class="form-input" id="add-account"></select></div>
     </div>
-    <!-- 주식/코인/금 전용: 종목명/티커 통합 검색 + 화폐 선택 -->
+    <!-- 주식/코인 전용: 종목명/티커 통합 검색 + 화폐 선택 -->
     <!-- 숨겨진 시장값 (내부 로직용) -->
     <input type="hidden" id="add-market" value="US">
     <div id="row-market-search" style="display:none;">
@@ -716,6 +715,15 @@
             <div class="form-group f-col" style="flex:1;min-width:100px;gap:3px"><label class="form-label" style="font-size:.65rem">현재가</label><input type="text" id="manual-price" class="form-input" placeholder="0" inputmode="decimal" style="padding:6px 8px;font-size:.78rem"></div>
             <button class="api-btn" onclick="confirmManualStock()" style="padding:6px 12px;font-size:.75rem">적용</button>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- 금 전용: 시세 검색이나 티커 없이 사용자가 자산명만 지정 -->
+    <div id="row-gold-name" style="display:none;">
+      <div class="form-row" style="margin-bottom:8px">
+        <div class="form-group f-col" style="flex:1">
+          <label class="form-label">자산명</label>
+          <input type="text" class="form-input" id="add-gold-name" value="금" placeholder="예: 금 현물, 골드바">
         </div>
       </div>
     </div>
@@ -797,7 +805,7 @@
   </div>
 </div>
 
-<script src="script.js?v=25"></script>
-<script src="cobalt.js?v=5"></script>
+<script src="script.js?v=27"></script>
+<script src="cobalt.js?v=7"></script>
 </body>
 </html>
