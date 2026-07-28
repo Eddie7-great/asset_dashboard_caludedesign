@@ -358,6 +358,28 @@ function cbSyntheticEtfHoldings(i){
   }
   return null;
 }
+
+// 레버리지·인버스 노출은 ETF 평가액 자체를 순자산과 비교한다.
+// 국내 상품명 규칙과 해외 대표 티커/영문 상품명 규칙을 함께 사용해 특정 ETF에 한정하지 않는다.
+function cbLeveragedInverseMeta(i){
+  if (!cbIsEtf(i)) return null;
+  const ticker = cbStrip(i && i.tkr);
+  const name = String(i && i.name || '').toUpperCase();
+  const inverseTickers = new Set([
+    'SH','PSQ','DOG','RWM','SQQQ','QID','SPXU','SDS','SOXS','LABD','TECS','TZA','SDOW',
+  ]);
+  const leveragedTickers = new Set([
+    'QLD','TQQQ','UPRO','SSO','SOXL','LABU','TECL','TNA','UDOW','FNGU','NAIL','WANT',
+    'USD','BITU','ETHU',
+  ]);
+  const inverse = inverseTickers.has(ticker)
+    || /인버스|곱버스|INVERSE|ULTRASHORT|SHORT|BEAR/.test(name);
+  const leveraged = leveragedTickers.has(ticker)
+    || /레버리지|LEVERAG|ULTRAPRO|(?:^|[\s(])ULTRA(?:[\s)]|$)|(?:^|[\s(+-])[23](?:\.\d+)?\s*(?:X|배)(?:[\s)]|$)|BULL\s*[23](?:\.\d+)?X/.test(name);
+  if (!inverse && !leveraged) return null;
+  return { kind: inverse ? '인버스' : '레버리지', ticker };
+}
+
 function cbLookThrough(ownerFilter){
   const doc = cbEtfDoc();
   const rows = cbAllRows().filter(r=>!ownerFilter || r.i.owner===ownerFilter);
@@ -422,6 +444,13 @@ function cbRisk(ownerFilter){
   const topPct = top ? top.pct : 0;
   const cryptoPct = pctOf(byCls.crypto||0), cashPct = pctOf(byCls.cash||0);
   const fxPct = pctOf(rows.filter(r=>r.i.cur && r.i.cur!=='KRW').reduce((s,r)=>s+r.val,0));
+  const leveragedInverse = rows
+    .map(r=>({ r, meta:cbLeveragedInverseMeta(r.i) }))
+    .filter(x=>x.meta)
+    .sort((a,b)=>b.r.val-a.r.val);
+  const leveragedInverseVal = leveragedInverse.reduce((s,x)=>s+x.r.val,0);
+  const leveragedInversePct = pctOf(leveragedInverseVal);
+  const leveragedInverseTop = leveragedInverse[0] || null;
   const vol = rows.reduce((s,r)=>s+(r.val/nw)*(CB_VOL[r.cls]||0),0)*100;
   const secs = secs0;
   const topSec = secs[0] || {label:'—', pct:0};
@@ -457,12 +486,28 @@ function cbRisk(ownerFilter){
       ['외화 노출이 적정 범위입니다.','자산의 60% 이상이 외화입니다. 환율 하락 리스크에 유의하세요.','외화 편중이 심합니다. 환헤지나 원화 자산 확대를 검토하세요.']),
     mk('자산군 분산', clsCount, clsCount+'개', 3, 2,
       [clsCount+'개 자산군에 분산되어 있습니다.','자산군이 3개 이하입니다. 분산 폭을 넓혀보세요.','자산군 다양성이 부족합니다.'], true),
+    mk('레버리지·인버스 노출도', leveragedInversePct, leveragedInversePct.toFixed(1)+'%', 5, 10,
+      leveragedInverseTop
+        ? [
+            leveragedInverse.length+'개 상품을 보유 중이며 최대 기여 상품은 '+leveragedInverseTop.r.title+'입니다.',
+            '순자산의 5%를 넘습니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 변동성에 유의하세요.',
+            '순자산의 10%를 초과합니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 비중 축소를 검토하세요.',
+          ]
+        : [
+            '보유 중인 레버리지·인버스 상품이 없습니다.',
+            '레버리지·인버스 상품 비중을 점검하세요.',
+            '레버리지·인버스 상품 비중 축소를 검토하세요.',
+          ]),
   ];
+  cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 순자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
   const score = Math.max(5, Math.min(98, 100 - cards.reduce((s,c)=>s+c.lvl*10,0)));
   return { score, grade: score>=75?'안정적':score>=50?'주의 필요':'고위험',
     color: score>=75?upC:score>=50?wnC:dnC,
     warns: cards.filter(c=>c.lvl>0).length,
-    vol, cryptoPct, fxPct, cashPct, cards };
+    vol, cryptoPct, fxPct, cashPct, leveragedInversePct,
+    leveragedInverseCount: leveragedInverse.length,
+    leveragedInverseTop: leveragedInverseTop ? leveragedInverseTop.r.title : '',
+    cards };
 }
 
 // ───────────────────────── SVG 빌더 ─────────────────────────
@@ -1103,10 +1148,10 @@ function cbRenderRisk(){
         ${r.cards.map(c=>`
           <div class="cb-panel" style="padding:13px 15px">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:700">${c.title}</span><span style="font-size:10px;font-weight:800;padding:1px 8px;border-radius:16px;background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
+              <div style="display:flex;align-items:center;gap:8px"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''} style="font-size:12.5px;font-weight:700">${c.title}</span><span style="font-size:10px;font-weight:800;padding:1px 8px;border-radius:16px;background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
               <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:${c.color}">${c.valFmt}</div>
             </div>
-            <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.55">${c.msg}</div>
+            <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.55">${cbEsc(c.msg)}</div>
             <div style="height:5px;border-radius:3px;background:var(--inner);margin-top:8px;overflow:hidden"><div style="height:100%;width:${c.fill}%;background:${c.color}"></div></div>
           </div>`).join('')}
       </div>
