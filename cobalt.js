@@ -175,6 +175,11 @@ function cbFlagSvg(r, h){
 function cbFlagCell(r, slot, h){
   return `<span style="width:${slot||30}px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${cbFlagSvg(r, h||16)}</span>`;
 }
+function cbAccountLabel(i){
+  const broker = String((i&&i.broker)||'').trim();
+  const account = String((i&&i.acc)||'').trim();
+  return [broker,account].filter(Boolean).join(' / ');
+}
 
 // 동일 소유주 + 동일 종목(다계좌)을 한 행으로 합산 (대시보드 내역·상세 공통)
 // 가중 평단가는 KRW 총원가 ÷ (합산수량 × 환율)로 역산해 종목 통화 기준으로 되돌린다.
@@ -185,19 +190,23 @@ function cbMergeRows(rows){
     if (m.has(key)){
       const g = m.get(key);
       g.qty += (r.i.qty||0); g.val += r.val; g.cost += r.cost; g.gain += r.gain;
-      g._items.push(r.i); if (r.i.acc) g.accts.add(r.i.acc);
+      g._items.push(r.i);
+      const accountLabel = cbAccountLabel(r.i); if (accountLabel) g.accts.add(accountLabel);
     } else {
+      const accountLabel = cbAccountLabel(r.i);
       m.set(key, { key, i:r.i, idx:r.idx, cls:r.cls, cl:r.cl, title:r.title, name:r.name,
         tkr:r.tkr, subTitle:r.subTitle, chip:r.chip,
         qty:(r.i.qty||0), val:r.val, cost:r.cost, gain:r.gain,
-        _items:[r.i], accts:new Set(r.i.acc?[r.i.acc]:[]) });
+        _items:[r.i], accts:new Set(accountLabel?[accountLabel]:[]) });
     }
   });
   return Array.from(m.values()).map(g=>{
     const rate = cbRate(g.i.cur);
+    const acctList = Array.from(g.accts);
     return { ...g,
       merged: g._items.length>1,
-      acctList: Array.from(g.accts),
+      acctList,
+      accountCount: acctList.length,
       gainPct: (g.i.grp!=='현금' && g.cost>0) ? g.gain/g.cost : null,
       avgNative: (g.qty>0 && rate>0) ? g.cost/(g.qty*rate) : cbAvgNative(g.i),
     };
@@ -213,6 +222,15 @@ function cbSortOwnerNameVal(rows){
     || String(a.i.grp||'').localeCompare(String(b.i.grp||''), 'ko')
     || cbCtryLabel(a).localeCompare(cbCtryLabel(b), 'ko')
     || String(a.title||'').localeCompare(String(b.title||''), 'ko'));
+}
+function cbSortDividendRows(rows){
+  const ownerRank = o => { const k=OWNERS.indexOf(o); return k<0 ? 99 : k; };
+  const countryRank = r => ({kr:0,us:1,jp:2})[r.cls] ?? 9;
+  return rows.slice().sort((a,b)=>
+    (ownerRank(a.i.owner)-ownerRank(b.i.owner))
+    || (countryRank(a)-countryRank(b))
+    || String(a.title||'').localeCompare(String(b.title||''), 'ko')
+    || ((Number(b.incomeKRW)||0)-(Number(a.incomeKRW)||0)));
 }
 
 // 페이지 소제목(작은 글씨)·페이지 컨트롤을 글로벌 헤더(메인 제목 옆)로 올린다.
@@ -643,7 +661,7 @@ function cbRenderDash(){
                 <div style="min-width:0">
                   <div style="display:flex;align-items:center;gap:5px">
                     <span style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.title)}</span>
-                    ${r.merged?`<span style="font-size:9px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0" data-tip="${cbEsc(r.acctList.join(', '))} 계좌 합산">${r.acctList.length}계좌</span>`:''}
+                    ${r.accountCount>1?`<span style="font-size:9px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0" data-tip="${cbEsc(r.acctList.join(', '))} 계좌 합산">${r.accountCount}계좌</span>`:''}
                   </div>
                   <div style="font-size:10.5px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.subTitle)}</div>
                 </div>
@@ -1081,7 +1099,7 @@ function cbRenderDiv(){
     if (merged.has(key)){ const m = merged.get(key); m.qty += (r.i.qty||0); m.cost += r.cost; if(r.i.acc) m.accts.add(r.i.acc); }
     else merged.set(key, { i:r.i, cl:r.cl, cls:r.cls, title:r.title, tkr:r.tkr, chip:r.chip, qty:(r.i.qty||0), cost:r.cost, idx:r.idx, accts:new Set(r.i.acc?[r.i.acc]:[]) });
   });
-  const list = Array.from(merged.values()).map(m=>{
+  const list = cbSortDividendRows(Array.from(merged.values()).map(m=>{
     const d = cbDivOf(m.i);
     const incomeKRW = d.annualDps * m.qty * cbRate(d.cur || m.i.cur);
     const g = cbDivGrowth(m.i);
@@ -1089,7 +1107,7 @@ function cbRenderDiv(){
     const avgNative = (m.qty>0 && rate>0) ? m.cost/(m.qty*rate) : cbAvgNative(m.i);
     return { ...m, d, incomeKRW, g, avgNative,
       yoc: avgNative>0 ? d.annualDps/avgNative*100 : null };
-  }).sort((a,b)=>b.incomeKRW-a.incomeKRW);
+  }));
 
   const divAnnual = list.reduce((s,x)=>s+x.incomeKRW,0);
   const divCost = list.reduce((s,x)=>s+x.cost,0) || 1;
@@ -1132,21 +1150,21 @@ function cbRenderDiv(){
       ${cbDivCalendarSvg(cal.monthAmt, 1100, 300)}
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px;overflow-x:auto">
-      <div style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 7px;border-bottom:1px solid var(--bd);min-width:820px">
-        <span style="width:62px">소유주</span><span style="flex:1">종목</span><span style="width:86px;text-align:right">주당 배당(연)</span><span style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span style="width:96px;text-align:right">연간 수입</span><span style="width:64px;text-align:right">주기</span><span style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+      <div style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 7px;border-bottom:1px solid var(--bd);min-width:880px">
+        <span style="width:62px">소유주</span><span style="width:38px">국가</span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입</span><span style="width:86px;text-align:right">주당 배당(연)</span><span style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span style="width:64px;text-align:right">주기</span><span style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
       </div>
       ${list.map(x=>`
-        <div style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:820px">
+        <div style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:880px">
           <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
-          <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">
-            ${cbFlagCell(x, 27, 15)}
+          <span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">${cbFlagSvg(x,15)}</span>
+          <div style="flex:1;display:flex;align-items:center;min-width:0">
             <div style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.title)}</div><div style="font-size:10px;color:var(--lab)">${cbEsc(x.tkr)}</div></div>
           </div>
+          <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
           <span class="cb-num" style="width:86px;text-align:right;font-size:11.5px">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
           <span style="width:70px;text-align:right;font-weight:600">${(x.d.yldNum||0).toFixed(2)}%</span>
           <span style="width:64px;text-align:right;font-weight:800;color:var(--up)">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
           <span style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
-          <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
           <span style="width:64px;text-align:right;color:var(--mut);font-size:11.5px">${cbEsc(x.d.cycle||'—')}</span>
           <span style="width:100px;text-align:right;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
