@@ -159,8 +159,8 @@ const taxRows = [
 const sortedTax = taxContext.cbSortTaxEntries(taxRows, row => row.owner)
 assert.deepEqual(
   Array.from(sortedTax, row => [row.category, row.owner]),
-  [['domestic', '본인'], ['domestic', '아내'], ['foreign', '본인'], ['foreign', '아버지']],
-  '양도소득세 내역을 국내 → 해외 순으로 우선 정렬',
+  [['foreign', '본인'], ['foreign', '아버지'], ['domestic', '아내'], ['domestic', '본인']],
+  '양도소득세 내역을 월 우선, 같은 월에서는 국내 → 해외·소유주 순으로 정렬',
 )
 
 assert.match(
@@ -173,6 +173,8 @@ assert.match(scriptSource, /name=\(goldName&&goldName\.value\.trim\(\)\)\|\|'금
 assert.doesNotMatch(indexSource, /class="login-logo"/, '로그인 창의 의미 없는 가 로고 제거')
 assert.match(indexSource, /id="sidebar-refresh-btn"[^>]*>↻ <span[^>]*>새로고침<\/span>/, '좌하단 버튼 문구를 새로고침으로 표시')
 assert.match(cobaltSource, /aria-label="국가"><\/span>/, '배당 관리 국가 헤더 문구는 숨기고 국기 칸 유지')
+assert.match(cobaltSource, /연간 수입<\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역 보유 주수를 연간 수입과 주당 배당 사이에 배치')
+assert.match(scriptSource, /holdings-asset-flag/, '자산 내역 종목명 왼쪽에 국기·자산 아이콘 슬롯 추가')
 assert.match(cobaltSource, /width:44px;text-align:right">관리<\/span>/, 'DCA 삭제 열 위에 관리 헤더 표시')
 assert.match(scriptSource, /holdings-broker-filter-inline/, '주식 종목 수 옆에 증권사·계좌 필터 배치')
 assert.match(scriptSource, /classList\.toggle\('holdings-owner-tabs', viewId==='holdings'\)/, '자산 내역 소유주 탭 전용 여백 적용')

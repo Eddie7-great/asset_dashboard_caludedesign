@@ -59,13 +59,15 @@ const context = {
   cssVar: (_name, fallback) => fallback,
 }
 vm.createContext(context)
-for (const name of ['cbStrip', 'cbIsEtf', 'cbSyntheticEtfHoldings', 'cbLookThrough', 'cbRisk']) {
+for (const name of ['cbStrip', 'cbIsEtf', 'cbSyntheticEtfHoldings', 'cbLeveragedInverseMeta', 'cbLookThrough', 'cbRisk']) {
   vm.runInContext(extractFunction(name), context)
 }
 
 assert.equal(context.cbIsEtf(rows[0].i), false, '삼성전자는 개별 회사')
 assert.equal(context.cbIsEtf(rows[1].i), true, 'TIME ETF는 stocks.json 시장구분으로 판별')
 assert.equal(context.cbIsEtf(rows[5].i), true, '2x Ether ETF는 해외 ETF로 판별')
+assert.equal(context.cbLeveragedInverseMeta(rows[5].i).kind, '레버리지', '2x Ether ETF는 레버리지 상품으로 판별')
+assert.equal(context.cbLeveragedInverseMeta(rows[1].i), null, '일반 액티브 ETF는 레버리지 상품에서 제외')
 
 const fatherLookThrough = context.cbLookThrough('아버지')
 assert.deepEqual(Array.from(fatherLookThrough.list, x => x.tkr), ['005930'], '집중도에는 개별 회사만 표시')
@@ -86,6 +88,7 @@ assert.equal(fatherRisk.cards.find(x => x.title === '가상화폐 비중').fill,
 assert.equal(fatherRisk.cards.find(x => x.title === '환노출 (원화 기준)').fill, 0, '0% 환노출 막대')
 assert.equal(fatherRisk.cards.find(x => x.title === '현금 완충 비중').fill, 0, '0% 현금 막대')
 assert.equal(fatherRisk.cards.find(x => x.title === '단일 종목 집중도').valFmt, '14.5%', 'ETF 자체 90%가 아닌 삼성전자 실질 비중')
+assert.equal(fatherRisk.leveragedInversePct, 0, '아버지는 레버리지·인버스 노출 없음')
 
 rows = rows.concat([
   { i: { owner: '아내', grp: '가상화폐', tkr: 'ETH', name: '이더리움', cur: 'USD' }, title: '이더리움', cls: 'crypto', val: 500 },
@@ -93,5 +96,17 @@ rows = rows.concat([
 const wifeLookThrough = context.cbLookThrough('아내')
 assert.equal(wifeLookThrough.list.length, 0, '가상화폐는 개별 회사 집중도 목록에는 표시하지 않음')
 assert.equal(wifeLookThrough.etfMiss.includes('2x Ether ETF'), false, '합성 단일자산 ETF는 미조회로 표시하지 않음')
+const wifeRisk = context.cbRisk('아내')
+assert.equal(wifeRisk.leveragedInversePct, 80, '아내 순자산 대비 ETHU 평가액 비중')
+assert.equal(wifeRisk.leveragedInverseCount, 1, '아내 레버리지·인버스 상품 수')
+assert.equal(wifeRisk.leveragedInverseTop, '2x Ether ETF', '최대 기여 레버리지 상품')
+assert.equal(wifeRisk.cards.find(x => x.title === '레버리지·인버스 노출도').status, '경고', '10% 초과 경고')
 
-console.log('PASS 리스크 소유주 범위·ETF 제외·0% 막대·ETHU 처리')
+rows = rows.concat([
+  { i: { owner: '본인', grp: '주식', tkr: 'SQQQ', name: 'ProShares UltraPro Short QQQ', cur: 'USD' }, title: 'ProShares UltraPro Short QQQ', cls: 'us', val: 100 },
+  { i: { owner: '본인', grp: '주식', tkr: 'VOO', name: 'Vanguard S&P 500 ETF', cur: 'USD' }, title: 'Vanguard S&P 500 ETF', cls: 'us', val: 900 },
+])
+assert.equal(context.cbLeveragedInverseMeta(rows.at(-2).i).kind, '인버스', 'SQQQ는 인버스 상품으로 판별')
+assert.equal(context.cbLeveragedInverseMeta(rows.at(-1).i), null, '일반 해외 ETF는 노출도에서 제외')
+
+console.log('PASS 리스크 소유주 범위·ETF 제외·0% 막대·레버리지·인버스 노출')
