@@ -911,7 +911,10 @@ function cbRenderPerf(){
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
       <div class="cb-perf-detail-grid">
-        ${[rows.slice(0,3),rows.slice(3,6)].map(group=>`
+        ${[
+          [rows.find(r=>r.e.key==='S&P 500'), rows.find(r=>r.e.key==='본인'), rows.find(r=>r.e.key==='자녀1')],
+          [rows.find(r=>r.e.key==='KOSPI'), rows.find(r=>r.e.key==='아내'), rows.find(r=>r.e.key==='아버지')],
+        ].map(group=>`
           <div class="cb-perf-detail-table">
             <div class="cb-perf-detail-head">
               <span>구분</span>
@@ -919,7 +922,7 @@ function cbRenderPerf(){
               <span data-tip="같은 기간 S&P 500 수익률을 얼마나 웃돌았는지 (포트폴리오 − 벤치마크)">초과</span>
               <span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span>
             </div>
-            ${group.map(r=>`
+            ${group.filter(Boolean).map(r=>`
               <div class="cb-perf-detail-row" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
                 <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
                 ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}${CB_PERF_TFS[k]===tf?';background:var(--accSoft);box-shadow:inset 0 0 0 1px var(--bd2)':''}">${fmtR(v)}</span>`).join('')}
@@ -1885,6 +1888,18 @@ function cbRenderTax(){
   const isaBase = Math.max(0, isaNet-CB_TAX_ISA_DED), isaDue = Math.round(isaBase*0.099);
   const penNet = sumBy(t=>cbTaxAcctOf(t)==='연금저축');
   const totalDue = genDue + isaDue;
+  // 해외 일반계좌 절세 여력 — 현재 실현손익에서 기본공제까지 추가로 확정할 수 있는 순이익과
+  // 보유 중인 해외 일반계좌 미실현 손실 후보를 함께 보여준다.
+  const deductionRoom = Math.max(0, CB_TAX_FGN_DED-genFgn);
+  const deductionUsePct = Math.max(0, Math.min(100, genFgn/CB_TAX_FGN_DED*100));
+  const harvestCandidates = (pfolioData||[])
+    .filter(i=>i && i.grp==='주식' && (i.qty||0)>0 && cbCls(i)!=='kr'
+      && (i.acc||'일반')==='일반'
+      && (_cbTaxOwner==='전체' || i.owner===_cbTaxOwner))
+    .map(i=>({ i, loss:cbGainKRW(i) }))
+    .filter(x=>x.loss<0)
+    .sort((a,b)=>a.loss-b.loss);
+  const harvestTotal = harvestCandidates.reduce((s,x)=>s+Math.abs(x.loss),0);
   const historyList = _cbTaxMonthFilter
     ? list.filter(t=>parseInt(String(t.month).split('-')[1]||'0')===_cbTaxMonthFilter)
     : list;
@@ -1960,40 +1975,70 @@ function cbRenderTax(){
       </div>
       ${cbTaxChartSvg(1100,430,list)}
     </div>
-    <!-- 하단: 실현손익 기록 + 내역 (메모 포함) -->
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">실현손익 기록 <span style="color:var(--dim)">· 해외주식은 일반 계좌만 선택 가능합니다 · 소유주를 지정하면 상단 소유주 탭에서 따로 집계됩니다</span></div>
-        ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select>
-        <select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select>
-        <select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select>
-        <select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select>
-        <input id="cb-tax-pl" class="cb-input" value="${cbEsc(_cbTaxDraft.pl)}" placeholder="실현손익 (원, 손실은 -)" style="flex:1;min-width:150px" />
-        <input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모 (예: NVDA 100주 매도)" style="flex:1;min-width:150px" />
-        <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 14px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
-        ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 12px;font-size:12px;color:var(--mut)">취소</button>':''}
-      </div>
-      <div style="overflow-x:auto"><div style="min-width:620px">
-        <div class="cb-thead" style="display:flex;font-size:10.5px;color:var(--dim);padding:0 8px 6px;border-bottom:1px solid var(--bd)">
-          <span style="width:62px">소유주</span><span style="width:46px">월</span><span style="width:70px">시장</span><span style="width:78px">계좌</span><span style="flex:1.2">메모</span><span style="width:130px;text-align:right">실현손익</span><span style="width:58px;text-align:center">관리</span>
+    <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
+    <div class="cb-tax-bottom-grid">
+      <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
+          ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
         </div>
-        ${sorted.map(t=>{ const taxId=Number(t.id); return `
-          <div style="display:flex;align-items:center;padding:7px 8px;border-bottom:1px solid var(--bd);font-size:12.5px">
-            <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
-            <span style="width:46px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
-            <span style="width:70px;font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
-            <span style="width:78px;font-size:11px;color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
-            <span style="flex:1.2;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px">${cbEsc(t.memo||'—')}</span>
-            <span class="cb-num" style="width:130px;text-align:right;font-weight:700;font-size:12px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
-            <span class="cb-tax-actions" style="width:58px">
-              <button class="cb-edit" title="수정" onclick="cbTaxEdit(${taxId})">✎</button>
-              <button class="cb-edit cb-edit-danger" title="삭제" onclick="cbTaxDel(${taxId})">✕</button>
-            </span>
-          </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">기록된 실현손익이 없습니다.</div>'}
-      </div></div>
+        <div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select>
+          <select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select>
+          <select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select>
+          <select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select>
+          <input id="cb-tax-pl" class="cb-input" value="${cbEsc(_cbTaxDraft.pl)}" placeholder="실현손익" style="flex:1;min-width:118px" />
+          <input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" style="flex:1;min-width:118px" />
+          <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 12px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
+          ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 10px;font-size:12px;color:var(--mut)">취소</button>':''}
+        </div>
+        <div style="overflow-x:auto"><div style="min-width:540px">
+          <div class="cb-thead" style="display:flex;align-items:center;font-size:10.5px;color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">
+            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="flex:1;min-width:72px">메모</span><span style="width:112px;text-align:right">실현손익</span>
+            <span style="width:54px;text-align:center"><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
+          </div>
+          ${sorted.map(t=>{ const taxId=Number(t.id); return `
+            <div style="display:flex;align-items:center;padding:7px 6px;border-bottom:1px solid var(--bd);font-size:12px">
+              <span style="width:58px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11px;font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
+              <span style="width:40px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
+              <span style="width:52px;font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
+              <span style="width:64px;font-size:10.5px;color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
+              <span style="flex:1;min-width:72px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
+              <span class="cb-num" style="width:112px;text-align:right;font-weight:700;font-size:11.5px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
+              <span class="cb-tax-actions" style="width:54px">
+                <button class="btn-action" title="수정" style="color:var(--t3)" onclick="cbTaxEdit(${taxId})">✎</button>
+                <button class="btn-action" title="삭제" style="color:var(--dn)" onclick="cbTaxDel(${taxId})">✕</button>
+              </span>
+            </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">기록된 실현손익이 없습니다.</div>'}
+        </div></div>
+      </div>
+      <div class="cb-panel cb-tax-saving-panel" style="padding:15px 16px;min-width:0">
+        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:800">연말 절세 여력${ownerSuffix}</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:3px">해외 일반계좌 · ${year}년 실현손익 기준</div>
+        <div style="margin-top:14px">
+          <div style="font-size:10.5px;color:var(--mut)">세금 없이 추가 실현 가능한 순이익</div>
+          <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:23px;font-weight:800;color:${deductionRoom>0?'var(--up)':'var(--lab)'};margin-top:2px">${cbKrw(deductionRoom)}</div>
+        </div>
+        <div style="margin-top:11px">
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--mut)"><span>기본공제 사용률</span><b>${deductionUsePct.toFixed(1)}%</b></div>
+          <div style="height:7px;border-radius:5px;background:var(--inner);overflow:hidden;margin-top:5px"><div style="height:100%;width:${deductionUsePct}%;background:${deductionUsePct>=100?'var(--dn)':'var(--acc)'}"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:13px;padding-top:11px;border-top:1px solid var(--bd)">
+          ${row2('해외 일반 실현손익', (genFgn>=0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
+          ${row2('공제 초과 과세표준', cbKrw(genBase), genBase>0?'color:var(--dn)':'color:var(--lab)')}
+          ${row2('미실현 손실 후보 합계', harvestTotal>0?'−'+cbKrw(harvestTotal):cbKrw(0), harvestTotal>0?'color:var(--up)':'color:var(--lab)')}
+        </div>
+        <div style="font-size:10.5px;color:var(--lab);font-weight:800;margin-top:14px">손실 상계 후보 TOP 3</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-top:7px">
+          ${harvestCandidates.slice(0,3).map(x=>`
+            <div style="display:flex;align-items:center;gap:7px;font-size:11px">
+              <span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>
+              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)">${cbEsc(x.i.name||x.i.tkr)}${_cbTaxOwner==='전체'?` · ${cbEsc(x.i.owner)}`:''}</span>
+              <b class="cb-num" style="color:var(--up);flex-shrink:0">−${cbKrw(Math.abs(x.loss))}</b>
+            </div>`).join('') || '<div style="font-size:11px;color:var(--dim)">현재 미실현 손실 후보가 없습니다.</div>'}
+        </div>
+        <div style="font-size:9.5px;color:var(--dim);line-height:1.55;margin-top:auto;padding-top:12px">손실 상계 후보는 해외 일반계좌의 현재 평가손실만 표시합니다. 실제 매도 전 수수료·환율·세법 적용 여부를 확인하세요.</div>
+      </div>
     </div>`;
 }
 function cbTaxYear(y){ _cbTaxYear = y; cbRenderTax(); }
@@ -2004,7 +2049,7 @@ function cbTaxMonthPick(m){
   _cbTaxMonthFilter = (_cbTaxMonthFilter===month ? null : month);
   cbTaxHide();
   cbRenderTax();
-  requestAnimationFrame(()=>document.querySelector('#cb-tax2 .cb-table-panel, #cb-tax2 .cb-panel:last-child')?.scrollIntoView({block:'nearest',behavior:'smooth'}));
+  requestAnimationFrame(()=>document.querySelector('#cb-tax2 .cb-tax-history-panel')?.scrollIntoView({block:'nearest',behavior:'smooth'}));
 }
 // 구분(국내/해외) 변경 → 해외주식은 일반 계좌만 노출 (해외 상장 주식은 ISA·연금저축에서 직접 매매 불가)
 function cbTaxKindChange(v){

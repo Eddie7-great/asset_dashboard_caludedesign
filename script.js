@@ -6182,28 +6182,30 @@ const _SECTOR_HUES = {
   'Crypto': 286,
   'Gold': 44
 };
-const _BUBBLE_SECTOR_TOKENS = {
-  'Technology':['--acc','#2a6fdb'],
-  'Financial Services':['--acc2','#0f9488'],
-  'Health Care':['--up','#178a52'],
-  'Consumer Discretionary':['--acc3','#7c3aed'],
-  'Consumer Staples':['--warn','#d97706'],
-  'Energy':['--dn','#cf3d5c'],
-  'Communications Services':['--purple','#7c3aed'],
-  'Industrial Services':['--acc','#2a6fdb'],
-  'Materials & Processing':['--gold','#b8860b'],
-  'Real Estate':['--dn','#cf3d5c'],
-  'Utilities':['--up','#178a52'],
-  'Index ETF':['--acc','#2a6fdb'],
-  'Sector ETF':['--acc3','#7c3aed'],
-  'Other':['--t3','#6a7898'],
-  'Cash':['--acc2','#0f9488'],
-  'Crypto':['--warn','#d97706'],
-  'Gold':['--gold','#b8860b']
+// 서로 겹치지 않는 저채도 팔레트. 테마 강조색 하나에 의존하지 않아 섹터가 쉽게 구분되고,
+// 다크·네이비에서도 원색처럼 튀지 않도록 회색을 섞어 사용한다.
+const _BUBBLE_SECTOR_COLORS = {
+  'Technology':'#779BE0',
+  'Financial Services':'#69B3A5',
+  'Health Care':'#7DB58A',
+  'Consumer Discretionary':'#AA8BD2',
+  'Consumer Staples':'#D9A96B',
+  'Energy':'#D9877F',
+  'Communications Services':'#70AFC9',
+  'Industrial Services':'#94A86F',
+  'Materials & Processing':'#C29C72',
+  'Real Estate':'#CE8FA5',
+  'Utilities':'#8DB6A1',
+  'Index ETF':'#858FD0',
+  'Sector ETF':'#BC8BC8',
+  'Other':'#98A2B3',
+  'Cash':'#76AEA9',
+  'Crypto':'#D6A24E',
+  'Gold':'#CFB15F'
 };
 function _bubbleSectorColor(sector){
-  const token=_BUBBLE_SECTOR_TOKENS[sector]||['--t3','#6a7898'];
-  return cssVar(token[0],token[1]);
+  const base=_BUBBLE_SECTOR_COLORS[sector]||_BUBBLE_SECTOR_COLORS.Other;
+  return _bubbleBlend(base,isDarkTheme()?'#DCE4EE':'#536074',isDarkTheme()?0.10:0.05);
 }
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
@@ -6509,7 +6511,7 @@ function renderBubbleChart(mode) {
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      colors.push(_bubbleBlend(ownerColor,panelColor,isDark?0.22:0.34));
+      colors.push(_bubbleBlend(ownerColor,isDark?'#DCE4EE':'#536074',isDark?0.24:0.10));
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6528,7 +6530,7 @@ function renderBubbleChart(mode) {
       labels.push(sector);
       parents.push(parentIdForSec);
       values.push(secVal);
-      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.18));
+      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.02:0.04));
       customdata.push({ kind: 'grp', owner, name: sector, weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
@@ -6542,8 +6544,8 @@ function renderBubbleChart(mode) {
         const displayName = _bubbleLeafLabel(i);
         const leafId = `L::${owner}::${sector}::${i.tkr || i.name}::${li}`;
         // 같은 섹터의 의미색을 유지하면서 종목별로 명도만 달리한다.
-        const tintTarget=isDark?'#ffffff':'#0f172a';
-        const tint=Math.min(0.24,0.04+(li%4)*0.055+(weight>10?0.035:0));
+        const tintTarget=isDark?'#F3F6FA':'#263248';
+        const tint=Math.min(0.16,0.02+(li%4)*0.035+(weight>10?0.02:0));
         ids.push(leafId);
         // leaf 라벨은 내부에 표시하지 않음 — 외부 리더라인 + 텍스트로 대체
         labels.push('');
@@ -6594,7 +6596,7 @@ function renderBubbleChart(mode) {
         width: 1
       }
     },
-    leaf: { opacity: 0.94 },
+    leaf: { opacity: 0.88 },
     // 내부 라벨: owner/섹터 만 노출 (leaf 는 라벨 비어있음 → 외부 리더라인으로 노출)
     textinfo: 'label',
     insidetextorientation: 'horizontal',
