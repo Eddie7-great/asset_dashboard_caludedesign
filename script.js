@@ -408,8 +408,37 @@ const CF_DEFAULT = [
   {date:'2025-11-15',type:'수입',cat:'기타',desc:'연말정산 환급금',amt:350000}
 ];
 let cfData = CF_DEFAULT;
-try { const _s=localStorage.getItem('cfData'); if(_s){const _d=JSON.parse(_s);if(Array.isArray(_d)&&_d.length>0)cfData=_d;} } catch(e){}
+try { const _s=localStorage.getItem('cfData'); if(_s){const _d=JSON.parse(_s);if(Array.isArray(_d))cfData=_d;} } catch(e){}
 function saveCfData(){try{localStorage.setItem('cfData',JSON.stringify(cfData));}catch(e){}}
+let cfDeletedKeys = [];
+try {
+  const _s=localStorage.getItem('cfDeletedKeys');
+  if(_s){const _d=JSON.parse(_s);if(Array.isArray(_d))cfDeletedKeys=_d;}
+} catch(e){}
+function saveCfDeletedKeys(){try{localStorage.setItem('cfDeletedKeys',JSON.stringify(cfDeletedKeys));}catch(e){}}
+function cfDeletionKey(item){
+  if (!item) return '';
+  if (item.divKey) return `div:${item.divKey}`;
+  if (item.atId && item.date && item.date!=='미정') return `auto:${item.atId}:${String(item.date).slice(0,7)}`;
+  return '';
+}
+function rememberCfDeletion(item){
+  const key = cfDeletionKey(item);
+  if (key && !cfDeletedKeys.includes(key)){
+    cfDeletedKeys.push(key);
+    saveCfDeletedKeys();
+  }
+  if (item && item.atId && item.date && item.date!=='미정'){
+    const ym = String(item.date).slice(0,7);
+    const at = autoTransferData.find(x=>x.id===item.atId);
+    if (at){
+      if (!Array.isArray(at.skipMonths)) at.skipMonths=[];
+      if (!at.skipMonths.includes(ym)) at.skipMonths.push(ym);
+      saveAutoTransfers();
+    }
+  }
+  return key;
+}
 const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572'};
 // 자동이체 등록 데이터: {id, type, cat, desc, amt, cycle:'daily'|'weekly'|'monthly'|'month-end'|'month-start', dayOfWeek:0-6, dayOfMonth:1-31, lastApplied:'YYYY-MM'}
 let autoTransferData = [];
@@ -1566,6 +1595,64 @@ if (typeof document!=='undefined' && !window._overflowTipEventsBound){
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     el.removeAttribute('data-tip');
   }, true);
+}
+function getTableFloatTip(){
+  let tip = document.getElementById('table-float-tip');
+  if (!tip){
+    tip = document.createElement('div');
+    tip.id = 'table-float-tip';
+    tip.className = 'table-float-tip';
+    tip.setAttribute('role','tooltip');
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+function positionTableFloatTip(tip, anchor){
+  if (!tip || !anchor) return;
+  const gap = 8;
+  const ar = anchor.getBoundingClientRect();
+  const tr = tip.getBoundingClientRect();
+  let left = ar.left + Math.min(ar.width/2, 90) - tr.width/2;
+  left = Math.max(12, Math.min(left, window.innerWidth - tr.width - 12));
+  let top = ar.top - tr.height - gap;
+  if (top < 12) top = Math.min(window.innerHeight - tr.height - 12, ar.bottom + gap);
+  tip.style.left = `${Math.round(left)}px`;
+  tip.style.top = `${Math.round(Math.max(12,top))}px`;
+}
+function showTableFloatTip(anchor){
+  const text = anchor && anchor.getAttribute('data-tip');
+  if (!text) return;
+  const tip = getTableFloatTip();
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip._anchor = anchor;
+  positionTableFloatTip(tip, anchor);
+}
+function hideTableFloatTip(anchor){
+  const tip = document.getElementById('table-float-tip');
+  if (!tip || (anchor && tip._anchor && tip._anchor!==anchor)) return;
+  tip.style.display = 'none';
+  tip._anchor = null;
+}
+if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
+  window._tableFloatTipEventsBound = true;
+  document.addEventListener('mouseover', e=>{
+    const el = e.target.closest?.('.pt-table [data-tip],.cb-thead [data-tip],.cb-tblwrap [data-tip],.cb-table-panel [data-tip]');
+    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    showTableFloatTip(el);
+  }, true);
+  document.addEventListener('mouseout', e=>{
+    // 오버플로 툴팁은 앞선 mouseout 핸들러가 data-tip을 먼저 제거하므로
+    // 원본 data-overflow-tip까지 대상으로 잡아 body 포털이 남지 않게 한다.
+    const el = e.target.closest?.('.pt-table [data-tip],.cb-thead [data-tip],.cb-tblwrap [data-tip],.cb-table-panel [data-tip],.pt-table [data-overflow-tip],.cb-thead [data-overflow-tip],.cb-tblwrap [data-overflow-tip],.cb-table-panel [data-overflow-tip]');
+    if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    hideTableFloatTip(el);
+  }, true);
+  document.addEventListener('scroll', ()=>{
+    const tip = document.getElementById('table-float-tip');
+    if (tip && tip.style.display!=='none' && tip._anchor) positionTableFloatTip(tip, tip._anchor);
+  }, true);
+  window.addEventListener('resize', ()=>hideTableFloatTip());
 }
 function getHoldingsBrokerCellHtml(item){
   const broker = item.broker || '—';
@@ -2997,6 +3084,7 @@ function autoAddDividendCashFlow(silent=false) {
       const net = Math.round(gross * (1 - taxInfo.normalRate));
       if (net <= 0) return;
       const divKey = `div_${tkrNorm}_${owner}_${accType}_${yr}_${mo+1}`;
+      if (cfDeletedKeys.includes(`div:${divKey}`)) return;
       const desc = `${s.name} ${cycleLabel} 수입 (${taxInfo.label})`;
       const existingIdx = cfData.findIndex(i => i.divKey === divKey);
       if (existingIdx >= 0) {
@@ -3116,11 +3204,18 @@ function addCashFlow() {
   const newItem={date:dt,type:typ,cat:cat,desc:des,amt:am,owner:_cfOwner};
   if(editIdx>-1){cfData[editIdx]=newItem;document.getElementById('cf-edit-index').value='-1';document.getElementById('btn-cf-submit').innerText='저장';}
   else cfData.push(newItem);
-  document.getElementById('cf-desc').value='';document.getElementById('cf-amt').value='';saveCfData();renderCashFlow();
+  document.getElementById('cf-desc').value='';document.getElementById('cf-amt').value='';saveCfData();renderCashFlow();saveExtDataToKV();
 }
-function deleteCF(idx){
+async function deleteCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
-  if(confirm('내역을 삭제하시겠습니까?')){cfData.splice(idx,1);saveCfData();renderCashFlow();}
+  if(confirm('내역을 삭제하시겠습니까?')){
+    const item=cfData[idx];
+    rememberCfDeletion(item);
+    cfData.splice(idx,1);
+    saveCfData();
+    renderCashFlow();
+    await saveExtDataToKV();
+  }
 }
 function editCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
@@ -4065,7 +4160,7 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
   const res = await setKV('ext_data', ext);
   if (!(res && res.result === "OK")) showSaveError();
 }
@@ -4085,10 +4180,14 @@ async function loadExtDataFromKV() {
       monthlyPLData = data.monthlyPLData;
       try { localStorage.setItem('monthlyPLData', JSON.stringify(monthlyPLData)); } catch(e) {}
     }
-    if (Array.isArray(data.cfData) && data.cfData.length > 0) {
+    if (Array.isArray(data.cfData)) {
       cfData = data.cfData;
       try { localStorage.setItem('cfData', JSON.stringify(cfData)); } catch(e) {}
       if (document.getElementById('view-cashflow')?.classList.contains('active')) renderCashFlow();
+    }
+    if (Array.isArray(data.cfDeletedKeys)) {
+      cfDeletedKeys = data.cfDeletedKeys;
+      saveCfDeletedKeys();
     }
     renderHistoryChart();
     updateNetAssetDisplay();

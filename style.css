@@ -74,6 +74,18 @@
     [data-tip].cb-risk-tip-wide:hover::after{
       width:420px;max-width:min(420px,calc(100vw - 36px));white-space:normal;overflow-wrap:break-word
     }
+    /* 표 안 툴팁은 sticky/scroll/overflow 컨테이너에 잘리지 않도록 body 포털로 표시한다. */
+    .pt-table [data-tip]:hover::after,
+    .cb-thead [data-tip]:hover::after,
+    .cb-tblwrap [data-tip]:hover::after,
+    .cb-table-panel [data-tip]:hover::after{display:none!important}
+    .table-float-tip{
+      position:fixed;z-index:3200;display:none;max-width:min(360px,calc(100vw - 24px));
+      white-space:pre-line;overflow-wrap:anywhere;background:var(--tipbg);color:var(--tiptx);
+      border:1px solid var(--tipbd);border-radius:8px;padding:8px 11px;
+      box-shadow:0 12px 30px rgba(0,0,0,.42);font-size:11.5px;font-weight:500;
+      line-height:1.55;letter-spacing:0;pointer-events:none;box-sizing:border-box
+    }
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:'Noto Sans KR','Manrope','Pretendard',sans-serif;color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
@@ -197,7 +209,7 @@
     #view-holdings .holdings-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
     #view-holdings .holdings-broker-filter-inline{max-width:100%;flex-wrap:wrap}
     #view-holdings .holdings-broker-filter-inline select{max-width:230px}
-    #owner-tabs-container.holdings-owner-tabs{margin-inline:auto!important;padding-inline:12px}
+    #owner-tabs-container.holdings-owner-tabs{margin-left:auto!important;margin-right:0!important;padding-left:12px}
     #div-table-body td:first-child{white-space:normal}
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
     #cf-detail-table{table-layout:fixed}
@@ -892,8 +904,14 @@
        내부 position:sticky 를 무력화하므로, 표가 잘리지 않는 넓은 폭에서는 overflow 를 풀고
        헤더를 .cb-scroll 기준으로 sticky 시킨다. 좁은 폭에서는 가로 스크롤을 우선한다. */
     .cb-tblwrap{overflow-x:visible}
+    .cb-thead,
+    .pt-table th{
+      font-family:'Noto Sans KR','Manrope',sans-serif;
+      font-size:10.5px;font-weight:600;letter-spacing:.08em;color:var(--dim)
+    }
     .cb-thead{position:sticky;top:0;z-index:3;background:var(--panel)}
     .cb-table-panel{overflow-x:visible!important}
+    .cb-perf-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     @media (min-width:1201px){
       #view-holdings .pt-table-wrap{overflow:visible}
       #view-holdings .pt-table th{top:0;z-index:4;background:var(--panelSolid)}
@@ -912,6 +930,9 @@
     @media (max-width: 1080px){
       .cb-dash-split{flex-direction:column!important}
       .cb-dash-split > .cb-dash-detail{width:100%!important;position:static!important}
+    }
+    @media (max-width: 640px){
+      .cb-perf-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
 
     /* =============================================

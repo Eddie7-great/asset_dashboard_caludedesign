@@ -273,13 +273,20 @@ function cbOwnerBtns(current, fnName){
 
 // 섹터 집계 (주식 기준. includeCrypto=true면 가상화폐를 'Crypto'로 별도 분류해 포함)
 function cbSectors(includeCrypto, ownerFilter){
-  const eq = (pfolioData||[]).filter(i=>(i.grp==='주식' || (includeCrypto && i.grp==='가상화폐')) && (i.qty||0)>0
+  const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
-  const totals = {}; let total = 0;
-  eq.forEach(i=>{ const v = cbValKRW(i); if(v<=0) return;
+  const itemValue = i => typeof _bubbleItemValueKRW==='function'
+    ? _bubbleItemValueKRW(i, RATES.USD||1380)
+    : cbValKRW(i);
+  // 대시보드와 비중 차트 모두 현금·금까지 포함한 전체 포트폴리오를 분모로 사용한다.
+  // 표시 목록은 섹터 집중도 성격에 맞게 주식(+선택 시 가상화폐)만 유지한다.
+  const total = base.reduce((sum,i)=>sum+Math.max(0,itemValue(i)),0);
+  const eq = base.filter(i=>i.grp==='주식' || (includeCrypto && i.grp==='가상화폐'));
+  const totals = {};
+  eq.forEach(i=>{ const v = itemValue(i); if(v<=0) return;
     const s = i.grp==='가상화폐' ? 'Crypto'
       : ((typeof _gicsSector==='function' ? _gicsSector(i) : '기타') || '기타');
-    totals[s] = (totals[s]||0) + v; total += v; });
+    totals[s] = (totals[s]||0) + v; });
   const list = Object.keys(totals).map(s=>({label:s, v:totals[s], pct:total? totals[s]/total*100 : 0}))
     .sort((a,b)=>b.v-a.v);
   let n=0; // Crypto는 자산군 고정색, 나머지 섹터만 팔레트 순번 배정
@@ -642,7 +649,7 @@ function cbRenderDash(){
       </div>
 
       <div class="cb-panel" style="flex:1;min-width:300px;padding:16px 18px">
-        <div style="font-size:11px;letter-spacing:.08em;color:var(--lab);margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다. 가상화폐는 Crypto로 별도 분류해 비중을 표기합니다.">섹터 집중도</span> <span style="color:var(--dim)">· 주식+가상화폐 · 막대 클릭 시 종목 표시</span></div>
+        <div style="font-size:11px;letter-spacing:.08em;color:var(--lab);margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다. 가상화폐는 Crypto로 별도 분류하며, 비중은 비중 차트와 동일하게 현금·금까지 포함한 전체 포트폴리오를 기준으로 계산합니다.">섹터 집중도</span> <span style="color:var(--dim)">· 전체 포트폴리오 기준 · 막대 클릭 시 종목 표시</span></div>
         ${secs.map((s,n)=>{
           const open = _cdashSecOpen===s.label;
           const items = open ? rows.filter(r=> s.label==='Crypto' ? r.cls==='crypto'
@@ -776,9 +783,9 @@ function cbRenderPerf(){
   );
 
   el.innerHTML = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div class="cb-perf-card-grid">
       ${cards.map(p=>`
-        <div class="cb-panel" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="flex:1;min-width:130px;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
+        <div class="cb-panel" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="min-width:0;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
           <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut)">${swatch(p,13)}${cbEsc(p.label)}</div>
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:23px;font-weight:800;margin-top:3px;${csR(p.ret)}">${fmtR(p.ret)}</div>
         </div>`).join('')}
@@ -1067,18 +1074,36 @@ function cbDivAxisLab(v){
   if (Math.abs(v)>=10000) return cbTaxAxisLab(v);
   return Math.round(v/1000).toLocaleString('ko-KR')+'천';
 }
+function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
+  if (!detailMaps[monthIndex] || !(amount>0)) return;
+  const key = cbStrip(item.tkr) || item.title || item.i.name || '미지정';
+  const title = item.title || item.i.name || key;
+  const ticker = cbStrip(item.tkr);
+  const prev = detailMaps[monthIndex].get(key) || { title, ticker, amount:0 };
+  prev.amount += amount;
+  detailMaps[monthIndex].set(key, prev);
+}
 // 배당 이력에서 특정 연도의 실제 지급액을 월별로 집계 (현재 보유수량 기준 환산)
 function cbDivMonthlyForYear(list, year){
   const monthAmt = Array(12).fill(0);
+  const detailMaps = Array.from({length:12},()=>new Map());
   const cur = String(new Date().getFullYear());
   if (year===cur){
     // 올해 이후 → 예상: 연 배당을 지급 주기 월에 균등 배분
     list.forEach(x=>{
       const ms = (x.d.months && x.d.months.length) ? x.d.months : [2,5,8,11];
       const per = x.incomeKRW / ms.length;
-      ms.forEach(m=>{ const mi=((m%12)+12)%12; monthAmt[mi]+=per; });
+      ms.forEach(m=>{
+        const mi=((m%12)+12)%12;
+        monthAmt[mi]+=per;
+        cbAddDivMonthDetail(detailMaps,mi,x,per);
+      });
     });
-    return { monthAmt, actual:false };
+    return {
+      monthAmt,
+      monthDetails:detailMaps.map(map=>Array.from(map.values()).sort((a,b)=>b.amount-a.amount)),
+      actual:false
+    };
   }
   // 과거 연도 → 실제 지급 이력(주당 배당 × 현재 보유수량)
   const raw = window._divHistoryRawCache || {};
@@ -1089,13 +1114,55 @@ function cbDivMonthlyForYear(list, year){
       if (String(ev.date||'').slice(0,4)!==year) return;
       const mi = parseInt(String(ev.date).slice(5,7),10)-1;
       if (mi<0||mi>11) return;
-      monthAmt[mi] += (Number(ev.amount)||0) * (x.qty||0) * cbRate(h.cur || x.i.cur);
+      const amount = (Number(ev.amount)||0) * (x.qty||0) * cbRate(h.cur || x.i.cur);
+      monthAmt[mi] += amount;
+      cbAddDivMonthDetail(detailMaps,mi,x,amount);
     });
   });
-  return { monthAmt, actual:true };
+  return {
+    monthAmt,
+    monthDetails:detailMaps.map(map=>Array.from(map.values()).sort((a,b)=>b.amount-a.amount)),
+    actual:true
+  };
+}
+function cbDivTipEl(){
+  let tip=document.getElementById('cb-div-bar-tip');
+  if(!tip){
+    tip=document.createElement('div');
+    tip.id='cb-div-bar-tip';
+    tip.className='table-float-tip';
+    tip.setAttribute('role','tooltip');
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+function cbDivBarHover(ev, monthIndex){
+  const data=window._cbDivBarData;
+  if(!data) return;
+  const details=(data.monthDetails&&data.monthDetails[monthIndex])||[];
+  const total=(data.monthAmt&&data.monthAmt[monthIndex])||0;
+  const tip=cbDivTipEl();
+  const rows=details.length
+    ? details.map(d=>{
+        const ticker=d.ticker&&d.ticker!==d.title?` <span style="opacity:.68">(${cbEsc(d.ticker)})</span>`:'';
+        return `<div style="display:flex;justify-content:space-between;gap:18px"><span>${cbEsc(d.title)}${ticker}</span><b style="white-space:nowrap">${cbKrw(d.amount)}</b></div>`;
+      }).join('')
+    : '<div style="opacity:.72">종목별 내역이 없습니다.</div>';
+  tip.innerHTML=`<div style="font-weight:800;margin-bottom:5px">${monthIndex+1}월 · ${cbKrw(total)}</div>${rows}`;
+  tip.style.display='block';
+  const rect=tip.getBoundingClientRect();
+  let left=ev.clientX+12, top=ev.clientY-rect.height-12;
+  if(left+rect.width>window.innerWidth-10) left=ev.clientX-rect.width-12;
+  if(top<10) top=ev.clientY+12;
+  tip.style.left=Math.max(10,left)+'px';
+  tip.style.top=Math.max(10,Math.min(top,window.innerHeight-rect.height-10))+'px';
+}
+function cbDivBarHide(){
+  const tip=document.getElementById('cb-div-bar-tip');
+  if(tip) tip.style.display='none';
 }
 // 월별 배당 캘린더 SVG — Y축 금액 + X축 '월' 라벨
-function cbDivCalendarSvg(monthAmt, w, h){
+function cbDivCalendarSvg(monthAmt, monthDetails, w, h){
   const upC = (typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52');
   const maxRaw = Math.max(...monthAmt, 1);
   const step = cbNiceStep(maxRaw/4);
@@ -1113,8 +1180,9 @@ function cbDivCalendarSvg(monthAmt, w, h){
   for(let m=0;m<12;m++){
     const v=monthAmt[m]||0, xc=padL + slot*m + slot/2, yTop=Y(v);
     if(v>0){
-      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${upC}" opacity="0.85"><title>${m+1}월 — ${cbDisp(v)}</title></rect>`;
-      out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--up)" font-size="9.5" font-weight="700" text-anchor="middle" font-family="IBM Plex Mono">${cbDivAxisLab(v)}</text>`;
+      const titleLines=[`${m+1}월 — ${cbKrw(v)}`].concat(((monthDetails&&monthDetails[m])||[]).map(d=>`${d.title}: ${cbKrw(d.amount)}`));
+      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${upC}" opacity="0.85" style="cursor:help" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()"><title>${cbEsc(titleLines.join('\n'))}</title></rect>`;
+      out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--up)" font-size="9.2" font-weight="700" text-anchor="middle" font-family="IBM Plex Mono">${cbKrw(v)}</text>`;
     }
     out+=`<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="11" text-anchor="middle" font-family="Noto Sans KR">${m+1}월</text>`;
   }
@@ -1161,6 +1229,7 @@ function cbRenderDiv(){
   const year = (_cbDivYear && years.includes(_cbDivYear)) ? _cbDivYear : nowY;
   const cal = cbDivMonthlyForYear(list, year);
   const calTotal = cal.monthAmt.reduce((s,v)=>s+v,0);
+  window._cbDivBarData = { monthAmt:cal.monthAmt, monthDetails:cal.monthDetails };
 
   // 소유주 버튼·조회 연도는 메인 제목 라인(글로벌 헤더) 우측으로
   cbSetHead(
@@ -1182,7 +1251,7 @@ function cbRenderDiv(){
         <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 ${cal.actual?'<span style="color:var(--up)">· 실제 지급</span>':'<span style="color:var(--dim)">· 예상</span>'}</span>
         <span style="margin-left:auto;font-size:11px;color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
-      ${cbDivCalendarSvg(cal.monthAmt, 1100, 300)}
+      ${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}
     </div>
     <div class="cb-panel cb-table-panel" style="margin-top:12px;padding:14px 16px">
       <div class="cb-thead" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:880px">
