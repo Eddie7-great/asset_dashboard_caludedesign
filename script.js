@@ -1628,6 +1628,14 @@ function getTableFloatTip(){
   }
   return tip;
 }
+function formatTableFloatTipText(text){
+  return String(text || '').replace(/([.!?])\s+(?=\S)/g, (all, mark, offset, source) => {
+    const before = source.slice(Math.max(0, offset - 12), offset + 1);
+    // 회사명·영문 약어 안의 마침표는 문장 경계로 취급하지 않는다.
+    if (/(?:Inc|Corp|Co|Ltd|L\.P|S\.A|U\.S|e\.g|i\.e)\.$/i.test(before)) return all;
+    return mark + '\n';
+  });
+}
 function positionTableFloatTip(tip, anchor){
   if (!tip || !anchor) return;
   const gap = 8;
@@ -1644,7 +1652,7 @@ function showTableFloatTip(anchor){
   const text = anchor && anchor.getAttribute('data-tip');
   if (!text) return;
   const tip = getTableFloatTip();
-  tip.textContent = text;
+  tip.textContent = formatTableFloatTipText(text);
   tip.style.display = 'block';
   tip._anchor = anchor;
   positionTableFloatTip(tip, anchor);
@@ -2469,7 +2477,7 @@ function renderPortfolio(owner) {
     if(grpName==='현금'||grpItems.length===0){gCls='';gSign='';}
     // 테이블 헤더: 자산군별로 다르게
     let theadHtml='';
-    const ownerTh=showOwner?'<th class="text-left">소유주</th>':'';
+    const ownerTh=showOwner?'<th class="text-left holdings-owner-head">소유주</th>':'';
     if(grpName==='현금'){
       theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left holdings-asset-head">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else if(grpName==='금'){
@@ -2487,10 +2495,10 @@ function renderPortfolio(owner) {
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
-      const ownerCol=showOwner?'<col style="width:7%">':'';
+      const ownerCol=showOwner?'<col style="width:8%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
-        ?['7%','16%','7%','7%','7%','8%','8%','10%','9%','7%','7%']
+        ?['7%','16%','7%','7%','7%','8%','8%','10%','9%','7%','6%']
         :['8%','17%','7%','8%','7%','9%','9%','11%','9%','7%','8%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
@@ -6174,6 +6182,39 @@ const _SECTOR_HUES = {
   'Crypto': 286,
   'Gold': 44
 };
+const _BUBBLE_SECTOR_TOKENS = {
+  'Technology':['--acc','#2a6fdb'],
+  'Financial Services':['--acc2','#0f9488'],
+  'Health Care':['--up','#178a52'],
+  'Consumer Discretionary':['--acc3','#7c3aed'],
+  'Consumer Staples':['--warn','#d97706'],
+  'Energy':['--dn','#cf3d5c'],
+  'Communications Services':['--purple','#7c3aed'],
+  'Industrial Services':['--acc','#2a6fdb'],
+  'Materials & Processing':['--gold','#b8860b'],
+  'Real Estate':['--dn','#cf3d5c'],
+  'Utilities':['--up','#178a52'],
+  'Index ETF':['--acc','#2a6fdb'],
+  'Sector ETF':['--acc3','#7c3aed'],
+  'Other':['--t3','#6a7898'],
+  'Cash':['--acc2','#0f9488'],
+  'Crypto':['--warn','#d97706'],
+  'Gold':['--gold','#b8860b']
+};
+function _bubbleSectorColor(sector){
+  const token=_BUBBLE_SECTOR_TOKENS[sector]||['--t3','#6a7898'];
+  return cssVar(token[0],token[1]);
+}
+function _bubbleBlend(hex,target,amount){
+  const parse=v=>{
+    const s=String(v||'').trim();
+    const m=s.match(/^#([0-9a-f]{6})$/i); if(!m) return null;
+    return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];
+  };
+  const a=parse(hex), b=parse(target); if(!a||!b) return hex;
+  const mix=a.map((v,i)=>Math.round(v+(b[i]-v)*amount));
+  return '#'+mix.map(v=>v.toString(16).padStart(2,'0')).join('');
+}
 
 // 개별 종목 → RBICS L1 섹터 추정 (주식 전용). 영문 섹터명 반환.
 // 티커 whitelist + 한/영 종목명 키워드 매칭 → 1차 미스 시 확장 키워드로 2차 추론.
@@ -6321,27 +6362,27 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
   const rows = [...itemsAug].sort((a, b) => b.val - a.val);
   const html = rows.map((x, idx) => {
     const w = (x.val / totalVal) * 100;
-    const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+    const color = _bubbleSectorColor(x.sector);
     const ownerTag = showOwner ? `<span style="font-size:.62rem;color:var(--acc);font-weight:700;background:var(--inner-bg);padding:1px 6px;border-radius:8px;flex-shrink:0">${x.raw.owner || '-'}</span>` : '';
     const name = x.raw.name || x.raw.tkr || '-';
     return `<div style="padding:7px 2px;border-bottom:1px solid var(--border-light)">
       <div style="display:flex;align-items:center;gap:6px;min-width:0">
         ${ownerTag}
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;font-weight:600;color:var(--t1)">${name}</span>
-        <span style="flex-shrink:0;font-size:.78rem;font-weight:700;color:${color};font-family:'IBM Plex Mono',monospace">${w.toFixed(1)}%</span>
+        <span style="flex-shrink:0;font-size:.78rem;font-weight:800;color:${color};font-family:'Manrope','Noto Sans KR',sans-serif">${w.toFixed(1)}%</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <div style="flex:1;height:6px;border-radius:3px;background:var(--inner-bg);overflow:hidden">
           <div style="height:100%;width:${Math.max(w, 0.5).toFixed(1)}%;background:${color};border-radius:3px"></div>
         </div>
-        <span style="flex-shrink:0;font-size:.68rem;color:var(--t3);font-family:'IBM Plex Mono',monospace">${fmt(x.val)}</span>
+        <span style="flex-shrink:0;font-size:.68rem;color:var(--t3);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(x.val)}</span>
       </div>
     </div>`;
   }).join('');
   container.innerHTML = `<div style="padding:4px 2px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 8px">
       <span style="font-size:.8rem;font-weight:700;color:var(--t3)">종목별 비중 (${rows.length}종목)</span>
-      <span style="font-size:.74rem;font-weight:700;color:var(--t1);font-family:'IBM Plex Mono',monospace">${fmt(totalVal)}</span>
+      <span style="font-size:.74rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(totalVal)}</span>
     </div>${html}</div>`;
 }
 
@@ -6391,7 +6432,7 @@ function renderBubbleChart(mode) {
   if (baseItems.length === 0) {
     try { if (typeof Plotly !== 'undefined') Plotly.purge(container); } catch (e) {}
     container._bubbleExtLabelsHookAttached = false;
-    container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:60px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:1px" data-bubble-empty="1">◌ NO ASSET DATA TO DISPLAY</div>';
+    container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:60px;font-family:\'Noto Sans KR\',\'Manrope\',sans-serif;font-weight:700" data-bubble-empty="1">표시할 자산이 없습니다.</div>';
     if (centerEl) container.appendChild(centerEl);
     return;
   }
@@ -6403,7 +6444,9 @@ function renderBubbleChart(mode) {
 
   const totalVal = baseItems.reduce((s, x) => s + x.val, 0) || 1;
   const isDark = isDarkTheme();
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
+  const textColor = cssVar('--t1',isDark?'#e7e9ee':'#18213a');
+  const panelColor = cssVar('--glass',isDark?'#15181e':'#ffffff');
+  const borderColor = cssVar('--border-dark',isDark?'#2c313c':'#c9d3e6');
 
   // ── 계층 구축: ROOT → (전체 모드일 때) owner → grp → name ──
   // Plotly sunburst 는 ids / labels / parents / values 배열로 트리를 받는다.
@@ -6461,13 +6504,12 @@ function renderBubbleChart(mode) {
     let parentIdForSec;
     if (!filterOwner) {
       const oid = `O::${owner}`;
-      const ohue = (_neonHash(owner) + oi * 23) % 360;
+      const ownerColor=(typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[owner])||cssVar('--acc','#2a6fdb');
       ids.push(oid);
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      // 유리질감: 채도 낮추고 알파 낮춰 반투명 느낌
-      colors.push(`hsla(${ohue},64%,${isDark ? 62 : 58}%,${isDark ? 0.40 : 0.36})`);
+      colors.push(_bubbleBlend(ownerColor,panelColor,isDark?0.22:0.34));
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6481,12 +6523,12 @@ function renderBubbleChart(mode) {
       const secVal = secMap[sector];
       const secWeight = (secVal / totalVal) * 100;
       const gid = `G::${owner}::${sector}`;
-      const secHue = (_SECTOR_HUES[sector] != null) ? _SECTOR_HUES[sector] : _neonHash(sector);
+      const secColor = _bubbleSectorColor(sector);
       ids.push(gid);
       labels.push(sector);
       parents.push(parentIdForSec);
       values.push(secVal);
-      colors.push(`hsla(${secHue},72%,${isDark ? 58 : 54}%,${isDark ? 0.55 : 0.50})`);
+      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.18));
       customdata.push({ kind: 'grp', owner, name: sector, weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
@@ -6499,17 +6541,15 @@ function renderBubbleChart(mode) {
         const weight = (val / totalVal) * 100;
         const displayName = _bubbleLeafLabel(i);
         const leafId = `L::${owner}::${sector}::${i.tkr || i.name}::${li}`;
-        // leaf hue: 섹터 hue 기준 ±° 시프트 → 같은 섹터 내 변주
-        const n = leafItems.length;
-        const h = (secHue + ((li - (n - 1) / 2) * 12) + 360) % 360;
-        const s = 78;
-        const l = isDark ? Math.min(74, 64 + (weight > 10 ? 4 : 0)) : Math.min(66, 56 + (weight > 10 ? 4 : 0));
+        // 같은 섹터의 의미색을 유지하면서 종목별로 명도만 달리한다.
+        const tintTarget=isDark?'#ffffff':'#0f172a';
+        const tint=Math.min(0.24,0.04+(li%4)*0.055+(weight>10?0.035:0));
         ids.push(leafId);
         // leaf 라벨은 내부에 표시하지 않음 — 외부 리더라인 + 텍스트로 대체
         labels.push('');
         parents.push(gid);
         values.push(val);
-        colors.push(`hsla(${h.toFixed(1)},${s}%,${l}%,${isDark ? 0.62 : 0.58})`);
+        colors.push(_bubbleBlend(secColor,tintTarget,tint));
         customdata.push({
           kind: 'leaf',
           owner: i.owner || owner,
@@ -6550,12 +6590,11 @@ function renderBubbleChart(mode) {
     marker: {
       colors,
       line: {
-        // 유리질감: 얇은 밝은 테두리
-        color: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.75)',
-        width: 0.8
+        color: borderColor,
+        width: 1
       }
     },
-    leaf: { opacity: 0.85 },
+    leaf: { opacity: 0.94 },
     // 내부 라벨: owner/섹터 만 노출 (leaf 는 라벨 비어있음 → 외부 리더라인으로 노출)
     textinfo: 'label',
     insidetextorientation: 'horizontal',
@@ -6580,12 +6619,12 @@ function renderBubbleChart(mode) {
     // 내부 텍스트 최소 크기 — 이 값 아래로 내려가야 하는 슬라이스는 글자 대신 숨김
     uniformtext: { minsize: 8, mode: 'hide' },
     hoverlabel: {
-      bgcolor: isDark ? 'rgba(5,5,5,0.92)' : 'rgba(248,250,252,0.96)',
-      bordercolor: isDark ? 'rgba(125,211,252,0.6)' : 'rgba(56,189,248,0.6)',
+      bgcolor: cssVar('--tipbg',isDark?'#f4f7fb':'#18213a'),
+      bordercolor: cssVar('--tipbd',isDark?'#ffffff':'#31405e'),
       font: {
         family: "'Noto Sans KR','Manrope',sans-serif",
         size: 13,
-        color: isDark ? '#f8fafc' : '#0f172a'
+        color: cssVar('--tiptx',isDark?'#111827':'#f8fafc')
       }
     },
     transition: { duration: 600, easing: 'cubic-in-out' }
@@ -6610,9 +6649,10 @@ function renderBubbleChart(mode) {
     const pctsEl = centerEl.querySelector('#bubble-summary-pcts');
     if (pctsEl) {
       const labelText = filterOwner || '전체';
-      const hue = _neonHash(labelText);
-      const c = `hsl(${hue}, 70%, ${isDark ? 72 : 42}%)`;
-      pctsEl.innerHTML = `<span style="color:${c};text-shadow:0 0 10px ${c}66">${labelText}</span>`;
+      const c = filterOwner
+        ? ((typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[filterOwner])||cssVar('--acc','#2a6fdb'))
+        : cssVar('--acc','#2a6fdb');
+      pctsEl.innerHTML = `<span style="color:${c};font-family:'Manrope','Noto Sans KR',sans-serif;font-weight:800">${labelText}</span>`;
     }
     container.appendChild(centerEl);
     requestAnimationFrame(() => _repositionBubbleCenter(container));
@@ -6757,9 +6797,9 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   overlay.setAttribute('class', 'bubble-ext-labels');
   overlay.setAttribute('pointer-events', 'none');
 
-  const lineColor = isDark ? 'rgba(203,213,225,0.42)' : 'rgba(71,85,105,0.45)';
-  const labelFill = textColor;
-  const labelOpacity = isDark ? 0.85 : 0.80;
+  const lineColor = cssVar('--border-dark',isDark?'#2c313c':'#c9d3e6');
+  const labelFill = cssVar('--t2',textColor);
+  const labelOpacity = 1;
 
   const startR = R - 2;
   const lineR = R + 18;
@@ -6870,7 +6910,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
       text.setAttribute('dominant-baseline', 'middle');
       text.setAttribute('font-family', "'Noto Sans KR','Manrope',sans-serif");
       text.setAttribute('font-size', String(fontSize));
-      text.setAttribute('font-weight', '600');
+      text.setAttribute('font-weight', '700');
       text.setAttribute('fill', labelFill);
       text.setAttribute('opacity', String(labelOpacity));
       overlay.appendChild(text);
@@ -6914,41 +6954,39 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
     _applyBubbleDrillState(false);
   }
 
-  const headerColor = isDark ? '#94a3b8' : '#64748b';
-  const rowBg = isDark ? 'rgba(15,23,42,0.46)' : 'rgba(248,250,252,0.78)';
-  const rowBgSel = isDark ? 'rgba(14,165,233,0.13)' : 'rgba(14,165,233,0.10)';
-  const rowBorder = isDark ? 'rgba(148,163,184,0.16)' : 'rgba(148,163,184,0.22)';
-  const rowBorderSel = isDark ? 'rgba(125,211,252,0.55)' : 'rgba(56,189,248,0.55)';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
+  const headerColor = 'var(--t3)';
+  const rowBg = 'var(--inner-bg)';
+  const rowBgSel = 'var(--acc-soft)';
+  const rowBorder = 'var(--border-light)';
+  const rowBorderSel = 'var(--acc)';
+  const textPrimary = 'var(--t1)';
   const fmtKRW = (v) => '₩' + Math.round(v).toLocaleString('ko-KR');
   const html = [
-    `<div style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;padding:2px 8px 10px;text-transform:uppercase;">Composition</div>`,
+    `<div style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.68rem;letter-spacing:.08em;color:${headerColor};font-weight:700;padding:2px 8px 10px;">섹터 구성</div>`,
     `<div style="display:flex;flex-direction:column;gap:5px;">`
   ];
   rows.forEach(([sec, val]) => {
     const pct = (val / totalVal * 100);
     const pctStr = pct >= 10 ? pct.toFixed(1) : pct.toFixed(2);
-    const hue = (_SECTOR_HUES[sec] != null) ? _SECTOR_HUES[sec] : _neonHash(sec);
-    const c = `hsl(${hue}, 70%, ${isDark ? 62 : 50}%)`;
+    const c = _bubbleSectorColor(sec);
     const isSel = _bubbleDrilledSector === sec;
     const safeSec = String(sec).replace(/'/g, "\\'");
     const detailHtml = isSel ? _renderBubbleLeavesPanel(sec, itemsAug, isDark, true) : '';
     html.push(`
       <div style="border-radius:8px;background:${isSel ? rowBgSel : rowBg};border:1px solid ${isSel ? rowBorderSel : rowBorder};overflow:hidden;transition:background .15s ease, border-color .15s ease;">
       <div onclick="handleBubbleSectorClick('${safeSec}')" style="position:relative;padding:8px 10px;cursor:pointer;overflow:hidden;">
-        <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:${isDark ? 'rgba(148,163,184,.18)' : 'rgba(148,163,184,.24)'};pointer-events:none;"></div>
-        <div style="position:absolute;left:0;bottom:0;height:3px;width:${Math.min(100, pct)}%;background:${c};box-shadow:0 0 10px ${c}66;pointer-events:none;"></div>
-        <div style="position:absolute;top:0;left:0;bottom:0;width:${Math.min(100, pct)}%;background:linear-gradient(90deg, ${c}1f, ${c}05);pointer-events:none;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--border-light);pointer-events:none;"></div>
+        <div style="position:absolute;left:0;bottom:0;height:3px;width:${Math.min(100, pct)}%;background:${c};pointer-events:none;"></div>
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-            <span style="width:8px;height:8px;border-radius:50%;background:${c};box-shadow:0 0 6px ${c}88;flex-shrink:0;"></span>
-            <span style="font-family:'DM Sans','Inter',sans-serif;font-size:.78rem;font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sec}</span>
+            <span style="width:8px;height:8px;border-radius:3px;background:${c};flex-shrink:0;"></span>
+            <span style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.76rem;font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sec}</span>
           </div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-shrink:0;">
-            <span style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.82rem;font-weight:800;color:${textPrimary};letter-spacing:.2px;">${pctStr}%</span>
+            <span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:.8rem;font-weight:800;color:${textPrimary};letter-spacing:0;">${pctStr}%</span>
           </div>
         </div>
-        <div style="position:relative;font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;color:${headerColor};margin-top:2px;letter-spacing:.2px;pointer-events:none;">${fmtKRW(val)}</div>
+        <div style="position:relative;font-family:'Manrope','Noto Sans KR',sans-serif;font-size:.65rem;color:${headerColor};margin-top:2px;letter-spacing:0;pointer-events:none;">${fmtKRW(val)}</div>
       </div>
       ${detailHtml}
       </div>
@@ -6973,12 +7011,11 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const secTotal = inSector.reduce((s, x) => s + x.val, 0) || 1;
   inSector.sort((a, b) => b.val - a.val);
 
-  const hue = (_SECTOR_HUES[sector] != null) ? _SECTOR_HUES[sector] : _neonHash(sector);
-  const accent = `hsl(${hue}, 70%, ${isDark ? 62 : 50}%)`;
-  const headerColor = isDark ? '#94a3b8' : '#64748b';
-  const rowBg = isDark ? 'rgba(15,23,42,0.38)' : 'rgba(255,255,255,0.62)';
-  const rowBorder = isDark ? 'rgba(148,163,184,0.14)' : 'rgba(148,163,184,0.20)';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
+  const accent = _bubbleSectorColor(sector);
+  const headerColor = 'var(--t3)';
+  const rowBg = 'var(--inner-bg)';
+  const rowBorder = 'var(--border-light)';
+  const textPrimary = 'var(--t1)';
   const fmtKRW = (v) => '₩' + Math.round(v).toLocaleString('ko-KR');
 
   // 행 수에 따라 패딩/폰트 자동 압축 — 스크롤 없이 모두 보이게
@@ -6993,8 +7030,8 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const html = [
     `<div class="bubble-inline-leaves" style="padding:4px 8px 9px;border-top:1px solid ${rowBorder};">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 7px;">
-      <div style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.64rem;letter-spacing:1.2px;color:${headerColor};font-weight:700;text-transform:uppercase;">${sector}</div>
-      <div onclick="handleBubbleSectorClick('${String(sector).replace(/'/g,"\\'")}')" style="font-family:'IBM Plex Mono','DM Sans',sans-serif;font-size:.66rem;color:${accent};cursor:pointer;font-weight:700;letter-spacing:.4px;">CLOSE</div>
+      <div style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.66rem;letter-spacing:.08em;color:${headerColor};font-weight:700;">${sector}</div>
+      <div onclick="handleBubbleSectorClick('${String(sector).replace(/'/g,"\\'")}')" style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.66rem;color:${accent};cursor:pointer;font-weight:700;">닫기</div>
     </div>`,
     `<div style="display:flex;flex-direction:column;gap:${gap}px;">`
   ];
@@ -7008,10 +7045,9 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
     const sub = (tkr && tkr !== name) ? tkr : '';
     html.push(`
       <div style="position:relative;padding:${padY}px 10px;border-radius:6px;background:${rowBg};border:1px solid ${rowBorder};overflow:hidden;">
-        <div style="position:absolute;top:0;left:0;bottom:0;width:${Math.min(100, pctSec)}%;background:linear-gradient(90deg, ${accent}26, ${accent}06);pointer-events:none;"></div>
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:6px;">
           <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">
-            <span style="width:5px;height:5px;border-radius:50%;background:${accent};flex-shrink:0;box-shadow:0 0 4px ${accent}aa;"></span>
+            <span style="width:6px;height:6px;border-radius:2px;background:${accent};flex-shrink:0;"></span>
             <span style="font-size:${fontSize}rem;font-weight:600;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}${sub ? ` <span style=\"opacity:.55;font-weight:500;\">${sub}</span>` : ''}</span>
           </div>
           <span style="font-size:${fontSize}rem;font-weight:700;color:${textPrimary};flex-shrink:0;">${pctStr}%</span>

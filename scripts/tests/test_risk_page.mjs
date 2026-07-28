@@ -101,6 +101,8 @@ assert.equal(wifeRisk.leveragedInversePct, 80, '아내 순자산 대비 ETHU 평
 assert.equal(wifeRisk.leveragedInverseCount, 1, '아내 레버리지·인버스 상품 수')
 assert.equal(wifeRisk.leveragedInverseTop, '2x Ether ETF', '최대 기여 레버리지 상품')
 assert.equal(wifeRisk.cards.find(x => x.title === '레버리지·인버스 노출도').status, '경고', '10% 초과 경고')
+assert.ok(wifeRisk.score >= 0 && wifeRisk.score <= 100, '리스크 점수는 실제 0~100점 범위')
+assert.match(source, /const score = Math\.max\(0, Math\.min\(100,/, '리스크 점수의 인위적 5점 하한·98점 상한 제거')
 
 rows = rows.concat([
   { i: { owner: '본인', grp: '주식', tkr: 'SQQQ', name: 'ProShares UltraPro Short QQQ', cur: 'USD' }, title: 'ProShares UltraPro Short QQQ', cls: 'us', val: 100 },
