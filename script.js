@@ -2218,7 +2218,8 @@ function renderPortfolio(owner) {
     else{
       grpItems.forEach(i=>{
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
-        let ownerTag=showOwner?`<td class="text-left"><span style="font-size:.7rem;background:var(--inner-bg);padding:3px 8px;border-radius:12px;color:var(--acc);font-weight:bold">${i.owner}</span></td>`:'';
+        let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${i.owner}</span></td>`:'';
+        const brokerCell=`<span class="broker-txt">${i.broker||'—'}</span> <span class="holdings-account">/ ${i.acc||'—'}</span>`;
         let mgmtBtns=`<button class="btn-action" title="수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✎</button><button class="btn-action" title="삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">✕</button>`;
 
         if(grpName==='현금'){
@@ -2232,7 +2233,7 @@ function renderPortfolio(owner) {
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<span class="editable-val" onclick="makeEditable(this,'${i.owner}','${i.tkr}','qty',true,${pIdx})">${fBal}</span>`;
           // [9] 자산명 + 통화 배지 나란히
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.cur}</span></td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.cur}</span></td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
@@ -2252,7 +2253,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2272,7 +2273,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2293,7 +2294,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left"><span class="broker-txt">${i.broker}</span> <span style="font-size:.65rem;color:var(--t3)">/ ${i.acc}</span></td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
