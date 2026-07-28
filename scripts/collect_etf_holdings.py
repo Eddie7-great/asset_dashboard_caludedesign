@@ -313,10 +313,11 @@ def resolve_targets(explicit=None):
     if explicit:
         out = []
         for t in explicit:
-            c = strip_ticker(t)
+            raw = str(t or '').strip().upper()
+            c = strip_ticker(raw)
             if not c:
                 continue
-            out.append((c, kr_etf_master().get(c) or c))
+            out.append((c, kr_etf_master().get(c) or c, raw))
         return out
 
     master = kr_etf_master()
@@ -329,26 +330,33 @@ def resolve_targets(explicit=None):
                 continue
         except Exception:
             continue
-        code = strip_ticker(item.get('tkr'))
+        raw = str(item.get('tkr') or '').strip().upper()
+        code = strip_ticker(raw)
         if not code or code in seen:
             continue
         if is_kr_code(code):
             if code not in master:            # 로컬 ETF 목록에 있으면 국내 ETF
                 continue
             seen.add(code)
-            targets.append((code, master.get(code) or item.get('name') or code))
+            targets.append((code, master.get(code) or item.get('name') or code, code))
         else:
-            if not is_overseas_etf(code):     # yfinance 펀드 데이터가 있으면 해외 ETF
+            if not is_overseas_etf(raw):      # 원본 티커로 판별 (예: 1617.T)
                 continue
             seen.add(code)
-            targets.append((code, item.get('name') or code))
+            targets.append((code, item.get('name') or code, raw))
     return targets
 
 
 # ── 수집 ────────────────────────────────────────────────────────
-def collect_one(code, name):
-    """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None)."""
+def collect_one(code, name, lookup=None):
+    """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None).
+
+    code   : 접미사를 뗀 코드 — JSON 키이자 프런트 cbStrip() 결과와 일치해야 한다
+    lookup : 외부 조회용 원본 티커. 야후는 일본 종목을 '1617.T' 로만 인식하므로
+             접미사를 뗀 '1617' 로 조회하면 실패한다. 미지정이면 code 를 쓴다.
+    """
     today = datetime.date.today().isoformat()
+    lookup = lookup or code
 
     if is_kr_code(code):
         h, eq, as_of = fetch_krx(code)
@@ -361,13 +369,13 @@ def collect_one(code, name):
         if h:
             return h, round(sum(x['w'] for x in h), 2), today, 'naver'
     else:
-        h = fetch_yfinance(code)
+        h = fetch_yfinance(lookup)
         if h:
             return h, round(sum(x['w'] for x in h), 2), today, 'yfinance'
-        h = fetch_stockanalysis(code)
+        h = fetch_stockanalysis(lookup)
         if h:
             return h, round(sum(x['w'] for x in h), 2), today, 'stockanalysis'
-        alias = ETF_ALIAS.get(code)
+        alias = ETF_ALIAS.get(lookup) or ETF_ALIAS.get(code)
         if alias:
             h = fetch_yfinance(alias) or fetch_stockanalysis(alias)
             if h:
@@ -394,8 +402,8 @@ def run(targets, dry_run=False):
     prev = load_previous()
     etfs, failures = {}, []
 
-    for code, name in targets:
-        holdings, eq, as_of, source = collect_one(code, name)
+    for code, name, lookup in targets:
+        holdings, eq, as_of, source = collect_one(code, name, lookup)
         if holdings:
             etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
                           'equityWeight': eq, 'holdings': holdings}
