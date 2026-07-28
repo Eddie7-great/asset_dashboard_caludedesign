@@ -72,6 +72,9 @@ function fmtMoney(v, cur='KRW'){
 function calcProfit(cur, inv){ const p = cur - inv; return { profit: p, pct: inv > 0 ? (p/inv)*100 : 0 }; }
 // 티커 정규화: 대문자화 + .KS/.KQ 접미사 제거
 const normTkr = t => (t||'').toUpperCase().replace(/\.(KS|KQ)$/i, '');
+// 배당 캐시는 화면(Cobalt cbStrip)과 동일하게 한국·일본 거래소 접미사를 제거해 조회한다.
+// API 요청 심볼은 .T를 유지해야 Yahoo가 일본 종목을 찾으므로 요청 목록에는 normDivTkr를 쓰지 않는다.
+const normDivTkr = t => (t||'').toUpperCase().replace(/\.(KS|KQ|T)$/i, '');
 // fetch 타임아웃 헬퍼: { signal, done() }
 function fetchTimeout(ms=20000){
   const c = new AbortController();
@@ -149,7 +152,7 @@ function getDivStocks() {
   return pfolioData
     .filter(i => i.grp==='주식' && i.qty>0)
     .map(i => {
-      const tkr6 = i.tkr.replace(/\.(KS|KQ)$/, '');
+      const tkr6 = normDivTkr(i.tkr);
       if (seen.has(tkr6)) return null;
       seen.add(tkr6);
       // API 캐시 우선, 없으면 DIV_INFO_DB 폴백
@@ -239,7 +242,7 @@ function syncDivHistory() {
   // 1단계: 세전 배당 집계
   pfolioData.forEach(item=>{
     if(item.grp!=='주식'||item.qty<=0) return;
-    const tkr6 = normTkr(item.tkr);
+    const tkr6 = normDivTkr(item.tkr);
     const cached = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
     const info = cached || DIV_INFO_DB[tkr6] || DIV_INFO_DB[item.tkr];
     if (!info) return;
@@ -247,7 +250,7 @@ function syncDivHistory() {
     if (epsVal <= 0) return;
     let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
     if (!months) months = [2,5,8,11];
-    const payout = item.qty * epsVal * (info.cur==='USD' ? (RATES.USD||1380) : 1);
+    const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
     ['2025','2026'].forEach(y=>{
       months.forEach(m=>{
         if(m>=0&&m<12){
@@ -262,7 +265,7 @@ function syncDivHistory() {
   // 소유주·연도·계좌별 연간 배당 합계를 먼저 집계한 뒤 ISA 200만원 공제 적용
   pfolioData.forEach(item=>{
     if(item.grp!=='주식'||item.qty<=0) return;
-    const tkr6 = normTkr(item.tkr);
+    const tkr6 = normDivTkr(item.tkr);
     const cached = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
     const info = cached || DIV_INFO_DB[tkr6] || DIV_INFO_DB[item.tkr];
     if (!info) return;
@@ -270,7 +273,7 @@ function syncDivHistory() {
     if (epsVal <= 0) return;
     let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
     if (!months) months = [2,5,8,11];
-    const payout = item.qty * epsVal * (info.cur==='USD' ? (RATES.USD||1380) : 1);
+    const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
     const taxInfo = getAccountDivTaxInfo(item.acc);
 
     ['2025','2026'].forEach(y=>{
@@ -307,19 +310,30 @@ syncDivHistory();
 async function fetchDivData() {
   const today = new Date().toISOString().split('T')[0];
   const cacheKey = 'divCache_' + today;
+  const verifiedKey = 'divCacheTickers_' + today;
+  const tickers = [...new Set(
+    pfolioData.filter(i=>i.grp==='주식'&&i.qty>0)
+      .map(i=>(i.tkr||'').replace(/\.(KS|KQ)$/,''))
+      .filter(Boolean)
+  )];
+  if (!tickers.length) return;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
-      window._divDataCache = JSON.parse(cached);
-      syncDivHistory();
-      return;
+      const verified = JSON.parse(localStorage.getItem(verifiedKey) || '[]');
+      // 무배당 종목은 결과 캐시에 키가 생기지 않으므로, 실제 요청을 마친 티커 목록을
+      // 별도로 보관해 "새 보유 종목이 추가됐는지"까지 페이지 진입 때마다 검증한다.
+      if (Array.isArray(verified) && tickers.every(t=>verified.includes(t))) {
+        const parsed = JSON.parse(cached);
+        // 화면의 cbStrip 규칙과 맞춰 일본 상장 .T도 캐시 키에서는 제거한다.
+        window._divDataCache = Object.fromEntries(Object.entries(parsed||{}).map(
+          ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
+        ));
+        syncDivHistory();
+        return;
+      }
     } catch(e) {}
   }
-  const tickers = [...new Set(
-    pfolioData.filter(i=>i.grp==='주식'&&i.qty>0)
-      .map(i=>i.tkr.replace(/\.(KS|KQ)$/,''))
-  )];
-  if (!tickers.length) return;
 
   try {
     const _divFetch = fetchTimeout(20000);
@@ -329,7 +343,8 @@ async function fetchDivData() {
     const data = await resp.json();
     if (!data.success || !data.result) return;
     for (const [tkr, d] of Object.entries(data.result)) {
-      const existing = DIV_INFO_DB[tkr] || {};
+      const cacheTkr = String(tkr).toUpperCase().replace(/\.(KS|KQ|T)$/,'');
+      const existing = DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
       if (!d || typeof d !== 'object') continue;
       const annualDps = Number(d.dps) || 0;
       const yld = Number(d.yld) || 0;
@@ -341,7 +356,7 @@ async function fetchDivData() {
 
       // yld 또는 eps 중 하나라도 있으면 캐시에 저장
       if (epsPerPeriod > 0 || yld > 0) {
-        window._divDataCache[tkr] = {
+        window._divDataCache[cacheTkr] = {
           eps: epsPerPeriod,
           annualDps: annualDps,
           yld: yld.toFixed(2) + '%',
@@ -355,6 +370,7 @@ async function fetchDivData() {
       }
     }
     localStorage.setItem(cacheKey, JSON.stringify(window._divDataCache));
+    localStorage.setItem(verifiedKey, JSON.stringify(tickers));
     syncDivHistory();
     resolvePendingDivDates();
   } catch(e) { console.error('[fetchDivData]', e); }
@@ -366,25 +382,28 @@ window._divHistoryRawCache = window._divHistoryRawCache || {};
 async function fetchDividendHistory(force = false) {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  // 7일 캐시
-  if (!force) {
-    try {
-      const cached = localStorage.getItem('divHistRaw');
-      if (cached) {
-        const obj = JSON.parse(cached);
-        if (obj && obj.savedAt && (Date.now() - obj.savedAt) < 7*86400000 && obj.data) {
-          window._divHistoryRawCache = obj.data;
-          return;
-        }
-      }
-    } catch(e) {}
-  }
   const tickers = [...new Set(
     pfolioData.filter(i => i.grp==='주식' && i.qty>0)
       .map(i => (i.tkr||'').replace(/\.(KS|KQ)$/,''))
       .filter(Boolean)
   )];
   if (!tickers.length) return;
+  // 7일 캐시
+  if (!force) {
+    try {
+      const cached = localStorage.getItem('divHistRaw');
+      if (cached) {
+        const obj = JSON.parse(cached);
+        if (obj && obj.savedAt && (Date.now() - obj.savedAt) < 7*86400000 && obj.data
+          && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t))) {
+          window._divHistoryRawCache = Object.fromEntries(Object.entries(obj.data||{}).map(
+            ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
+          ));
+          return;
+        }
+      }
+    } catch(e) {}
+  }
   try {
     const _dhFetch = fetchTimeout(25000);
     const resp = await authFetch('/api/price?type=dividend_history&tickers=' + tickers.join(','), { signal: _dhFetch.signal });
@@ -392,8 +411,10 @@ async function fetchDividendHistory(force = false) {
     if (!resp.ok) { console.warn('[fetchDividendHistory] HTTP', resp.status); return; }
     const data = await resp.json();
     if (!data.success || !data.result) return;
-    window._divHistoryRawCache = data.result;
-    try { localStorage.setItem('divHistRaw', JSON.stringify({ savedAt: Date.now(), data: data.result })); } catch(e) {}
+    window._divHistoryRawCache = Object.fromEntries(Object.entries(data.result).map(
+      ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
+    ));
+    try { localStorage.setItem('divHistRaw', JSON.stringify({ savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
   } catch(e) { console.error('[fetchDividendHistory]', e); }
 }
 
@@ -1617,7 +1638,7 @@ function positionTableFloatTip(tip, anchor){
   let top = ar.top - tr.height - gap;
   if (top < 12) top = Math.min(window.innerHeight - tr.height - 12, ar.bottom + gap);
   tip.style.left = `${Math.round(left)}px`;
-  tip.style.top = `${Math.round(Math.max(12,top))}px`;
+  tip.style.top = `${Math.round(Math.max(12,Math.min(top,window.innerHeight-tr.height-12)))}px`;
 }
 function showTableFloatTip(anchor){
   const text = anchor && anchor.getAttribute('data-tip');
@@ -1637,14 +1658,14 @@ function hideTableFloatTip(anchor){
 if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
   window._tableFloatTipEventsBound = true;
   document.addEventListener('mouseover', e=>{
-    const el = e.target.closest?.('.pt-table [data-tip],.cb-thead [data-tip],.cb-tblwrap [data-tip],.cb-table-panel [data-tip]');
+    const el = e.target.closest?.('[data-tip]');
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     showTableFloatTip(el);
   }, true);
   document.addEventListener('mouseout', e=>{
     // 오버플로 툴팁은 앞선 mouseout 핸들러가 data-tip을 먼저 제거하므로
     // 원본 data-overflow-tip까지 대상으로 잡아 body 포털이 남지 않게 한다.
-    const el = e.target.closest?.('.pt-table [data-tip],.cb-thead [data-tip],.cb-tblwrap [data-tip],.cb-table-panel [data-tip],.pt-table [data-overflow-tip],.cb-thead [data-overflow-tip],.cb-tblwrap [data-overflow-tip],.cb-table-panel [data-overflow-tip]');
+    const el = e.target.closest?.('[data-tip],[data-overflow-tip]');
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     hideTableFloatTip(el);
   }, true);
@@ -1661,9 +1682,21 @@ function getHoldingsBrokerCellHtml(item){
     + `<span class="broker-txt" data-overflow-watch>${holdingsEsc(broker)}</span>`
     + `<span class="holdings-account" data-overflow-watch>/ ${holdingsEsc(account)}</span></span>`;
 }
-function getHoldingsAssetCellHtml(name,ticker){
+function getHoldingsAssetCellHtml(name,ticker,item){
   const parts = [name,ticker].filter(Boolean);
+  let flag = '';
+  if (item) {
+    const market = item.cur==='USD' ? 'US' : item.cur==='JPY' ? 'JP' : 'KR';
+    if ((item.grp==='주식'||item.grp==='현금') && typeof _mktFlagSvg==='function') {
+      flag = `<span class="holdings-asset-flag">${_mktFlagSvg(market,15)}</span>`;
+    } else if (item.grp==='금') {
+      flag = '<span class="holdings-asset-flag" aria-label="금"><svg width="23" height="15" viewBox="0 0 36 24" aria-hidden="true"><polygon points="5,9 14,3.5 30,6 21,11.5" fill="#ffe18a"/><polygon points="5,9 21,11.5 21,19 5,16.2" fill="#d9a520"/><polygon points="21,11.5 30,6 30,13.2 21,19" fill="#a96f0b"/></svg></span>';
+    } else if (item.grp==='가상화폐') {
+      flag = '<span class="holdings-asset-flag holdings-crypto-flag" aria-label="가상화폐">₿</span>';
+    }
+  }
   return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(parts.join(' · '))}">`
+    + flag
     + `<strong class="holdings-inline-name" data-overflow-watch>${holdingsEsc(name||'—')}</strong>`
     + (ticker?`<span class="tkr-txt holdings-inline-ticker" data-overflow-watch>${holdingsEsc(ticker)}</span>`:'')
     + `</span>`;
@@ -2366,7 +2399,7 @@ function renderPortfolio(owner) {
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<span class="editable-val" onclick="makeEditable(this,'${i.owner}','${i.tkr}','qty',true,${pIdx})">${fBal}</span>`;
           // [9] 자산명 + 통화 배지 나란히
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.cur)}</td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.cur,i)}</td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
@@ -2386,7 +2419,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'')}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2406,7 +2439,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2427,7 +2460,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -2438,12 +2471,12 @@ function renderPortfolio(owner) {
     let theadHtml='';
     const ownerTh=showOwner?'<th class="text-left">소유주</th>':'';
     if(grpName==='현금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left holdings-asset-head">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left holdings-asset-head">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
@@ -2457,8 +2490,8 @@ function renderPortfolio(owner) {
       const ownerCol=showOwner?'<col style="width:7%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
-        ?['8%','14%','7%','8%','7%','8%','8%','10%','9%','7%','7%']
-        :['9%','15%','8%','9%','7%','9%','9%','11%','9%','7%','7%'];
+        ?['7%','16%','7%','7%','7%','8%','8%','10%','9%','7%','7%']
+        :['8%','17%','7%','8%','7%','9%','9%','11%','9%','7%','8%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -2789,12 +2822,12 @@ function renderDivTable(mIdx) {
     // 소유주 필터링: 현재 선택된 소유주의 보유수량만
     let tQty=0;
     ownerItems.forEach(i=>{
-      const tkr6=i.tkr.replace(/\.(KS|KQ)$/,'');
+      const tkr6=normDivTkr(i.tkr);
       if(tkr6===s.tkr||i.tkr===s.tkr) tQty+=i.qty;
     });
     if(tQty===0)return;hasItem=true;
     // 실시간 배당률 표시 (API 캐시 우선)
-    const cachedDiv = window._divDataCache && (window._divDataCache[s.tkr]||window._divDataCache[s.tkr.replace(/\.(KS|KQ)$/,'')]);
+    const cachedDiv = window._divDataCache && (window._divDataCache[normDivTkr(s.tkr)]||window._divDataCache[s.tkr]);
     const displayYld = (cachedDiv && cachedDiv.yld) ? cachedDiv.yld : (s.yld||'-');
     const yldNum = parseFloat(displayYld)||0;
     const yldCls = yldNum>3?'c-up':'';
@@ -2803,10 +2836,10 @@ function renderDivTable(mIdx) {
     // 단일 지급분 eps 우선, 없으면 현재가 기반 연 배당률 계산
     let expPerPeriod;
     if(s.eps>0){
-      expPerPeriod = tQty * s.eps * (s.cur==='USD'?(RATES.USD||1380):1);
+      expPerPeriod = tQty * s.eps * (RATES[s.cur]||1);
     } else if(yldNum>0){
       // 연 배당률로 계산: 연 배당금 = qty × curP × yld / 배당횟수
-      const curVal = ownerItems.filter(i=>{const t6=i.tkr.replace(/\.(KS|KQ)$/,'');return t6===s.tkr||i.tkr===s.tkr;}).reduce((sum,i)=>sum+i.qty*i.curP*(RATES[i.cur]||1),0);
+      const curVal = ownerItems.filter(i=>{const t6=normDivTkr(i.tkr);return t6===normDivTkr(s.tkr)||i.tkr===s.tkr;}).reduce((sum,i)=>sum+i.qty*i.curP*(RATES[i.cur]||1),0);
       expPerPeriod = curVal * yldNum / 100 / cycleCount;
     } else {
       expPerPeriod = 0;
@@ -5916,7 +5949,7 @@ function renderDivCoverage() {
   let annualDivExpected = 0;
   pfolioData.forEach(i=>{
     if(i.grp!=='주식' || !i.qty || !i.curP) return;
-    const tkr6 = normTkr(i.tkr);
+    const tkr6 = normDivTkr(i.tkr);
     const cached = (window._divDataCache && (window._divDataCache[tkr6] || window._divDataCache[i.tkr])) || null;
     const info = cached || (typeof DIV_INFO_DB !== 'undefined' && (DIV_INFO_DB[tkr6] || DIV_INFO_DB[i.tkr])) || null;
     if(!info || !info.eps) return;
@@ -7542,15 +7575,16 @@ async function fetchPyDividends() {
 
   const mergeOne = (tkr, info) => {
     if (!info || info.dps === '미조회') return;
-    const existing = window._divDataCache[tkr] || DIV_INFO_DB[tkr] || {};
+    const cacheTkr = normDivTkr(tkr);
+    const existing = window._divDataCache[cacheTkr] || DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
     const dps = typeof info.dps === 'number' ? info.dps : (existing.eps || 0);
     const yld = typeof info.yld === 'number' ? info.yld.toFixed(2)+'%' : (existing.yld || '0%');
-    const cur = info.cur || existing.cur || (/^[0-9A-Z]{6}$/.test(tkr) ? 'KRW' : 'USD');
+    const cur = info.cur || existing.cur || (/^[0-9A-Z]{6}$/.test(tkr) ? 'KRW' : (/\.T$/i.test(tkr) ? 'JPY' : 'USD'));
     // months: 기존 DB > cycle 추론 > 기본 분기
     let months = (Array.isArray(existing.months) && existing.months.length) ? existing.months : null;
     if (!months) months = _defaultMonthsForCycle(existing.cycle);
     if (!months && dps > 0) months = [2,5,8,11]; // fallback: 분기
-    window._divDataCache[tkr] = {
+    window._divDataCache[cacheTkr] = {
       eps: dps,
       yld,
       cur,
