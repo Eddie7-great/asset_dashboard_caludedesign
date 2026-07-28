@@ -176,6 +176,16 @@
     #view-holdings .holdings-account{font-size:10.5px;color:var(--lab)}
     #view-holdings .holdings-owner{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:11.5px;font-weight:600}
     #view-holdings .holdings-owner-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    #view-holdings .dca-cycle-head,
+    #view-holdings .dca-cycle-cell{text-align:center}
+    #view-holdings .dca-amount-head,
+    #view-holdings .dca-amount-cell{text-align:right}
+    #view-holdings .dca-cycle{color:var(--mut);font-size:11.5px;font-weight:600}
+    #view-holdings .dca-amount{color:var(--tx);font-size:12px;font-weight:600}
+    #view-holdings .pt-table th.mgmt-head,
+    #view-holdings .pt-table td.mgmt-cell{text-align:center;padding-left:4px;padding-right:4px}
+    #view-holdings .holdings-actions{display:inline-flex;align-items:center;justify-content:center;gap:2px}
+    #view-holdings .holdings-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
     #div-table-body td:first-child{white-space:normal}
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
     #cf-detail-table{table-layout:fixed}
@@ -184,8 +194,6 @@
     #cf-detail-table td:nth-child(5){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
     .div-compact td,.div-compact th{padding:3px 6px;font-size:.7rem}
     .div-compact thead th{padding:4px 6px}
-    .dca-tag{font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(16,185,129,.15);color:var(--up);border:1px solid rgba(16,185,129,.3);margin-left:4px;vertical-align:middle}
-    .dca-detail-txt{font-size:.65rem;color:var(--t3);font-weight:normal;margin-left:4px}
     /* [5] 정렬 가능한 테이블 헤더 */
     /* 정렬 헤더: 우측 패딩을 본문 td(12px)와 동일하게 맞춰 헤더 텍스트와 숫자열 정렬선 일치 */
     .pt-table th.sortable{cursor:pointer;user-select:none;position:relative;padding-right:12px}
@@ -979,10 +987,11 @@
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
       .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
       #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{overflow-x:auto}
-      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 9·3·2번째) */
+      /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 10·3·2번째) */
       #portfolio-tables .pt-table:not([data-grp="현금"]) :is(th,td):not([colspan]):is(
         :nth-last-child(1),:nth-last-child(4),:nth-last-child(5),:nth-last-child(6),
-        :nth-last-child(7),:nth-last-child(8),:nth-last-child(10),:nth-last-child(11)){display:none}
+        :nth-last-child(7),:nth-last-child(8),:nth-last-child(9),
+        :nth-last-child(11),:nth-last-child(12)){display:none}
       /* 현금: 자산명 · 평가금액(KRW) (오른쪽 기준 4·2번째) */
       #portfolio-tables .pt-table[data-grp="현금"] :is(th,td):not([colspan]):is(
         :nth-last-child(1),:nth-last-child(3),

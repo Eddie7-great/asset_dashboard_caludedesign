@@ -1522,9 +1522,14 @@ function getDcaCycleLabel(item) {
   return `매월 ${item.dcaDay||1}일`;
 }
 
-// 자산 내역 표의 DCA 칼럼 셀 — 뱃지 + 주기 + 회당 금액 (미설정은 '—')
-// 다음 체결 예정일은 표시하지 않는다(요구사항).
+// 자산 내역 표의 DCA 주기 칼럼 — 별도 배지 없이 주기만 표시한다.
 function getDcaCellHtml(item){
+  if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
+  return `<span class="dca-cycle">${getDcaCycleLabel(item)}</span>`;
+}
+
+// 자산 내역 표의 회당 DCA 금액/수량 칼럼.
+function getDcaAmountCellHtml(item){
   if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
   const isQty = item.dcaMode === 'qty';
   const sym = item.dcaCur === 'USD' ? '$' : '₩';
@@ -1532,9 +1537,7 @@ function getDcaCellHtml(item){
   const amt = isQty
     ? (item.dcaQty||0).toLocaleString(undefined,{maximumFractionDigits:4}) + unit
     : sym + (item.dcaAmt||0).toLocaleString();
-  return `<span class="dca-tag" style="margin-left:0">DCA</span>`
-    + `<span style="font-size:.65rem;color:var(--t3);margin-left:4px">${getDcaCycleLabel(item)}</span>`
-    + `<br><span style="font-size:.68rem;color:var(--t2)">${amt}</span>`;
+  return `<span class="dca-amount">${amt}</span>`;
 }
 
 // 다음 체결 예정일 계산 (시장 휴장일·주말 자동 스킵)
@@ -2213,14 +2216,14 @@ function renderPortfolio(owner) {
       return (a.name||a.tkr||'').localeCompare(b.name||b.tkr||'','ko');
     });
     let grpTotal=0,grpInvest=0,rowsHtml='';
-    const colspan=showOwner?11:10;
+    const colspan=grpName==='현금' ? (showOwner?6:5) : (showOwner?12:11);
     if(grpItems.length===0){rowsHtml=`<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--t3)">등록된 자산 내역이 없습니다.</td></tr>`;}
     else{
       grpItems.forEach(i=>{
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${i.owner}</span></td>`:'';
         const brokerCell=`<span class="broker-txt">${i.broker||'—'}</span> <span class="holdings-account">/ ${i.acc||'—'}</span>`;
-        let mgmtBtns=`<button class="btn-action" title="수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✎</button><button class="btn-action" title="삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">✕</button>`;
+        let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" title="수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('${i.owner}','${i.tkr}',${pIdx})">✎</button><button class="btn-action" title="삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('${i.owner}','${i.tkr}',${pIdx})">✕</button></span>`;
 
         if(grpName==='현금'){
           // [8] 현금: 정렬, 검정폰트, 클릭편집
@@ -2253,7 +2256,7 @@ function renderPortfolio(owner) {
           const fAmt=fmtMoney(current);
           // [7] 수익금에 (₩)
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -2273,7 +2276,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${i.tkr}</span></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -2294,7 +2297,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td style="text-align:center">${getDcaCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left">${brokerCell}</td><td class="text-left"><strong>${i.name}</strong><br><span class="tkr-txt">${dispTkr}</span></td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -2305,12 +2308,12 @@ function renderPortfolio(owner) {
     let theadHtml='';
     const ownerTh=showOwner?'<th class="text-left">소유주</th>':'';
     if(grpName==='현금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head">관리</th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th style="text-align:center">DCA</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head">관리</th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th style="text-align:center">DCA</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th>관리</th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','qty',this)">수량</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','avgP',this)">평균단가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','curP',this)">현재가</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','valKRW',this)">평가금액(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profit',this)">수익금(KRW)</th><th class="sortable" onclick="sortPortfolioTable('${grpName}','profitPct',this)">수익률</th><th class="mgmt-head">관리</th></tr>`;
     }
     let displayState=window.portToggleState[grpName]?'block':'none';
     const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
@@ -2319,11 +2322,10 @@ function renderPortfolio(owner) {
     let colgroupHtml='';
     if(_isFixed){
       const ownerCol=showOwner?'<col style="width:7%">':'';
-      // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
-      // 관리 칼럼 6% — 3%였을 때 table-layout:fixed + overflow:hidden 으로 삭제(✕) 버튼이 잘려 보이지 않던 문제 해결
+      // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
-        ?['9%','15%','10%','7%','9%','9%','11%','10%','7%','6%']
-        :['10%','17%','11%','8%','9%','10%','11%','10%','8%','6%'];
+        ?['8%','14%','7%','8%','7%','8%','8%','10%','9%','7%','7%']
+        :['9%','15%','8%','9%','7%','9%','9%','11%','9%','7%','7%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -4171,14 +4173,16 @@ function sortPortfolioTable(grpName, field, thEl) {
   // tbody 행 정렬
   const tbody = table.querySelector('tbody');
   const rows = Array.from(tbody.querySelectorAll('tr'));
+  const hasOwner = Array.from(table.tHead?.rows[0]?.cells || [])
+    .some(th => th.textContent.trim() === '소유주');
   rows.sort((a, b) => {
-    // 칼럼 인덱스(소유주 칼럼 제외 기준) — 3번 칼럼이 DCA 라 수치 칼럼이 한 칸씩 뒤로 밀린다
+    // 칼럼 인덱스(소유주 칼럼 제외 기준) — DCA 주기/회당 금액 다음부터 수치 칼럼이다.
     const cells = {
-      qty: 3, avgP: 4, curP: 5, valKRW: 6, profit: 7, profitPct: 8
+      qty: 4, avgP: 5, curP: 6, valKRW: 7, profit: 8, profitPct: 9
     };
     const ci = cells[field] ?? 5;
     const getVal = (row) => {
-      const td = row.cells[row.cells.length > 10 ? ci+1 : ci]; // 소유주 컬럼 있으면 +1
+      const td = row.cells[ci + (hasOwner ? 1 : 0)];
       if (!td) return 0;
       const txt = td.innerText.replace(/[₩+\-,%\s]/g,'').replace(/,/g,'');
       return parseFloat(txt) || 0;
