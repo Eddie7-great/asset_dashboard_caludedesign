@@ -928,9 +928,11 @@
     .cb-perf-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .cb-perf-detail-table{min-width:0;border:1px solid var(--bd);border-radius:9px;overflow:hidden}
     .cb-perf-detail-head,
-    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(66px,84px) repeat(6,minmax(35px,1fr)) minmax(42px,.9fr) minmax(42px,.9fr);align-items:center;column-gap:2px}
+    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr);align-items:center;column-gap:2px}
     .cb-perf-detail-head{padding:6px;background:var(--inner);font-size:8.5px;color:var(--dim);text-align:right}
     .cb-perf-detail-head>span:first-child{text-align:left}
+    .cb-perf-detail-head>span{min-width:0;white-space:nowrap}
+    .cb-perf-detail-head>span>span[data-tip]{display:inline-block}
     .cb-perf-detail-row{padding:8px 6px;border-top:1px solid var(--bd);font-size:10px;text-align:right;cursor:pointer;transition:background .15s,opacity .15s}
     .cb-perf-detail-row:hover{background:var(--hover)}
     .cb-perf-detail-row>span{min-width:0;border-radius:4px;padding:2px 1px;white-space:nowrap}
