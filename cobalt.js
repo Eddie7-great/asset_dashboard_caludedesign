@@ -951,7 +951,7 @@ function cbRenderPerf(){
       </div>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);padding:4px 2px 6px;margin-left:${padLpct}%;margin-right:${padRpct}%">${labels.map(l=>`<span>${cbEsc(l)}</span>`).join('')}</div>
     </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
+    <div class="cb-panel cb-perf-detail-panel" style="margin-top:12px;padding:16px 18px">
       <div class="cb-perf-detail-grid">
         ${[
           [rows.find(r=>r.e.key==='S&P 500'), rows.find(r=>r.e.key==='본인'), rows.find(r=>r.e.key==='자녀1')],
@@ -973,7 +973,7 @@ function cbRenderPerf(){
               </div>`).join('')}
           </div>`).join('')}
       </div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:10px">※ 소유주별 라인은 각 소유주 보유 종목의 가중 수익률입니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
+      <div class="cb-perf-detail-note">※ 소유주별 라인은 각 소유주 보유 종목의 가중 수익률입니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
 }
 function cbPerfTf(t){ _cbPerfTf = t; cbRenderPerf(); }
@@ -1366,6 +1366,9 @@ function cbRenderDiv(){
   const gList = list.filter(x=>x.g!=null);
   const gBase = gList.reduce((s,x)=>s+x.incomeKRW,0);
   const avgG = gBase>0 ? gList.reduce((s,x)=>s+x.g*x.incomeKRW,0)/gBase : null;
+  const top3DivShare = divAnnual>0
+    ? [...list].sort((a,b)=>b.incomeKRW-a.incomeKRW).slice(0,3).reduce((s,x)=>s+x.incomeKRW,0)/divAnnual*100
+    : 0;
 
   // 조회 연도 목록 (배당 이력 연도 + 올해)
   const nowY = String(new Date().getFullYear());
@@ -1396,7 +1399,14 @@ function cbRenderDiv(){
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">연간 배당 수입${ownerF?' · '+cbEsc(ownerF):''}</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
-      <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 배당 이력이 확보된 종목만 계산에 포함합니다.">배당성장률</span></div><div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div><div style="font-size:10px;color:var(--dim);margin-top:2px">${avgG==null?'배당 이력 조회 중…':`이력 확보 ${gList.length}/${list.length}종목 기준`}</div></div>
+      <div class="cb-panel cb-div-summary-card">
+        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 배당 이력이 확보된 종목만 계산에 포함합니다.">배당성장률</span> <span class="cb-div-history-status">(${avgG==null?'이력 조회 중':`이력 확보 ${gList.length}/${list.length}종목`})</span></div>
+        <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
+      </div>
+      <div class="cb-panel cb-div-summary-card">
+        <div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span> <span class="cb-div-history-status">(상위 3종목)</span></div>
+        <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
+      </div>
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
@@ -1818,8 +1828,9 @@ function cbNiceStep(raw){
 function cbTaxAxisLab(v){
   if (v===0) return '0';
   const a = Math.abs(v);
-  if (a>=100000000) return (v/100000000).toFixed(a%100000000?1:0)+'억';
-  return Math.round(v/10000).toLocaleString('ko-KR')+'만';
+  const sign = v>0 ? '+' : '−';
+  if (a>=100000000) return sign+(a/100000000).toFixed(a%100000000?1:0)+'억';
+  return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만';
 }
 // 월별 실현손익 막대(국내/해외) + 누적 손익·예상 세액 추이 라인 + 해외 기본공제(250만) 기준선 + hover 상세
 function cbTaxChartSvg(w,h,list){
@@ -1858,7 +1869,7 @@ function cbTaxChartSvg(w,h,list){
   const rawMin=Math.min(0, ...vals.filter(v=>v<0), ...allLineVals.filter(v=>v<0));
   const step=cbNiceStep((rawMax-rawMin)/5);
   const maxV=Math.ceil(rawMax/step)*step, minV=Math.floor(rawMin/step)*step;
-  const padL=64, padR=12, padT=14, padB=22;
+  const padL=64, padR=108, padT=14, padB=22;
   const plotW=w-padL-padR, plotH=h-padT-padB, span=(maxV-minV)||1;
   const Y=v=> padT + plotH - ((v-minV)/span)*plotH;
   let out='';
@@ -1886,18 +1897,36 @@ function cbTaxChartSvg(w,h,list){
   }
   // 국내·해외·전체 누적 실현손익 추이 라인 (기록이 있는 마지막 달까지)
   if(maxM>=1){
-    const cumulativeLine=(key,color,width,dash,opacity) => {
+    const endLabels=[];
+    const cumulativeLine=(key,label,color,width,dash,opacity) => {
       const pts=[]; for(let m=1;m<=maxM;m++) pts.push({x:padL+(m-0.5)/12*plotW, y:Y(cum[m][key])});
       out+=`<path d="${cbSmoothPath(pts)}" fill="none" stroke="${color}" stroke-width="${width}"${dash?` stroke-dasharray="${dash}"`:''} stroke-linejoin="round" stroke-linecap="round" opacity="${opacity}"></path>`;
       pts.forEach(p=>{ out+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${key==='profit'?'3.2':'2.5'}" fill="${color}"></circle>`; });
+      endLabels.push({label,color,p:pts[pts.length-1]});
     };
-    cumulativeLine('domProfit','#4ecdc4',1.9,'3 4','.86');
-    cumulativeLine('fgnProfit','var(--acc)',1.9,'6 4','.88');
-    cumulativeLine('profit',acc3,2.8,'','.98');
+    cumulativeLine('domProfit','국내 누적','#4ecdc4',1.9,'3 4','.86');
+    cumulativeLine('fgnProfit','해외 누적','var(--acc)',1.9,'6 4','.88');
+    cumulativeLine('profit','전체 누적',acc3,2.8,'','.98');
     // 누적 예상 세액 추이 라인
     const taxPts=[]; for(let m=1;m<=maxM;m++) taxPts.push({x:padL+(m-0.5)/12*plotW, y:Y(cum[m].tax)});
     out+=`<path d="${cbSmoothPath(taxPts)}" fill="none" stroke="${dn}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity=".95"></path>`;
     taxPts.forEach(p=>{ out+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" fill="${dn}"></circle>`; });
+    endLabels.push({label:'예상 세액',color:dn,p:taxPts[taxPts.length-1]});
+
+    // 마지막 손익 등록 월의 끝점에만 라인명을 표시한다. 값이 비슷하면 자동으로 간격을 벌린다.
+    const ordered=endLabels.sort((a,b)=>a.p.y-b.p.y);
+    const minY=padT+8, maxY=padT+plotH-4, gap=14;
+    ordered.forEach((d,i)=>{ d.ly=Math.max(d.p.y,i?ordered[i-1].ly+gap:minY); });
+    const overflow=ordered[ordered.length-1].ly-maxY;
+    if(overflow>0) ordered.forEach(d=>{ d.ly-=overflow; });
+    for(let i=ordered.length-2;i>=0;i--) ordered[i].ly=Math.min(ordered[i].ly,ordered[i+1].ly-gap);
+    const underflow=minY-ordered[0].ly;
+    if(underflow>0) ordered.forEach(d=>{ d.ly+=underflow; });
+    ordered.forEach(d=>{
+      const labelX=Math.min(w-78,d.p.x+11);
+      out+=`<path d="M${(d.p.x+3).toFixed(1)},${d.p.y.toFixed(1)} L${(labelX-4).toFixed(1)},${d.ly.toFixed(1)}" fill="none" stroke="${d.color}" stroke-width="1" opacity=".65"></path>`;
+      out+=`<text class="cb-tax-end-label" x="${labelX.toFixed(1)}" y="${(d.ly+3.5).toFixed(1)}" fill="${d.color}" font-size="9.5" font-weight="800" font-family="Noto Sans KR">${d.label}</text>`;
+    });
   }
   // hover/클릭 히트영역 — hover 시 월 음영, 클릭 시 하단 내역 필터
   for(let m=1;m<=12;m++){
@@ -1997,16 +2026,16 @@ function cbRenderTax(){
      </label>`
   );
   el.innerHTML = `
-    <!-- 상단 요약 위젯 1×5: 납부세액 합계 · 일반(국내) · 일반(해외) · ISA · 연금저축 -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(198px,1fr));gap:10px;align-items:stretch">
-      <div class="cb-panel" style="padding:13px 15px;border-top:3px solid var(--dn);display:flex;flex-direction:column">
+    <!-- 상단 요약: 기존 5개를 압축하고 해외 기본공제 사용률을 추가 -->
+    <div class="cb-tax-summary-grid">
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--dn)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800">${year}년 예상 납부세액 합계${ownerSuffix}</div>
         <div style="flex:1;display:flex;align-items:center">
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:23px;font-weight:800;color:var(--dn)">${cbKrw(totalDue)}</div>
         </div>
         <div style="font-size:10.5px;color:var(--dim);padding-top:8px;line-height:1.5">일반 해외 ${cbKrw(genDue)} + ISA ${cbKrw(isaDue)}<br>신고 ${parseInt(year)+1}년 5월</div>
       </div>
-      <div class="cb-panel" style="padding:13px 15px;border-top:3px solid #4ecdc4;display:flex;flex-direction:column">
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genDom>=0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
@@ -2015,7 +2044,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 양도세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--up)">${cbKrw(0)}</span></div>
         </div>
       </div>
-      <div class="cb-panel" style="padding:13px 15px;border-top:3px solid var(--acc);display:flex;flex-direction:column">
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--acc)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 해외주식 <span style="color:var(--dim);font-weight:500">· 양도소득세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genFgn>=0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
@@ -2025,7 +2054,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--dn)">${cbKrw(genDue)}</span></div>
         </div>
       </div>
-      <div class="cb-panel" style="padding:13px 15px;border-top:3px solid var(--purple,#c084fc);display:flex;flex-direction:column">
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--purple,#c084fc)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">ISA 계좌 <span style="color:var(--dim);font-weight:500">· 손익통산 분리과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('순이익 (국내·해외 통산)', (isaNet>=0?'+':'')+cbKrw(isaNet), cbUpDn(isaNet))}
@@ -2035,7 +2064,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--dn)">${cbKrw(isaDue)}</span></div>
         </div>
       </div>
-      <div class="cb-panel" style="padding:13px 15px;border-top:3px solid var(--up);display:flex;flex-direction:column">
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--up)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">연금저축 계좌 <span style="color:var(--dim);font-weight:500">· 과세이연</span></div>
         ${row2('순이익', (penNet>=0?'+':'')+cbKrw(penNet), cbUpDn(penNet))}
         <div style="font-size:10.5px;color:var(--mut);margin-top:7px;line-height:1.65">
@@ -2043,6 +2072,14 @@ function cbRenderTax(){
           연금 수령: 연금소득세 3.3~5.5%<br>
           중도 인출: 기타소득세 16.5% · 당해 양도세 제외
         </div>
+      </div>
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--warn)">
+        <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
+        <div style="flex:1;display:flex;align-items:center">
+          <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
+        </div>
+        <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
+        <div style="font-size:10.5px;color:var(--dim);padding-top:7px">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
     </div>
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->

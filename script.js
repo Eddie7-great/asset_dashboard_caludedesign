@@ -865,6 +865,63 @@ try{
 // =============================================
 const _mobileMQ = window.matchMedia('(max-width: 768px)');
 function isMobileLayout() { return _mobileMQ.matches; }
+function _layoutPreviewMode() {
+  const q=new URLSearchParams(location.search);
+  return q.get('mobilePreview')==='1' ? 'mobile' : q.get('desktopPreview')==='1' ? 'desktop' : '';
+}
+function _updateLayoutPreviewLabel() {
+  const mode=_layoutPreviewMode();
+  const label=document.getElementById('sidebar-layout-label');
+  if(label) label.textContent=(mode==='mobile'||(!mode&&isMobileLayout()))?'PC버전':'모바일버전';
+}
+function _layoutPreviewUrl(mode) {
+  const url=new URL(location.href);
+  url.searchParams.delete('mobilePreview');
+  url.searchParams.delete('desktopPreview');
+  url.searchParams.set(mode==='mobile'?'mobilePreview':'desktopPreview','1');
+  return url.toString();
+}
+function openLayoutPreview(mode) {
+  const overlay=document.getElementById('layout-preview-overlay');
+  const frame=document.getElementById('layout-preview-frame');
+  if(!overlay||!frame) return;
+  const next=mode==='desktop'?'desktop':'mobile';
+  overlay.classList.remove('mode-mobile','mode-desktop');
+  overlay.classList.add('show','mode-'+next);
+  overlay.setAttribute('aria-hidden','false');
+  frame.src=_layoutPreviewUrl(next);
+}
+function closeLayoutPreview() {
+  const overlay=document.getElementById('layout-preview-overlay');
+  const frame=document.getElementById('layout-preview-frame');
+  if(!overlay) return;
+  overlay.classList.remove('show','mode-mobile','mode-desktop');
+  overlay.setAttribute('aria-hidden','true');
+  if(frame) frame.src='about:blank';
+}
+function toggleLayoutPreview() {
+  const mode=_layoutPreviewMode();
+  if(mode) {
+    try {
+      if(window.parent!==window&&typeof window.parent.closeLayoutPreview==='function') {
+        window.parent.closeLayoutPreview();
+        return;
+      }
+    } catch(e) {}
+    if(window.parent!==window) {
+      window.parent.postMessage({type:'close-layout-preview'},'*');
+      return;
+    }
+  }
+  openLayoutPreview(isMobileLayout()?'desktop':'mobile');
+}
+window.addEventListener('message',ev=>{
+  const frame=document.getElementById('layout-preview-frame');
+  if(ev.data?.type==='close-layout-preview'&&frame&&ev.source===frame.contentWindow) closeLayoutPreview();
+});
+window.addEventListener('keydown',ev=>{ if(ev.key==='Escape') closeLayoutPreview(); });
+if(_mobileMQ.addEventListener) _mobileMQ.addEventListener('change',_updateLayoutPreviewLabel);
+setTimeout(_updateLayoutPreviewLabel,0);
 function openSidebar() {
   document.querySelector('.menu-col')?.classList.add('open');
   document.getElementById('sidebar-backdrop')?.classList.add('show');
@@ -903,6 +960,13 @@ function _recordViewHistory(id){
   if(_viewHistoryRestoring||!id) return;
   const normalized=id==='dashboard'?'cdash':id;
   if(window.history.state?.assetView===normalized) return;
+  // 새 문서가 #view=... 딥링크(PC/모바일 미리보기 포함)로 열렸다면
+  // 초기 대시보드 렌더가 그 해시를 덮어쓰지 않게 두고 load 복원 단계에서 적용한다.
+  const requested=String(location.hash||'').match(/^#view=(.+)$/);
+  if(!window.history.state?.assetView&&requested){
+    const requestedView=decodeURIComponent(requested[1]);
+    if(requestedView!==normalized&&document.getElementById('view-'+requestedView)) return;
+  }
   const url='#view='+encodeURIComponent(normalized);
   const state={...(window.history.state||{}),assetView:normalized};
   if(!window.history.state?.assetView) window.history.replaceState(state,'',url);
@@ -4405,8 +4469,8 @@ async function attemptLogin() {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeAddModal();
-    closeREModal();
-    closeLiabModal();
+    if (typeof closeREModal === 'function') closeREModal();
+    if (typeof closeLiabModal === 'function') closeLiabModal();
     const cfM=document.getElementById('cfDetailModal');
     if(cfM)cfM.classList.remove('active');
     const dd=document.getElementById('search-dropdown');
@@ -6225,61 +6289,41 @@ function _neonHash(key) {
 // Russell-FactSet RBICS L1 기준 (개별 종목), ETF는 Index/Sector 두 가지만.
 // 섹터 hue — 같은 섹터는 모든 소유주에서 동일 색 계열을 유지한다.
 const _SECTOR_HUES = {
-  'Technology': 200,
-  'Financial Services': 32,
-  'Health Care': 150,
-  'Consumer Discretionary': 320,
-  'Consumer Staples': 100,
-  'Energy': 14,
-  'Communications Services': 268,
-  'Industrial Services': 220,
-  'Materials & Processing': 50,
-  'Real Estate': 10,
-  'Utilities': 88,
+  'Technology': 214,
+  'Financial Services': 164,
+  'Health Care': 126,
+  'Consumer Discretionary': 322,
+  'Consumer Staples': 72,
+  'Energy': 20,
+  'Communications Services': 272,
+  'Industrial Services': 196,
+  'Materials & Processing': 46,
+  'Real Estate': 346,
+  'Utilities': 98,
   // ETF 분류 (Index / Sector 두 가지만)
-  'Index ETF': 192,
-  'Sector ETF': 276,
-  'Other': 60,
+  'Index ETF': 232,
+  'Sector ETF': 292,
+  'Other': 218,
   // 비주식 자산군
-  'Cash': 156,
-  'Crypto': 286,
-  'Gold': 44
+  'Cash': 152,
+  'Crypto': 30,
+  'Gold': 48
 };
-// 배경 위에서 빛이 투과되는 듯 보이도록 테마별로 밝기와 대비를 달리한 글래스 파스텔 팔레트.
-// 네이비·다크는 밝고 부드러운 색, 라이트는 흰 배경에서 흐려지지 않도록 한 단계 깊은 색을 쓴다.
-const _BUBBLE_SECTOR_PALETTES = {
-  navy: {
-    'Technology':'#55B8FF', 'Financial Services':'#43D6C1', 'Health Care':'#63D98C',
-    'Consumer Discretionary':'#F07ED6', 'Consumer Staples':'#B9DB55', 'Energy':'#FF8A61',
-    'Communications Services':'#A985FF', 'Industrial Services':'#6898FF',
-    'Materials & Processing':'#FFD05C', 'Real Estate':'#FF7F9E', 'Utilities':'#85D86D',
-    'Index ETF':'#51CDE5', 'Sector ETF':'#C67BFF', 'Other':'#9BA9C2',
-    'Cash':'#42D9A3', 'Crypto':'#FFB34D', 'Gold':'#F4D44E'
-  },
-  dark: {
-    'Technology':'#68C2FF', 'Financial Services':'#55DFC9', 'Health Care':'#74E39A',
-    'Consumer Discretionary':'#FA8CE0', 'Consumer Staples':'#C8E666', 'Energy':'#FF9A73',
-    'Communications Services':'#B493FF', 'Industrial Services':'#7BA8FF',
-    'Materials & Processing':'#FFDB70', 'Real Estate':'#FF91AC', 'Utilities':'#98E47F',
-    'Index ETF':'#63D8ED', 'Sector ETF':'#D18BFF', 'Other':'#ACB9CE',
-    'Cash':'#55E3B0', 'Crypto':'#FFC15E', 'Gold':'#F7DE63'
-  },
-  light: {
-    'Technology':'#1489D6', 'Financial Services':'#0A9F8B', 'Health Care':'#2CA75B',
-    'Consumer Discretionary':'#D541AD', 'Consumer Staples':'#7CA714', 'Energy':'#E45128',
-    'Communications Services':'#7650D5', 'Industrial Services':'#316ED5',
-    'Materials & Processing':'#D99A04', 'Real Estate':'#D74469', 'Utilities':'#56A52B',
-    'Index ETF':'#159EB8', 'Sector ETF':'#9840D2', 'Other':'#687892',
-    'Cash':'#099B69', 'Crypto':'#D77C09', 'Gold':'#B98D00'
-  }
+// 색 구성 규칙은 세 테마가 공유하고, 배경에 맞춰 채도·명도만 바꾼다.
+// sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
+const _BUBBLE_THEME_TONES = {
+  light: { sectorSat:40, sectorLight:68, leafSat:32, leafSatRange:11, leafLight:72, leafLightRange:11 },
+  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 },
+  navy:  { sectorSat:50, sectorLight:64, leafSat:45, leafSatRange:12, leafLight:60, leafLightRange:10 }
 };
 function _bubbleThemeKey(){
   const theme=document.body.getAttribute('data-theme');
   return theme==='dark'?'dark':theme==='navy'?'navy':'light';
 }
 function _bubbleSectorColor(sector){
-  const palette=_BUBBLE_SECTOR_PALETTES[_bubbleThemeKey()]||_BUBBLE_SECTOR_PALETTES.navy;
-  return palette[sector]||palette.Other;
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
+  return _bubbleHslHex(hue,tone.sectorSat,tone.sectorLight);
 }
 function _bubbleOwnerColor(owner){
   const base=(typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[owner])||cssVar('--acc','#2a6fdb');
@@ -6310,16 +6354,16 @@ function _bubbleHslHex(h,s,l){
   const rgb=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
   return '#'+rgb.map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('');
 }
-// 섹터의 정체성은 유지하되 종목 키마다 색상·채도·명도를 안정적으로 달리한다.
-// 같은 테마에서도 많은 종목이 칙칙한 몇 가지 색으로 뭉치지 않으면서 재접속 시 색은 유지된다.
+// 섹터 hue는 거의 움직이지 않고 종목 키마다 주로 명도를 달리한다.
+// 따라서 종목 수가 많아도 같은 섹터는 한 가족처럼 보이고, 재접속 시 색도 유지된다.
 function _bubbleLeafColor(sector,key){
   const hash=_bubbleHash(`${sector}::${key}`);
   const base=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
-  const hue=base+((hash%67)-33);
-  const sat=58+((hash>>>8)%25);
   const theme=_bubbleThemeKey();
-  const lightBase=theme==='light'?48:theme==='dark'?68:64;
-  const light=lightBase+((hash>>>16)%13)-6;
+  const tone=_BUBBLE_THEME_TONES[theme]||_BUBBLE_THEME_TONES.navy;
+  const hue=base+((hash%13)-6);
+  const sat=tone.leafSat+((hash>>>8)%tone.leafSatRange);
+  const light=tone.leafLight+((hash>>>16)%tone.leafLightRange);
   return _bubbleHslHex(hue,sat,light);
 }
 
@@ -6340,7 +6384,8 @@ function _gicsSector(item) {
     : null;
   const isKrEtf = !!(krMeta && String(krMeta.market || '').toUpperCase() === 'ETF');
   const isETF = isKrEtf
-    || /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF|TIMEFOLIO|TIME/.test(nameU)
+    || /ETF|TIGER|KODEX|KINDEX|ARIRANG|KBSTAR|HANARO|KOSEF|TIMEFOLIO/.test(nameU)
+    || /^TIME\s+(미국|글로벌|차이나|일본|인도|유럽|나스닥|S&P|코스피|코스닥|KOSPI|KOSDAQ|\d)/i.test(name)
     || /(^|\s)(ACE|SOL|PLUS|RISE)(\s|\d|$)/.test(nameU)
     || /QQQ|NASDAQ\s*100|S&P\s*500|PROSHARES|DIREXION/i.test(name)
     || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','IWM','VTI','VEA','VWO','EFA','AGG','BND','TLT','GLD','SLV',
@@ -6354,7 +6399,7 @@ function _gicsSector(item) {
         '069500','361580','278530'].includes(tStrip);
   if (isETF) {
     // 지수/시장 전체 추종 → Index ETF (레버리지/인버스 지수 ETF 포함)
-    if (/지수|S&P|SP500|나스닥|NASDAQ|다우|DOW|KOSPI\s*200|코스피\s*200|전체|시장|WORLD|GLOBAL|\s200|QQQ|러셀|RUSSELL/i.test(name)
+    if (/지수|S&P|SP500|나스닥|NASDAQ|다우|DOW|KOSPI\s*200|코스피\s*200|KOSDAQ|코스닥|ALL[-\s]?WORLD|WORLD|TOTAL\s*MARKET|미국\s*전체|전\s*세계|\s200|QQQ|러셀|RUSSELL/i.test(name)
         || ['SPY','SPYM','SPLG','IVV','VOO','QQQ','QQQM','DIA','VTI','IWM','VEA','VWO','EFA',
             'QLD','TQQQ','SQQQ','QID','UPRO','SPXU','SSO','SDS','UDOW','SDOW','TNA','TZA',
             '069500','361580','278530'].includes(tStrip)) return 'Index ETF';
@@ -6381,7 +6426,7 @@ function _gicsSector(item) {
 
   // Consumer Discretionary
   if (['TSLA','AMZN','HD','NKE','MCD','LOW','SBUX','BKNG','TJX','F','GM','TM','CMG','LULU','RIVN','LCID','ABNB','MAR','HLT','RCL','CCL','NCLH','EBAY','ETSY','DKNG','YUM','DRI','ORLY','AZO','ROST','DECK','GRMN','EXPE','DASH','CVNA','W','BABA','PDD','JD','NIO','LI','XPEV'].includes(tStrip)
-      || /자동차|현대차|기아|유통|백화점|의류|호텔|면세|레저|화장품|뷰티|패션|커머스|리조트|엔터테인|카지노|가구|인테리어|완구|여행|화장/i.test(name)
+      || /자동차|현대차|기아|유통|백화점|의류|호텔|면세|레저|화장품|뷰티|패션|커머스|리조트|카지노|가구|인테리어|완구|여행|화장/i.test(name)
       || ['005380','000270','012330','282330','035250','272210','161390','090430','161890'].includes(tStrip)) return 'Consumer Discretionary';
 
   // Energy
@@ -6391,7 +6436,7 @@ function _gicsSector(item) {
 
   // Communications Services
   if (['GOOGL','GOOG','META','NFLX','DIS','CMCSA','T','VZ','TMUS','EA','TTWO','SPOT','PINS','ROKU','SKM','LUMN','WBD','PARA','FOXA','FOX','OMC','IPG','MTCH','SE','SNAP','RBLX','BIDU','LYV','NWSA','TME'].includes(tStrip)
-      || /커뮤니케이션|미디어|엔터|통신|네이버|카카오|하이브|스튜디오|플랫폼|콘텐츠|방송|광고|신문|영상|웹툰|노래|게임/i.test(name)
+      || /커뮤니케이션|미디어|엔터|통신|네이버|카카오|하이브|스튜디오|플랫폼|콘텐츠|방송|광고|신문|영상|웹툰|노래|게임|ENTERTAINMENT|MEDIA|TELECOM|BROADCAST/i.test(name)
       || ['035420','035720','017670','030200','032640','352820','251270','259960'].includes(tStrip)) return 'Communications Services';
 
   // Consumer Staples

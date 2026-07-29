@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=38">
+  <link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
 
@@ -74,6 +74,7 @@
         </div>
       </div>
       <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
+      <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:.78rem;font-weight:700">모바일버전</span></button>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);padding:0 3px">
         <span style="width:6px;height:6px;border-radius:50%;background:var(--up);flex-shrink:0"></span><span id="feed-note">시세 연동 대기</span>
       </div>
@@ -812,7 +813,14 @@
   </div>
 </div>
 
-<script src="script.js?v=32"></script>
-<script src="cobalt.js?v=13"></script>
+<!-- 실제 반응형 폭으로 현재 페이지를 다시 띄우는 PC/모바일 미리보기 -->
+<div id="layout-preview-overlay" class="layout-preview-overlay" aria-hidden="true">
+  <div id="layout-preview-stage" class="layout-preview-stage">
+    <iframe id="layout-preview-frame" class="layout-preview-frame" title="화면 버전 미리보기"></iframe>
+  </div>
+</div>
+
+<script src="script.js?v=34"></script>
+<script src="cobalt.js?v=14"></script>
 </body>
 </html>
