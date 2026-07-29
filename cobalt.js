@@ -620,6 +620,14 @@ function cbRenderDash(){
   const rankedMovers = mergedRows.filter(r=>r.gainPct!=null && Number.isFinite(r.gainPct));
   const topGainers = rankedMovers.filter(r=>r.gainPct>0).sort((a,b)=>b.gainPct-a.gainPct).slice(0,5);
   const topLosers = rankedMovers.filter(r=>r.gainPct<0).sort((a,b)=>a.gainPct-b.gainPct).slice(0,5);
+  // 수익률 순위가 작은 보유액을 과대평가하지 않도록 실제 원화 평가손익의 절대 기여도를 별도로 비교한다.
+  const contributionRows = mergedRows
+    .filter(r=>r.i.grp!=='현금' && Number.isFinite(r.gain) && Math.abs(r.gain)>0)
+    .sort((a,b)=>Math.abs(b.gain)-Math.abs(a.gain))
+    .slice(0,6);
+  const contributionMax = Math.max(1,...contributionRows.map(r=>Math.abs(r.gain)));
+  const contributionGain = mergedRows.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
+  const contributionLoss = mergedRows.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
   const moverCard = (title, list, tone, empty) => `
     <div class="cb-panel cb-mover-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px;margin-bottom:5px">
@@ -634,6 +642,37 @@ function cbRenderDash(){
           </span>
           <span class="cb-num" style="font-weight:800;flex-shrink:0;color:${tone}">${cbPct(r.gainPct)}</span>
         </div>`).join('') || `<div style="padding:18px 2px;text-align:center;color:var(--dim);font-size:11px">${empty}</div>`}
+    </div>`;
+  const contributionCard = `
+    <div class="cb-panel cb-dash-contrib-card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px">
+        <span data-tip="각 종목의 평가손익 원화 금액을 절대값 순으로 비교합니다. 막대 길이는 가장 큰 손익 대비 상대 크기이며 전체 비율은 아닙니다." style="font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:700">평가손익 기여도</span>
+        <span style="font-size:9.5px;color:var(--dim);white-space:nowrap">${ownerF?cbEsc(ownerF):'전체 소유주'}</span>
+      </div>
+      <div class="cb-contrib-summary">
+        <span>이익 기여 <b class="cb-num" style="color:var(--up)">${cbSignDisp(contributionGain)}</b></span>
+        <span>손실 기여 <b class="cb-num" style="color:var(--dn)">${contributionLoss<0?cbDisp(contributionLoss):cbDisp(0)}</b></span>
+      </div>
+      <div class="cb-contrib-list">
+        ${contributionRows.map(r=>{
+          const width=Math.max(2,Math.min(49,Math.abs(r.gain)/contributionMax*49));
+          const tip=[r.title,r.subTitle,_cdashOwner==='전체'?r.i.owner:''].filter(Boolean).join(' · ');
+          return `
+          <div class="cb-contrib-row">
+            <div class="cb-contrib-row-head">
+              <span class="cb-tip-block" data-overflow-tip="${cbEsc(tip)}" style="display:flex;align-items:center;gap:5px;min-width:0;flex:1">
+                <span style="width:6px;height:6px;border-radius:50%;background:${cbOwnerColor(r.i.owner)};flex-shrink:0"></span>
+                <span data-overflow-watch style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650;color:var(--mut)">${cbEsc(r.title)}${_cdashOwner==='전체'?` <span style="color:var(--dim);font-weight:500">· ${cbEsc(r.i.owner)}</span>`:''}</span>
+              </span>
+              <b class="cb-num" style="${cbUpDn(r.gain)};flex-shrink:0">${cbSignDisp(r.gain)}</b>
+            </div>
+            <div class="cb-contrib-track" aria-label="${cbEsc(r.title)} 평가손익 ${cbEsc(cbSignDisp(r.gain))}">
+              <span class="cb-contrib-axis"></span>
+              <span class="cb-contrib-bar" style="${r.gain>=0?'left:50%':'right:50%'};width:${width}%;background:${r.gain>=0?'var(--up)':'var(--dn)'}"></span>
+            </div>
+          </div>`;
+        }).join('') || '<div style="margin:auto;text-align:center;color:var(--dim);font-size:11px">평가손익 데이터가 없습니다</div>'}
+      </div>
     </div>`;
 
   // 선택 종목 (소유주 필터로 사라진 선택은 첫 종목으로 대체) — 키는 소유주::티커::자산군
@@ -753,6 +792,7 @@ function cbRenderDash(){
         ${moverCard('수익률 TOP 5', topGainers, 'var(--up)', '수익 종목이 없습니다')}
         ${moverCard('손실률 TOP 5', topLosers, 'var(--dn)', '손실 종목이 없습니다')}
       </div>
+      ${contributionCard}
     </div>
 
     <div class="cb-dash-split" style="display:flex;gap:12px;margin-top:12px;align-items:flex-start">
