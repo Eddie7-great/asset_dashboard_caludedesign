@@ -6182,30 +6182,46 @@ const _SECTOR_HUES = {
   'Crypto': 286,
   'Gold': 44
 };
-// 서로 겹치지 않는 저채도 팔레트. 테마 강조색 하나에 의존하지 않아 섹터가 쉽게 구분되고,
-// 다크·네이비에서도 원색처럼 튀지 않도록 회색을 섞어 사용한다.
-const _BUBBLE_SECTOR_COLORS = {
-  'Technology':'#779BE0',
-  'Financial Services':'#69B3A5',
-  'Health Care':'#7DB58A',
-  'Consumer Discretionary':'#AA8BD2',
-  'Consumer Staples':'#D9A96B',
-  'Energy':'#D9877F',
-  'Communications Services':'#70AFC9',
-  'Industrial Services':'#94A86F',
-  'Materials & Processing':'#C29C72',
-  'Real Estate':'#CE8FA5',
-  'Utilities':'#8DB6A1',
-  'Index ETF':'#858FD0',
-  'Sector ETF':'#BC8BC8',
-  'Other':'#98A2B3',
-  'Cash':'#76AEA9',
-  'Crypto':'#D6A24E',
-  'Gold':'#CFB15F'
+// 배경 위에서 빛이 투과되는 듯 보이도록 테마별로 밝기와 대비를 달리한 글래스 파스텔 팔레트.
+// 네이비·다크는 밝고 부드러운 색, 라이트는 흰 배경에서 흐려지지 않도록 한 단계 깊은 색을 쓴다.
+const _BUBBLE_SECTOR_PALETTES = {
+  navy: {
+    'Technology':'#8FB8F5', 'Financial Services':'#80CEC2', 'Health Care':'#9FD0A5',
+    'Consumer Discretionary':'#C5A8E3', 'Consumer Staples':'#E8C382', 'Energy':'#E9A18F',
+    'Communications Services':'#8AC9E1', 'Industrial Services':'#B0C286',
+    'Materials & Processing':'#D8B18B', 'Real Estate':'#DCA6BC', 'Utilities':'#9FCAB2',
+    'Index ETF':'#A2ACE9', 'Sector ETF':'#CBA5D8', 'Other':'#ADB8C9',
+    'Cash':'#83C6BF', 'Crypto':'#E8BB6C', 'Gold':'#DDC981'
+  },
+  dark: {
+    'Technology':'#9AC2F7', 'Financial Services':'#8AD5C9', 'Health Care':'#A9D7AE',
+    'Consumer Discretionary':'#CEB3E7', 'Consumer Staples':'#EDCB91', 'Energy':'#EDAB9A',
+    'Communications Services':'#96CFE5', 'Industrial Services':'#B9C991',
+    'Materials & Processing':'#DEC09B', 'Real Estate':'#E1B0C4', 'Utilities':'#AAD2BB',
+    'Index ETF':'#ADB6EC', 'Sector ETF':'#D2AFDD', 'Other':'#B8C2D0',
+    'Cash':'#8DCDC6', 'Crypto':'#EDC47A', 'Gold':'#E3D18E'
+  },
+  light: {
+    'Technology':'#789ED9', 'Financial Services':'#60A99F', 'Health Care':'#7FAF8B',
+    'Consumer Discretionary':'#A78BC5', 'Consumer Staples':'#C59B61', 'Energy':'#C98073',
+    'Communications Services':'#669FB8', 'Industrial Services':'#8B9E67',
+    'Materials & Processing':'#AE8964', 'Real Estate':'#B97991', 'Utilities':'#78A38B',
+    'Index ETF':'#7F88C1', 'Sector ETF':'#AA7CB5', 'Other':'#8D98AA',
+    'Cash':'#66A8A1', 'Crypto':'#BE8B48', 'Gold':'#B69B4E'
+  }
 };
+function _bubbleThemeKey(){
+  const theme=document.body.getAttribute('data-theme');
+  return theme==='dark'?'dark':theme==='navy'?'navy':'light';
+}
 function _bubbleSectorColor(sector){
-  const base=_BUBBLE_SECTOR_COLORS[sector]||_BUBBLE_SECTOR_COLORS.Other;
-  return _bubbleBlend(base,isDarkTheme()?'#DCE4EE':'#536074',isDarkTheme()?0.10:0.05);
+  const palette=_BUBBLE_SECTOR_PALETTES[_bubbleThemeKey()]||_BUBBLE_SECTOR_PALETTES.navy;
+  return palette[sector]||palette.Other;
+}
+function _bubbleOwnerColor(owner){
+  const base=(typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[owner])||cssVar('--acc','#2a6fdb');
+  const theme=_bubbleThemeKey();
+  return _bubbleBlend(base,theme==='light'?'#FFFFFF':'#EEF4FC',theme==='light'?0.28:theme==='navy'?0.44:0.38);
 }
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
@@ -6448,7 +6464,6 @@ function renderBubbleChart(mode) {
   const isDark = isDarkTheme();
   const textColor = cssVar('--t1',isDark?'#e7e9ee':'#18213a');
   const panelColor = cssVar('--glass',isDark?'#15181e':'#ffffff');
-  const borderColor = cssVar('--border-dark',isDark?'#2c313c':'#c9d3e6');
 
   // ── 계층 구축: ROOT → (전체 모드일 때) owner → grp → name ──
   // Plotly sunburst 는 ids / labels / parents / values 배열로 트리를 받는다.
@@ -6506,12 +6521,11 @@ function renderBubbleChart(mode) {
     let parentIdForSec;
     if (!filterOwner) {
       const oid = `O::${owner}`;
-      const ownerColor=(typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[owner])||cssVar('--acc','#2a6fdb');
       ids.push(oid);
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      colors.push(_bubbleBlend(ownerColor,isDark?'#DCE4EE':'#536074',isDark?0.24:0.10));
+      colors.push(_bubbleOwnerColor(owner));
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6530,7 +6544,7 @@ function renderBubbleChart(mode) {
       labels.push(sector);
       parents.push(parentIdForSec);
       values.push(secVal);
-      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.02:0.04));
+      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.06));
       customdata.push({ kind: 'grp', owner, name: sector, weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
@@ -6544,8 +6558,8 @@ function renderBubbleChart(mode) {
         const displayName = _bubbleLeafLabel(i);
         const leafId = `L::${owner}::${sector}::${i.tkr || i.name}::${li}`;
         // 같은 섹터의 의미색을 유지하면서 종목별로 명도만 달리한다.
-        const tintTarget=isDark?'#F3F6FA':'#263248';
-        const tint=Math.min(0.16,0.02+(li%4)*0.035+(weight>10?0.02:0));
+        const tintTarget=isDark?'#F4F7FC':'#FFFFFF';
+        const tint=Math.min(0.20,0.07+(li%4)*0.035+(weight>10?0.02:0));
         ids.push(leafId);
         // leaf 라벨은 내부에 표시하지 않음 — 외부 리더라인 + 텍스트로 대체
         labels.push('');
@@ -6592,17 +6606,17 @@ function renderBubbleChart(mode) {
     marker: {
       colors,
       line: {
-        color: borderColor,
-        width: 1
+        color: _bubbleThemeKey()==='light'?'rgba(255,255,255,.86)':'rgba(245,249,255,.28)',
+        width: 1.35
       }
     },
-    leaf: { opacity: 0.88 },
+    leaf: { opacity: 0.82 },
     // 내부 라벨: owner/섹터 만 노출 (leaf 는 라벨 비어있음 → 외부 리더라인으로 노출)
     textinfo: 'label',
     insidetextorientation: 'horizontal',
     textfont: {
       family: "'Noto Sans KR','Manrope',sans-serif",
-      size: 15,
+      size: 13,
       color: textColor
     },
     hovertext: hoverText,
@@ -6668,12 +6682,21 @@ function renderBubbleChart(mode) {
   // 외부 리더라인 + 종목명 라벨 — Plotly 렌더 완료 후 후처리
   // 최신 컨텍스트(ids/customdata/테마)를 컨테이너에 스태시하고 이벤트 훅이 읽는다.
   container._lastBubbleCtx = { ids, customdata, isDark, textColor };
+  const ownerLabelNames=new Set(customdata.filter(d=>d.kind==='owner').map(d=>d.owner));
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
     svgEl.querySelectorAll('.sunburstlayer text').forEach(t => {
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('dominant-baseline', 'central');
+      const isOwnerLabel=ownerLabelNames.has((t.textContent||'').trim());
+      t.style.fontSize=isOwnerLabel?'16px':'13px';
+      t.style.fontWeight=isOwnerLabel?'800':'650';
+      if(isOwnerLabel) t.style.letterSpacing='.02em';
+      t.querySelectorAll('tspan').forEach(s=>{
+        s.style.fontSize=isOwnerLabel?'16px':'13px';
+        s.style.fontWeight=isOwnerLabel?'800':'650';
+      });
     });
   };
   const drawLabels = () => {

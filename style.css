@@ -928,18 +928,31 @@
     .cb-perf-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .cb-perf-detail-table{min-width:0;border:1px solid var(--bd);border-radius:9px;overflow:hidden}
     .cb-perf-detail-head,
-    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(66px,84px) repeat(6,minmax(35px,1fr)) minmax(42px,.9fr) minmax(42px,.9fr);align-items:center;column-gap:2px}
+    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr);align-items:center;column-gap:2px}
     .cb-perf-detail-head{padding:6px;background:var(--inner);font-size:8.5px;color:var(--dim);text-align:right}
     .cb-perf-detail-head>span:first-child{text-align:left}
+    .cb-perf-detail-head>span{min-width:0;white-space:nowrap}
+    .cb-perf-detail-head>span>span[data-tip]{display:inline-block}
     .cb-perf-detail-row{padding:8px 6px;border-top:1px solid var(--bd);font-size:10px;text-align:right;cursor:pointer;transition:background .15s,opacity .15s}
     .cb-perf-detail-row:hover{background:var(--hover)}
     .cb-perf-detail-row>span{min-width:0;border-radius:4px;padding:2px 1px;white-space:nowrap}
     .cb-perf-detail-name{display:flex;align-items:center;gap:5px;text-align:left;font-family:'Noto Sans KR','Manrope',sans-serif;font-weight:700;overflow:hidden;text-overflow:ellipsis}
-    .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(230px,.85fr) minmax(230px,.85fr) minmax(440px,1.5fr);gap:12px;margin-top:14px;align-items:stretch}
+    .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(210px,.82fr) minmax(210px,.82fr) minmax(280px,1.02fr) minmax(245px,.9fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-movers-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:repeat(2,minmax(0,1fr));gap:10px;min-width:0;width:100%;align-self:stretch}
     .cb-mover-card{padding:14px 13px;min-width:0}
     .cb-mover-row{display:flex;align-items:center;gap:7px;padding:6px 2px;border-bottom:1px solid var(--bd);font-size:11.5px;min-width:0}
     .cb-mover-row:last-child{border-bottom:none}
+    .cb-dash-contrib-card{padding:14px 13px;min-width:0;display:flex;flex-direction:column}
+    .cb-contrib-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0 8px}
+    .cb-contrib-summary>span{display:flex;flex-direction:column;gap:2px;padding:7px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--inner);font-size:9.5px;color:var(--dim);min-width:0}
+    .cb-contrib-summary b{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cb-contrib-list{display:flex;flex-direction:column;justify-content:space-evenly;gap:7px;flex:1;min-height:0}
+    .cb-contrib-row{padding:4px 2px;min-width:0}
+    .cb-contrib-row-head{display:flex;align-items:center;gap:7px;font-size:10.5px;min-width:0}
+    .cb-contrib-row-head>b{font-size:10px}
+    .cb-contrib-track{position:relative;height:7px;margin-top:5px;border-radius:6px;background:var(--inner);overflow:hidden}
+    .cb-contrib-axis{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--bd2);z-index:2}
+    .cb-contrib-bar{position:absolute;top:1px;height:5px;border-radius:5px;opacity:.82}
     .cb-tax-month-hit{transition:fill .15s ease;cursor:pointer}
     .cb-tax-month-hit:hover{fill:var(--accSoft)!important}
     @media (min-width:1201px){
@@ -953,7 +966,7 @@
       .cb-thead{position:static}
       .cb-table-panel{overflow-x:auto!important}
       .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .cb-dash-movers-grid{grid-column:1/-1}
+      .cb-dash-movers-grid{grid-column:auto}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
