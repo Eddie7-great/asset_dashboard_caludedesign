@@ -897,6 +897,8 @@
     .cb-asset-inline{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:100%;white-space:nowrap;font-size:13px;font-weight:700}
     .cb-asset-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .cb-asset-ticker{flex-shrink:0;color:var(--lab);font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500}
+    .cost-unknown-badge{display:inline-flex;padding:2px 6px;border-radius:5px;background:var(--inner-bg);border:1px solid var(--border-light);color:var(--t2);font-size:.68rem;font-weight:700;white-space:nowrap}
+    .cost-unknown-note{color:var(--t3);font-size:.7rem;font-weight:650;white-space:nowrap}
     .cb-account-badge{font-size:9px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0}
     /* 성과 비교 라인 차트 — 렌더 시 자연스러운 드로잉/페이드 인 */
     @keyframes cbLineDraw{to{stroke-dashoffset:0}}
@@ -936,12 +938,20 @@
     .cb-perf-detail-row{padding:8px 6px;border-top:1px solid var(--bd);font-size:10px;text-align:right;cursor:pointer;transition:background .15s,opacity .15s}
     .cb-perf-detail-row:hover{background:var(--hover)}
     .cb-perf-detail-row>span{min-width:0;border-radius:4px;padding:2px 1px;white-space:nowrap}
+    .cb-perf-value{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-weight:800;line-height:1.25}
+    .cb-perf-value.is-active{padding:2px 5px;border-radius:4px;background:var(--accSoft);box-shadow:inset 0 0 0 1px var(--bd2);font-weight:850}
     .cb-perf-detail-name{display:flex;align-items:center;gap:5px;text-align:left;font-family:'Noto Sans KR','Manrope',sans-serif;font-weight:700;overflow:hidden;text-overflow:ellipsis}
+    .cb-div-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;align-items:stretch}
+    .cb-div-summary-card{min-height:86px;padding:12px 14px;display:flex;flex-direction:column}
+    .cb-div-summary-value{flex:1;display:flex;align-items:center;font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800}
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(210px,.82fr) minmax(210px,.82fr) minmax(280px,1.02fr) minmax(245px,.9fr);gap:12px;margin-top:14px;align-items:stretch}
+    .cb-dash-sector-card{display:flex;flex-direction:column}
+    .cb-dash-sector-note{font-size:10.5px;color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
     .cb-dash-movers-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:repeat(2,minmax(0,1fr));gap:10px;min-width:0;width:100%;align-self:stretch}
     .cb-mover-card{padding:14px 13px;min-width:0}
     .cb-mover-row{display:flex;align-items:center;gap:7px;padding:6px 2px;border-bottom:1px solid var(--bd);font-size:11.5px;min-width:0}
     .cb-mover-row:last-child{border-bottom:none}
+    .cb-mover-owner{color:var(--dim);font-size:10px;font-weight:550}
     .cb-dash-contrib-card{padding:14px 13px;min-width:0;display:flex;flex-direction:column}
     .cb-contrib-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0 8px}
     .cb-contrib-summary>span{display:flex;flex-direction:column;gap:2px;padding:7px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--inner);font-size:9.5px;color:var(--dim);min-width:0}
@@ -1026,6 +1036,23 @@
       .view-section.active > div{height:auto!important;min-height:0;overflow-y:visible!important}
       .view-section.active > .f-col,
       .view-section.active > .glass-panel{height:auto!important;min-height:0;max-width:100%}
+      /* 표·기간 성과는 패널 안에서 손가락으로 좌우 이동한다. 페이지 자체는 가로로 흔들리지 않는다. */
+      .cb-table-panel,.cb-tblwrap,.pt-table-wrap,#pl-table-container,
+      #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{
+        max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;
+        touch-action:pan-x pan-y;overscroll-behavior-inline:contain
+      }
+      .cb-perf-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:8px}
+      .cb-perf-detail-table{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+      .cb-perf-detail-head,.cb-perf-detail-row{min-width:430px}
+      .cb-div-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .cb-div-summary-card{min-height:78px;padding:10px 11px}
+      .cb-div-summary-value{font-size:18px}
+      .cb-dca-head,.cb-dca-row{min-width:520px!important}
+      .cb-dca-head .cb-mobile-secondary,.cb-dca-row .cb-mobile-secondary{display:none!important}
+      .cb-div-head,.cb-div-row{min-width:560px!important}
+      .cb-div-head .cb-mobile-secondary,.cb-div-row .cb-mobile-secondary{display:none!important}
+      .cb-dash-sector-note{padding-top:12px}
       /* width:calc(100%-4px) 전역 핵 금지 — 사이드바(.glass-panel.menu-col)의 드로어 폭까지 덮어써 풀스크린이 됐음 */
       .glass-panel{min-height:0;max-width:100%;box-sizing:border-box}
       /* 차트 컨테이너 고정 높이 — auto 높이 패널에서 Chart.js responsive 리사이즈

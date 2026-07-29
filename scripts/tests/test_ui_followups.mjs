@@ -56,6 +56,7 @@ const dividendContext = {
   cbKrw: value => `₩${Math.round(value).toLocaleString('ko-KR')}`,
   cbEsc: value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
   cssVar: (_name, fallback) => fallback,
+  _cbDivMonthFilter: null,
 }
 vm.createContext(dividendContext)
 for (const name of ['cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
@@ -71,6 +72,7 @@ assert.equal(divCal.monthDetails[0].length, 1, '같은 종목의 여러 소유�
 assert.equal(divCal.monthDetails[0][0].amount, 300, '월별 종목 배당 합계')
 const divSvg = dividendContext.cbDivCalendarSvg(divCal.monthAmt, divCal.monthDetails, 1100, 300)
 assert.match(divSvg, /onmousemove="cbDivBarHover\(event,0\)"/, '배당 막대에 종목별 상세 호버 연결')
+assert.match(divSvg, /onclick="cbDivMonthPick\(0\)"/, '배당 막대 클릭을 월별 종목 필터에 연결')
 assert.match(divSvg, />₩300<\/text>/, '막대 위 금액을 1원 단위 원화로 표시')
 
 const cashContext = {
@@ -118,7 +120,8 @@ assert.match(scriptSource, /const normDivTkr = t =>[\s\S]*\(KS\|KQ\|T\)/, '일�
 assert.match(scriptSource, /item\.qty \* epsVal \* \(RATES\[info\.cur\|\|item\.cur\]\|\|1\)/, 'USD뿐 아니라 JPY 배당도 해당 환율로 원화 환산')
 assert.match(cobaltSource, /onclick="cbTaxMonthPick\(\$\{m\}\)"/, '양도소득세 월별 그래프 클릭을 하단 내역 필터에 연결')
 assert.match(cobaltSource, /onmousemove="this\.style\.fill='var\(--accSoft\)'/, '양도소득세 그래프 호버 월 강조')
-assert.match(cobaltSource, /cum\[m\]=\{fgn:cf, isa:ci, profit:cp, tax\}[\s\S]*stroke-dasharray="7 4"/, '양도소득세 그래프에 누적 실현손익 점선 추이 추가')
+assert.match(cobaltSource, /cum\[m\]=\{fgn:cf, isa:ci, domProfit:cpDom, fgnProfit:cpFgn, profit:cp, tax\}/, '양도소득세 누적손익을 국내·해외·전체로 분리 집계')
+assert.match(cobaltSource, /cumulativeLine\('domProfit'[\s\S]*cumulativeLine\('fgnProfit'[\s\S]*cumulativeLine\('profit'/, '양도소득세 그래프에 국내·해외·전체 누적 추이 표시')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
 assert.match(styleSource, /\.cb-dividend-tip\{[\s\S]*min-width:min\(420px/, '배당 월별 툴팁 폭 확장')
 assert.match(styleSource, /\.cb-div-tip-name,\.cb-div-tip-ticker,\.cb-div-tip-row b\{white-space:nowrap\}/, '배당 툴팁 종목명·티커 줄바꿈 방지')
@@ -132,6 +135,13 @@ assert.match(scriptSource, /holdings-owner-head/, '자산 내역 소유주 열 �
 assert.match(styleSource, /#view-holdings \.pt-table th\.holdings-owner-head,[\s\S]*padding-left:14px!important/, '자산 내역 소유주·관리 열 여백 재균형')
 assert.match(scriptSource, /const _BUBBLE_SECTOR_PALETTES = \{[\s\S]*navy:[\s\S]*dark:[\s\S]*light:/, '비중 차트에 네이비·다크·라이트별 글래스 파스텔 팔레트 적용')
 assert.match(scriptSource, /function _bubbleSectorColor\(sector\)[\s\S]*_bubbleThemeKey/, '비중 차트가 현재 테마 전용 팔레트를 선택')
+assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*_bubbleHslHex\(hue,sat,light\)/, '종목 키 기반 HSL 변형으로 비중 차트 색상 조합 확대')
+assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')
+assert.match(cobaltSource, /class="cb-dash-sector-note"/, '대시보드 섹터 진단 문구를 위젯 하단에 배치')
+assert.match(cobaltSource, /class="cb-mover-owner"/, '전체 소유주 TOP5 행에 소유주 표시')
+assert.match(scriptSource, /function _recordViewHistory\(id\)[\s\S]*history\.pushState/, '페이지 전환을 브라우저 뒤로·앞으로 가기 기록에 연결')
+assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 금을 별도 상태로 저장하면서 현재 평가가는 유지')
+assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
 assert.match(scriptSource, /ownerLabelNames[\s\S]*fontSize=isOwnerLabel\?'16px':'13px'[\s\S]*fontWeight=isOwnerLabel\?'800':'650'/, '비중 차트 소유주 라벨을 크게 굵게 강조')
 assert.match(scriptSource, /표시할 자산이 없습니다\./, '비중 차트 빈 상태도 테마 글꼴과 한글 문구 사용')
 

@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=37">
+  <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 
@@ -740,6 +740,13 @@
       </div>
       <div class="form-group f-col" style="flex:.8"><label class="form-label">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="numeric" oninput="handleAvgPriceInput(this)"></div>
     </div>
+    <div id="wrap-cost-unknown" style="display:none;margin:-1px 0 10px;padding:9px 11px;border:1px solid var(--border-light);border-radius:9px;background:var(--inner-bg)">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:var(--t2);cursor:pointer">
+        <input id="add-cost-unknown" type="checkbox" onchange="toggleCostUnknown()">
+        취득가 미상 (상속·증여)
+      </label>
+      <div style="font-size:.68rem;color:var(--t3);margin-top:4px;line-height:1.45">평가금액에는 포함하고 평가손익·수익률 계산에서는 제외합니다.</div>
+    </div>
     <!-- 현금 전용: 자산명 + 통화 + 금액 -->
     <div id="row-cash-only" style="display:none;">
       <div class="form-row" style="margin-bottom:8px">
@@ -805,7 +812,7 @@
   </div>
 </div>
 
-<script src="script.js?v=31"></script>
-<script src="cobalt.js?v=12"></script>
+<script src="script.js?v=32"></script>
+<script src="cobalt.js?v=13"></script>
 </body>
 </html>
