@@ -6325,10 +6325,20 @@ function _bubbleSectorColor(sector){
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat,tone.sectorLight);
 }
+// 소유주 웨지도 섹터와 같은 hue·테마 톤 생성기를 사용한다.
+// 임의의 별도 팔레트를 섞지 않아 중심 링과 바깥 섹터 링이 한 차트처럼 이어진다.
+const _BUBBLE_OWNER_SECTORS = {
+  '전체': 'Index ETF',
+  '본인': 'Technology',
+  '아내': 'Consumer Discretionary',
+  '자녀1': 'Financial Services',
+  '아버지': 'Communications Services'
+};
 function _bubbleOwnerColor(owner){
-  const base=(typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[owner])||cssVar('--acc','#2a6fdb');
-  const theme=_bubbleThemeKey();
-  return _bubbleBlend(base,theme==='light'?'#FFFFFF':'#EEF4FC',theme==='light'?0.28:theme==='navy'?0.44:0.38);
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const sector=_BUBBLE_OWNER_SECTORS[owner]||'Other';
+  const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
+  return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
 }
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
