@@ -157,6 +157,22 @@ assert.match(scriptSource, /const _BUBBLE_OWNER_SECTORS = \{[\s\S]*function _bub
 assert.match(cobaltSource, /배당 집중도[\s\S]*상위 3종목/, '배당 관리 상단에 배당원 집중도 위젯 추가')
 assert.match(cobaltSource, /const top3Div = [\s\S]*상위 배당원 TOP 3[\s\S]*cb-div-top3-name[\s\S]*share\.toFixed\(1\)/, '배당 집중도 상위 3개 종목명과 각 배당 기여 비중을 별도 위젯에 표시')
 assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*이력 확보 \$\{gList\.length\}\/\$\{list\.length\}종목/, '배당 이력 확보 상태를 제목과 같은 줄의 괄호 안에 표시')
+assert.match(cobaltSource, /소유주별 자산군 구성[\s\S]*cb-family-mix-track/, '가족 자산 내역 옆에 소유주별 자산군 구성 위젯 추가')
+assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
+assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
+assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*지급일이 확인되지 않은 종목은 ‘월 예정’/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
+assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
+assert.match(styleSource, /@media \(min-width:1580px\)\{[\s\S]*cb-div-detail-grid[\s\S]*290px/, '배당 표가 충분히 넓을 때만 일정 위젯을 우측 배치')
+const upcomingContext = { cbStrip: ticker => String(ticker || '').toUpperCase() }
+vm.createContext(upcomingContext)
+vm.runInContext(extractFunction(cobaltSource, 'cbUpcomingDividendSchedule'), upcomingContext)
+const upcoming = upcomingContext.cbUpcomingDividendSchedule([
+  { i:{owner:'본인'}, tkr:'SCHD', title:'Schwab Dividend ETF', incomeKRW:120_000, d:{months:[7,8],payDay:null} },
+  { i:{owner:'아내'}, tkr:'O', title:'Realty Income', incomeKRW:240_000, d:{months:[8],payDay:5} },
+], 90, '2026-07-30T00:00:00')
+assert.equal(upcoming[0].dateLabel, '8월 예정', '지급일 미확인 종목은 월 단위 일정으로 표시')
+assert.equal(upcoming.find(x => x.ticker === 'O').dateLabel, '9월 5일', '확인된 지급일은 일자까지 표시')
+assert.equal(upcoming.find(x => x.ticker === 'SCHD').amount, 60_000, '연간 예상 배당을 지급 월수로 나눠 회차 금액 산출')
 assert.match(cobaltSource, /예상 납부세액 합계[\s\S]*일반 · 해외주식[\s\S]*해외 기본공제 사용률[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 납부세액·해외·공제·국내·ISA·연금 순으로 배치')
 assert.match(styleSource, /#cb-perf2\{display:flex;flex-direction:column;padding-bottom:12px\}[\s\S]*\.cb-perf-detail-panel\{display:flex;flex:1 0 270px/, '성과 비교 하단 위젯이 남은 세로 공간을 채움')
 assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')

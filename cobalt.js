@@ -1028,6 +1028,19 @@ function cbRenderFam(){
   const q=(_famQ||'').trim().toLowerCase();
   const filtered = q ? base.filter(r=>((r.i.tkr||'')+' '+(r.i.name||'')+' '+r.cl.label+' '+(r.i.owner||'')).toLowerCase().includes(q)) : base;
   const held = cbSortOwnerNameVal(filtered);
+  const famMixOwners = OWNERS.map(owner=>{
+    const ownerRows=rows.filter(r=>r.i.owner===owner);
+    const total=ownerRows.reduce((s,r)=>s+r.val,0);
+    const segments=Object.entries(CB_CLS).map(([key,meta])=>({
+      key,label:meta.label,color:meta.color,
+      value:ownerRows.filter(r=>r.cls===key).reduce((s,r)=>s+r.val,0)
+    })).filter(x=>x.value>0);
+    return {owner,total,segments};
+  });
+  const famMixClasses = Object.entries(CB_CLS).map(([key,meta])=>({
+    key,label:meta.label,color:meta.color,
+    value:rows.filter(r=>r.cls===key).reduce((s,r)=>s+r.val,0)
+  })).filter(x=>x.value>0);
 
   // 조회 전용 페이지 — 수정은 "자산 내역"에서만 (내역 우측 수정 버튼 제거됨)
   cbSetHead('카드 클릭 시 해당 구성원만 필터링 · 소유주→자산군→국가→종목명 순 정렬 · 조회 전용');
@@ -1045,7 +1058,8 @@ function cbRenderFam(){
           <div style="font-size:10px;color:var(--lab);margin-top:4px">전체 ${(f.v/nw*100).toFixed(1)}% · ${f.n}종목</div>
         </div>`).join('')}
     </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px">
+    <div class="cb-family-detail-grid">
+    <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
         <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${_famKey==='all'?'전체 보유 자산':cbEsc(_famKey)+' 보유 자산'} · ${held.length}종목</div>
         <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
@@ -1085,6 +1099,23 @@ function cbRenderFam(){
           <span style="width:56px;text-align:right;font-size:12px;font-weight:600;flex-shrink:0;${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gainPct)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
         </div>`).join('')}
       </div></div>
+    </div>
+    <div class="cb-panel cb-family-mix-card">
+      <div class="cb-insight-title">소유주별 자산군 구성</div>
+      <div style="font-size:10.5px;color:var(--dim);line-height:1.5;margin-top:3px">각 소유주의 자산 안에서 자산군이 차지하는 비중입니다.</div>
+      <div class="cb-family-mix-list">
+        ${famMixOwners.map(m=>`
+          <button type="button" class="cb-family-mix-owner${_famKey===m.owner?' is-active':''}" onclick="cbFamPick('${cbEsc(m.owner)}')">
+            <span class="cb-family-mix-head"><b><i style="background:${cbOwnerColor(m.owner)}"></i>${cbEsc(m.owner)}</b><span>${m.total>0?cbDisp(m.total):'—'}</span></span>
+            <span class="cb-family-mix-track">
+              ${m.total>0?m.segments.map(seg=>`<i data-tip="${cbEsc(`${m.owner} · ${seg.label} ${(seg.value/m.total*100).toFixed(1)}%`)}" style="width:${(seg.value/m.total*100).toFixed(2)}%;background:${seg.color}"></i>`).join(''):'<i style="width:100%;background:var(--bd)"></i>'}
+            </span>
+          </button>`).join('')}
+      </div>
+      <div class="cb-family-mix-legend">
+        ${famMixClasses.map(seg=>`<span><i style="background:${seg.color}"></i>${cbEsc(seg.label)}</span>`).join('')}
+      </div>
+    </div>
     </div>`;
 }
 function cbFamPick(k){ _famKey=k; cbRenderFam(); }
@@ -1271,6 +1302,40 @@ function cbDivMonthlyForYear(list, year){
     actual:true
   };
 }
+function cbUpcomingDividendSchedule(list, days=90, asOf=null){
+  const start=asOf?new Date(asOf):new Date();
+  if (Number.isNaN(start.getTime())) return [];
+  start.setHours(0,0,0,0);
+  const end=new Date(start);
+  end.setDate(end.getDate()+Math.max(1,Number(days)||90));
+  const events=[];
+  (list||[]).forEach(x=>{
+    const months=Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:[2,5,8,11])
+      .map(m=>((Number(m)%12)+12)%12)));
+    const exactDay=Number(x.d?.payDay);
+    const hasExactDay=Number.isFinite(exactDay)&&exactDay>=1;
+    const perAmount=months.length?x.incomeKRW/months.length:0;
+    for(let offset=0;offset<=4;offset++){
+      const cursor=new Date(start.getFullYear(),start.getMonth()+offset,1);
+      const month=cursor.getMonth();
+      if(!months.includes(month)) continue;
+      const lastDay=new Date(cursor.getFullYear(),month+1,0).getDate();
+      const day=hasExactDay?Math.min(exactDay,lastDay):15;
+      const date=new Date(cursor.getFullYear(),month,day);
+      if(date<start||date>end) continue;
+      events.push({
+        date,
+        dateLabel:hasExactDay?`${month+1}월 ${day}일`:`${month+1}월 예정`,
+        exact:hasExactDay,
+        owner:x.i?.owner||'—',
+        ticker:cbStrip(x.tkr||x.i?.tkr),
+        title:x.title||x.i?.name||x.tkr||'—',
+        amount:perAmount
+      });
+    }
+  });
+  return events.sort((a,b)=>a.date-b.date||b.amount-a.amount);
+}
 function cbDivTipEl(){
   let tip=document.getElementById('cb-div-bar-tip');
   if(!tip){
@@ -1380,6 +1445,9 @@ function cbRenderDiv(){
   const year = (_cbDivYear && years.includes(_cbDivYear)) ? _cbDivYear : nowY;
   const cal = cbDivMonthlyForYear(list, year);
   const calTotal = cal.monthAmt.reduce((s,v)=>s+v,0);
+  const upcomingDividends=cbUpcomingDividendSchedule(list,90);
+  const upcomingDividendTotal=upcomingDividends.reduce((s,x)=>s+x.amount,0);
+  const upcomingDividendShown=upcomingDividends.slice(0,8);
   window._cbDivBarData = { monthAmt:cal.monthAmt, monthDetails:cal.monthDetails };
   const selectedDetails = _cbDivMonthFilter==null ? null : (cal.monthDetails[_cbDivMonthFilter]||[]);
   const selectedTickers = selectedDetails ? new Set(selectedDetails.map(d=>cbStrip(d.ticker||d.title))) : null;
@@ -1430,16 +1498,17 @@ function cbRenderDiv(){
       </div>
       ${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}
     </div>
-    <div class="cb-panel cb-table-panel cb-div-history-panel" style="margin-top:12px;padding:14px 16px">
+    <div class="cb-div-detail-grid">
+    <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbDivMonthFilter+1}월 예상 종목 · 전체 보기 ×</button>`:''}
       </div>
-      <div class="cb-thead cb-div-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:950px">
-        <span style="width:62px">소유주</span><span style="width:38px" aria-label="국가"></span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입</span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+      <div class="cb-thead cb-div-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1018px">
+        <span style="width:62px">소유주</span><span style="width:38px" aria-label="국가"></span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입</span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
       </div>
       ${visibleList.map(x=>`
-        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:950px">
+        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:1018px">
           <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
           <span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">${cbFlagSvg(x,15)}</span>
           <div style="flex:1;display:flex;align-items:center;min-width:0">
@@ -1451,12 +1520,32 @@ function cbRenderDiv(){
           <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
           <span class="cb-num" style="width:76px;text-align:right;font-size:11.5px;font-weight:600">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
           <span class="cb-num cb-mobile-secondary" style="width:86px;text-align:right;font-size:11.5px">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
+          <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary" style="width:70px;text-align:right;font-weight:600">${(x.d.yldNum||0).toFixed(2)}%</span>
           <span class="cb-mobile-secondary" style="width:64px;text-align:right;font-weight:800;color:var(--up)">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
           <span class="cb-mobile-secondary" style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary" style="width:64px;text-align:right;color:var(--mut);font-size:11.5px">${cbEsc(x.d.cycle||'—')}</span>
           <span class="cb-mobile-secondary" style="width:100px;text-align:right;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
+    </div>
+    <div class="cb-panel cb-div-upcoming-card">
+      <div class="cb-insight-title">향후 90일 배당 일정</div>
+      <div class="cb-div-upcoming-total"><span>예상 수입 합계</span><b>${cbDisp(upcomingDividendTotal)}</b></div>
+      <div class="cb-div-upcoming-list">
+        ${upcomingDividendShown.map(x=>{
+          const label=[x.ticker,x.title].filter(Boolean).join(' · ');
+          return `<div class="cb-div-upcoming-row">
+            <div class="cb-div-upcoming-date${x.exact?'':' is-estimated'}">${cbEsc(x.dateLabel)}</div>
+            <div class="cb-div-upcoming-main">
+              <span class="cb-div-upcoming-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label)}</span>
+              <span>${ownerF?'':cbEsc(x.owner)+' · '}${cbDisp(x.amount)}</span>
+            </div>
+          </div>`;
+        }).join('') || '<div class="cb-insight-empty">향후 90일 내 예상 배당이 없습니다.</div>'}
+      </div>
+      ${upcomingDividends.length>upcomingDividendShown.length?`<div class="cb-insight-more">외 ${upcomingDividends.length-upcomingDividendShown.length}건</div>`:''}
+      <div class="cb-div-upcoming-note">지급일이 확인되지 않은 종목은 ‘월 예정’으로 표시합니다.</div>
+    </div>
     </div>`;
 }
 function cbDivMonthPick(m){
@@ -2294,6 +2383,17 @@ function cbRenderDca(){
   const active = items.filter(x=>x.i.dca);
   const monthly = active.reduce((s,x)=>s+cbDcaPerMonthKRW(x.i),0);
   const daily = monthly / 21.7; // 월평균 영업일 기준 일평균
+  const dcaAllocMap = new Map();
+  active.forEach(x=>{
+    const ticker=cbStrip(x.i.tkr);
+    const key=(x.i.owner||'—')+'::'+(ticker||x.r.title);
+    const prev=dcaAllocMap.get(key)||{
+      owner:x.i.owner||'—',ticker,title:x.r.title||ticker||'—',amount:0
+    };
+    prev.amount+=cbDcaPerMonthKRW(x.i);
+    dcaAllocMap.set(key,prev);
+  });
+  const dcaTopAlloc=Array.from(dcaAllocMap.values()).sort((a,b)=>b.amount-a.amount).slice(0,5);
   // 규칙 등록·수정은 "자산 내역" 페이지에서만 한다 (이 페이지는 현황 조회 + 활성 토글 전용)
   cbSetHead('<span data-tip="Dollar Cost Averaging — 시점을 나눠 일정 금액을 기계적으로 매수해 평균 단가를 관리하는 적립식 투자법">DCA</span> 규칙에 따라 기계적으로 매수합니다 · 규칙 등록은 "자산 내역"에서',
     cbOwnerBtns(_cbDcaOwner,'cbDcaOwner'));
@@ -2304,7 +2404,8 @@ function cbRenderDca(){
       <div class="cb-panel" style="flex:1;min-width:170px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">월 자동매수 합계 (활성 기준)</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbDisp(monthly)}</div></div>
       <div class="cb-panel" style="flex:1;min-width:170px;padding:12px 14px"><div style="font-size:11px;color:var(--lab)">연간 적립 예상</div><div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:2px">${cbDisp(monthly*12)}</div></div>
     </div>
-    <div class="cb-panel cb-table-panel" style="margin-top:12px;padding:14px 16px">
+    <div class="cb-dca-detail-grid">
+    <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-thead cb-dca-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:776px">
         <span style="width:62px">소유주</span><span style="flex:1;box-sizing:border-box;padding-left:35px">종목</span><span style="width:100px;text-align:right">회당 금액</span><span style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:110px;text-align:right">이체일</span><span class="cb-mobile-secondary" style="width:120px;text-align:right">계좌</span><span style="width:110px;text-align:right">월 환산</span><span style="width:66px;text-align:center">활성</span>
       </div>
@@ -2332,6 +2433,26 @@ function cbRenderDca(){
             <span onclick="cbDcaToggle(${x.idx})" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
           </span>
         </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">등록된 DCA 규칙이 없습니다. "자산 내역"에서 종목을 수정해 DCA를 설정하세요.</div>'}
+    </div>
+    <div class="cb-panel cb-dca-allocation-card">
+      <div class="cb-insight-title">월 환산 매수 배분 TOP 5</div>
+      <div class="cb-dca-allocation-total"><span>활성 규칙 월 합계</span><b>${cbDisp(monthly)}</b></div>
+      <div class="cb-dca-allocation-list">
+        ${dcaTopAlloc.map((x,rank)=>{
+          const share=monthly>0?x.amount/monthly*100:0;
+          const label=[x.ticker,x.title].filter(Boolean).join(' · ');
+          return `<div class="cb-dca-allocation-row">
+            <div class="cb-dca-allocation-head">
+              <span class="cb-dca-allocation-rank">${rank+1}</span>
+              <span class="cb-dca-allocation-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label)}</span>
+              <b>${share.toFixed(1)}%</b>
+            </div>
+            <div class="cb-dca-allocation-meta"><span>${ownerF?'':cbEsc(x.owner)+' · '}${cbDisp(x.amount)}/월</span></div>
+            <div class="cb-dca-allocation-track"><i style="width:${share.toFixed(2)}%;background:${cbOwnerColor(x.owner)}"></i></div>
+          </div>`;
+        }).join('') || '<div class="cb-insight-empty">활성화된 DCA 규칙이 없습니다.</div>'}
+      </div>
+    </div>
     </div>`;
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
