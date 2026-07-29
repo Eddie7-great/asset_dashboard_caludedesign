@@ -935,7 +935,7 @@
     }
     .cb-thead{position:sticky;top:0;z-index:3;background:var(--panel)}
     .cb-table-panel{overflow-x:visible!important}
-    .cb-perf-card-grid{display:grid;grid-template-columns:repeat(6,minmax(124px,1fr));gap:10px;overflow-x:auto;padding-bottom:1px}
+    .cb-perf-card-grid{display:grid;grid-template-columns:repeat(6,minmax(124px,1fr));gap:10px;overflow:visible;padding:2px;margin:-2px}
     #cb-perf2{display:flex;flex-direction:column;padding-bottom:12px}
     .cb-perf-detail-panel{display:flex;flex:1 0 270px;min-height:270px;flex-direction:column}
     .cb-perf-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;flex:1}
@@ -953,11 +953,17 @@
     .cb-perf-value.is-active{padding:2px 5px;border-radius:4px;background:var(--accSoft);box-shadow:inset 0 0 0 1px var(--bd2);font-weight:850}
     .cb-perf-detail-name{display:flex;align-items:center;gap:6px;text-align:left;font-family:'Noto Sans KR','Manrope',sans-serif;font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis}
     .cb-perf-detail-note{font-size:11px;color:var(--dim);margin-top:12px}
-    .cb-div-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:9px;align-items:stretch}
+    .cb-div-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr)) minmax(250px,1.65fr);gap:9px;align-items:stretch}
     .cb-div-summary-card{min-height:86px;padding:12px 14px;display:flex;flex-direction:column}
     .cb-div-summary-value{flex:1;display:flex;align-items:center;font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800}
     .cb-div-summary-title{display:flex;align-items:baseline;gap:4px;min-width:0;font-size:11px;color:var(--lab);white-space:nowrap}
     .cb-div-history-status{font-size:9.5px;color:var(--dim);font-weight:500;overflow:hidden;text-overflow:ellipsis}
+    .cb-div-top3-list{display:flex;flex-direction:column;justify-content:center;gap:4px;flex:1;min-height:0;margin-top:4px}
+    .cb-div-top3-card{min-width:0}
+    .cb-div-top3-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:5px;min-width:0;font-size:10.5px}
+    .cb-div-top3-rank{color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:9px}
+    .cb-div-top3-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+    .cb-div-top3-share{color:var(--mut);font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700}
     .cb-tax-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:9px;align-items:stretch}
     .cb-tax-summary-card{padding:12px 11px;border-top:3px solid;display:flex;flex-direction:column;min-width:0}
     .cb-tax-deduction-track{height:6px;border-radius:6px;background:var(--inner);overflow:hidden}

@@ -1366,8 +1366,9 @@ function cbRenderDiv(){
   const gList = list.filter(x=>x.g!=null);
   const gBase = gList.reduce((s,x)=>s+x.incomeKRW,0);
   const avgG = gBase>0 ? gList.reduce((s,x)=>s+x.g*x.incomeKRW,0)/gBase : null;
+  const top3Div = [...list].sort((a,b)=>b.incomeKRW-a.incomeKRW).slice(0,3);
   const top3DivShare = divAnnual>0
-    ? [...list].sort((a,b)=>b.incomeKRW-a.incomeKRW).slice(0,3).reduce((s,x)=>s+x.incomeKRW,0)/divAnnual*100
+    ? top3Div.reduce((s,x)=>s+x.incomeKRW,0)/divAnnual*100
     : 0;
 
   // 조회 연도 목록 (배당 이력 연도 + 올해)
@@ -1406,6 +1407,20 @@ function cbRenderDiv(){
       <div class="cb-panel cb-div-summary-card">
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span> <span class="cb-div-history-status">(상위 3종목)</span></div>
         <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
+      </div>
+      <div class="cb-panel cb-div-summary-card cb-div-top3-card">
+        <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
+        <div class="cb-div-top3-list">
+          ${top3Div.map((x,rank)=>{
+            const label=[x.tkr,x.title].filter(Boolean).join(' · ');
+            const share=divAnnual>0?x.incomeKRW/divAnnual*100:0;
+            return `<div class="cb-div-top3-row">
+              <span class="cb-div-top3-rank">${rank+1}</span>
+              <span class="cb-div-top3-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label||'—')}</span>
+              <span class="cb-div-top3-share">${share.toFixed(1)}%</span>
+            </div>`;
+          }).join('') || '<div style="font-size:10.5px;color:var(--dim)">배당 종목 없음</div>'}
+        </div>
       </div>
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
@@ -2035,15 +2050,6 @@ function cbRenderTax(){
         </div>
         <div style="font-size:10.5px;color:var(--dim);padding-top:8px;line-height:1.5">일반 해외 ${cbKrw(genDue)} + ISA ${cbKrw(isaDue)}<br>신고 ${parseInt(year)+1}년 5월</div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
-        <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          ${row2('실현손익 합계', (genDom>=0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
-          ${row2('<span data-tip="종목당 보유액 50억원 미만·지분율 기준 미만인 일반 투자자">소액주주</span> 장내 양도차익', '<span style="color:var(--up);font-weight:700">비과세</span>')}
-          ${row2('<span data-tip="매도 대금에 부과되는 세금(손익과 무관). 코스피 0.15% + 농특세 등, 코스닥 0.15%">증권거래세</span>', '매도액 0.15%')}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 양도세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--up)">${cbKrw(0)}</span></div>
-        </div>
-      </div>
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--acc)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 해외주식 <span style="color:var(--dim);font-weight:500">· 양도소득세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
@@ -2052,6 +2058,23 @@ function cbRenderTax(){
           ${row2('<span data-tip="실현손익에서 기본공제를 뺀, 세율이 적용되는 금액">과세표준</span>', cbKrw(genBase))}
           ${row2('세율', '22% <span style="color:var(--dim);font-weight:400">(지방세 포함)</span>')}
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--dn)">${cbKrw(genDue)}</span></div>
+        </div>
+      </div>
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--warn)">
+        <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
+        <div style="flex:1;display:flex;align-items:center">
+          <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
+        </div>
+        <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
+        <div style="font-size:10.5px;color:var(--dim);padding-top:7px">잔여 공제 ${cbKrw(deductionRoom)}</div>
+      </div>
+      <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
+        <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
+          ${row2('실현손익 합계', (genDom>=0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
+          ${row2('<span data-tip="종목당 보유액 50억원 미만·지분율 기준 미만인 일반 투자자">소액주주</span> 장내 양도차익', '<span style="color:var(--up);font-weight:700">비과세</span>')}
+          ${row2('<span data-tip="매도 대금에 부과되는 세금(손익과 무관). 코스피 0.15% + 농특세 등, 코스닥 0.15%">증권거래세</span>', '매도액 0.15%')}
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:12px">예상 양도세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--up)">${cbKrw(0)}</span></div>
         </div>
       </div>
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--purple,#c084fc)">
@@ -2072,14 +2095,6 @@ function cbRenderTax(){
           연금 수령: 연금소득세 3.3~5.5%<br>
           중도 인출: 기타소득세 16.5% · 당해 양도세 제외
         </div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--warn)">
-        <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
-        <div style="flex:1;display:flex;align-items:center">
-          <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
-        </div>
-        <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
-        <div style="font-size:10.5px;color:var(--dim);padding-top:7px">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
     </div>
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
