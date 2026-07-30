@@ -7008,32 +7008,51 @@ function renderBubbleChart(mode) {
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
-    svgEl.querySelectorAll('.cb-bubble-owner-dot').forEach(dot=>dot.remove());
+    const ownerOutline=_bubbleThemeKey()==='light'
+      ? cssVar('--t2','#334155')
+      : cssVar('--t2','#dbe7f6');
+    svgEl.querySelectorAll('.sunburstlayer path').forEach(path=>{
+      const dnode=path.__data__;
+      const nodeId=(dnode?.data&&dnode.data.id)||dnode?.id||'';
+      if(String(nodeId).startsWith('O::')){
+        path.style.fill='rgba(0,0,0,0)';
+        path.style.fillOpacity='0';
+        path.style.stroke=ownerOutline;
+        path.style.strokeWidth='2px';
+        path.style.strokeLinejoin='round';
+        path.style.strokeDasharray='none';
+      }
+    });
     svgEl.querySelectorAll('.sunburstlayer text').forEach(t => {
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('dominant-baseline', 'central');
-      const ownerName=(t.textContent||'').trim();
+      const ownerName=(t.textContent||'').replace(/^●\s*/,'').trim();
       const isOwnerLabel=ownerLabelNames.has(ownerName);
       t.style.fontSize=isOwnerLabel?'16px':'13px';
       t.style.fontWeight=isOwnerLabel?'800':'650';
       if(isOwnerLabel) {
+        t.setAttribute('data-cb-bubble-owner',ownerName);
         t.style.letterSpacing='.02em';
-        try {
-          const box=t.getBBox();
-          const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-          dot.classList.add('cb-bubble-owner-dot');
-          dot.setAttribute('cx', String(box.x-7));
-          dot.setAttribute('cy', String(box.y+box.height/2));
-          dot.setAttribute('r', '4');
-          dot.setAttribute('fill', _bubbleOwnerColor(ownerName));
-          dot.setAttribute('stroke', _bubbleThemeKey()==='light'?'rgba(255,255,255,.92)':'rgba(255,255,255,.45)');
-          dot.setAttribute('stroke-width', '1');
-          t.parentNode?.insertBefore(dot,t);
-        } catch(e){}
+        while(t.firstChild) t.removeChild(t.firstChild);
+        const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        dotSpan.textContent='● ';
+        dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
+        dotSpan.style.fontSize='12px';
+        dotSpan.style.fontWeight='900';
+        const labelSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        labelSpan.textContent=ownerName;
+        labelSpan.setAttribute('fill',textColor);
+        labelSpan.style.fontSize='16px';
+        labelSpan.style.fontWeight='800';
+        t.append(dotSpan,labelSpan);
+      } else {
+        t.removeAttribute('data-cb-bubble-owner');
       }
       t.querySelectorAll('tspan').forEach(s=>{
-        s.style.fontSize=isOwnerLabel?'16px':'13px';
-        s.style.fontWeight=isOwnerLabel?'800':'650';
+        if(!isOwnerLabel){
+          s.style.fontSize='13px';
+          s.style.fontWeight='650';
+        }
       });
     });
   };
@@ -7109,6 +7128,17 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   // 라벨이 SVG 내 좌/우 10px 마진 안쪽에 머물도록 x 한계 설정
   const rightXMax = svgViewW - 10 * svgScaleX;
   const leftXMin = 10 * svgScaleX;
+  // 전체 모드에서는 모든 종목명을 외곽에 그리면 소유주별 leaf가 한꺼번에 몰려
+  // 리더라인과 텍스트가 차트 밖까지 번진다. 웨지는 모두 유지하고 외곽 라벨만
+  // 평가액 상위 종목으로 제한해 전체 구조를 읽을 수 있게 한다.
+  const allowedLeafIds = _bubbleOwner === '전체'
+    ? new Set(customdata
+        .map((d,index)=>({d,index}))
+        .filter(x=>x.d?.kind==='leaf')
+        .sort((a,b)=>(b.d.value||0)-(a.d.value||0))
+        .slice(0,22)
+        .map(x=>ids[x.index]))
+    : null;
 
   // 현재 '실제로 보이는' leaf 슬라이스만 수집. 드릴다운 후에는 범위 밖 슬라이스의
   // 폭/높이가 0 이 되므로 이를 제외해야 더미 라벨이 남지 않는다.
@@ -7119,6 +7149,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
     if (!dnode) return;
     const nodeId = (dnode.data && dnode.data.id) || dnode.id;
     if (!nodeId || String(nodeId).indexOf('L::') !== 0) return;
+    if (allowedLeafIds && !allowedLeafIds.has(nodeId)) return;
     const idx = ids.indexOf(nodeId);
     if (idx < 0) return;
     const info = customdata[idx];

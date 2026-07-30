@@ -798,8 +798,8 @@ function cbRenderDash(){
     </div>
 
     <div class="cb-dash-split" style="display:flex;gap:12px;margin-top:12px;align-items:flex-start">
-      <div class="cb-panel" style="flex:1;min-width:0;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
+      <div class="cb-panel cb-dash-table-panel" style="flex:1;min-width:0;padding:14px 16px">
+        <div class="cb-dash-table-toolbar" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">보유 자산 내역 · ${held.length}종목 <span style="color:var(--dim)">· 행 클릭 시 우측에 상세</span></div>
           <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:200px">
             <span style="color:var(--dim);font-size:12px">⌕</span>
@@ -807,7 +807,7 @@ function cbRenderDash(){
           </div>
         </div>
         <div class="cb-tblwrap"><div style="min-width:560px">
-          <div class="cb-thead" style="display:flex;align-items:center;gap:8px;padding:4px 9px 7px;border-bottom:1px solid var(--bd);font-size:10.5px;color:var(--dim)">
+          <div class="cb-thead cb-dash-head" style="display:flex;align-items:center;gap:8px;padding:4px 9px 7px;border-bottom:1px solid var(--bd);font-size:10.5px;color:var(--dim)">
             <span style="width:62px;flex-shrink:0">소유주</span>
             <span style="flex:1;min-width:0;box-sizing:border-box;padding-left:40px">종목</span>
             <span style="width:70px;text-align:right;flex-shrink:0">주수</span>
@@ -1253,10 +1253,12 @@ function cbDivAxisLab(v){
 }
 function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
   if (!detailMaps[monthIndex] || !(amount>0)) return;
-  const key = cbStrip(item.tkr) || item.title || item.i.name || '미지정';
-  const title = item.title || item.i.name || key;
+  const owner = item.i?.owner || '미지정';
+  const assetKey = cbStrip(item.tkr) || item.title || item.i?.name || '미지정';
+  const key = `${owner}::${assetKey}`;
+  const title = item.title || item.i?.name || assetKey;
   const ticker = cbStrip(item.tkr);
-  const prev = detailMaps[monthIndex].get(key) || { title, ticker, amount:0 };
+  const prev = detailMaps[monthIndex].get(key) || { owner, title, ticker, amount:0 };
   prev.amount += amount;
   detailMaps[monthIndex].set(key, prev);
 }
@@ -1353,10 +1355,14 @@ function cbDivBarHover(ev, monthIndex){
   const details=(data.monthDetails&&data.monthDetails[monthIndex])||[];
   const total=(data.monthAmt&&data.monthAmt[monthIndex])||0;
   const tip=cbDivTipEl();
+  const showOwner=!_cbDivOwner||_cbDivOwner==='전체';
   const rows=details.length
     ? details.map(d=>{
         const ticker=d.ticker&&d.ticker!==d.title?` <span class="cb-div-tip-ticker">(${cbEsc(d.ticker)})</span>`:'';
-        return `<div class="cb-div-tip-row"><span class="cb-div-tip-name">${cbEsc(d.title)}${ticker}</span><b>${cbKrw(d.amount)}</b></div>`;
+        const owner=showOwner
+          ? `<span class="cb-div-tip-owner"><i style="background:${cbOwnerColor(d.owner)}"></i>${cbEsc(d.owner||'미지정')}</span>`
+          : '';
+        return `<div class="cb-div-tip-row${showOwner?' has-owner':''}">${owner}<span class="cb-div-tip-name">${cbEsc(d.title)}${ticker}</span><b>${cbKrw(d.amount)}</b></div>`;
       }).join('')
     : '<div style="opacity:.72">종목별 내역이 없습니다.</div>';
   tip.innerHTML=`<div class="cb-div-tip-title">${monthIndex+1}월 · ${cbKrw(total)}</div>${rows}`;
@@ -1485,7 +1491,7 @@ function cbRenderDiv(){
             return `<div class="cb-div-top3-row">
               <span class="cb-div-top3-rank">${rank+1}</span>
               <span class="cb-div-top3-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label||'—')}</span>
-              <span class="cb-div-top3-metrics"><b>${cbDisp(x.incomeKRW)}</b><span>${share.toFixed(1)}%</span></span>
+              <span class="cb-div-top3-metrics"><b>${cbDisp(x.incomeKRW)}</b><span>(${share.toFixed(1)}%)</span></span>
             </div>`;
           }).join('') || '<div style="font-size:10.5px;color:var(--dim)">배당 종목 없음</div>'}
         </div>
@@ -2174,7 +2180,7 @@ function cbRenderTax(){
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
         </div>
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
-        <div style="font-size:10.5px;color:var(--dim);padding-top:7px">잔여 공제 ${cbKrw(deductionRoom)}</div>
+        <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
@@ -2237,7 +2243,7 @@ function cbRenderTax(){
         </div>
         <div style="overflow-x:auto"><div style="min-width:620px">
           <div class="cb-thead" style="display:flex;align-items:center;font-size:10.5px;color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">
-            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="flex:1;min-width:72px">메모</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span style="width:112px;text-align:right">실현손익</span>
+            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span style="flex:1;min-width:72px">메모</span><span style="width:112px;text-align:right">실현손익</span>
             <span style="width:54px;text-align:center"><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
           ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t); return `
@@ -2246,8 +2252,8 @@ function cbRenderTax(){
               <span style="width:40px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
               <span style="width:52px;font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
               <span style="width:64px;font-size:10.5px;color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
-              <span style="flex:1;min-width:72px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
               <span style="width:82px;display:flex;justify-content:center"><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
+              <span style="flex:1;min-width:72px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
               <span class="cb-num" style="width:112px;text-align:right;font-weight:700;font-size:11.5px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
               <span class="cb-tax-actions" style="width:54px">
                 <button class="btn-action" title="수정" style="color:var(--t3)" onclick="cbTaxEdit(${taxId})">✎</button>
