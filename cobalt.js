@@ -1359,6 +1359,10 @@ function cbRenderRisk(){
   const ownerF = (_cbRiskOwner && _cbRiskOwner!=='전체') ? _cbRiskOwner : null;
   const r = cbRisk(ownerF);
   const insights = cbRiskInsights(ownerF,r);
+  const riskGridCards=Array.from({length:4},(_,row)=>[
+    ...r.cards.slice(row*2,row*2+2).map(card=>({kind:'primary',card})),
+    ...insights.slice(row*2,row*2+2).map(card=>({kind:'insight',card})),
+  ]).flat();
   cbSetHead('규칙 기반 자동 점검', cbOwnerBtns(_cbRiskOwner,'cbRiskOwner'));
   el.innerHTML = `
     <div class="cb-risk-overview">
@@ -1378,27 +1382,29 @@ function cbRenderRisk(){
           <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:var(--mut)">현금 비중</span><span style="font-weight:700">${r.cashPct.toFixed(1)}%</span></div>
         </div>
       </div>
-      <div class="cb-risk-primary-grid">
-        ${r.cards.map(c=>`
-          <div class="cb-panel cb-risk-primary-card">
-            <div class="cb-risk-primary-head">
-              <div class="cb-risk-primary-title"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${c.title}</span><span style="background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
-              <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
-            </div>
-            <div class="cb-risk-primary-message">${cbEsc(c.msg)}</div>
-            <div style="height:5px;border-radius:3px;background:var(--inner);margin-top:8px;overflow:hidden"><div style="height:100%;width:${c.fill}%;background:${c.color}"></div></div>
-          </div>`).join('')}
+      <div class="cb-risk-card-grid">
+        ${riskGridCards.map(entry=>{
+          const card=entry.card;
+          if(entry.kind==='insight') return `
+            <div class="cb-panel cb-risk-insight-card" style="--risk-tone:${card.tone}">
+              <div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div>
+              <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
+              <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
+                <span data-overflow-watch>${cbEsc(card.detail)}</span>
+              </div>
+            </div>`;
+          const c=card;
+          return `
+            <div class="cb-panel cb-risk-primary-card">
+              <div class="cb-risk-primary-head">
+                <div class="cb-risk-primary-title"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${c.title}</span><span style="background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
+                <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
+              </div>
+              <div class="cb-risk-primary-message">${cbEsc(c.msg)}</div>
+              <div style="height:5px;border-radius:3px;background:var(--inner);margin-top:8px;overflow:hidden"><div style="height:100%;width:${c.fill}%;background:${c.color}"></div></div>
+            </div>`;
+        }).join('')}
       </div>
-    </div>
-    <div class="cb-risk-secondary-grid">
-      ${insights.map(card=>`
-        <div class="cb-panel cb-risk-insight-card" style="--risk-tone:${card.tone}">
-          <div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div>
-          <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
-          <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
-            <span data-overflow-watch>${cbEsc(card.detail)}</span>
-          </div>
-        </div>`).join('')}
     </div>
     ${cbLookThroughPanel(ownerF)}`;
 }
@@ -2401,9 +2407,9 @@ function cbRenderTax(){
           <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 12px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 10px;font-size:12px;color:var(--mut)">취소</button>':''}
         </div>
-        <div style="overflow-x:auto"><div style="min-width:620px">
+        <div style="overflow-x:auto"><div style="min-width:680px">
           <div class="cb-thead" style="display:flex;align-items:center;font-size:10.5px;color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">
-            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span style="flex:1;min-width:72px">메모</span><span style="width:112px;text-align:right">실현손익</span>
+            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head" style="flex:1;min-width:112px">메모</span><span style="width:112px;text-align:right">실현손익</span>
             <span style="width:54px;text-align:center"><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
           ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t); return `
@@ -2413,7 +2419,7 @@ function cbRenderTax(){
               <span style="width:52px;font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
               <span style="width:64px;font-size:10.5px;color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
               <span style="width:82px;display:flex;justify-content:center"><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
-              <span style="flex:1;min-width:72px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
+              <span class="cb-tax-memo-cell" style="flex:1;min-width:112px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
               <span class="cb-num" style="width:112px;text-align:right;font-weight:700;font-size:11.5px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
               <span class="cb-tax-actions" style="width:54px">
                 <button class="btn-action" title="수정" style="color:var(--t3)" onclick="cbTaxEdit(${taxId})">✎</button>

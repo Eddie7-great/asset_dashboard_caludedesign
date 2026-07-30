@@ -81,7 +81,7 @@
     .cb-div-tip-row+.cb-div-tip-row{margin-top:2px}
     .cb-div-tip-name,.cb-div-tip-ticker,.cb-div-tip-row b{white-space:nowrap}
     .cb-div-tip-ticker{opacity:.68;margin-left:5px}
-    .cb-div-tip-owner{display:inline-flex;align-items:center;gap:6px;min-width:54px;color:var(--mut);font-weight:750;white-space:nowrap}
+    .cb-div-tip-owner{display:inline-flex;align-items:center;gap:6px;min-width:54px;color:color-mix(in srgb,var(--tiptx) 84%,transparent);font-weight:750;white-space:nowrap}
     .cb-div-tip-owner i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
     .cb-chart-tip{
       --tx:var(--tiptx);
@@ -928,11 +928,13 @@
     .cb-tax-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
     .cb-tax-head-grid{width:46px;display:inline-grid;grid-template-columns:22px 22px;gap:2px;align-items:center;justify-items:center}
     .cb-tax-head-grid>span:last-child{grid-column:2}
-    .cb-tax-treatment{display:inline-flex;align-items:center;justify-content:center;min-width:62px;padding:3px 6px;border-radius:6px;border:1px solid var(--bd);font-size:9.5px;font-weight:800;white-space:nowrap;cursor:help}
-    .cb-tax-treatment.is-exempt{color:var(--acc2);background:color-mix(in srgb,var(--acc2) 11%,transparent)}
-    .cb-tax-treatment.is-taxable{color:var(--dn);background:color-mix(in srgb,var(--dn) 10%,transparent)}
-    .cb-tax-treatment.is-separate{color:var(--purple,#a855f7);background:color-mix(in srgb,var(--purple,#a855f7) 10%,transparent)}
-    .cb-tax-treatment.is-deferred{color:var(--up);background:color-mix(in srgb,var(--up) 10%,transparent)}
+    .cb-tax-treatment{display:inline;min-width:0;padding:0;border:0!important;border-radius:0;background:transparent!important;font-size:9.5px;font-weight:800;white-space:nowrap;cursor:help}
+    [data-tip].cb-tax-treatment{border-bottom:0}
+    .cb-tax-treatment.is-exempt{color:var(--acc2)}
+    .cb-tax-treatment.is-taxable{color:var(--dn)}
+    .cb-tax-treatment.is-separate{color:var(--purple,#a855f7)}
+    .cb-tax-treatment.is-deferred{color:var(--up)}
+    .cb-tax-memo-head,.cb-tax-memo-cell{box-sizing:border-box;padding-left:18px}
     .cb-del{color:var(--dim);cursor:pointer;font-size:11px}
     .cb-del:hover{color:var(--dn)}
     .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
@@ -946,7 +948,7 @@
       font-family:'Noto Sans KR','Manrope',sans-serif;
       font-size:10.5px;font-weight:600;letter-spacing:.08em;color:var(--dim)
     }
-    .cb-thead{position:sticky;top:0;z-index:3;background:var(--panel)}
+    .cb-thead{position:sticky;top:0;z-index:3;background:var(--panelSolid);background-clip:padding-box}
     .cb-table-panel{overflow-x:visible!important}
     .cb-perf-card-grid{display:grid;grid-template-columns:repeat(6,minmax(124px,1fr));gap:10px;overflow:visible;padding:2px;margin:-2px}
     #cb-perf2{display:flex;flex-direction:column;padding-bottom:12px}
@@ -983,7 +985,7 @@
     .cb-insight-empty{padding:18px 4px;text-align:center;color:var(--dim);font-size:11px;line-height:1.6}
     .cb-insight-more{margin-top:8px;text-align:right;color:var(--dim);font-size:10px}
     .cb-family-detail-grid,.cb-dca-detail-grid,.cb-div-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;align-items:start}
-    .cb-family-table-toolbar,.cb-div-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panel)}
+    .cb-family-table-toolbar,.cb-div-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}
     .cb-dca-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px}
     .cb-dca-summary-card{min-height:82px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;min-width:0}
@@ -1030,18 +1032,17 @@
     .cb-tax-deduction-track{height:6px;border-radius:6px;background:var(--inner);overflow:hidden;margin-top:5px}
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
     .cb-tax-deduction-remain{margin-top:auto;padding-top:7px;font-size:10.5px;color:var(--dim)}
-    .cb-dash-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panel)}
-    .cb-risk-overview{display:grid;grid-template-columns:246px minmax(0,1fr);gap:12px;align-items:stretch}
+    .cb-dash-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
+    .cb-risk-overview{display:grid;grid-template-columns:246px minmax(0,1fr);gap:12px;align-items:start}
     .cb-risk-score-card{width:246px;min-width:0;padding:18px;display:flex;flex-direction:column;align-items:center}
-    .cb-risk-primary-grid{min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
-    .cb-risk-primary-card{min-width:0;padding:13px 15px}
+    .cb-risk-card-grid{min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-content:start}
+    .cb-risk-primary-card{min-width:0;padding:11px 12px}
     .cb-risk-primary-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px}
     .cb-risk-primary-title{min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:700;line-height:1.35;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-primary-title>span:last-child{flex-shrink:0;padding:1px 8px;border-radius:16px;font-size:10px;font-weight:800;white-space:nowrap}
     .cb-risk-primary-value{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-primary-message{margin-top:4px;color:var(--mut);font-size:11px;line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-secondary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
-    .cb-risk-insight-card{min-width:0;min-height:102px;padding:12px 14px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
+    .cb-risk-insight-card{min-width:0;min-height:94px;padding:11px 12px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:10.5px;font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-value{margin-top:7px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:7px;color:var(--dim);font-size:10px;line-height:1.4}
@@ -1077,6 +1078,12 @@
       .cb-div-history-panel .cb-div-head{top:45px;z-index:5}
       .cb-dash-table-toolbar{position:sticky;top:0;z-index:6}
       .cb-dash-table-panel .cb-dash-head{top:45px;z-index:5}
+      .cb-family-table-panel .cb-family-head,
+      .cb-dash-table-panel .cb-dash-head{
+        background:var(--panelSolid)!important;
+        box-shadow:0 -12px 0 12px var(--panelSolid),0 1px 0 var(--bd);
+        isolation:isolate
+      }
       .cb-dash-detail{top:0!important}
     }
     @media (min-width:1420px){
@@ -1097,7 +1104,7 @@
       .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-div-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-dca-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-      .cb-risk-secondary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .cb-risk-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
@@ -1111,7 +1118,7 @@
       .cb-risk-score-card{width:100%;box-sizing:border-box}
     }
     @media (max-width: 720px){
-      .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-primary-grid,.cb-risk-secondary-grid{grid-template-columns:1fr}
+      .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
       .cb-dash-movers-grid{grid-column:auto}
       .cb-mover-row{gap:4px;font-size:10.5px}
       .cb-risk-insight-card{min-height:88px}

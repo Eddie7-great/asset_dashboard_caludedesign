@@ -6519,6 +6519,16 @@ function _bubbleOwnerColor(owner){
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
 }
+function _bubbleOwnerFill(owner,panelColor){
+  const theme=_bubbleThemeKey();
+  const mixToPanel=theme==='light'?0.82:theme==='dark'?0.72:0.68;
+  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
+}
+function _bubbleOwnerStroke(owner,panelColor){
+  const theme=_bubbleThemeKey();
+  const mixToPanel=theme==='light'?0.24:theme==='dark'?0.18:0.14;
+  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
+}
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
     const s=String(v||'').trim();
@@ -6848,9 +6858,9 @@ function renderBubbleChart(mode) {
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      // 전체 화면의 소유주 링은 별도 팔레트로 채우지 않는다.
-      // 투명한 웨지 위 라벨 앞의 소유주 컬러 점으로만 구분해 섹터 색상과 경쟁하지 않게 한다.
-      colors.push('rgba(0,0,0,0)');
+      // 소유주 링은 섹터 팔레트의 같은 hue를 쓰되 테마 패널색과 섞어 옅게 채운다.
+      // 소유주 구분은 유지하면서 바깥 섹터·종목 링보다 시각적 우선순위가 낮게 보인다.
+      colors.push(_bubbleOwnerFill(owner,panelColor));
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6946,10 +6956,14 @@ function renderBubbleChart(mode) {
     customdata
   };
 
+  const longestLeafLabel=Math.max(0,...customdata
+    .filter(d=>d.kind==='leaf')
+    .map(d=>Array.from(String(d.displayName||d.name||'')).length));
+  const labelMargin=Math.min(240,Math.max(165,Math.round(38+longestLeafLabel*6.4)));
   const layout = {
     // 외부 종목 라벨(국문명 최대 길이) 확보를 위한 넉넉한 좌우 여백
-    // 단일 소유주 선택 시 우측 라벨이 많으므로 right margin을 더 확보
-    margin: { t: 36, l: 140, r: filterOwner ? 200 : 140, b: 36 },
+    // 가장 긴 라벨 길이에 따라 여백을 늘리되 차트 본체가 지나치게 작아지지 않게 상한을 둔다.
+    margin: { t: 36, l: labelMargin, r: Math.min(265,labelMargin+(filterOwner?25:0)), b: 36 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
@@ -7008,17 +7022,15 @@ function renderBubbleChart(mode) {
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
-    const ownerOutline=_bubbleThemeKey()==='light'
-      ? cssVar('--t2','#334155')
-      : cssVar('--t2','#dbe7f6');
     svgEl.querySelectorAll('.sunburstlayer path').forEach(path=>{
       const dnode=path.__data__;
       const nodeId=(dnode?.data&&dnode.data.id)||dnode?.id||'';
       if(String(nodeId).startsWith('O::')){
-        path.style.fill='rgba(0,0,0,0)';
-        path.style.fillOpacity='0';
-        path.style.stroke=ownerOutline;
-        path.style.strokeWidth='2px';
+        const ownerName=String(nodeId).slice(3);
+        path.style.fill=_bubbleOwnerFill(ownerName,panelColor);
+        path.style.fillOpacity='1';
+        path.style.stroke=_bubbleOwnerStroke(ownerName,panelColor);
+        path.style.strokeWidth='1.6px';
         path.style.strokeLinejoin='round';
         path.style.strokeDasharray='none';
       }
@@ -7128,17 +7140,6 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   // 라벨이 SVG 내 좌/우 10px 마진 안쪽에 머물도록 x 한계 설정
   const rightXMax = svgViewW - 10 * svgScaleX;
   const leftXMin = 10 * svgScaleX;
-  // 전체 모드에서는 모든 종목명을 외곽에 그리면 소유주별 leaf가 한꺼번에 몰려
-  // 리더라인과 텍스트가 차트 밖까지 번진다. 웨지는 모두 유지하고 외곽 라벨만
-  // 평가액 상위 종목으로 제한해 전체 구조를 읽을 수 있게 한다.
-  const allowedLeafIds = _bubbleOwner === '전체'
-    ? new Set(customdata
-        .map((d,index)=>({d,index}))
-        .filter(x=>x.d?.kind==='leaf')
-        .sort((a,b)=>(b.d.value||0)-(a.d.value||0))
-        .slice(0,22)
-        .map(x=>ids[x.index]))
-    : null;
 
   // 현재 '실제로 보이는' leaf 슬라이스만 수집. 드릴다운 후에는 범위 밖 슬라이스의
   // 폭/높이가 0 이 되므로 이를 제외해야 더미 라벨이 남지 않는다.
@@ -7149,7 +7150,6 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
     if (!dnode) return;
     const nodeId = (dnode.data && dnode.data.id) || dnode.id;
     if (!nodeId || String(nodeId).indexOf('L::') !== 0) return;
-    if (allowedLeafIds && !allowedLeafIds.has(nodeId)) return;
     const idx = ids.indexOf(nodeId);
     if (idx < 0) return;
     const info = customdata[idx];
@@ -7196,8 +7196,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   const labelOpacity = 1;
 
   const startR = R - 2;
-  const lineR = R + 18;
-  const textR = R + 26;
+  const lineR = R + 15;
   // 라벨이 들어갈 수 있는 세로 가용 공간 (사이드별 동일)
   const availH = (R + 40) * 2;
   const yMax = cy + R + 40;
@@ -7206,7 +7205,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   // 많으면 최소 11px 까지 압축해 모든 종목명을 노출한다.
   const computeLabelH = (count) => {
     if (count <= 1) return 15;
-    return Math.max(11, Math.min(15, availH / count));
+    return Math.max(9, Math.min(15, availH / count));
   };
 
   // 좌/우 분리하여 Y 좌표 기준 anti-collision — 비중이 작아도 모든 종목을 노출한다.
@@ -7215,16 +7214,15 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   leafs.forEach(lf => {
     const lx = cx + lf.dx * lineR;
     const ly = cy + lf.dy * lineR;
-    const tx = cx + lf.dx * textR + (lf.dx >= 0 ? 6 : -6);
     const sx = cx + lf.dx * startR;
     const sy = cy + lf.dy * startR;
-    const entry = { info: lf.info, sx, sy, lx, ly, tx, desiredY: ly, dx: lf.dx };
+    const entry = { info: lf.info, sx, sy, lx, ly, desiredY: ly, dx: lf.dx };
     (lf.dx >= 0 ? right : left).push(entry);
   });
 
   // 각 사이드: 위→아래 순으로 정렬 후 적응적 간격(labelH) 으로 anti-collision
   const resolve = (arr, labelH) => {
-    arr.sort((a, b) => a.desiredY - b.desiredY);
+    arr.sort((a, b) => (a.desiredY - b.desiredY) || ((b.info.value||0)-(a.info.value||0)));
     // 1차: 위→아래로 누르며 최소 간격 확보
     for (let i = 1; i < arr.length; i++) {
       if (arr[i].desiredY - arr[i - 1].desiredY < labelH) {
@@ -7256,7 +7254,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   resolve(left, labelH_L);
 
   // 적응적 간격이 좁아지면 폰트도 약간 축소 (가독성 균형)
-  const fontFor = (lh) => (lh >= 14 ? 12 : lh >= 12 ? 11 : 10);
+  const fontFor = (lh) => (lh >= 14 ? 12 : lh >= 12 ? 11 : lh >= 10 ? 10 : 9);
 
   // overlay 를 먼저 SVG 에 삽입 — paint() 내에서 getComputedTextLength() 로 라벨 폭 측정 가능
   if (layer.parentNode) layer.parentNode.appendChild(overlay);
@@ -7268,6 +7266,11 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
     let w = 0;
     try { w = textEl.getComputedTextLength(); } catch (e) { return; }
     if (w <= maxWidth || maxWidth <= 0) return;
+    const originalSize=parseFloat(textEl.getAttribute('font-size'))||10;
+    const fittedSize=Math.max(8,Math.floor(originalSize*maxWidth/w*10)/10);
+    textEl.setAttribute('font-size',String(fittedSize));
+    try { w=textEl.getComputedTextLength(); } catch(e){}
+    if(w<=maxWidth) return;
     let lo = 0, hi = fullText.length;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
@@ -7282,10 +7285,11 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
 
   const paint = (arr, labelH) => {
     const fontSize = fontFor(labelH);
-    arr.forEach(({ info, sx, sy, lx, ly, tx, desiredY, dx }) => {
+    arr.forEach(({ info, sx, sy, lx, ly, desiredY, dx }) => {
       const finalY = desiredY;
-      // 좌/우 라벨 모두 SVG 경계 안쪽으로 클램프 (우: COMPOSITION 패널 침범, 좌: 컨테이너 밖 절단 방지)
-      const finalTx = dx >= 0 ? Math.min(tx, rightXMax) : Math.max(tx, leftXMin);
+      // 같은 방향의 라벨 시작점을 한 열로 정렬해 이름과 리더라인이 지그재그로 흔들리지 않게 한다.
+      const columnX=dx>=0?cx+R+29:cx-R-29;
+      const finalTx = dx >= 0 ? Math.min(columnX, rightXMax) : Math.max(columnX, leftXMin);
       const line = document.createElementNS(NS, 'polyline');
       // 슬라이스 → 방사형 끝점 → 수평(라벨까지) 의 3-세그먼트 L자 리더
       const hx = lx + (dx >= 0 ? 10 : -10);
