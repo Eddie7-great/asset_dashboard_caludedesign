@@ -123,6 +123,11 @@
     .sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:9px;flex-shrink:0}
     .footer-btn{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
     .footer-btn:hover{background:var(--acc-soft2)}
+    .footer-btn.active{background:var(--acc-soft2);border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+    body.amount-privacy input[inputmode="numeric"],
+    body.amount-privacy input[inputmode="decimal"]{-webkit-text-security:disc}
+    body.amount-privacy canvas,
+    body.amount-privacy .js-plotly-plot{pointer-events:none!important}
     .layout-preview-overlay{display:none;position:fixed;inset:0;z-index:20000;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:rgba(5,10,22,.72);backdrop-filter:blur(8px)}
     .layout-preview-overlay.show{display:flex}
     .layout-preview-stage{position:relative;max-width:100%;max-height:100%;overflow:hidden;background:var(--bg1);border:1px solid rgba(255,255,255,.28);box-shadow:0 28px 80px rgba(0,0,0,.48)}
@@ -960,14 +965,17 @@
     .cb-div-history-status{font-size:9.5px;color:var(--dim);font-weight:500;overflow:hidden;text-overflow:ellipsis}
     .cb-div-top3-list{display:flex;flex-direction:column;justify-content:center;gap:4px;flex:1;min-height:0;margin-top:4px}
     .cb-div-top3-card{min-width:0}
-    .cb-div-top3-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:5px;min-width:0;font-size:10.5px}
+    .cb-div-top3-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0;font-size:10.5px}
     .cb-div-top3-rank{color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:9px}
     .cb-div-top3-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-    .cb-div-top3-share{color:var(--mut);font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700}
+    .cb-div-top3-metrics{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+    .cb-div-top3-metrics>b{font-size:9.5px;color:var(--tx)}
+    .cb-div-top3-metrics>span{font-size:8.5px;color:var(--mut);font-weight:700}
     .cb-insight-title{font-size:11px;letter-spacing:.07em;color:var(--lab);font-weight:800}
     .cb-insight-empty{padding:18px 4px;text-align:center;color:var(--dim);font-size:11px;line-height:1.6}
     .cb-insight-more{margin-top:8px;text-align:right;color:var(--dim);font-size:10px}
     .cb-family-detail-grid,.cb-dca-detail-grid,.cb-div-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;align-items:start}
+    .cb-family-table-toolbar,.cb-div-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panel)}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}
     .cb-family-mix-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
     .cb-family-mix-owner{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);border-radius:8px;padding:7px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,border-color .15s}
@@ -1003,7 +1011,8 @@
     .cb-div-upcoming-note{margin-top:10px;color:var(--dim);font-size:9.5px;line-height:1.55}
     .cb-tax-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:9px;align-items:stretch}
     .cb-tax-summary-card{padding:12px 11px;border-top:3px solid;display:flex;flex-direction:column;min-width:0}
-    .cb-tax-deduction-track{height:6px;border-radius:6px;background:var(--inner);overflow:hidden}
+    .cb-tax-deduction-value{display:flex;align-items:center;margin-top:12px}
+    .cb-tax-deduction-track{height:6px;border-radius:6px;background:var(--inner);overflow:hidden;margin-top:5px}
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(240px,1.12fr) minmax(240px,1.12fr) minmax(205px,.74fr) minmax(235px,.88fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-sector-card{display:flex;flex-direction:column}
@@ -1031,16 +1040,22 @@
       #view-holdings .pt-table th{top:0;z-index:4;background:var(--panelSolid)}
       /* .sortable 의 기존 position:relative가 수량~수익률 헤더의 sticky를 덮지 않도록 복원 */
       #view-holdings .pt-table th.sortable{position:sticky}
+      .cb-family-table-toolbar,.cb-div-table-toolbar{position:sticky;top:0;z-index:6}
+      .cb-family-table-panel .cb-family-head,
+      .cb-div-history-panel .cb-div-head{top:45px;z-index:5}
     }
     @media (min-width:1420px){
       .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 280px}
+      .cb-family-mix-card{position:sticky;top:0}
     }
     @media (min-width:1580px){
       .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 290px}
+      .cb-div-upcoming-card{position:sticky;top:0}
     }
     @media (max-width:1200px){
       .cb-tblwrap{overflow-x:auto}
       .cb-thead{position:static}
+      .cb-family-table-toolbar,.cb-div-table-toolbar{position:static}
       .cb-table-panel{overflow-x:auto!important}
       .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .cb-dash-movers-grid{grid-column:auto}
@@ -1076,10 +1091,10 @@
       #sidebar-backdrop.show{display:block}
       /* 드로어 전체 스크롤 — 메뉴 리스트 인라인 flex:1/overflow:hidden 해제 (마지막 메뉴·푸터 잘림 방지) */
       .menu-list{flex:0 0 auto!important;overflow:visible!important}
-      /* 드로어 푸터: 새로고침·다크모드 버튼 좌우 50/50 가로 배치로 세로 공간 절약 (인라인 flex-direction:column 덮어쓰기) */
+      /* 드로어 푸터: 새로고침·화면 전환·금액 가리기 버튼을 한 줄에 배치 */
       .sidebar-footer{flex-direction:row!important;flex-wrap:wrap;gap:8px}
       .sidebar-footer>div:first-child{flex:1 1 100%}
-      .sidebar-footer .footer-btn{flex:1 1 calc(50% - 4px);min-width:0;width:auto;padding:10px 6px}
+      .sidebar-footer .footer-btn{flex:1 1 calc(33.333% - 6px);min-width:0;width:auto;padding:10px 4px;gap:5px}
       .sidebar-footer>div:last-child{flex:1 1 100%}
       .content-area{height:100%;width:100%;max-width:100%;box-sizing:border-box;padding:0 0 16px;overflow-x:hidden}
       .hamburger-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;

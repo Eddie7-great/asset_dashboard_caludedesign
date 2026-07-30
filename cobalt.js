@@ -1059,8 +1059,8 @@ function cbRenderFam(){
         </div>`).join('')}
     </div>
     <div class="cb-family-detail-grid">
-    <div class="cb-panel cb-table-panel" style="padding:14px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
+    <div class="cb-panel cb-table-panel cb-family-table-panel" style="padding:14px 16px">
+      <div class="cb-family-table-toolbar" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${_famKey==='all'?'전체 보유 자산':cbEsc(_famKey)+' 보유 자산'} · ${held.length}종목</div>
         <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
           <span style="color:var(--dim);font-size:12px">⌕</span>
@@ -1068,7 +1068,7 @@ function cbRenderFam(){
         </div>
       </div>
       <div class="cb-tblwrap"><div style="min-width:826px">
-      <div class="cb-thead" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-bottom:1px solid var(--bd);font-size:10.5px;color:var(--dim)">
+      <div class="cb-thead cb-family-head" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-bottom:1px solid var(--bd);font-size:10.5px;color:var(--dim)">
         <span style="width:62px;flex-shrink:0">소유주</span>
         <span style="flex:1;min-width:0;box-sizing:border-box;padding-left:40px">종목</span>
         <span style="width:76px;text-align:right;flex-shrink:0">수량</span>
@@ -1480,12 +1480,12 @@ function cbRenderDiv(){
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
         <div class="cb-div-top3-list">
           ${top3Div.map((x,rank)=>{
-            const label=[x.tkr,x.title].filter(Boolean).join(' · ');
+            const label=[ownerF?'':x.i.owner, x.title||'종목명 미확인'].filter(Boolean).join(' · ');
             const share=divAnnual>0?x.incomeKRW/divAnnual*100:0;
             return `<div class="cb-div-top3-row">
               <span class="cb-div-top3-rank">${rank+1}</span>
               <span class="cb-div-top3-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label||'—')}</span>
-              <span class="cb-div-top3-share">${share.toFixed(1)}%</span>
+              <span class="cb-div-top3-metrics"><b>${cbDisp(x.incomeKRW)}</b><span>${share.toFixed(1)}%</span></span>
             </div>`;
           }).join('') || '<div style="font-size:10.5px;color:var(--dim)">배당 종목 없음</div>'}
         </div>
@@ -1500,7 +1500,7 @@ function cbRenderDiv(){
     </div>
     <div class="cb-div-detail-grid">
     <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="cb-div-table-toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbDivMonthFilter+1}월 예상 종목 · 전체 보기 ×</button>`:''}
       </div>
@@ -2151,7 +2151,7 @@ function cbRenderTax(){
       </div>
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--warn)">
         <div style="font-size:11px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
-        <div style="flex:1;display:flex;align-items:center">
+        <div class="cb-tax-deduction-value">
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
         </div>
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
@@ -2211,7 +2211,7 @@ function cbRenderTax(){
           <select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select>
           <select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select>
           <select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select>
-          <input id="cb-tax-pl" class="cb-input" value="${cbEsc(_cbTaxDraft.pl)}" placeholder="실현손익" style="flex:1;min-width:118px" />
+          <input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" />
           <input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" style="flex:1;min-width:118px" />
           <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 12px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 10px;font-size:12px;color:var(--mut)">취소</button>':''}

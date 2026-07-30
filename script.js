@@ -4,6 +4,184 @@
 const RATES = { USD: 1380, JPY: 9.2, KRW: 1 };
 let _donutMainLevel = 'top', _donutAccLevel = 'top';
 
+// 공유용 금액 가리기 — 동적으로 다시 그려지는 화면과 툴팁 속 통화 금액까지 마스킹한다.
+const AMOUNT_PRIVACY_KEY = 'asset-dashboard-amount-privacy';
+let _amountPrivacyEnabled = false;
+let _amountPrivacyObserver = null;
+let _amountPrivacyMutating = false;
+const _amountPrivacyTextOriginal = new WeakMap();
+const _amountPrivacyAttrOriginal = new WeakMap();
+const _amountPrivacyChartState = new WeakMap();
+
+function isAmountHidden(){ return _amountPrivacyEnabled; }
+function _maskAmountText(value){
+  let out = String(value == null ? '' : value);
+  out = out.replace(/([+\-−]?\s*[₩$¥]\s*)\d[\d,]*(?:\.\d+)?(?:\s*(?:억원|천만원|백만원|만원|원|억|천만|백만|만))?/g, (match, lead) => {
+    const spacing = (lead.match(/^\s*/) || [''])[0];
+    const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
+    const symbol = (lead.match(/[₩$¥]/) || ['₩'])[0];
+    return spacing + sign + symbol + '••••';
+  });
+  out = out.replace(/([+\-−]?\s*)\d[\d,]*(?:\.\d+)?(?=\s*(?:억원|천만원|백만원|만원|원))/g, (match, lead) => {
+    const spacing = (lead.match(/^\s*/) || [''])[0];
+    const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
+    return spacing + sign + '••••';
+  });
+  return out;
+}
+function _maskAmountAttributes(el){
+  if (!el || el.nodeType !== 1) return;
+  const attrs = ['title','data-tip','data-overflow-tip','aria-label'];
+  let originals = _amountPrivacyAttrOriginal.get(el);
+  attrs.forEach(name => {
+    if (!el.hasAttribute(name)) return;
+    const current = el.getAttribute(name) || '';
+    const masked = _maskAmountText(current);
+    if (masked === current) return;
+    if (!originals) originals = {};
+    if (!(name in originals) || current !== _maskAmountText(originals[name])) originals[name] = current;
+    el.setAttribute(name, masked);
+  });
+  if (originals) _amountPrivacyAttrOriginal.set(el, originals);
+}
+function _maskAmountTree(root){
+  if (!_amountPrivacyEnabled || !root) return;
+  _amountPrivacyMutating = true;
+  try {
+    if (root.nodeType === 1) _maskAmountAttributes(root);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let node = walker.currentNode;
+    while (node) {
+      if (node.nodeType === 1) {
+        _maskAmountAttributes(node);
+      } else if (node.nodeType === 3 && !/^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(node.parentElement?.tagName || '')) {
+        const current = node.nodeValue || '';
+        const masked = _maskAmountText(current);
+        if (masked !== current) {
+          const prior = _amountPrivacyTextOriginal.get(node);
+          if (prior == null || current !== _maskAmountText(prior)) _amountPrivacyTextOriginal.set(node, current);
+          node.nodeValue = masked;
+        }
+      }
+      node = walker.nextNode();
+    }
+  } finally {
+    _amountPrivacyMutating = false;
+  }
+}
+function _restoreAmountTree(root){
+  if (!root) return;
+  _amountPrivacyMutating = true;
+  try {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let node = walker.currentNode;
+    while (node) {
+      if (node.nodeType === 3) {
+        const original = _amountPrivacyTextOriginal.get(node);
+        if (original != null) node.nodeValue = original;
+      } else if (node.nodeType === 1) {
+        const attrs = _amountPrivacyAttrOriginal.get(node);
+        if (attrs) Object.entries(attrs).forEach(([name,value]) => node.setAttribute(name,value));
+      }
+      node = walker.nextNode();
+    }
+  } finally {
+    _amountPrivacyMutating = false;
+  }
+}
+function _syncAmountPrivacyCharts(){
+  if (typeof Chart === 'undefined') return;
+  const charts = [];
+  document.querySelectorAll('canvas').forEach(canvas => {
+    let chart = null;
+    try { chart = typeof Chart.getChart === 'function' ? Chart.getChart(canvas) : null; } catch(e){}
+    if (chart && !charts.includes(chart)) charts.push(chart);
+  });
+  if (!charts.length && Chart.instances) {
+    const values = typeof Chart.instances.values === 'function'
+      ? Array.from(Chart.instances.values())
+      : Object.values(Chart.instances);
+    values.forEach(chart => { if (chart && !charts.includes(chart)) charts.push(chart); });
+  }
+  charts.forEach(chart => {
+    try {
+      if (_amountPrivacyEnabled) {
+        if (!_amountPrivacyChartState.has(chart)) {
+          const tooltip = chart.options?.plugins?.tooltip;
+          const scales = Object.entries(chart.options?.scales || {});
+          _amountPrivacyChartState.set(chart, {
+            tooltipEnabled: tooltip ? tooltip.enabled : undefined,
+            ticks: scales.map(([key,scale]) => ({ key, color:scale?.ticks?.color }))
+          });
+        }
+        const tooltip = chart.options?.plugins?.tooltip;
+        if (tooltip) tooltip.enabled = false;
+        Object.values(chart.options?.scales || {}).forEach(scale => {
+          if (scale?.ticks) scale.ticks.color = 'rgba(0,0,0,0)';
+        });
+      } else {
+        const state = _amountPrivacyChartState.get(chart);
+        if (state) {
+          const tooltip = chart.options?.plugins?.tooltip;
+          if (tooltip) {
+            if (state.tooltipEnabled === undefined) delete tooltip.enabled;
+            else tooltip.enabled = state.tooltipEnabled;
+          }
+          state.ticks.forEach(({key,color}) => {
+            const scale = chart.options?.scales?.[key];
+            if (!scale?.ticks) return;
+            if (color === undefined) delete scale.ticks.color;
+            else scale.ticks.color = color;
+          });
+          _amountPrivacyChartState.delete(chart);
+        }
+      }
+      chart.update('none');
+    } catch(e){}
+  });
+}
+function _updateAmountPrivacyButton(){
+  const btn = document.getElementById('sidebar-privacy-btn');
+  const label = document.getElementById('sidebar-privacy-label');
+  if (btn) {
+    btn.classList.toggle('active', _amountPrivacyEnabled);
+    btn.setAttribute('aria-pressed', String(_amountPrivacyEnabled));
+    btn.title = _amountPrivacyEnabled ? '가려진 금액 다시 표시' : '공유할 때 화면의 금액 숨기기';
+    const icon = btn.querySelector('span[aria-hidden="true"]');
+    if (icon) icon.textContent = _amountPrivacyEnabled ? '◎' : '◉';
+  }
+  if (label) label.textContent = _amountPrivacyEnabled ? '금액 보이기' : '금액 가리기';
+}
+function _applyAmountPrivacy(){
+  document.body?.classList.toggle('amount-privacy', _amountPrivacyEnabled);
+  if (_amountPrivacyEnabled) _maskAmountTree(document.body);
+  else _restoreAmountTree(document.body);
+  _updateAmountPrivacyButton();
+  _syncAmountPrivacyCharts();
+  setTimeout(_syncAmountPrivacyCharts, 250);
+}
+function toggleAmountPrivacy(){
+  _amountPrivacyEnabled = !_amountPrivacyEnabled;
+  try { localStorage.setItem(AMOUNT_PRIVACY_KEY, _amountPrivacyEnabled ? '1' : '0'); } catch(e){}
+  _applyAmountPrivacy();
+}
+function initAmountPrivacy(){
+  try { _amountPrivacyEnabled = localStorage.getItem(AMOUNT_PRIVACY_KEY) === '1'; } catch(e){}
+  if (!_amountPrivacyObserver && document.body) {
+    _amountPrivacyObserver = new MutationObserver(mutations => {
+      if (!_amountPrivacyEnabled || _amountPrivacyMutating) return;
+      mutations.forEach(mutation => {
+        if (mutation.type === 'characterData') _maskAmountTree(mutation.target);
+        mutation.addedNodes?.forEach(node => _maskAmountTree(node));
+      });
+    });
+    _amountPrivacyObserver.observe(document.body, { childList:true, subtree:true, characterData:true });
+  }
+  _applyAmountPrivacy();
+  setTimeout(_syncAmountPrivacyCharts, 800);
+  setTimeout(_syncAmountPrivacyCharts, 2500);
+}
+
 function getSectorInfo(name, tkr, grp) {
   if (grp==='현금') return '현금/기타';
   if (grp==='가상화폐') return 'Crypto';
@@ -4764,6 +4942,7 @@ function initDashboard(){
 }
 
 window.onload = function() {
+  initAmountPrivacy();
   const token = sessionStorage.getItem('_dashAuth');
   if (!token) {
     document.getElementById('login-overlay').style.display = 'flex';
@@ -6669,7 +6848,9 @@ function renderBubbleChart(mode) {
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      colors.push(_bubbleOwnerColor(owner));
+      // 전체 화면의 소유주 링은 별도 팔레트로 채우지 않는다.
+      // 투명한 웨지 위 라벨 앞의 소유주 컬러 점으로만 구분해 섹터 색상과 경쟁하지 않게 한다.
+      colors.push('rgba(0,0,0,0)');
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6827,13 +7008,29 @@ function renderBubbleChart(mode) {
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
+    svgEl.querySelectorAll('.cb-bubble-owner-dot').forEach(dot=>dot.remove());
     svgEl.querySelectorAll('.sunburstlayer text').forEach(t => {
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('dominant-baseline', 'central');
-      const isOwnerLabel=ownerLabelNames.has((t.textContent||'').trim());
+      const ownerName=(t.textContent||'').trim();
+      const isOwnerLabel=ownerLabelNames.has(ownerName);
       t.style.fontSize=isOwnerLabel?'16px':'13px';
       t.style.fontWeight=isOwnerLabel?'800':'650';
-      if(isOwnerLabel) t.style.letterSpacing='.02em';
+      if(isOwnerLabel) {
+        t.style.letterSpacing='.02em';
+        try {
+          const box=t.getBBox();
+          const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+          dot.classList.add('cb-bubble-owner-dot');
+          dot.setAttribute('cx', String(box.x-7));
+          dot.setAttribute('cy', String(box.y+box.height/2));
+          dot.setAttribute('r', '4');
+          dot.setAttribute('fill', _bubbleOwnerColor(ownerName));
+          dot.setAttribute('stroke', _bubbleThemeKey()==='light'?'rgba(255,255,255,.92)':'rgba(255,255,255,.45)');
+          dot.setAttribute('stroke-width', '1');
+          t.parentNode?.insertBefore(dot,t);
+        } catch(e){}
+      }
       t.querySelectorAll('tspan').forEach(s=>{
         s.style.fontSize=isOwnerLabel?'16px':'13px';
         s.style.fontWeight=isOwnerLabel?'800':'650';
