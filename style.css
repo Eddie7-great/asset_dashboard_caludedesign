@@ -1031,6 +1031,21 @@
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
     .cb-tax-deduction-remain{margin-top:auto;padding-top:7px;font-size:10.5px;color:var(--dim)}
     .cb-dash-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panel)}
+    .cb-risk-overview{display:grid;grid-template-columns:246px minmax(0,1fr);gap:12px;align-items:stretch}
+    .cb-risk-score-card{width:246px;min-width:0;padding:18px;display:flex;flex-direction:column;align-items:center}
+    .cb-risk-primary-grid{min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
+    .cb-risk-primary-card{min-width:0;padding:13px 15px}
+    .cb-risk-primary-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px}
+    .cb-risk-primary-title{min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:700;line-height:1.35;word-break:keep-all;overflow-wrap:break-word}
+    .cb-risk-primary-title>span:last-child{flex-shrink:0;padding:1px 8px;border-radius:16px;font-size:10px;font-weight:800;white-space:nowrap}
+    .cb-risk-primary-value{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;line-height:1.25;white-space:nowrap}
+    .cb-risk-primary-message{margin-top:4px;color:var(--mut);font-size:11px;line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
+    .cb-risk-secondary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+    .cb-risk-insight-card{min-width:0;min-height:102px;padding:12px 14px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
+    .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:10.5px;font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
+    .cb-risk-insight-value{margin-top:7px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
+    .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:7px;color:var(--dim);font-size:10px;line-height:1.4}
+    .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(240px,1.12fr) minmax(240px,1.12fr) minmax(205px,.74fr) minmax(235px,.88fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-sector-card{display:flex;flex-direction:column}
     .cb-dash-sector-note{font-size:10.5px;color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
@@ -1082,6 +1097,7 @@
       .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-div-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-dca-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .cb-risk-secondary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
     .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
@@ -1091,11 +1107,14 @@
       .cb-dash-split{flex-direction:column!important}
       .cb-dash-split > .cb-dash-detail{width:100%!important;position:static!important}
       .cb-tax-bottom-grid{grid-template-columns:1fr}
+      .cb-risk-overview{grid-template-columns:1fr}
+      .cb-risk-score-card{width:100%;box-sizing:border-box}
     }
     @media (max-width: 720px){
-      .cb-perf-detail-grid,.cb-dash-insight-grid{grid-template-columns:1fr}
+      .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-primary-grid,.cb-risk-secondary-grid{grid-template-columns:1fr}
       .cb-dash-movers-grid{grid-column:auto}
       .cb-mover-row{gap:4px;font-size:10.5px}
+      .cb-risk-insight-card{min-height:88px}
     }
 
     /* =============================================

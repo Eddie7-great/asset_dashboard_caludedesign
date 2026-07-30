@@ -240,4 +240,50 @@ assert.equal(dcaScheduleContext.cbDcaPerMonthKRW({
 assert.match(cobaltSource, /이번 달 남은 매수[\s\S]*remainingCount[\s\S]*remainingAmount[\s\S]*다음 매수[\s\S]*예상 수량/, 'DCA 상단 잔여 일정 위젯과 내역 신규 칼럼 추가')
 assert.match(styleSource, /\.cb-dca-summary-grid\{display:grid;grid-template-columns:repeat\(5/, 'DCA 상단 다섯 요약 위젯을 균등 배치')
 
+const riskInsightRows = [
+  {
+    i:{owner:'본인',grp:'주식',cur:'USD',name:'Apple Inc.',tkr:'AAPL',dca:true,div:100},
+    cls:'us',title:'Apple Inc.',val:400,cost:500,gain:-100,
+  },
+  {
+    i:{owner:'본인',grp:'주식',cur:'KRW',name:'KOSPI 200 ETF',tkr:'069500',div:50},
+    cls:'kr',title:'KOSPI 200 ETF',val:300,cost:300,gain:0,
+  },
+  {
+    i:{owner:'본인',grp:'현금',cur:'KRW',name:'원화 예수금',tkr:'KRW'},
+    cls:'cash',title:'원화 예수금',val:300,cost:300,gain:0,
+  },
+]
+const riskInsightContext = {
+  pfolioData:riskInsightRows.map(row=>row.i),
+  autoTransferData:[{owner:'본인',type:'지출',cat:'주거/통신',cycle:'monthly',amt:100}],
+  cbAllRows:()=>riskInsightRows,
+  cbLookThrough:()=>({list:[{via:50}]}),
+  cbMergeRows:rows=>rows,
+  cbSectors:()=>({list:[{label:'Technology',pct:40},{label:'Index ETF',pct:30}]}),
+  cbDivIncomeKRW:item=>item.div||0,
+  cbStrip:ticker=>String(ticker||'').toUpperCase(),
+  cbDcaPerMonthKRW:item=>item.dca?100:0,
+  _effectiveAutoTransferAmt:at=>at.amt,
+  cbDisp:value=>'₩'+Math.round(value),
+}
+vm.createContext(riskInsightContext)
+vm.runInContext(extractFunction(cobaltSource, 'cbRiskInsights'), riskInsightContext)
+const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
+const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
+assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 생성')
+assert.equal(riskInsightById['etf-overlap'].value, '5.0%', 'ETF 직접·간접 중복 노출 계산')
+assert.equal(riskInsightById['effective-holdings'].value, '2.9개', 'HHI 역수 기준 실효 종목 수 계산')
+assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 민감도 계산')
+assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')
+assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 집중도 계산')
+assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
+assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
+assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
+assert.match(cobaltSource, /포트폴리오 비중[\s\S]*min-width:640px[\s\S]*>비중<\/span>[\s\S]*r\.val\/nw\*100/, '대시보드 내역과 상세에 포트폴리오 비중 추가')
+assert.match(styleSource, /\.cb-risk-secondary-grid\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '리스크 보조 위젯 데스크톱 4열 배치')
+assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-secondary-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, '리스크 보조 위젯 중간 화면 2열 배치')
+assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-risk-primary-grid,\.cb-risk-secondary-grid\{grid-template-columns:1fr\}/, '리스크 위젯 모바일 1열 배치')
+assert.match(styleSource, /\.cb-risk-primary-message\{[^}]*word-break:keep-all;overflow-wrap:break-word/, '리스크 설명 문구가 카드 밖으로 잘리지 않도록 단어 단위 줄바꿈')
+
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
