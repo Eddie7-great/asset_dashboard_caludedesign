@@ -208,9 +208,9 @@ vm.runInContext(extractFunction(scriptSource, '_maskAmountText'), privacyContext
 assert.equal(privacyContext._maskAmountText('평가액 +₩12,345,678원'), '평가액 +₩••••', '원화 금액 마스킹')
 assert.equal(privacyContext._maskAmountText('배당 $123.45 · 환산 ¥9,876'), '배당 $•••• · 환산 ¥••••', '외화 금액 마스킹')
 
-const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'] }
+const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'], OWNERS:['본인','아내','자녀1','아버지'] }
 vm.createContext(taxTreatmentContext)
-for (const name of ['cbTaxAcctOf','cbTaxTreatment']) {
+for (const name of ['cbTaxAcctOf','cbTaxTreatment','cbSortTaxEntries','cbTaxCumulativeByEntry']) {
   vm.runInContext(extractFunction(cobaltSource, name), taxTreatmentContext)
 }
 assert.equal(taxTreatmentContext.cbTaxTreatment({account:'일반',category:'domestic'}).label, '비과세', '국내 일반계좌 세제 구분')
@@ -220,6 +220,16 @@ assert.equal(taxTreatmentContext.cbTaxTreatment({account:'연금저축',category
 assert.match(cobaltSource, /계좌<\/span><span style="width:82px[\s\S]*세제 구분[\s\S]*cb-tax-treatment is-\$\{treatment\.tone\}[\s\S]*t\.memo/, '양도소득세 계좌 다음에 세제 구분, 메모 순으로 배치')
 assert.match(cobaltSource, /cb-tax-memo-head[\s\S]*cb-tax-memo-cell/, '양도소득세 메모 칼럼에 별도 여백 클래스 적용')
 assert.match(styleSource, /\.cb-tax-treatment\{[^}]*border:0!important[^}]*background:transparent!important[\s\S]*\.cb-tax-memo-head,\.cb-tax-memo-cell\{[^}]*padding-left:18px\}/, '세제 구분은 아웃라인 없는 텍스트로 표시하고 메모와 간격 확보')
+const cumulativeEntries = [
+  { id:3, month:'2026-02', category:'foreign', owner:'본인', amt:-300_000 },
+  { id:1, month:'2026-01', category:'foreign', owner:'본인', amt:1_000_000 },
+  { id:2, month:'2026-02', category:'domestic', owner:'본인', amt:500_000 },
+]
+const cumulativeByEntry = taxTreatmentContext.cbTaxCumulativeByEntry(cumulativeEntries,t=>t.owner)
+assert.equal(cumulativeByEntry.get(cumulativeEntries[1]), 1_000_000, '연간 누적손익은 월 순서로 시작')
+assert.equal(cumulativeByEntry.get(cumulativeEntries[2]), 1_500_000, '같은 월은 국내 기록을 먼저 누적')
+assert.equal(cumulativeByEntry.get(cumulativeEntries[0]), 1_200_000, '해외 기록까지 연간 누적손익에 합산')
+assert.match(cobaltSource, /annualCumulative = cbTaxCumulativeByEntry\(list, ownerOf\)[\s\S]*연간 누적손익[\s\S]*cumulative=annualCumulative\.get\(t\)\|\|0/, '월 필터와 무관하게 조회 연도 전체 누계를 표에 표시')
 
 const dcaScheduleContext = { cbRate:cur=>cur==='USD'?1400:1 }
 vm.createContext(dcaScheduleContext)

@@ -2260,11 +2260,21 @@ function cbSortTaxEntries(list, ownerOf){
     const i=OWNERS.indexOf(ownerOf(t));
     return i<0 ? 99 : i;
   };
-  // 내역은 월을 최우선으로 묶고, 같은 월 안에서 국내 → 해외 → 소유주 순으로 정렬한다.
+  // 내역은 월을 최우선으로 묶고, 같은 월 안에서 국내 → 해외 → 소유주 → 등록 순으로 정렬한다.
   return [...list].sort((a,b)=>
     String(a.month).localeCompare(String(b.month))
     || ((a.category==='domestic'?0:1)-(b.category==='domestic'?0:1))
-    || (taxOwnerRank(a)-taxOwnerRank(b)));
+    || (taxOwnerRank(a)-taxOwnerRank(b))
+    || (Number(a.id||0)-Number(b.id||0)));
+}
+function cbTaxCumulativeByEntry(list, ownerOf){
+  let annualTotal = 0;
+  const cumulative = new Map();
+  cbSortTaxEntries(list,ownerOf).forEach(entry=>{
+    annualTotal += Number(entry.amt)||0;
+    cumulative.set(entry,annualTotal);
+  });
+  return cumulative;
 }
 function cbRenderTax(){
   const el = document.getElementById('cb-tax2'); if(!el) return;
@@ -2306,6 +2316,8 @@ function cbRenderTax(){
     ? list.filter(t=>parseInt(String(t.month).split('-')[1]||'0')===_cbTaxMonthFilter)
     : list;
   const sorted = cbSortTaxEntries(historyList, ownerOf);
+  // 월 필터를 선택해도 누계는 해당 월부터 다시 시작하지 않고 조회 연도 전체 기록을 기준으로 유지한다.
+  const annualCumulative = cbTaxCumulativeByEntry(list, ownerOf);
   const row2 = (lab,val,style='') => `<div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="color:var(--mut)">${lab}</span><span style="font-weight:700;${style}">${val}</span></div>`;
   const acctOpts = _cbTaxDraft.k==='foreign' ? ['일반'] : CB_TAX_ACCTS;
   if (acctOpts.indexOf(_cbTaxDraft.acc)<0) _cbTaxDraft.acc = acctOpts[0];
@@ -2407,12 +2419,12 @@ function cbRenderTax(){
           <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 12px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 10px;font-size:12px;color:var(--mut)">취소</button>':''}
         </div>
-        <div style="overflow-x:auto"><div style="min-width:680px">
+        <div style="overflow-x:auto"><div style="min-width:760px">
           <div class="cb-thead" style="display:flex;align-items:center;font-size:10.5px;color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">
-            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head" style="flex:1;min-width:112px">메모</span><span style="width:112px;text-align:right">실현손익</span>
+            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head" style="flex:1;min-width:112px">메모</span><span style="width:112px;text-align:right">실현손익</span><span style="width:118px;text-align:right"><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
             <span style="width:54px;text-align:center"><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
-          ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t); return `
+          ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
             <div style="display:flex;align-items:center;padding:7px 6px;border-bottom:1px solid var(--bd);font-size:12px">
               <span style="width:58px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11px;font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
               <span style="width:40px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
@@ -2421,6 +2433,7 @@ function cbRenderTax(){
               <span style="width:82px;display:flex;justify-content:center"><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
               <span class="cb-tax-memo-cell" style="flex:1;min-width:112px;color:var(--mut);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
               <span class="cb-num" style="width:112px;text-align:right;font-weight:700;font-size:11.5px;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
+              <span class="cb-num" style="width:118px;text-align:right;font-weight:800;font-size:11.5px;${cbUpDn(cumulative)}">${cumulative>=0?'+':''}${cbKrw(cumulative)}</span>
               <span class="cb-tax-actions" style="width:54px">
                 <button class="btn-action" title="수정" style="color:var(--t3)" onclick="cbTaxEdit(${taxId})">✎</button>
                 <button class="btn-action" title="삭제" style="color:var(--dn)" onclick="cbTaxDel(${taxId})">✕</button>
