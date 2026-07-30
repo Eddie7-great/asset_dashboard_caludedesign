@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=39">
+  <link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
 
@@ -75,6 +75,7 @@
       </div>
       <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
       <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:.78rem;font-weight:700">모바일버전</span></button>
+      <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span aria-hidden="true">◉</span><span id="sidebar-privacy-label" style="font-size:.78rem;font-weight:700">금액 가리기</span></button>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);padding:0 3px">
         <span style="width:6px;height:6px;border-radius:50%;background:var(--up);flex-shrink:0"></span><span id="feed-note">시세 연동 대기</span>
       </div>
@@ -820,7 +821,7 @@
   </div>
 </div>
 
-<script src="script.js?v=34"></script>
-<script src="cobalt.js?v=14"></script>
+<script src="script.js?v=35"></script>
+<script src="cobalt.js?v=16"></script>
 </body>
 </html>
