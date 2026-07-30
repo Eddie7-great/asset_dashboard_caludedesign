@@ -201,4 +201,38 @@ vm.runInContext(extractFunction(scriptSource, '_maskAmountText'), privacyContext
 assert.equal(privacyContext._maskAmountText('평가액 +₩12,345,678원'), '평가액 +₩••••', '원화 금액 마스킹')
 assert.equal(privacyContext._maskAmountText('배당 $123.45 · 환산 ¥9,876'), '배당 $•••• · 환산 ¥••••', '외화 금액 마스킹')
 
+const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'] }
+vm.createContext(taxTreatmentContext)
+for (const name of ['cbTaxAcctOf','cbTaxTreatment']) {
+  vm.runInContext(extractFunction(cobaltSource, name), taxTreatmentContext)
+}
+assert.equal(taxTreatmentContext.cbTaxTreatment({account:'일반',category:'domestic'}).label, '비과세', '국내 일반계좌 세제 구분')
+assert.equal(taxTreatmentContext.cbTaxTreatment({account:'일반',category:'foreign'}).label, '22% 대상', '해외 일반계좌 세제 구분')
+assert.equal(taxTreatmentContext.cbTaxTreatment({account:'ISA',category:'domestic'}).label, '9.9% 분리', 'ISA 세제 구분')
+assert.equal(taxTreatmentContext.cbTaxTreatment({account:'연금저축',category:'domestic'}).label, '과세이연', '연금저축 세제 구분')
+assert.match(cobaltSource, /메모<\/span><span style="width:82px[\s\S]*세제 구분[\s\S]*cb-tax-treatment is-\$\{treatment\.tone\}/, '양도소득세 메모와 실현손익 사이에 세제 구분 칼럼 추가')
+
+const dcaScheduleContext = { cbRate:cur=>cur==='USD'?1400:1 }
+vm.createContext(dcaScheduleContext)
+for (const name of [
+  'cbDcaPerMonthKRW','cbDcaPerOrderKRW','cbDcaExpectedQty','cbDcaDateAt','cbDcaDateKey',
+  'cbDcaMarket','cbDcaIsHoliday','cbDcaScheduledOn','cbDcaScheduleSummary'
+]) {
+  vm.runInContext(extractFunction(cobaltSource, name), dcaScheduleContext)
+}
+const monthlyDca = {
+  dca:true,dcaCycle:'매월',dcaDay:31,dcaMode:'amount',dcaAmt:100_000,dcaCur:'KRW',
+  cur:'KRW',curP:50_000,grp:'주식'
+}
+const monthlySchedule = dcaScheduleContext.cbDcaScheduleSummary(monthlyDca, '2026-07-30')
+assert.equal(monthlySchedule.nextDate, '2026-07-31', '다음 월간 DCA 매수일 계산')
+assert.equal(monthlySchedule.remainingCount, 1, '이번 달 남은 매수 횟수 계산')
+assert.equal(monthlySchedule.remainingAmount, 100_000, '이번 달 남은 매수 금액 계산')
+assert.equal(monthlySchedule.expectedQty, 2, '현재가 기준 회당 예상 매수 수량 계산')
+assert.equal(dcaScheduleContext.cbDcaPerMonthKRW({
+  dcaCycle:'매주',dcaDays:[1,5],dcaMode:'amount',dcaAmt:10_000,dcaCur:'KRW'
+}), 86_600, '복수 요일 주간 DCA 월 환산에 선택 요일 수 반영')
+assert.match(cobaltSource, /이번 달 남은 매수[\s\S]*remainingCount[\s\S]*remainingAmount[\s\S]*다음 매수[\s\S]*예상 수량/, 'DCA 상단 잔여 일정 위젯과 내역 신규 칼럼 추가')
+assert.match(styleSource, /\.cb-dca-summary-grid\{display:grid;grid-template-columns:repeat\(5/, 'DCA 상단 다섯 요약 위젯을 균등 배치')
+
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
