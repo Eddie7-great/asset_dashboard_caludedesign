@@ -323,36 +323,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (type === 'dividend_history') {
       const histTickers = (req.query.tickers as string || '').split(',').filter(Boolean);
       if (!histTickers.length) return res.status(200).json({ success: true, result: {} });
-      const KR_RE = /^[0-9A-Z]{6}$/i;
 
       async function yahooHist(rawSym: string) {
-        const isKrCode = KR_RE.test(rawSym);
-        const sym = isKrCode ? `${rawSym}.KS` : rawSym;
-        try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=10y&events=div`;
-          const r = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (!r.ok) return null;
-          const d = await r.json();
-          const result = d?.chart?.result?.[0];
-          if (!result) return null;
-          const currency = (result.meta?.currency || (isKrCode ? 'KRW' : 'USD')).toUpperCase();
-          const divEvents = result.events?.dividends || {};
-          const events = Object.values(divEvents)
-            .map((e: any) => {
-              const dt = new Date(e.date * 1000);
-              return { date: dt.toISOString().slice(0, 10), amount: Number(e.amount || 0) };
-            })
-            .filter(e => e.amount > 0)
-            .sort((a, b) => a.date.localeCompare(b.date));
-          return { events, cur: currency };
-        } catch (e) { return null; }
+        const upper = rawSym.trim().toUpperCase();
+        const krMatch = upper.match(/^([0-9A-Z]{6})(\.(KS|KQ))?$/i);
+        const symbols = krMatch
+          ? (krMatch[2] ? [upper] : [`${krMatch[1]}.KS`,`${krMatch[1]}.KQ`])
+          : [upper];
+        for (const sym of symbols) {
+          try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=10y&events=div`;
+            const r = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (!r.ok) continue;
+            const d = await r.json();
+            const result = d?.chart?.result?.[0];
+            if (!result) continue;
+            const currency = (result.meta?.currency || (krMatch ? 'KRW' : 'USD')).toUpperCase();
+            const divEvents = result.events?.dividends || {};
+            const events = Object.values(divEvents)
+              .map((e: any) => {
+                const dt = new Date(e.date * 1000);
+                return { date: dt.toISOString().slice(0, 10), amount: Number(e.amount || 0) };
+              })
+              .filter(e => e.amount > 0)
+              .sort((a, b) => a.date.localeCompare(b.date));
+            if (events.length) return { events, cur: currency };
+          } catch (e) {}
+        }
+        return null;
       }
 
       const result: Record<string, any> = {};
       await Promise.all(histTickers.map(async (raw) => {
-        const tkr = raw.trim().toUpperCase().replace(/\.(KS|KQ)$/, '');
+        const requested = raw.trim().toUpperCase();
+        const tkr = requested.replace(/\.(KS|KQ)$/, '');
         if (!tkr) return;
-        const info = await yahooHist(tkr);
+        const info = await yahooHist(requested);
         if (info && info.events.length > 0) result[tkr] = info;
       }));
       return res.status(200).json({ success: true, result });

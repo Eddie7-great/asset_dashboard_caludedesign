@@ -98,25 +98,32 @@ function cbDivIncomeKRW(i){
   const d = cbDivOf(i); if (!d) return 0;
   return d.annualDps * (i.qty||0) * cbRate(d.cur || i.cur);
 }
-function cbDivGrowth(i){
+function cbDivGrowthInfo(i){
   try{
     const raw = (window._divHistoryRawCache || {})[cbStrip(i.tkr)];
-    if (!raw || !Array.isArray(raw.events) || !raw.events.length) return null;
+    if (!raw || !Array.isArray(raw.events) || !raw.events.length) {
+      return { value:null, status:'missing', years:0, events:0 };
+    }
     const annualMap = _divpAggregateByYear(raw.events);
-    const r = _divpComputeCagr(annualMap);
-    if (r.cagr5 != null) return r.cagr5;
-    if (r.cagr3 != null) return r.cagr3;
-    // 표준 3/5년 구간이 비어 있어도(이력이 짧거나 특정 연도 누락) 확보된 완결연도 전 구간으로 CAGR 추정
     const curY = new Date().getFullYear();
     const yrs = Object.keys(annualMap).map(Number)
       .filter(y => y < curY && annualMap[String(y)] > 0).sort((a,b)=>a-b);
+    const r = _divpComputeCagr(annualMap);
+    if (r.cagr5 != null) return { value:r.cagr5, status:'ready', years:yrs.length, events:raw.events.length };
+    if (r.cagr3 != null) return { value:r.cagr3, status:'ready', years:yrs.length, events:raw.events.length };
+    // 표준 3/5년 구간이 비어 있어도(이력이 짧거나 특정 연도 누락) 확보된 완결연도 전 구간으로 CAGR 추정
     if (yrs.length >= 2){
       const y0 = yrs[0], y1 = yrs[yrs.length-1];
       const v0 = annualMap[String(y0)], v1 = annualMap[String(y1)];
-      if (v0 > 0 && y1 > y0) return (Math.pow(v1/v0, 1/(y1-y0)) - 1) * 100;
+      if (v0 > 0 && y1 > y0) {
+        return { value:(Math.pow(v1/v0, 1/(y1-y0)) - 1) * 100, status:'ready', years:yrs.length, events:raw.events.length };
+      }
     }
-    return null;
-  }catch(e){ return null; }
+    return { value:null, status:'insufficient', years:yrs.length, events:raw.events.length };
+  }catch(e){ return { value:null, status:'missing', years:0, events:0 }; }
+}
+function cbDivGrowth(i){
+  return cbDivGrowthInfo(i).value;
 }
 // 배당 raw 이력(_divHistoryRawCache) 확보 — 배당성장률(CAGR) 계산의 유일한 소스.
 // 첫 렌더 시점에는 pfolioData 가 아직 KV 에서 로드되기 전일 수 있고, 그때 요청하면
@@ -1589,10 +1596,11 @@ function cbRenderDiv(){
   const list = cbSortDividendRows(Array.from(merged.values()).map(m=>{
     const d = cbDivOf(m.i);
     const incomeKRW = d.annualDps * m.qty * cbRate(d.cur || m.i.cur);
-    const g = cbDivGrowth(m.i);
+    const growth = cbDivGrowthInfo(m.i);
+    const g = growth.value;
     const rate = cbRate(m.i.cur);
     const avgNative = (m.qty>0 && rate>0) ? m.cost/(m.qty*rate) : cbAvgNative(m.i);
-    return { ...m, d, incomeKRW, g, avgNative,
+    return { ...m, d, incomeKRW, g, growth, avgNative,
       yoc: avgNative>0 ? d.annualDps/avgNative*100 : null };
   }));
 
@@ -1601,8 +1609,20 @@ function cbRenderDiv(){
   // 평균 배당성장률 — 배당 이력으로 CAGR 이 산출된 종목만 배당수입 가중평균한다.
   // (전체 배당수입으로 나누면 이력이 없는 종목이 분모만 키워 0쪽으로 희석된다)
   const gList = list.filter(x=>x.g!=null);
+  const rawHistoryList = list.filter(x=>x.growth.status!=='missing');
+  const insufficientHistoryList = list.filter(x=>x.growth.status==='insufficient');
+  const missingHistoryList = list.filter(x=>x.growth.status==='missing');
   const gBase = gList.reduce((s,x)=>s+x.incomeKRW,0);
   const avgG = gBase>0 ? gList.reduce((s,x)=>s+x.g*x.incomeKRW,0)/gBase : null;
+  const growthHistoryTip = [
+    `성장률 산출 ${gList.length}종목.`,
+    insufficientHistoryList.length
+      ? `원본 이력은 있으나 완결연도 2개 미만: ${insufficientHistoryList.map(x=>x.title||x.tkr).join(', ')}.`
+      : '',
+    missingHistoryList.length
+      ? `원본 이력 조회 미확보: ${missingHistoryList.map(x=>x.title||x.tkr).join(', ')}.`
+      : ''
+  ].filter(Boolean).join(' ');
   const top3Div = [...list].sort((a,b)=>b.incomeKRW-a.incomeKRW).slice(0,3);
   const top3DivShare = divAnnual>0
     ? top3Div.reduce((s,x)=>s+x.incomeKRW,0)/divAnnual*100
@@ -1641,7 +1661,7 @@ function cbRenderDiv(){
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 배당 이력이 확보된 종목만 계산에 포함합니다.">배당성장률</span> <span class="cb-div-history-status">(${avgG==null?'이력 조회 중':`이력 확보 ${gList.length}/${list.length}종목`})</span></div>
+        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결연도 배당 이력이 2개 이상인 종목만 계산에 포함합니다.">배당성장률</span> <span class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">(${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`})</span></div>
         <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
       </div>
       <div class="cb-panel cb-div-summary-card">
@@ -1695,7 +1715,9 @@ function cbRenderDiv(){
           <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary" style="width:70px;text-align:right;font-weight:600">${(x.d.yldNum||0).toFixed(2)}%</span>
           <span class="cb-mobile-secondary" style="width:64px;text-align:right;font-weight:800;color:var(--up)">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
+          <span class="cb-mobile-secondary" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
+            ? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`
+            : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary" style="width:64px;text-align:right;color:var(--mut);font-size:11.5px">${cbEsc(x.d.cycle||'—')}</span>
           <span class="cb-mobile-secondary" style="width:100px;text-align:right;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
@@ -2164,7 +2186,7 @@ function cbTaxChartSvg(w,h,list){
   const rawMin=Math.min(0, ...vals.filter(v=>v<0), ...allLineVals.filter(v=>v<0));
   const step=cbNiceStep((rawMax-rawMin)/5);
   const maxV=Math.ceil(rawMax/step)*step, minV=Math.floor(rawMin/step)*step;
-  const padL=64, padR=108, padT=14, padB=22;
+  const padL=64, padR=78, padT=14, padB=22;
   const plotW=w-padL-padR, plotH=h-padT-padB, span=(maxV-minV)||1;
   const Y=v=> padT + plotH - ((v-minV)/span)*plotH;
   let out='';
@@ -2400,7 +2422,7 @@ function cbRenderTax(){
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--acc3)"></span>전체 누적손익</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--dn)"></span>누적 예상 세액</span>
       </div>
-      ${cbTaxChartSvg(1100,430,list)}
+      ${cbTaxChartSvg(1240,440,list)}
     </div>
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">

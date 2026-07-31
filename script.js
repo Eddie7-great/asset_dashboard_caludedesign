@@ -555,14 +555,19 @@ async function fetchDivData() {
 }
 
 // 종목별 배당 raw 이력 (10년치) — YoC/CAGR/DRIP 위젯용
-// 응답 캐시 키: divHistRaw_<YYYY-MM-DD> (7일간 유효)
+// 국내 .KS → .KQ 폴백을 포함하는 캐시 스키마. 버전 변경 시 기존 누락 캐시를 한 번 갱신한다.
+const DIV_HIST_CACHE_VERSION = 2;
 window._divHistoryRawCache = window._divHistoryRawCache || {};
 async function fetchDividendHistory(force = false) {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
   const tickers = [...new Set(
     pfolioData.filter(i => i.grp==='주식' && i.qty>0)
-      .map(i => (i.tkr||'').replace(/\.(KS|KQ)$/,''))
+      .map(i => {
+        const raw=String(i.tkr||'').toUpperCase();
+        const base=raw.replace(/\.(KS|KQ)$/,'');
+        if (/\.KQ$/.test(raw) || String(i.market||'').toUpperCase().includes('KOSDAQ')) return base+'.KQ';
+        if (/\.KS$/.test(raw)) return base+'.KS';
+        return raw;
+      })
       .filter(Boolean)
   )];
   if (!tickers.length) return;
@@ -572,11 +577,19 @@ async function fetchDividendHistory(force = false) {
       const cached = localStorage.getItem('divHistRaw');
       if (cached) {
         const obj = JSON.parse(cached);
-        if (obj && obj.savedAt && (Date.now() - obj.savedAt) < 7*86400000 && obj.data
-          && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t))) {
-          window._divHistoryRawCache = Object.fromEntries(Object.entries(obj.data||{}).map(
-            ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
-          ));
+        const age = obj?.savedAt ? Date.now()-obj.savedAt : Infinity;
+        const normalizedData = Object.fromEntries(Object.entries(obj?.data||{}).map(
+          ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
+        ));
+        const expectedDividendKeys = tickers
+          .map(t=>String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''))
+          .filter(t=>Number(window._divDataCache?.[t]?.annualDps)>0);
+        const missingExpected = expectedDividendKeys.filter(t=>!Array.isArray(normalizedData[t]?.events)||!normalizedData[t].events.length);
+        // 정상 캐시는 7일간 재사용한다. 배당 지급 종목인데 원본 이력이 빠진 경우만 하루 뒤 재검증한다.
+        const missingRetryDue = missingExpected.length>0 && age>=86400000;
+        if (obj && obj.version===DIV_HIST_CACHE_VERSION && age < 7*86400000 && obj.data
+          && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t)) && !missingRetryDue) {
+          window._divHistoryRawCache = normalizedData;
           return;
         }
       }
@@ -592,7 +605,7 @@ async function fetchDividendHistory(force = false) {
     window._divHistoryRawCache = Object.fromEntries(Object.entries(data.result).map(
       ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
     ));
-    try { localStorage.setItem('divHistRaw', JSON.stringify({ savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
+    try { localStorage.setItem('divHistRaw', JSON.stringify({ version:DIV_HIST_CACHE_VERSION, savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
   } catch(e) { console.error('[fetchDividendHistory]', e); }
 }
 
@@ -6963,7 +6976,7 @@ function renderBubbleChart(mode) {
   const layout = {
     // 외부 종목 라벨(국문명 최대 길이) 확보를 위한 넉넉한 좌우 여백
     // 가장 긴 라벨 길이에 따라 여백을 늘리되 차트 본체가 지나치게 작아지지 않게 상한을 둔다.
-    margin: { t: 36, l: labelMargin, r: Math.min(265,labelMargin+(filterOwner?25:0)), b: 36 },
+    margin: { t: 72, l: labelMargin, r: Math.min(265,labelMargin+(filterOwner?25:0)), b: 68 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
@@ -7197,6 +7210,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
 
   const startR = R - 2;
   const lineR = R + 15;
+  const textR = R + 29;
   // 라벨이 들어갈 수 있는 세로 가용 공간 (사이드별 동일)
   const availH = (R + 40) * 2;
   const yMax = cy + R + 40;
@@ -7214,9 +7228,10 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   leafs.forEach(lf => {
     const lx = cx + lf.dx * lineR;
     const ly = cy + lf.dy * lineR;
+    const tx = cx + lf.dx * textR + (lf.dx >= 0 ? 6 : -6);
     const sx = cx + lf.dx * startR;
     const sy = cy + lf.dy * startR;
-    const entry = { info: lf.info, sx, sy, lx, ly, desiredY: ly, dx: lf.dx };
+    const entry = { info: lf.info, sx, sy, lx, ly, tx, desiredY: ly, dx: lf.dx };
     (lf.dx >= 0 ? right : left).push(entry);
   });
 
@@ -7285,11 +7300,11 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
 
   const paint = (arr, labelH) => {
     const fontSize = fontFor(labelH);
-    arr.forEach(({ info, sx, sy, lx, ly, desiredY, dx }) => {
+    arr.forEach(({ info, sx, sy, lx, ly, tx, desiredY, dx }) => {
       const finalY = desiredY;
-      // 같은 방향의 라벨 시작점을 한 열로 정렬해 이름과 리더라인이 지그재그로 흔들리지 않게 한다.
-      const columnX=dx>=0?cx+R+29:cx-R-29;
-      const finalTx = dx >= 0 ? Math.min(columnX, rightXMax) : Math.max(columnX, leftXMin);
+      // 원주의 각도를 따라 라벨 X를 유지하고, SVG 경계만 클램프한다.
+      // 상·하단 라벨은 원에 가깝게, 좌·우 라벨은 자연스럽게 바깥으로 퍼진다.
+      const finalTx = dx >= 0 ? Math.min(tx, rightXMax) : Math.max(tx, leftXMin);
       const line = document.createElementNS(NS, 'polyline');
       // 슬라이스 → 방사형 끝점 → 수평(라벨까지) 의 3-세그먼트 L자 리더
       const hx = lx + (dx >= 0 ? 10 : -10);

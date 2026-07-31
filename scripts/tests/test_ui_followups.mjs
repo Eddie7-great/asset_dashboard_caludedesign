@@ -8,6 +8,7 @@ const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url)
 const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const priceApiSource = fs.readFileSync(new URL('../../api/price.ts', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`)
@@ -158,11 +159,41 @@ assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*const 
 assert.match(scriptSource, /const _BUBBLE_OWNER_SECTORS = \{[\s\S]*function _bubbleOwnerColor\(owner\)[\s\S]*_SECTOR_HUES\[sector\][\s\S]*tone\.sectorSat\+3,tone\.sectorLight-3/, '소유주 구분점도 섹터 팔레트와 같은 테마별 색 생성 규칙 사용')
 assert.match(scriptSource, /function _bubbleOwnerFill\(owner,panelColor\)[\s\S]*colors\.push\(_bubbleOwnerFill\(owner,panelColor\)\)[\s\S]*path\.style\.fill=_bubbleOwnerFill\(ownerName,panelColor\)[\s\S]*path\.style\.stroke=_bubbleOwnerStroke\(ownerName,panelColor\)[\s\S]*dotSpan\.textContent='● '/, '전체 비중 차트 소유주 링은 테마별 옅은 채움·팔레트 실선·라벨 앞 컬러 점으로 구분')
 assert.doesNotMatch(scriptSource, /allowedLeafIds/, '비중 차트 외부 라벨은 상위 종목으로 제한하지 않고 모든 가시 종목을 대상으로 함')
-assert.match(scriptSource, /const labelMargin=Math\.min\(240,[\s\S]*const columnX=dx>=0\?cx\+R\+29:cx-R-29/, '긴 종목명에 따라 차트 여백을 확보하고 외부 라벨을 좌우 열로 정렬')
+assert.match(scriptSource, /const labelMargin=Math\.min\(240,[\s\S]*margin: \{ t: 72,[\s\S]*const textR = R \+ 29[\s\S]*const tx = cx \+ lf\.dx \* textR[\s\S]*const finalTx = dx >= 0 \? Math\.min\(tx, rightXMax\)/, '차트 원을 줄여 상하 여백을 확보하고 종목 라벨을 원주 각도에 따라 배치')
+assert.doesNotMatch(scriptSource, /const columnX=dx>=0/, '비중 차트 라벨을 좌우 고정 열로 강제하지 않음')
 assert.match(cobaltSource, /배당 집중도[\s\S]*상위 3종목/, '배당 관리 상단에 배당원 집중도 위젯 추가')
 assert.match(cobaltSource, /const top3Div = [\s\S]*상위 배당원 TOP 3[\s\S]*cb-div-top3-name[\s\S]*share\.toFixed\(1\)/, '배당 집중도 상위 3개 종목명과 각 배당 기여 비중을 별도 위젯에 표시')
 assert.match(cobaltSource, /const label=\[ownerF\?'':x\.i\.owner, x\.title\|\|'종목명 미확인'\][\s\S]*cb-div-top3-metrics[\s\S]*cbDisp\(x\.incomeKRW\)[\s\S]*share\.toFixed\(1\)/, '전체 배당원 TOP3에는 소유주·종목명·금액·비중을 표시하고 티커는 제외')
-assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*이력 확보 \$\{gList\.length\}\/\$\{list\.length\}종목/, '배당 이력 확보 상태를 제목과 같은 줄의 괄호 안에 표시')
+assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*산출 \$\{gList\.length\}\/\$\{list\.length\} · 원본 \$\{rawHistoryList\.length\}\/\$\{list\.length\}/, '배당성장률 산출 수와 원본 이력 확보 수를 분리해 표시')
+assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 2[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
+assert.match(priceApiSource, /const symbols = krMatch[\s\S]*`\$\{krMatch\[1\]\}\.KS`,`\$\{krMatch\[1\]\}\.KQ`[\s\S]*for \(const sym of symbols\)/, '국내 배당 이력은 코스피 조회 실패 시 코스닥 심볼로 재조회')
+assert.match(cobaltSource, /cbTaxChartSvg\(1240,440,list\)/, '양도소득세 중앙 차트의 가로 viewBox 확대')
+assert.match(cobaltSource, /const padL=64, padR=78, padT=14, padB=22/, '양도소득세 차트 12월 우측의 불필요한 내부 여백 축소')
+const divGrowthContext = {
+  window: {
+    _divHistoryRawCache: {
+      READY:{events:[
+        {date:'2023-03-01',amount:1},
+        {date:'2024-03-01',amount:1.1},
+        {date:'2025-03-01',amount:1.21},
+      ]},
+      SHORT:{events:[
+        {date:'2025-03-01',amount:1},
+        {date:'2026-03-01',amount:1.1},
+      ]},
+    }
+  }
+}
+vm.createContext(divGrowthContext)
+for (const [source,name] of [
+  [scriptSource,'_divpAggregateByYear'],
+  [scriptSource,'_divpComputeCagr'],
+  [cobaltSource,'cbStrip'],
+  [cobaltSource,'cbDivGrowthInfo'],
+]) vm.runInContext(extractFunction(source,name),divGrowthContext)
+assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'READY'}).status,'ready','완결연도 2개 이상이면 배당성장률 산출')
+assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'SHORT'}).status,'insufficient','원본 이력은 있으나 완결연도가 짧으면 이력 부족으로 구분')
+assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'MISSING'}).status,'missing','원본 배당 이력 조회 실패를 별도 구분')
 assert.match(cobaltSource, /소유주별 자산군 구성[\s\S]*cb-family-mix-track/, '가족 자산 내역 옆에 소유주별 자산군 구성 위젯 추가')
 assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
@@ -301,6 +332,6 @@ assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-card-gr
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-perf-detail-grid,\.cb-dash-insight-grid,\.cb-risk-card-grid\{grid-template-columns:1fr\}/, '리스크 위젯 모바일 1열 배치')
 assert.match(styleSource, /\.cb-risk-primary-message\{[^}]*word-break:keep-all;overflow-wrap:break-word/, '리스크 설명 문구가 카드 밖으로 잘리지 않도록 단어 단위 줄바꿈')
 assert.match(styleSource, /\.cb-div-tip-owner\{[^}]*var\(--tiptx\)/, '라이트 테마의 어두운 배당 툴팁에서도 소유주명이 밝게 표시')
-assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-dash-table-panel \.cb-dash-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
+assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-dash-table-panel \.cb-dash-head,[\s\S]*\.cb-div-history-panel \.cb-div-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산·배당 관리 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
 
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
