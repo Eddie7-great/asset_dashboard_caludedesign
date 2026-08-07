@@ -700,6 +700,53 @@
       height: 100%;
       min-width: 0;
     }
+    .cf-section-tabs{display:inline-flex;align-self:flex-start;gap:3px;padding:3px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:10px;flex-shrink:0}
+    .cf-section-tab{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--t3);border-radius:7px;padding:6px 13px;font:700 .74rem/1 'Noto Sans KR','Manrope',sans-serif;cursor:pointer;white-space:nowrap}
+    .cf-section-tab:hover{color:var(--t1);background:var(--hover-bg)}
+    .cf-section-tab.active{color:var(--t1);background:var(--modal-bg);box-shadow:0 1px 4px rgba(24,39,75,.14)}
+    .cf-fixed-pending-badge{min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;align-items:center;justify-content:center;border-radius:9px;background:var(--warn);color:#fff;font-size:.62rem;font-weight:800}
+    .cf-fixed-section{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0;overflow-y:auto;padding-right:3px}
+    .cf-fixed-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;flex-shrink:0}
+    .cf-fixed-summary-card{min-height:94px;padding:13px 15px;justify-content:center;overflow:hidden}
+    .cf-fixed-summary-label{font-size:.68rem;color:var(--t3);font-weight:650;white-space:nowrap}
+    .cf-fixed-summary-value{margin-top:5px;font-family:'IBM Plex Mono','Manrope',monospace;font-size:1.18rem;line-height:1.2;font-weight:800;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cf-fixed-summary-next{font-size:1.05rem}
+    .cf-fixed-summary-note{margin-top:5px;font-size:.64rem;line-height:1.35;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cf-fixed-form-panel{gap:10px;flex-shrink:0}
+    .cf-fixed-form{display:grid;grid-template-columns:92px 115px minmax(160px,1fr) 125px 105px 80px 125px auto;gap:9px;align-items:end}
+    .cf-fixed-form .form-group{min-width:0;gap:5px}
+    .cf-fixed-form .form-input{width:100%;height:39px;box-sizing:border-box;padding:8px 9px}
+    .cf-fixed-check{height:39px;align-items:center;gap:5px;margin-top:auto;color:var(--t2);font-size:.72rem;font-weight:650;white-space:nowrap}
+    .cf-fixed-check input{accent-color:var(--acc)}
+    .cf-fixed-table-panel{flex:1;min-height:210px;padding:0;overflow:hidden}
+    .cf-fixed-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px 10px;background:var(--panelSolid);border-radius:12px 12px 0 0;position:sticky;top:0;z-index:4}
+    .cf-fixed-review-note{margin-top:4px;font-size:.65rem;color:var(--t3);word-break:keep-all}
+    .cf-fixed-toolbar-actions{display:flex;align-items:center;gap:12px}
+    .cf-fixed-legend{display:flex;align-items:center;gap:12px;font-size:.64rem;color:var(--t3);white-space:nowrap}
+    .cf-fixed-legend span{display:flex;align-items:center;gap:5px}
+    .cf-fixed-dot{width:7px;height:7px;border-radius:50%}
+    .cf-fixed-dot.is-included{background:var(--up)}
+    .cf-fixed-dot.is-pending{background:var(--warn)}
+    .cf-fixed-toggle-btn{border:1px solid var(--border-dark);border-radius:7px;background:var(--inner-bg);color:var(--t3);padding:5px 8px;font:650 .63rem/1 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
+    .cf-fixed-toggle-btn:hover,.cf-fixed-toggle-btn.active{color:var(--t1);background:var(--hover-bg)}
+    .cf-fixed-table-wrap{overflow:auto;min-height:0}
+    #cf-fixed-table{table-layout:fixed;min-width:820px}
+    #cf-fixed-table thead{position:sticky;top:0;z-index:3;background:var(--panelSolid);box-shadow:0 1px 0 var(--border-dark)}
+    #cf-fixed-table th,#cf-fixed-table td{padding:8px 10px}
+    #cf-fixed-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cf-fixed-row-pending{background:color-mix(in srgb,var(--warn) 5%,transparent)}
+    .cf-fixed-row-excluded{opacity:.58}
+    .cf-fixed-owner{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:650;color:var(--t2)}
+    .cf-fixed-owner i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .cf-fixed-inline-owner{max-width:82px;padding:4px 5px;border:1px solid var(--border-dark);border-radius:6px;background:var(--inner-bg);color:var(--t1);font:600 .68rem inherit}
+    .cf-fixed-item-name{display:inline-block;max-width:calc(100% - 62px);vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+    .cf-fixed-state{display:inline-flex;margin-left:7px;padding:2px 5px;border-radius:5px;font-size:.58rem;font-weight:750;vertical-align:middle}
+    .cf-fixed-state.is-included{color:var(--up);background:color-mix(in srgb,var(--up) 11%,transparent)}
+    .cf-fixed-state.is-pending{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+    .cf-fixed-state.is-ended{color:var(--t3);background:var(--inner-bg)}
+    .cf-fixed-actions{white-space:nowrap!important}
+    .cf-fixed-actions .btn-action{margin:0 1px}
+    .cf-fixed-empty{text-align:center!important;padding:32px 12px!important;color:var(--t3)}
     /* 증여 좌측 패널: 폼그룹 grow 방지 — 콘텐츠를 상단으로 정렬(빈 여백 제거) */
     #view-gift .form-group{flex:0 0 auto;min-width:0}
     /* 2x2 납입액 입력칸이 셀 폭에 맞게 축소되도록(min-width:auto면 안 줄어 겹침) */
@@ -753,6 +800,9 @@
       .port-grid-top > * { grid-row: auto !important; grid-column: 1 !important; }
       .port-grid-mid { min-width: 0; }
       .cf-grid { grid-template-columns: 1fr; height: auto; }
+      .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .cf-fixed-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .cf-fixed-desc-field{grid-column:span 2}
     }
     @media (max-width: 900px) {
       .gift-grid, .family-grid, .analysis-grid-2col {
@@ -1286,6 +1336,25 @@
       /* 인라인 flex:2/flex:1(basis 0)이 min-content로 붕괴해 패널 내부 세로 스크롤을 만들던 문제 */
       #view-cashflow .cf-grid .glass-panel{flex:0 0 auto!important}
       #cf-detail-table{min-width:600px}
+      .cf-section-tabs{align-self:stretch}
+      .cf-section-tab{flex:1;justify-content:center;padding:8px 6px}
+      .cf-fixed-section{height:auto!important;overflow:visible!important;padding-right:0}
+      .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .cf-fixed-summary-card{min-height:82px;padding:10px 11px}
+      .cf-fixed-summary-value{font-size:1rem}
+      .cf-fixed-summary-note{font-size:.6rem}
+      .cf-fixed-form-panel{display:none!important}
+      .cf-fixed-table-panel{flex:0 0 auto!important;overflow:hidden!important}
+      .cf-fixed-table-toolbar{position:static;align-items:flex-start;flex-direction:column;gap:6px}
+      .cf-fixed-toolbar-actions{width:100%;justify-content:space-between}
+      .cf-fixed-table-wrap{max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+      #cf-fixed-table{min-width:520px;table-layout:auto}
+      #cf-fixed-table .cf-fixed-secondary{display:none}
+      #cf-fixed-table th:last-child,#cf-fixed-table td:last-child{display:none}
+      #cf-fixed-table th,#cf-fixed-table td{padding:8px 7px}
+      .cf-fixed-item-name{max-width:100%}
+      .cf-fixed-state{display:none}
+      .cf-fixed-inline-owner{pointer-events:none;appearance:none;border:0;background:transparent;padding:0}
 
       /* ── family: 비교 표 세로 전부 노출(페이지 스크롤). 셀은 축약 포맷(JS)+컴팩트로 5컬럼 수납,
          그래도 넘치면 패널 내 가로 스크롤 폴백 ── */

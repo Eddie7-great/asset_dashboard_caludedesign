@@ -312,7 +312,11 @@
 
     <!-- CASHFLOW -->
     <div id="view-cashflow" class="view-section">
-      <div class="cf-grid">
+      <div class="cf-section-tabs" role="tablist" aria-label="현금 흐름 화면 선택">
+        <button id="cf-section-tab-monthly" class="cf-section-tab active" type="button" role="tab" aria-selected="true" aria-controls="cf-monthly-section" onclick="switchCashFlowSection('monthly',this)">월별 현금흐름</button>
+        <button id="cf-section-tab-fixed" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cf-fixed-section" onclick="switchCashFlowSection('fixed',this)">고정비 관리 <span id="cf-fixed-pending-badge" class="cf-fixed-pending-badge" style="display:none"></span></button>
+      </div>
+      <div id="cf-monthly-section" class="cf-grid" role="tabpanel" aria-labelledby="cf-section-tab-monthly">
         <div class="f-col" style="gap:15px;height:100%;min-height:0;overflow-y:auto">
           <!-- 통합 수입/지출 내역 관리 -->
           <div id="cf-input-panel" class="glass-panel" style="flex-shrink:0">
@@ -326,6 +330,7 @@
             </div>
             <div class="form-row" style="margin-bottom:8px;flex-wrap:wrap;align-items:flex-end">
               <input type="hidden" id="cf-edit-index" value="-1">
+              <div class="form-group f-col" style="flex:.75;min-width:92px"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
               <!-- 날짜 (일회성만) -->
               <div class="form-group f-col" id="cf-date-group" style="flex:.8"><label class="form-label">날짜</label><input type="date" id="cf-date" class="form-input"></div>
               <!-- 주기 (자동이체만, 초기 숨김) -->
@@ -343,6 +348,7 @@
               <div class="form-group f-col"><label class="form-label">금액</label><input type="text" id="cf-amt" class="form-input" placeholder="0" inputmode="numeric" oninput="handleAmtInput(this)">
                 <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" oninput="handleAmtInput(this)">
               </div>
+              <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
               <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()" style="margin-top:auto">저장</button>
             </div>
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
@@ -392,6 +398,44 @@
             <div class="chart-container"><canvas id="cfTrendChart"></canvas></div>
           </div>
           <div class="glass-panel" id="cf-div-panel" style="flex-shrink:0;display:none"></div>
+        </div>
+      </div>
+      <div id="cf-fixed-section" class="cf-fixed-section" style="display:none" role="tabpanel" aria-labelledby="cf-section-tab-fixed">
+        <div class="cf-fixed-summary-grid">
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">월 고정비</div><div id="cf-fixed-monthly" class="cf-fixed-summary-value">₩0</div><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계</div></div>
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">연간 환산액</div><div id="cf-fixed-annual" class="cf-fixed-summary-value">₩0</div><div class="cf-fixed-summary-note">월 환산액 × 12개월</div></div>
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">수입 대비 고정비율</div><div id="cf-fixed-ratio" class="cf-fixed-summary-value">-</div><div id="cf-fixed-ratio-note" class="cf-fixed-summary-note">이번 달 수입 기준</div></div>
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">다음 결제 예정</div><div id="cf-fixed-next" class="cf-fixed-summary-value cf-fixed-summary-next">-</div><div id="cf-fixed-next-note" class="cf-fixed-summary-note">예정된 결제가 없습니다</div></div>
+        </div>
+
+        <div class="glass-panel cf-fixed-form-panel">
+          <div class="cb-label f-between"><span id="cf-fixed-form-title">고정비 등록</span><button id="cf-fixed-cancel" class="btn-action" type="button" style="display:none" onclick="resetFixedCostForm()">취소</button></div>
+          <div class="cf-fixed-form">
+            <input type="hidden" id="cf-fixed-edit-id" value="">
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-owner">소유주</label><select id="cf-fixed-owner" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
+            <div class="form-group f-col cf-fixed-desc-field"><label class="form-label" for="cf-fixed-desc">항목</label><input id="cf-fixed-desc" class="form-input" type="text" placeholder="예: 월세, 보험료, 구독료"></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-amt">금액</label><input id="cf-fixed-amt" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="handleAmtInput(this)"></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cycle">주기</label><select id="cf-fixed-cycle" class="form-input" onchange="toggleFixedCostScheduleFields()"><option value="monthly">매월</option><option value="month-start">매월초</option><option value="month-end">매월말</option><option value="weekly">매주</option></select></div>
+            <div class="form-group f-col" id="cf-fixed-day-group"><label class="form-label" for="cf-fixed-day">결제일</label><input id="cf-fixed-day" class="form-input" type="number" min="1" max="31" value="25"></div>
+            <div class="form-group f-col" id="cf-fixed-dow-group" style="display:none"><label class="form-label" for="cf-fixed-dow">요일</label><select id="cf-fixed-dow" class="form-input"><option value="0">일</option><option value="1">월</option><option value="2">화</option><option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option></select></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-start">시작 월</label><input id="cf-fixed-start" class="form-input" type="month"></div>
+            <button id="cf-fixed-submit" class="btn-submit" type="button" onclick="submitFixedCost()">등록</button>
+          </div>
+        </div>
+
+        <div class="glass-panel cf-fixed-table-panel">
+          <div class="cf-fixed-table-toolbar">
+            <div><div class="cb-label">고정비 내역</div><div id="cf-fixed-review-note" class="cf-fixed-review-note"></div></div>
+            <div class="cf-fixed-toolbar-actions"><div class="cf-fixed-legend"><span><i class="cf-fixed-dot is-included"></i>합산</span><span><i class="cf-fixed-dot is-pending"></i>분류 필요</span></div><button id="cf-fixed-excluded-toggle" class="cf-fixed-toggle-btn" type="button" onclick="toggleExcludedFixedCosts()" style="display:none"></button></div>
+          </div>
+          <div class="cf-fixed-table-wrap">
+            <table id="cf-fixed-table" class="pt-table">
+              <colgroup><col style="width:90px"><col style="width:105px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:112px"></colgroup>
+              <thead><tr><th class="text-left">소유주</th><th class="text-left cf-fixed-secondary">카테고리</th><th class="text-left">항목</th><th class="text-left">결제 주기</th><th class="text-right">월 환산액</th><th class="text-right cf-fixed-secondary">연간 금액</th><th>관리</th></tr></thead>
+              <tbody id="cf-fixed-table-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
