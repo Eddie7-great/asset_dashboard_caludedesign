@@ -1,268 +1,273 @@
 {
- "asOf": "2026-08-06",
+ "asOf": "2026-08-07",
  "etfs": {
   "0117V0": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 99.71,
    "holdings": [
     {
-     "n": "LS ELECTRIC",
-     "t": "010120",
-     "w": 26.9
-    },
-    {
      "n": "효성중공업",
      "t": "298040",
-     "w": 25.55
+     "w": 26.61
+    },
+    {
+     "n": "LS ELECTRIC",
+     "t": "010120",
+     "w": 26.59
     },
     {
      "n": "HD현대일렉트릭",
      "t": "267260",
-     "w": 22.47
+     "w": 22.4
     },
     {
      "n": "LS",
      "t": "006260",
-     "w": 5.69
+     "w": 5.47
     },
     {
      "n": "대한전선",
      "t": "001440",
-     "w": 3.62
+     "w": 3.57
     },
     {
      "n": "산일전기",
      "t": "062040",
-     "w": 3.55
+     "w": 3.44
     },
     {
      "n": "가온전선",
      "t": "000500",
-     "w": 3.53
+     "w": 3.35
     },
     {
      "n": "일진전기",
      "t": "103590",
-     "w": 3.17
+     "w": 3.13
     },
     {
      "n": "제룡전기",
      "t": "033100",
-     "w": 2.83
+     "w": 2.77
     },
     {
      "n": "LS에코에너지",
      "t": "229640",
-     "w": 2.4
+     "w": 2.38
     }
    ],
    "name": "TIGER 코리아AI전력기기TOP3플러스",
    "source": "krx"
   },
   "0162Z0": {
-   "asOf": "2026-08-06",
-   "equityWeight": 93.13,
+   "asOf": "2026-08-07",
+   "equityWeight": 94.28,
    "holdings": [
     {
      "n": "삼성전자",
      "t": "005930",
-     "w": 47.7161
+     "w": 48.614
     },
     {
      "n": "SK하이닉스",
      "t": "000660",
-     "w": 45.4093
+     "w": 45.6685
     }
    ],
    "name": "RISE 삼성전자SK하이닉스채권혼합50",
    "source": "krx"
   },
   "0167A0": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 99.72,
    "holdings": [
     {
      "n": "삼성전자",
      "t": "005930",
-     "w": 25.64
+     "w": 26.01
     },
     {
      "n": "SK하이닉스",
      "t": "000660",
-     "w": 22.54
+     "w": 21.7
     },
     {
      "n": "삼성전기",
      "t": "009150",
-     "w": 15.33
+     "w": 16.14
     },
     {
      "n": "SK스퀘어",
      "t": "402340",
-     "w": 14.12
+     "w": 13.84
     },
     {
      "n": "이수페타시스",
      "t": "007660",
-     "w": 6.22
+     "w": 6.24
     },
     {
      "n": "대덕전자",
      "t": "353200",
-     "w": 4.54
+     "w": 4.79
     },
     {
      "n": "원익IPS",
      "t": "240810",
-     "w": 4.07
+     "w": 3.93
     },
     {
      "n": "피에스케이",
      "t": "319660",
-     "w": 3.24
+     "w": 3.21
     },
     {
      "n": "테스",
      "t": "095610",
-     "w": 2.05
+     "w": 1.98
     },
     {
      "n": "브이엠",
      "t": "089970",
-     "w": 1.97
+     "w": 1.88
     }
    ],
    "name": "SOL AI반도체TOP2플러스",
    "source": "krx"
   },
   "133690": {
-   "asOf": "2026-08-05",
-   "equityWeight": 99.96,
+   "asOf": "2026-08-06",
+   "equityWeight": 100.0,
    "holdings": [
     {
      "n": "NVIDIA CORP",
      "t": "NVDA",
-     "w": 8.17
+     "w": 8.11
     },
     {
      "n": "APPLE INC",
      "t": "AAPL",
-     "w": 7.28
+     "w": 7.18
     },
     {
      "n": "MICROSOFT CORP",
      "t": "MSFT",
-     "w": 5.92
+     "w": 5.79
     },
     {
      "n": "AMAZON.COM INC",
      "t": "AMZN",
-     "w": 4.99
+     "w": 4.72
     },
     {
      "n": "MICRON TECHNOLOGY INC",
      "t": "MU",
-     "w": 4.22
+     "w": 4.39
     },
     {
      "n": "ADVANCED MICRO DEVICES",
      "t": "AMD",
-     "w": 3.56
+     "w": 3.69
     },
     {
      "n": "ALPHABET INC-CL A",
      "t": "GOOGL",
-     "w": 3.55
+     "w": 3.48
     },
     {
      "n": "ALPHABET INC-CL C",
      "t": "GOOG",
-     "w": 3.32
+     "w": 3.24
     },
     {
      "n": "BROADCOM INC",
      "t": "AVGO",
-     "w": 3.04
+     "w": 3.13
     },
     {
      "n": "META PLATFORMS INC-CLASS A",
      "t": "META",
-     "w": 2.86
+     "w": 2.75
     },
     {
      "n": "TESLA INC",
      "t": "TSLA",
-     "w": 2.63
+     "w": 2.59
     },
     {
      "n": "WALMART INC",
      "t": "WMT",
-     "w": 2.44
+     "w": 2.37
     },
     {
      "n": "INTEL CORP",
      "t": "INTC",
-     "w": 2.06
+     "w": 2.21
     },
     {
      "n": "CISCO SYSTEMS INC",
      "t": "CSCO",
-     "w": 2.06
-    },
-    {
-     "n": "COSTCO WHOLESALE CORP",
-     "t": "COST",
-     "w": 1.91
+     "w": 2.09
     },
     {
      "n": "APPLIED MATERIALS INC",
      "t": "AMAT",
-     "w": 1.86
+     "w": 1.89
+    },
+    {
+     "n": "COSTCO WHOLESALE CORP",
+     "t": "COST",
+     "w": 1.84
     },
     {
      "n": "LAM RESEARCH CORP",
      "t": "LRCX",
-     "w": 1.66
-    },
-    {
-     "n": "NETFLIX INC",
-     "t": "NFLX",
-     "w": 1.39
+     "w": 1.73
     },
     {
      "n": "PALANTIR TECHNOLOGIES INC-A",
      "t": "PLTR",
-     "w": 1.3
+     "w": 1.63
+    },
+    {
+     "n": "NETFLIX INC",
+     "t": "NFLX",
+     "w": 1.35
     },
     {
      "n": "PALO ALTO NETWORKS INC",
      "t": "PANW",
-     "w": 1.28
+     "w": 1.3
     },
     {
      "n": "TEXAS INSTRUMENTS INC",
      "t": "TXN",
-     "w": 1.1
+     "w": 1.13
     },
     {
      "n": "KLA CORP",
      "t": "KLAC",
-     "w": 1.08
-    },
-    {
-     "n": "LINDE PLC",
-     "t": "LIN",
-     "w": 1.0
+     "w": 1.11
     },
     {
      "n": "SPACE EXPLORATION TECHN-CL A",
      "t": "SPCX",
-     "w": 0.99
+     "w": 1.05
+    },
+    {
+     "n": "LINDE PLC",
+     "t": "LIN",
+     "w": 0.98
     },
     {
      "n": "CROWDSTRIKE HOLDINGS INC - A",
      "t": "CRWD",
-     "w": 0.93
+     "w": 0.94
+    },
+    {
+     "n": "SANDISK CORP",
+     "t": "SNDK",
+     "w": 0.92
     },
     {
      "n": "AMGEN INC",
@@ -272,47 +277,42 @@
     {
      "n": "T-MOBILE US INC",
      "t": "TMUS",
-     "w": 0.86
-    },
-    {
-     "n": "PEPSICO INC",
-     "t": "PEP",
-     "w": 0.86
-    },
-    {
-     "n": "SANDISK CORP",
-     "t": "SNDK",
-     "w": 0.86
-    },
-    {
-     "n": "SEAGATE TECHNOLOGY HOLDINGS",
-     "t": "STX",
      "w": 0.84
-    },
-    {
-     "n": "WESTERN DIGITAL CORP",
-     "t": "WDC",
-     "w": 0.82
-    },
-    {
-     "n": "ANALOG DEVICES INC",
-     "t": "ADI",
-     "w": 0.8
     },
     {
      "n": "MARVELL TECHNOLOGY INC",
      "t": "MRVL",
-     "w": 0.76
+     "w": 0.83
+    },
+    {
+     "n": "PEPSICO INC",
+     "t": "PEP",
+     "w": 0.83
+    },
+    {
+     "n": "SEAGATE TECHNOLOGY HOLDINGS",
+     "t": "STX",
+     "w": 0.83
+    },
+    {
+     "n": "WESTERN DIGITAL CORP",
+     "t": "WDC",
+     "w": 0.83
+    },
+    {
+     "n": "ANALOG DEVICES INC",
+     "t": "ADI",
+     "w": 0.81
+    },
+    {
+     "n": "QUALCOMM INC",
+     "t": "QCOM",
+     "w": 0.75
     },
     {
      "n": "GILEAD SCIENCES INC",
      "t": "GILD",
      "w": 0.73
-    },
-    {
-     "n": "QUALCOMM INC",
-     "t": "QCOM",
-     "w": 0.72
     },
     {
      "n": "ASML HOLDING NV-NY REG SHS",
@@ -322,17 +322,17 @@
     {
      "n": "BOOKING HOLDINGS INC",
      "t": "BKNG",
-     "w": 0.67
+     "w": 0.66
     },
     {
      "n": "SHOPIFY INC - CLASS A",
      "t": "SHOP",
-     "w": 0.64
+     "w": 0.66
     },
     {
      "n": "INTUITIVE SURGICAL INC",
      "t": "ISRG",
-     "w": 0.6
+     "w": 0.57
     },
     {
      "n": "APPLOVIN CORP-CLASS A",
@@ -347,62 +347,62 @@
     {
      "n": "VERTEX PHARMACEUTICALS INC",
      "t": "VRTX",
-     "w": 0.54
+     "w": 0.53
     },
     {
      "n": "STARBUCKS CORP",
      "t": "SBUX",
-     "w": 0.53
-    },
-    {
-     "n": "AUTOMATIC DATA PROCESSING",
-     "t": "ADP",
-     "w": 0.49
-    },
-    {
-     "n": "ADOBE INC",
-     "t": "ADBE",
-     "w": 0.46
+     "w": 0.52
     },
     {
      "n": "ARM HOLDINGS PLC-ADR",
      "t": "ARM",
-     "w": 0.46
+     "w": 0.52
+    },
+    {
+     "n": "AUTOMATIC DATA PROCESSING",
+     "t": "ADP",
+     "w": 0.47
+    },
+    {
+     "n": "ADOBE INC",
+     "t": "ADBE",
+     "w": 0.45
     },
     {
      "n": "CONSTELLATION ENERGY",
      "t": "CEG",
-     "w": 0.45
+     "w": 0.42
     },
     {
      "n": "MERCADOLIBRE INC",
      "t": "MELI",
-     "w": 0.43
+     "w": 0.42
     },
     {
-     "n": "CADENCE DESIGN SYS INC",
-     "t": "CDNS",
+     "n": "DATADOG INC - CLASS A",
+     "t": "DDOG",
      "w": 0.42
     },
     {
      "n": "CSX CORP",
      "t": "CSX",
-     "w": 0.42
+     "w": 0.41
+    },
+    {
+     "n": "CADENCE DESIGN SYS INC",
+     "t": "CDNS",
+     "w": 0.41
     },
     {
      "n": "MONSTER BEVERAGE CORP",
      "t": "MNST",
-     "w": 0.41
+     "w": 0.4
     },
     {
      "n": "MARRIOTT INTERNATIONAL -CL A",
      "t": "MAR",
-     "w": 0.41
-    },
-    {
-     "n": "DATADOG INC - CLASS A",
-     "t": "DDOG",
-     "w": 0.41
+     "w": 0.4
     },
     {
      "n": "COMCAST CORP-CLASS A",
@@ -417,32 +417,32 @@
     {
      "n": "DOORDASH INC - A",
      "t": "DASH",
-     "w": 0.37
+     "w": 0.36
     },
     {
      "n": "CINTAS CORP",
      "t": "CTAS",
-     "w": 0.37
+     "w": 0.36
     },
     {
      "n": "ROSS STORES INC",
      "t": "ROST",
-     "w": 0.37
+     "w": 0.35
     },
     {
      "n": "MONDELEZ INTERNATIONAL INC-A",
      "t": "MDLZ",
-     "w": 0.36
+     "w": 0.35
     },
     {
      "n": "HONEYWELL INTERNATIONAL INC",
      "t": "HON",
-     "w": 0.35
+     "w": 0.34
     },
     {
      "n": "REGENERON PHARMACEUTICALS",
      "t": "REGN",
-     "w": 0.35
+     "w": 0.34
     },
     {
      "n": "SYNOPSYS INC",
@@ -452,12 +452,7 @@
     {
      "n": "OREILLY AUTOMOTIVE INC",
      "t": "ORLY",
-     "w": 0.34
-    },
-    {
-     "n": "AMERICAN ELECTRIC POWER",
-     "t": "AEP",
-     "w": 0.31
+     "w": 0.33
     },
     {
      "n": "PACCAR INC",
@@ -465,8 +460,8 @@
      "w": 0.31
     },
     {
-     "n": "MONOLITHIC POWER SYSTEMS INC",
-     "t": "MPWR",
+     "n": "AMERICAN ELECTRIC POWER",
+     "t": "AEP",
      "w": 0.3
     },
     {
@@ -475,18 +470,33 @@
      "w": 0.3
     },
     {
+     "n": "LUMENTUM HOLDINGS INC",
+     "t": "LITE",
+     "w": 0.29
+    },
+    {
+     "n": "MONOLITHIC POWER SYSTEMS INC",
+     "t": "MPWR",
+     "w": 0.29
+    },
+    {
      "n": "WARNER BROS DISCOVERY INC",
      "t": "WBD",
-     "w": 0.29
+     "w": 0.28
+    },
+    {
+     "n": "TERADYNE INC",
+     "t": "TER",
+     "w": 0.28
     },
     {
      "n": "AIRBNB INC-CLASS A",
      "t": "ABNB",
-     "w": 0.28
+     "w": 0.27
     },
     {
-     "n": "LUMENTUM HOLDINGS INC",
-     "t": "LITE",
+     "n": "ASTERA LABS INC",
+     "t": "ALAB",
      "w": 0.27
     },
     {
@@ -500,19 +510,9 @@
      "w": 0.27
     },
     {
-     "n": "TERADYNE INC",
-     "t": "TER",
-     "w": 0.26
-    },
-    {
      "n": "NXP SEMICONDUCTORS NV",
      "t": "NXPI",
      "w": 0.26
-    },
-    {
-     "n": "DIAMONDBACK ENERGY INC",
-     "t": "FANG",
-     "w": 0.25
     },
     {
      "n": "FASTENAL CO",
@@ -520,9 +520,9 @@
      "w": 0.25
     },
     {
-     "n": "ASTERA LABS INC",
-     "t": "ALAB",
-     "w": 0.25
+     "n": "DIAMONDBACK ENERGY INC",
+     "t": "FANG",
+     "w": 0.24
     },
     {
      "n": "PAYPAL HOLDINGS INC",
@@ -535,29 +535,9 @@
      "w": 0.22
     },
     {
-     "n": "XCEL ENERGY INC",
-     "t": "XEL",
-     "w": 0.22
-    },
-    {
-     "n": "COCA-COLA EUROPACIFIC PARTNE",
-     "t": "CCEP",
-     "w": 0.22
-    },
-    {
-     "n": "FERROVIAL NV",
-     "t": "FER",
-     "w": 0.21
-    },
-    {
      "n": "NEBIUS GROUP NV",
      "t": "NBIS",
-     "w": 0.21
-    },
-    {
-     "n": "EXELON CORP",
-     "t": "EXC",
-     "w": 0.21
+     "w": 0.22
     },
     {
      "n": "AXON ENTERPRISE INC",
@@ -565,9 +545,24 @@
      "w": 0.21
     },
     {
-     "n": "TAKE-TWO INTERACTIVE SOFTWRE",
-     "t": "TTWO",
+     "n": "XCEL ENERGY INC",
+     "t": "XEL",
      "w": 0.21
+    },
+    {
+     "n": "FERROVIAL NV",
+     "t": "FER",
+     "w": 0.21
+    },
+    {
+     "n": "COCA-COLA EUROPACIFIC PARTNE",
+     "t": "CCEP",
+     "w": 0.21
+    },
+    {
+     "n": "EXELON CORP",
+     "t": "EXC",
+     "w": 0.2
     },
     {
      "n": "IDEXX LABORATORIES INC",
@@ -580,6 +575,21 @@
      "w": 0.2
     },
     {
+     "n": "TAKE-TWO INTERACTIVE SOFTWRE",
+     "t": "TTWO",
+     "w": 0.19
+    },
+    {
+     "n": "MICROCHIP TECHNOLOGY INC",
+     "t": "MCHP",
+     "w": 0.19
+    },
+    {
+     "n": "ROCKET LAB CORP",
+     "t": "RKLB",
+     "w": 0.19
+    },
+    {
      "n": "PAYCHEX INC",
      "t": "PAYX",
      "w": 0.19
@@ -587,37 +597,22 @@
     {
      "n": "KEURIG DR PEPPER INC",
      "t": "KDP",
-     "w": 0.19
-    },
-    {
-     "n": "MICROCHIP TECHNOLOGY INC",
-     "t": "MCHP",
-     "w": 0.18
-    },
-    {
-     "n": "ROCKET LAB CORP",
-     "t": "RKLB",
-     "w": 0.18
-    },
-    {
-     "n": "ROPER TECHNOLOGIES INC",
-     "t": "ROP",
      "w": 0.18
     },
     {
      "n": "THOMSON REUTERS CORP",
      "t": "TRI",
-     "w": 0.17
+     "w": 0.18
     },
     {
      "n": "COREWEAVE INC-CL A",
      "t": "CRWV",
-     "w": 0.17
+     "w": 0.18
     },
     {
-     "n": "DEXCOM INC",
-     "t": "DXCM",
-     "w": 0.15
+     "n": "ROPER TECHNOLOGIES INC",
+     "t": "ROP",
+     "w": 0.17
     },
     {
      "n": "WORKDAY INC-CLASS A",
@@ -625,13 +620,18 @@
      "w": 0.15
     },
     {
-     "n": "GE HEALTHCARE TECHNOLOGY",
-     "t": "GEHC",
-     "w": 0.14
+     "n": "DEXCOM INC",
+     "t": "DXCM",
+     "w": 0.15
     },
     {
      "n": "STRATEGY INC",
      "t": "MSTR",
+     "w": 0.14
+    },
+    {
+     "n": "GE HEALTHCARE TECHNOLOGY",
+     "t": "GEHC",
      "w": 0.14
     },
     {
@@ -654,7 +654,7 @@
    "source": "zeroin"
   },
   "1629": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 87.91,
    "holdings": [
     {
@@ -712,62 +712,62 @@
    "source": "yfinance"
   },
   "360750": {
-   "asOf": "2026-08-05",
-   "equityWeight": 99.95,
+   "asOf": "2026-08-06",
+   "equityWeight": 100.04,
    "holdings": [
     {
      "n": "NVIDIA CORP",
      "t": "NVDA",
-     "w": 7.66
+     "w": 7.72
     },
     {
      "n": "APPLE INC",
      "t": "AAPL",
-     "w": 6.82
+     "w": 6.83
     },
     {
      "n": "MICROSOFT CORP",
      "t": "MSFT",
-     "w": 5.55
+     "w": 5.51
     },
     {
      "n": "AMAZON.COM INC",
      "t": "AMZN",
-     "w": 4.26
+     "w": 4.08
     },
     {
      "n": "ALPHABET INC-CL A",
      "t": "GOOGL",
-     "w": 3.35
+     "w": 3.33
     },
     {
      "n": "BROADCOM INC",
      "t": "AVGO",
-     "w": 2.84
+     "w": 2.98
     },
     {
      "n": "ALPHABET INC-CL C",
      "t": "GOOG",
-     "w": 2.69
+     "w": 2.67
     },
     {
      "n": "META PLATFORMS INC-CLASS A",
      "t": "META",
-     "w": 1.98
-    },
-    {
-     "n": "JPMORGAN CHASE & CO",
-     "t": "JPM",
-     "w": 1.45
-    },
-    {
-     "n": "BERKSHIRE HATHAWAY INC-CL B",
-     "t": "BRK.B",
-     "w": 1.44
+     "w": 1.94
     },
     {
      "n": "MICRON TECHNOLOGY INC",
      "t": "MU",
+     "w": 1.51
+    },
+    {
+     "n": "JPMORGAN CHASE & CO",
+     "t": "JPM",
+     "w": 1.44
+    },
+    {
+     "n": "BERKSHIRE HATHAWAY INC-CL B",
+     "t": "BRK.B",
      "w": 1.43
     },
     {
@@ -778,27 +778,27 @@
     {
      "n": "ELI LILLY & CO",
      "t": "LLY",
-     "w": 1.36
+     "w": 1.33
     },
     {
      "n": "ADVANCED MICRO DEVICES",
      "t": "AMD",
-     "w": 1.21
+     "w": 1.27
     },
     {
      "n": "EXXONMOBIL HOLDINGS CORP",
      "t": "XOM",
-     "w": 0.98
+     "w": 0.96
     },
     {
      "n": "JOHNSON & JOHNSON",
      "t": "JNJ",
-     "w": 0.94
+     "w": 0.92
     },
     {
      "n": "VISA INC-CLASS A SHARES",
      "t": "V",
-     "w": 0.93
+     "w": 0.92
     },
     {
      "n": "WALMART INC",
@@ -806,33 +806,33 @@
      "w": 0.74
     },
     {
-     "n": "MASTERCARD INC - A",
-     "t": "MA",
-     "w": 0.71
-    },
-    {
      "n": "CISCO SYSTEMS INC",
      "t": "CSCO",
-     "w": 0.7
-    },
-    {
-     "n": "ABBVIE INC",
-     "t": "ABBV",
-     "w": 0.66
+     "w": 0.72
     },
     {
      "n": "INTEL CORP",
      "t": "INTC",
-     "w": 0.66
+     "w": 0.72
     },
     {
-     "n": "COSTCO WHOLESALE CORP",
-     "t": "COST",
-     "w": 0.65
+     "n": "MASTERCARD INC - A",
+     "t": "MA",
+     "w": 0.69
     },
     {
      "n": "APPLIED MATERIALS INC",
      "t": "AMAT",
+     "w": 0.65
+    },
+    {
+     "n": "ABBVIE INC",
+     "t": "ABBV",
+     "w": 0.65
+    },
+    {
+     "n": "COSTCO WHOLESALE CORP",
+     "t": "COST",
      "w": 0.63
     },
     {
@@ -841,29 +841,34 @@
      "w": 0.62
     },
     {
+     "n": "CATERPILLAR INC",
+     "t": "CAT",
+     "w": 0.61
+    },
+    {
+     "n": "LAM RESEARCH CORP",
+     "t": "LRCX",
+     "w": 0.6
+    },
+    {
      "n": "GENERAL ELECTRIC",
      "t": "GE",
      "w": 0.59
     },
     {
-     "n": "CATERPILLAR INC",
-     "t": "CAT",
-     "w": 0.59
+     "n": "PALANTIR TECHNOLOGIES INC-A",
+     "t": "PLTR",
+     "w": 0.56
     },
     {
      "n": "UNITEDHEALTH GROUP INC",
      "t": "UNH",
-     "w": 0.58
-    },
-    {
-     "n": "LAM RESEARCH CORP",
-     "t": "LRCX",
      "w": 0.56
     },
     {
      "n": "CHEVRON CORP",
      "t": "CVX",
-     "w": 0.55
+     "w": 0.54
     },
     {
      "n": "HOME DEPOT INC",
@@ -878,7 +883,7 @@
     {
      "n": "COCA-COLA CO/THE",
      "t": "KO",
-     "w": 0.51
+     "w": 0.5
     },
     {
      "n": "MERCK & CO. INC.",
@@ -886,34 +891,29 @@
      "w": 0.48
     },
     {
+     "n": "GOLDMAN SACHS GROUP INC",
+     "t": "GS",
+     "w": 0.47
+    },
+    {
      "n": "NETFLIX INC",
      "t": "NFLX",
      "w": 0.47
     },
     {
-     "n": "GOLDMAN SACHS GROUP INC",
-     "t": "GS",
-     "w": 0.46
-    },
-    {
-     "n": "PHILIP MORRIS INTERNATIONAL",
-     "t": "PM",
+     "n": "PALO ALTO NETWORKS INC",
+     "t": "PANW",
      "w": 0.45
     },
     {
      "n": "RTX CORP",
      "t": "RTX",
-     "w": 0.45
-    },
-    {
-     "n": "PALANTIR TECHNOLOGIES INC-A",
-     "t": "PLTR",
      "w": 0.44
     },
     {
-     "n": "PALO ALTO NETWORKS INC",
-     "t": "PANW",
-     "w": 0.43
+     "n": "PHILIP MORRIS INTERNATIONAL",
+     "t": "PM",
+     "w": 0.44
     },
     {
      "n": "GE VERNOVA INC",
@@ -933,16 +933,16 @@
     {
      "n": "TEXAS INSTRUMENTS INC",
      "t": "TXN",
-     "w": 0.37
-    },
-    {
-     "n": "ORACLE CORP",
-     "t": "ORCL",
-     "w": 0.37
+     "w": 0.39
     },
     {
      "n": "KLA CORP",
      "t": "KLAC",
+     "w": 0.38
+    },
+    {
+     "n": "ORACLE CORP",
+     "t": "ORCL",
      "w": 0.37
     },
     {
@@ -956,11 +956,6 @@
      "w": 0.34
     },
     {
-     "n": "THERMO FISHER SCIENTIFIC INC",
-     "t": "TMO",
-     "w": 0.33
-    },
-    {
      "n": "INTL BUSINESS MACHINES CORP",
      "t": "IBM",
      "w": 0.33
@@ -971,33 +966,38 @@
      "w": 0.32
     },
     {
-     "n": "AMGEN INC",
-     "t": "AMGN",
-     "w": 0.31
+     "n": "SANDISK CORP",
+     "t": "SNDK",
+     "w": 0.32
     },
     {
      "n": "AMPHENOL CORP-CL A",
      "t": "APH",
-     "w": 0.31
+     "w": 0.32
     },
     {
-     "n": "VERIZON COMMUNICATIONS INC",
-     "t": "VZ",
-     "w": 0.3
+     "n": "AMGEN INC",
+     "t": "AMGN",
+     "w": 0.32
+    },
+    {
+     "n": "THERMO FISHER SCIENTIFIC INC",
+     "t": "TMO",
+     "w": 0.32
     },
     {
      "n": "ARISTA NETWORKS INC",
      "t": "ANET",
+     "w": 0.3
+    },
+    {
+     "n": "VERIZON COMMUNICATIONS INC",
+     "t": "VZ",
      "w": 0.29
     },
     {
-     "n": "PEPSICO INC",
-     "t": "PEP",
-     "w": 0.29
-    },
-    {
-     "n": "SANDISK CORP",
-     "t": "SNDK",
+     "n": "MARVELL TECHNOLOGY INC",
+     "t": "MRVL",
      "w": 0.29
     },
     {
@@ -1006,23 +1006,13 @@
      "w": 0.29
     },
     {
-     "n": "ABBOTT LABORATORIES",
-     "t": "ABT",
+     "n": "PEPSICO INC",
+     "t": "PEP",
      "w": 0.29
     },
     {
      "n": "SEAGATE TECHNOLOGY HOLDINGS",
      "t": "STX",
-     "w": 0.29
-    },
-    {
-     "n": "BOEING CO/THE",
-     "t": "BA",
-     "w": 0.28
-    },
-    {
-     "n": "AMERICAN EXPRESS CO",
-     "t": "AXP",
      "w": 0.28
     },
     {
@@ -1031,24 +1021,29 @@
      "w": 0.28
     },
     {
-     "n": "NEXTERA ENERGY INC",
-     "t": "NEE",
+     "n": "BOEING CO/THE",
+     "t": "BA",
      "w": 0.28
     },
     {
      "n": "ANALOG DEVICES INC",
      "t": "ADI",
-     "w": 0.27
+     "w": 0.28
     },
     {
-     "n": "TJX COMPANIES INC",
-     "t": "TJX",
-     "w": 0.27
+     "n": "AMERICAN EXPRESS CO",
+     "t": "AXP",
+     "w": 0.28
     },
     {
-     "n": "SCHWAB (CHARLES) CORP",
-     "t": "SCHW",
-     "w": 0.26
+     "n": "ABBOTT LABORATORIES",
+     "t": "ABT",
+     "w": 0.28
+    },
+    {
+     "n": "NEXTERA ENERGY INC",
+     "t": "NEE",
+     "w": 0.27
     },
     {
      "n": "UNION PACIFIC CORP",
@@ -1056,8 +1051,13 @@
      "w": 0.26
     },
     {
-     "n": "WALT DISNEY CO/THE",
-     "t": "DIS",
+     "n": "TJX COMPANIES INC",
+     "t": "TJX",
+     "w": 0.26
+    },
+    {
+     "n": "SCHWAB (CHARLES) CORP",
+     "t": "SCHW",
      "w": 0.26
     },
     {
@@ -1066,23 +1066,23 @@
      "w": 0.26
     },
     {
-     "n": "MARVELL TECHNOLOGY INC",
-     "t": "MRVL",
+     "n": "QUALCOMM INC",
+     "t": "QCOM",
      "w": 0.26
     },
     {
-     "n": "WELLTOWER INC",
-     "t": "WELL",
-     "w": 0.25
-    },
-    {
-     "n": "AT&T INC",
-     "t": "T",
-     "w": 0.25
+     "n": "WALT DISNEY CO/THE",
+     "t": "DIS",
+     "w": 0.26
     },
     {
      "n": "GILEAD SCIENCES INC",
      "t": "GILD",
+     "w": 0.25
+    },
+    {
+     "n": "WELLTOWER INC",
+     "t": "WELL",
      "w": 0.25
     },
     {
@@ -1091,14 +1091,14 @@
      "w": 0.25
     },
     {
-     "n": "QUALCOMM INC",
-     "t": "QCOM",
+     "n": "AT&T INC",
+     "t": "T",
      "w": 0.24
     },
     {
      "n": "SALESFORCE INC",
      "t": "CRM",
-     "w": 0.23
+     "w": 0.24
     },
     {
      "n": "DEERE & CO",
@@ -1116,13 +1116,13 @@
      "w": 0.22
     },
     {
-     "n": "CONOCOPHILLIPS",
-     "t": "COP",
+     "n": "PFIZER INC",
+     "t": "PFE",
      "w": 0.22
     },
     {
-     "n": "PFIZER INC",
-     "t": "PFE",
+     "n": "CONOCOPHILLIPS",
+     "t": "COP",
      "w": 0.22
     },
     {
@@ -1131,18 +1131,18 @@
      "w": 0.21
     },
     {
-     "n": "CVS HEALTH CORP",
-     "t": "CVS",
-     "w": 0.21
-    },
-    {
-     "n": "PROLOGIS INC",
-     "t": "PLD",
-     "w": 0.21
+     "n": "DELL TECHNOLOGIES -C",
+     "t": "DELL",
+     "w": 0.2
     },
     {
      "n": "BRISTOL-MYERS SQUIBB CO",
      "t": "BMY",
+     "w": 0.2
+    },
+    {
+     "n": "CVS HEALTH CORP",
+     "t": "CVS",
      "w": 0.2
     },
     {
@@ -1151,13 +1151,8 @@
      "w": 0.2
     },
     {
-     "n": "S&P GLOBAL INC",
-     "t": "SPGI",
-     "w": 0.19
-    },
-    {
-     "n": "PARKER HANNIFIN CORP",
-     "t": "PH",
+     "n": "PROLOGIS INC",
+     "t": "PLD",
      "w": 0.19
     },
     {
@@ -1166,13 +1161,18 @@
      "w": 0.19
     },
     {
-     "n": "DANAHER CORP",
-     "t": "DHR",
+     "n": "PARKER HANNIFIN CORP",
+     "t": "PH",
      "w": 0.19
     },
     {
-     "n": "DELL TECHNOLOGIES -C",
-     "t": "DELL",
+     "n": "CORNING INC",
+     "t": "GLW",
+     "w": 0.19
+    },
+    {
+     "n": "S&P GLOBAL INC",
+     "t": "SPGI",
      "w": 0.19
     },
     {
@@ -1181,13 +1181,8 @@
      "w": 0.19
     },
     {
-     "n": "VERTEX PHARMACEUTICALS INC",
-     "t": "VRTX",
-     "w": 0.18
-    },
-    {
-     "n": "LOCKHEED MARTIN CORP",
-     "t": "LMT",
+     "n": "DANAHER CORP",
+     "t": "DHR",
      "w": 0.18
     },
     {
@@ -1196,38 +1191,38 @@
      "w": 0.18
     },
     {
-     "n": "STARBUCKS CORP",
-     "t": "SBUX",
-     "w": 0.18
-    },
-    {
      "n": "SERVICENOW INC",
      "t": "NOW",
      "w": 0.18
     },
     {
-     "n": "STRYKER CORP",
-     "t": "SYK",
+     "n": "VERTEX PHARMACEUTICALS INC",
+     "t": "VRTX",
      "w": 0.18
     },
     {
-     "n": "CORNING INC",
-     "t": "GLW",
+     "n": "STARBUCKS CORP",
+     "t": "SBUX",
      "w": 0.18
+    },
+    {
+     "n": "LOCKHEED MARTIN CORP",
+     "t": "LMT",
+     "w": 0.18
+    },
+    {
+     "n": "STRYKER CORP",
+     "t": "SYK",
+     "w": 0.17
     },
     {
      "n": "HOWMET AEROSPACE INC",
      "t": "HWM",
-     "w": 0.18
+     "w": 0.17
     },
     {
      "n": "ALTRIA GROUP INC",
      "t": "MO",
-     "w": 0.17
-    },
-    {
-     "n": "MEDTRONIC PLC",
-     "t": "MDT",
      "w": 0.17
     },
     {
@@ -1236,9 +1231,14 @@
      "w": 0.17
     },
     {
+     "n": "MEDTRONIC PLC",
+     "t": "MDT",
+     "w": 0.17
+    },
+    {
      "n": "AUTOMATIC DATA PROCESSING",
      "t": "ADP",
-     "w": 0.17
+     "w": 0.16
     },
     {
      "n": "BANK OF NEW YORK MELLON CORP",
@@ -1251,8 +1251,8 @@
      "w": 0.16
     },
     {
-     "n": "QUANTA SERVICES INC",
-     "t": "PWR",
+     "n": "FORTINET INC",
+     "t": "FTNT",
      "w": 0.16
     },
     {
@@ -1271,18 +1271,23 @@
      "w": 0.16
     },
     {
+     "n": "ADOBE INC",
+     "t": "ADBE",
+     "w": 0.16
+    },
+    {
+     "n": "QUANTA SERVICES INC",
+     "t": "PWR",
+     "w": 0.16
+    },
+    {
      "n": "EQUINIX INC",
      "t": "EQIX",
      "w": 0.16
     },
     {
-     "n": "FORTINET INC",
-     "t": "FTNT",
-     "w": 0.16
-    },
-    {
-     "n": "ADOBE INC",
-     "t": "ADBE",
+     "n": "VERTIV HOLDINGS CO-A",
+     "t": "VRT",
      "w": 0.16
     },
     {
@@ -1291,23 +1296,18 @@
      "w": 0.15
     },
     {
-     "n": "VERTIV HOLDINGS CO-A",
-     "t": "VRT",
-     "w": 0.15
-    },
-    {
      "n": "BLACKSTONE INC",
      "t": "BX",
      "w": 0.15
     },
     {
-     "n": "MCKESSON CORP",
-     "t": "MCK",
+     "n": "US BANCORP",
+     "t": "USB",
      "w": 0.15
     },
     {
-     "n": "US BANCORP",
-     "t": "USB",
+     "n": "MCKESSON CORP",
+     "t": "MCK",
      "w": 0.15
     },
     {
@@ -1321,18 +1321,18 @@
      "w": 0.15
     },
     {
-     "n": "CME GROUP INC",
-     "t": "CME",
+     "n": "FREEPORT-MCMORAN INC",
+     "t": "FCX",
      "w": 0.15
     },
     {
-     "n": "MARSH & MCLENNAN COS",
-     "t": "MRSH",
+     "n": "DATADOG INC - CLASS A",
+     "t": "DDOG",
      "w": 0.14
     },
     {
-     "n": "CADENCE DESIGN SYS INC",
-     "t": "CDNS",
+     "n": "CME GROUP INC",
+     "t": "CME",
      "w": 0.14
     },
     {
@@ -1346,28 +1346,8 @@
      "w": 0.14
     },
     {
-     "n": "FREEPORT-MCMORAN INC",
-     "t": "FCX",
-     "w": 0.14
-    },
-    {
-     "n": "VALERO ENERGY CORP",
-     "t": "VLO",
-     "w": 0.14
-    },
-    {
-     "n": "DATADOG INC - CLASS A",
-     "t": "DDOG",
-     "w": 0.14
-    },
-    {
-     "n": "MARATHON PETROLEUM CORP",
-     "t": "MPC",
-     "w": 0.14
-    },
-    {
-     "n": "CUMMINS INC",
-     "t": "CMI",
+     "n": "CADENCE DESIGN SYS INC",
+     "t": "CDNS",
      "w": 0.14
     },
     {
@@ -1376,18 +1356,23 @@
      "w": 0.14
     },
     {
+     "n": "MARSH & MCLENNAN COS",
+     "t": "MRSH",
+     "w": 0.14
+    },
+    {
+     "n": "VALERO ENERGY CORP",
+     "t": "VLO",
+     "w": 0.14
+    },
+    {
+     "n": "MARATHON PETROLEUM CORP",
+     "t": "MPC",
+     "w": 0.14
+    },
+    {
      "n": "INTUIT INC",
      "t": "INTU",
-     "w": 0.13
-    },
-    {
-     "n": "CONSTELLATION ENERGY",
-     "t": "CEG",
-     "w": 0.13
-    },
-    {
-     "n": "COMCAST CORP-CLASS A",
-     "t": "CMCSA",
      "w": 0.13
     },
     {
@@ -1396,8 +1381,23 @@
      "w": 0.13
     },
     {
+     "n": "COMCAST CORP-CLASS A",
+     "t": "CMCSA",
+     "w": 0.13
+    },
+    {
+     "n": "CUMMINS INC",
+     "t": "CMI",
+     "w": 0.13
+    },
+    {
      "n": "WILLIAMS COS INC",
      "t": "WMB",
+     "w": 0.13
+    },
+    {
+     "n": "CONSTELLATION ENERGY",
+     "t": "CEG",
      "w": 0.13
     },
     {
@@ -1411,33 +1411,23 @@
      "w": 0.13
     },
     {
-     "n": "ELEVANCE HEALTH INC",
-     "t": "ELV",
-     "w": 0.13
-    },
-    {
-     "n": "PHILLIPS 66",
-     "t": "PSX",
-     "w": 0.13
-    },
-    {
-     "n": "T-MOBILE US INC",
-     "t": "TMUS",
-     "w": 0.13
-    },
-    {
-     "n": "ROSS STORES INC",
-     "t": "ROST",
-     "w": 0.12
-    },
-    {
      "n": "SHERWIN-WILLIAMS CO/THE",
      "t": "SHW",
      "w": 0.12
     },
     {
-     "n": "ROYAL CARIBBEAN CRUISES LTD",
-     "t": "RCL",
+     "n": "PHILLIPS 66",
+     "t": "PSX",
+     "w": 0.12
+    },
+    {
+     "n": "T-MOBILE US INC",
+     "t": "TMUS",
+     "w": 0.12
+    },
+    {
+     "n": "ELEVANCE HEALTH INC",
+     "t": "ELV",
      "w": 0.12
     },
     {
@@ -1448,6 +1438,16 @@
     {
      "n": "UNITED PARCEL SERVICE-CL B",
      "t": "UPS",
+     "w": 0.12
+    },
+    {
+     "n": "ROYAL CARIBBEAN CRUISES LTD",
+     "t": "RCL",
+     "w": 0.12
+    },
+    {
+     "n": "ROSS STORES INC",
+     "t": "ROST",
      "w": 0.12
     },
     {
@@ -1471,33 +1471,8 @@
      "w": 0.12
     },
     {
-     "n": "EOG RESOURCES INC",
-     "t": "EOG",
-     "w": 0.12
-    },
-    {
-     "n": "AON PLC-CLASS A",
-     "t": "AON",
-     "w": 0.12
-    },
-    {
-     "n": "REGENERON PHARMACEUTICALS",
-     "t": "REGN",
-     "w": 0.12
-    },
-    {
-     "n": "DOORDASH INC - A",
-     "t": "DASH",
-     "w": 0.12
-    },
-    {
-     "n": "MARRIOTT INTERNATIONAL -CL A",
-     "t": "MAR",
-     "w": 0.12
-    },
-    {
-     "n": "NORFOLK SOUTHERN CORP",
-     "t": "NSC",
+     "n": "SYNOPSYS INC",
+     "t": "SNPS",
      "w": 0.12
     },
     {
@@ -1506,13 +1481,23 @@
      "w": 0.12
     },
     {
-     "n": "SYNOPSYS INC",
-     "t": "SNPS",
+     "n": "NORFOLK SOUTHERN CORP",
+     "t": "NSC",
+     "w": 0.12
+    },
+    {
+     "n": "DOORDASH INC - A",
+     "t": "DASH",
+     "w": 0.12
+    },
+    {
+     "n": "EOG RESOURCES INC",
+     "t": "EOG",
      "w": 0.11
     },
     {
-     "n": "THE CIGNA GROUP",
-     "t": "CI",
+     "n": "AON PLC-CLASS A",
+     "t": "AON",
      "w": 0.11
     },
     {
@@ -1521,8 +1506,8 @@
      "w": 0.11
     },
     {
-     "n": "SIMON PROPERTY GROUP INC",
-     "t": "SPG",
+     "n": "REGENERON PHARMACEUTICALS",
+     "t": "REGN",
      "w": 0.11
     },
     {
@@ -1531,8 +1516,23 @@
      "w": 0.11
     },
     {
+     "n": "MARRIOTT INTERNATIONAL -CL A",
+     "t": "MAR",
+     "w": 0.11
+    },
+    {
      "n": "KKR & CO INC",
      "t": "KKR",
+     "w": 0.11
+    },
+    {
+     "n": "COLGATE-PALMOLIVE CO",
+     "t": "CL",
+     "w": 0.11
+    },
+    {
+     "n": "ROBINHOOD MARKETS INC - A",
+     "t": "HOOD",
      "w": 0.11
     },
     {
@@ -1546,13 +1546,8 @@
      "w": 0.11
     },
     {
-     "n": "MOODYS CORP",
-     "t": "MCO",
-     "w": 0.11
-    },
-    {
-     "n": "TRANSDIGM GROUP INC",
-     "t": "TDG",
+     "n": "SIMON PROPERTY GROUP INC",
+     "t": "SPG",
      "w": 0.11
     },
     {
@@ -1561,28 +1556,13 @@
      "w": 0.11
     },
     {
-     "n": "COLGATE-PALMOLIVE CO",
-     "t": "CL",
+     "n": "MOODYS CORP",
+     "t": "MCO",
      "w": 0.11
     },
     {
-     "n": "HILTON WORLDWIDE HOLDINGS IN",
-     "t": "HLT",
-     "w": 0.11
-    },
-    {
-     "n": "ROBINHOOD MARKETS INC - A",
-     "t": "HOOD",
-     "w": 0.11
-    },
-    {
-     "n": "ECOLAB INC",
-     "t": "ECL",
-     "w": 0.11
-    },
-    {
-     "n": "AMERICAN ELECTRIC POWER",
-     "t": "AEP",
+     "n": "THE CIGNA GROUP",
+     "t": "CI",
      "w": 0.11
     },
     {
@@ -1591,34 +1571,29 @@
      "w": 0.11
     },
     {
+     "n": "ECOLAB INC",
+     "t": "ECL",
+     "w": 0.11
+    },
+    {
+     "n": "TRANSDIGM GROUP INC",
+     "t": "TDG",
+     "w": 0.11
+    },
+    {
      "n": "PACCAR INC",
      "t": "PCAR",
      "w": 0.11
     },
     {
-     "n": "CINTAS CORP",
-     "t": "CTAS",
+     "n": "HILTON WORLDWIDE HOLDINGS IN",
+     "t": "HLT",
      "w": 0.11
     },
     {
-     "n": "FEDEX CORP",
-     "t": "FDX",
-     "w": 0.1
-    },
-    {
-     "n": "TARGET CORP",
-     "t": "TGT",
-     "w": 0.1
-    },
-    {
-     "n": "ALLSTATE CORP",
-     "t": "ALL",
-     "w": 0.1
-    },
-    {
-     "n": "MONSTER BEVERAGE CORP",
-     "t": "MNST",
-     "w": 0.1
+     "n": "AMERICAN ELECTRIC POWER",
+     "t": "AEP",
+     "w": 0.11
     },
     {
      "n": "HEWLETT PACKARD ENTERPRISE",
@@ -1626,13 +1601,13 @@
      "w": 0.1
     },
     {
-     "n": "DIGITAL REALTY TRUST INC",
-     "t": "DLR",
+     "n": "CINTAS CORP",
+     "t": "CTAS",
      "w": 0.1
     },
     {
-     "n": "MONOLITHIC POWER SYSTEMS INC",
-     "t": "MPWR",
+     "n": "FEDEX CORP",
+     "t": "FDX",
      "w": 0.1
     },
     {
@@ -1641,8 +1616,38 @@
      "w": 0.1
     },
     {
+     "n": "ALLSTATE CORP",
+     "t": "ALL",
+     "w": 0.1
+    },
+    {
+     "n": "DIGITAL REALTY TRUST INC",
+     "t": "DLR",
+     "w": 0.1
+    },
+    {
+     "n": "MONSTER BEVERAGE CORP",
+     "t": "MNST",
+     "w": 0.1
+    },
+    {
+     "n": "TARGET CORP",
+     "t": "TGT",
+     "w": 0.1
+    },
+    {
      "n": "CRH PLC",
      "t": "CRH",
+     "w": 0.1
+    },
+    {
+     "n": "LUMENTUM HOLDINGS INC",
+     "t": "LITE",
+     "w": 0.1
+    },
+    {
+     "n": "MONOLITHIC POWER SYSTEMS INC",
+     "t": "MPWR",
      "w": 0.1
     },
     {
@@ -1666,63 +1671,28 @@
      "w": 0.1
     },
     {
-     "n": "HCA HEALTHCARE INC",
-     "t": "HCA",
+     "n": "COHERENT CORP",
+     "t": "COHR",
      "w": 0.1
     },
     {
-     "n": "AIRBNB INC-CLASS A",
-     "t": "ABNB",
+     "n": "TE CONNECTIVITY PLC",
+     "t": "TEL",
+     "w": 0.1
+    },
+    {
+     "n": "TERADYNE INC",
+     "t": "TER",
      "w": 0.1
     },
     {
      "n": "COMFORT SYSTEMS USA INC",
      "t": "FIX",
-     "w": 0.1
-    },
-    {
-     "n": "KINDER MORGAN INC",
-     "t": "KMI",
      "w": 0.09
     },
     {
-     "n": "LUMENTUM HOLDINGS INC",
-     "t": "LITE",
-     "w": 0.09
-    },
-    {
-     "n": "DOMINION ENERGY INC",
-     "t": "D",
-     "w": 0.09
-    },
-    {
-     "n": "BAKER HUGHES CO",
-     "t": "BKR",
-     "w": 0.09
-    },
-    {
-     "n": "WW GRAINGER INC",
-     "t": "GWW",
-     "w": 0.09
-    },
-    {
-     "n": "CENCORA INC",
-     "t": "COR",
-     "w": 0.09
-    },
-    {
-     "n": "TE CONNECTIVITY PLC",
-     "t": "TEL",
-     "w": 0.09
-    },
-    {
-     "n": "DELTA AIR LINES INC",
-     "t": "DAL",
-     "w": 0.09
-    },
-    {
-     "n": "APOLLO GLOBAL MANAGEMENT INC",
-     "t": "APO",
+     "n": "AIRBNB INC-CLASS A",
+     "t": "ABNB",
      "w": 0.09
     },
     {
@@ -1731,8 +1701,63 @@
      "w": 0.09
     },
     {
+     "n": "HCA HEALTHCARE INC",
+     "t": "HCA",
+     "w": 0.09
+    },
+    {
+     "n": "APOLLO GLOBAL MANAGEMENT INC",
+     "t": "APO",
+     "w": 0.09
+    },
+    {
+     "n": "KINDER MORGAN INC",
+     "t": "KMI",
+     "w": 0.09
+    },
+    {
+     "n": "BAKER HUGHES CO",
+     "t": "BKR",
+     "w": 0.09
+    },
+    {
+     "n": "DOMINION ENERGY INC",
+     "t": "D",
+     "w": 0.09
+    },
+    {
+     "n": "DELTA AIR LINES INC",
+     "t": "DAL",
+     "w": 0.09
+    },
+    {
+     "n": "NXP SEMICONDUCTORS NV",
+     "t": "NXPI",
+     "w": 0.09
+    },
+    {
+     "n": "CENCORA INC",
+     "t": "COR",
+     "w": 0.09
+    },
+    {
      "n": "REALTY INCOME CORP",
      "t": "O",
+     "w": 0.09
+    },
+    {
+     "n": "KEYSIGHT TECHNOLOGIES IN",
+     "t": "KEYS",
+     "w": 0.09
+    },
+    {
+     "n": "CIENA CORP",
+     "t": "CIEN",
+     "w": 0.09
+    },
+    {
+     "n": "AMETEK INC",
+     "t": "AME",
      "w": 0.09
     },
     {
@@ -1741,8 +1766,13 @@
      "w": 0.09
     },
     {
-     "n": "TERADYNE INC",
-     "t": "TER",
+     "n": "FASTENAL CO",
+     "t": "FAST",
+     "w": 0.09
+    },
+    {
+     "n": "WW GRAINGER INC",
+     "t": "GWW",
      "w": 0.09
     },
     {
@@ -1753,51 +1783,16 @@
     {
      "n": "TARGA RESOURCES CORP",
      "t": "TRGP",
-     "w": 0.09
-    },
-    {
-     "n": "NXP SEMICONDUCTORS NV",
-     "t": "NXPI",
-     "w": 0.09
+     "w": 0.08
     },
     {
      "n": "FORD MOTOR CO",
      "t": "F",
-     "w": 0.09
-    },
-    {
-     "n": "COHERENT CORP",
-     "t": "COHR",
-     "w": 0.09
-    },
-    {
-     "n": "AMETEK INC",
-     "t": "AME",
-     "w": 0.09
+     "w": 0.08
     },
     {
      "n": "ONEOK INC",
      "t": "OKE",
-     "w": 0.09
-    },
-    {
-     "n": "CIENA CORP",
-     "t": "CIEN",
-     "w": 0.08
-    },
-    {
-     "n": "FASTENAL CO",
-     "t": "FAST",
-     "w": 0.08
-    },
-    {
-     "n": "KEYSIGHT TECHNOLOGIES IN",
-     "t": "KEYS",
-     "w": 0.08
-    },
-    {
-     "n": "CARDINAL HEALTH INC",
-     "t": "CAH",
      "w": 0.08
     },
     {
@@ -1806,13 +1801,8 @@
      "w": 0.08
     },
     {
-     "n": "ROCKWELL AUTOMATION INC",
-     "t": "ROK",
-     "w": 0.08
-    },
-    {
-     "n": "METLIFE INC",
-     "t": "MET",
+     "n": "CARDINAL HEALTH INC",
+     "t": "CAH",
      "w": 0.08
     },
     {
@@ -1821,23 +1811,18 @@
      "w": 0.08
     },
     {
+     "n": "CORTEVA INC",
+     "t": "CTVA",
+     "w": 0.08
+    },
+    {
      "n": "FIFTH THIRD BANCORP",
      "t": "FITB",
      "w": 0.08
     },
     {
-     "n": "DEVON ENERGY CORP",
-     "t": "DVN",
-     "w": 0.08
-    },
-    {
-     "n": "EDWARDS LIFESCIENCES CORP",
-     "t": "EW",
-     "w": 0.08
-    },
-    {
-     "n": "NIKE INC -CL B",
-     "t": "NKE",
+     "n": "METLIFE INC",
+     "t": "MET",
      "w": 0.08
     },
     {
@@ -1846,8 +1831,8 @@
      "w": 0.08
     },
     {
-     "n": "CORTEVA INC",
-     "t": "CTVA",
+     "n": "EDWARDS LIFESCIENCES CORP",
+     "t": "EW",
      "w": 0.08
     },
     {
@@ -1856,18 +1841,18 @@
      "w": 0.08
     },
     {
+     "n": "CARRIER GLOBAL CORP",
+     "t": "CARR",
+     "w": 0.08
+    },
+    {
+     "n": "DEVON ENERGY CORP",
+     "t": "DVN",
+     "w": 0.08
+    },
+    {
      "n": "WABTEC CORP",
      "t": "WAB",
-     "w": 0.08
-    },
-    {
-     "n": "GARMIN LTD",
-     "t": "GRMN",
-     "w": 0.08
-    },
-    {
-     "n": "AMERIPRISE FINANCIAL INC",
-     "t": "AMP",
      "w": 0.08
     },
     {
@@ -1876,28 +1861,28 @@
      "w": 0.08
     },
     {
+     "n": "GARMIN LTD",
+     "t": "GRMN",
+     "w": 0.08
+    },
+    {
      "n": "AUTODESK INC",
      "t": "ADSK",
      "w": 0.08
     },
     {
+     "n": "AMERIPRISE FINANCIAL INC",
+     "t": "AMP",
+     "w": 0.08
+    },
+    {
      "n": "ENTERGY CORP",
      "t": "ETR",
-     "w": 0.08
+     "w": 0.07
     },
     {
-     "n": "VISTRA CORP",
-     "t": "VST",
-     "w": 0.08
-    },
-    {
-     "n": "CARRIER GLOBAL CORP",
-     "t": "CARR",
-     "w": 0.08
-    },
-    {
-     "n": "XCEL ENERGY INC",
-     "t": "XEL",
+     "n": "NIKE INC -CL B",
+     "t": "NKE",
      "w": 0.07
     },
     {
@@ -1906,28 +1891,8 @@
      "w": 0.07
     },
     {
-     "n": "CHIPOTLE MEXICAN GRILL INC",
-     "t": "CMG",
-     "w": 0.07
-    },
-    {
-     "n": "EBAY INC",
-     "t": "EBAY",
-     "w": 0.07
-    },
-    {
-     "n": "CARVANA CO",
-     "t": "CVNA",
-     "w": 0.07
-    },
-    {
-     "n": "BECTON DICKINSON AND CO",
-     "t": "BDX",
-     "w": 0.07
-    },
-    {
-     "n": "EXELON CORP",
-     "t": "EXC",
+     "n": "ROCKWELL AUTOMATION INC",
+     "t": "ROK",
      "w": 0.07
     },
     {
@@ -1936,8 +1901,33 @@
      "w": 0.07
     },
     {
-     "n": "HUMANA INC",
-     "t": "HUM",
+     "n": "CARVANA CO",
+     "t": "CVNA",
+     "w": 0.07
+    },
+    {
+     "n": "EBAY INC",
+     "t": "EBAY",
+     "w": 0.07
+    },
+    {
+     "n": "XCEL ENERGY INC",
+     "t": "XEL",
+     "w": 0.07
+    },
+    {
+     "n": "EXELON CORP",
+     "t": "EXC",
+     "w": 0.07
+    },
+    {
+     "n": "BECTON DICKINSON AND CO",
+     "t": "BDX",
+     "w": 0.07
+    },
+    {
+     "n": "FLEX LTD",
+     "t": "FLEX",
      "w": 0.07
     },
     {
@@ -1946,8 +1936,8 @@
      "w": 0.07
     },
     {
-     "n": "VENTAS INC",
-     "t": "VTR",
+     "n": "VISTRA CORP",
+     "t": "VST",
      "w": 0.07
     },
     {
@@ -1961,23 +1951,33 @@
      "w": 0.07
     },
     {
-     "n": "FLEX LTD",
-     "t": "FLEX",
+     "n": "VENTAS INC",
+     "t": "VTR",
      "w": 0.07
     },
     {
-     "n": "TAKE-TWO INTERACTIVE SOFTWRE",
-     "t": "TTWO",
+     "n": "MICROCHIP TECHNOLOGY INC",
+     "t": "MCHP",
      "w": 0.07
+    },
+    {
+     "n": "HUMANA INC",
+     "t": "HUM",
+     "w": 0.07
+    },
+    {
+     "n": "CHIPOTLE MEXICAN GRILL INC",
+     "t": "CMG",
+     "w": 0.07
+    },
+    {
+     "n": "UNITED AIRLINES HOLDINGS INC",
+     "t": "UAL",
+     "w": 0.06
     },
     {
      "n": "PRUDENTIAL FINANCIAL INC",
      "t": "PRU",
-     "w": 0.07
-    },
-    {
-     "n": "NASDAQ INC",
-     "t": "NDAQ",
      "w": 0.06
     },
     {
@@ -1986,8 +1986,18 @@
      "w": 0.06
     },
     {
-     "n": "REPUBLIC SERVICES INC",
-     "t": "RSG",
+     "n": "AMERICAN INTERNATIONAL GROUP",
+     "t": "AIG",
+     "w": 0.06
+    },
+    {
+     "n": "TAKE-TWO INTERACTIVE SOFTWRE",
+     "t": "TTWO",
+     "w": 0.06
+    },
+    {
+     "n": "NASDAQ INC",
+     "t": "NDAQ",
      "w": 0.06
     },
     {
@@ -1996,13 +2006,8 @@
      "w": 0.06
     },
     {
-     "n": "AMERICAN INTERNATIONAL GROUP",
-     "t": "AIG",
-     "w": 0.06
-    },
-    {
-     "n": "UNITED AIRLINES HOLDINGS INC",
-     "t": "UAL",
+     "n": "REPUBLIC SERVICES INC",
+     "t": "RSG",
      "w": 0.06
     },
     {
@@ -2011,13 +2016,8 @@
      "w": 0.06
     },
     {
-     "n": "MICROCHIP TECHNOLOGY INC",
-     "t": "MCHP",
-     "w": 0.06
-    },
-    {
-     "n": "SYSCO CORP",
-     "t": "SYY",
+     "n": "OLD DOMINION FREIGHT LINE",
+     "t": "ODFL",
      "w": 0.06
     },
     {
@@ -2031,8 +2031,23 @@
      "w": 0.06
     },
     {
+     "n": "DR HORTON INC",
+     "t": "DHI",
+     "w": 0.06
+    },
+    {
+     "n": "SYSCO CORP",
+     "t": "SYY",
+     "w": 0.06
+    },
+    {
      "n": "ROPER TECHNOLOGIES INC",
      "t": "ROP",
+     "w": 0.06
+    },
+    {
+     "n": "INTERACTIVE BROKERS GRO-CL A",
+     "t": "IBKR",
      "w": 0.06
     },
     {
@@ -2046,43 +2061,8 @@
      "w": 0.06
     },
     {
-     "n": "INTERACTIVE BROKERS GRO-CL A",
-     "t": "IBKR",
-     "w": 0.06
-    },
-    {
-     "n": "IQVIA HOLDINGS INC",
-     "t": "IQV",
-     "w": 0.06
-    },
-    {
-     "n": "OLD DOMINION FREIGHT LINE",
-     "t": "ODFL",
-     "w": 0.06
-    },
-    {
-     "n": "DR HORTON INC",
-     "t": "DHI",
-     "w": 0.06
-    },
-    {
-     "n": "DIAMONDBACK ENERGY INC",
-     "t": "FANG",
-     "w": 0.06
-    },
-    {
-     "n": "P G & E CORP",
-     "t": "PCG",
-     "w": 0.06
-    },
-    {
-     "n": "PUBLIC SERVICE ENTERPRISE GP",
-     "t": "PEG",
-     "w": 0.06
-    },
-    {
-     "n": "PAYCHEX INC",
-     "t": "PAYX",
+     "n": "WATERS CORP",
+     "t": "WAT",
      "w": 0.06
     },
     {
@@ -2091,38 +2071,28 @@
      "w": 0.06
     },
     {
+     "n": "P G & E CORP",
+     "t": "PCG",
+     "w": 0.06
+    },
+    {
+     "n": "PAYCHEX INC",
+     "t": "PAYX",
+     "w": 0.06
+    },
+    {
      "n": "CARNIVAL CORP LTD",
      "t": "CCL",
      "w": 0.06
     },
     {
-     "n": "IRON MOUNTAIN INC",
-     "t": "IRM",
+     "n": "IQVIA HOLDINGS INC",
+     "t": "IQV",
      "w": 0.06
     },
     {
-     "n": "VULCAN MATERIALS CO",
-     "t": "VMC",
-     "w": 0.06
-    },
-    {
-     "n": "WATERS CORP",
-     "t": "WAT",
-     "w": 0.06
-    },
-    {
-     "n": "M & T BANK CORP",
-     "t": "MTB",
-     "w": 0.06
-    },
-    {
-     "n": "KENVUE INC",
-     "t": "KVUE",
-     "w": 0.06
-    },
-    {
-     "n": "EMCOR GROUP INC",
-     "t": "EME",
+     "n": "PUBLIC SERVICE ENTERPRISE GP",
+     "t": "PEG",
      "w": 0.06
     },
     {
@@ -2131,23 +2101,38 @@
      "w": 0.06
     },
     {
+     "n": "KENVUE INC",
+     "t": "KVUE",
+     "w": 0.06
+    },
+    {
+     "n": "IRON MOUNTAIN INC",
+     "t": "IRM",
+     "w": 0.06
+    },
+    {
+     "n": "DIAMONDBACK ENERGY INC",
+     "t": "FANG",
+     "w": 0.06
+    },
+    {
+     "n": "M & T BANK CORP",
+     "t": "MTB",
+     "w": 0.06
+    },
+    {
      "n": "KIMBERLY-CLARK CORP",
      "t": "KMB",
-     "w": 0.05
+     "w": 0.06
     },
     {
-     "n": "WEC ENERGY GROUP INC",
-     "t": "WEC",
-     "w": 0.05
+     "n": "VULCAN MATERIALS CO",
+     "t": "VMC",
+     "w": 0.06
     },
     {
-     "n": "HUNTINGTON BANCSHARES INC",
-     "t": "HBAN",
-     "w": 0.05
-    },
-    {
-     "n": "ARCH CAPITAL GROUP LTD",
-     "t": "ACGL",
+     "n": "EMCOR GROUP INC",
+     "t": "EME",
      "w": 0.05
     },
     {
@@ -2156,18 +2141,23 @@
      "w": 0.05
     },
     {
+     "n": "JABIL INC",
+     "t": "JBL",
+     "w": 0.05
+    },
+    {
      "n": "EXPEDIA GROUP INC",
      "t": "EXPE",
      "w": 0.05
     },
     {
-     "n": "NORTHERN TRUST CORP",
-     "t": "NTRS",
+     "n": "HUNTINGTON BANCSHARES INC",
+     "t": "HBAN",
      "w": 0.05
     },
     {
-     "n": "DEXCOM INC",
-     "t": "DXCM",
+     "n": "WEC ENERGY GROUP INC",
+     "t": "WEC",
      "w": 0.05
     },
     {
@@ -2176,8 +2166,8 @@
      "w": 0.05
     },
     {
-     "n": "JABIL INC",
-     "t": "JBL",
+     "n": "ARCH CAPITAL GROUP LTD",
+     "t": "ACGL",
      "w": 0.05
     },
     {
@@ -2186,8 +2176,8 @@
      "w": 0.05
     },
     {
-     "n": "EQT CORP",
-     "t": "EQT",
+     "n": "NORTHERN TRUST CORP",
+     "t": "NTRS",
      "w": 0.05
     },
     {
@@ -2196,13 +2186,23 @@
      "w": 0.05
     },
     {
+     "n": "DEXCOM INC",
+     "t": "DXCM",
+     "w": 0.05
+    },
+    {
      "n": "COINBASE GLOBAL INC -CLASS A",
      "t": "COIN",
      "w": 0.05
     },
     {
-     "n": "ZOETIS INC",
-     "t": "ZTS",
+     "n": "EQT CORP",
+     "t": "EQT",
+     "w": 0.05
+    },
+    {
+     "n": "RESMED INC",
+     "t": "RMD",
      "w": 0.05
     },
     {
@@ -2216,38 +2216,13 @@
      "w": 0.05
     },
     {
-     "n": "CASEYS GENERAL STORES INC",
-     "t": "CASY",
-     "w": 0.05
-    },
-    {
-     "n": "EXTRA SPACE STORAGE INC",
-     "t": "EXR",
-     "w": 0.05
-    },
-    {
-     "n": "ON SEMICONDUCTOR",
-     "t": "ON",
-     "w": 0.05
-    },
-    {
-     "n": "TAPESTRY INC",
-     "t": "TPR",
+     "n": "ZOETIS INC",
+     "t": "ZTS",
      "w": 0.05
     },
     {
      "n": "INGERSOLL-RAND INC",
      "t": "IR",
-     "w": 0.05
-    },
-    {
-     "n": "RESMED INC",
-     "t": "RMD",
-     "w": 0.05
-    },
-    {
-     "n": "CBOE GLOBAL MARKETS INC",
-     "t": "CBOE",
      "w": 0.05
     },
     {
@@ -2261,8 +2236,23 @@
      "w": 0.05
     },
     {
-     "n": "RAYMOND JAMES FINANCIAL INC",
-     "t": "RJF",
+     "n": "ON SEMICONDUCTOR",
+     "t": "ON",
+     "w": 0.05
+    },
+    {
+     "n": "EXTRA SPACE STORAGE INC",
+     "t": "EXR",
+     "w": 0.05
+    },
+    {
+     "n": "TAPESTRY INC",
+     "t": "TPR",
+     "w": 0.05
+    },
+    {
+     "n": "CASEYS GENERAL STORES INC",
+     "t": "CASY",
      "w": 0.05
     },
     {
@@ -2271,13 +2261,8 @@
      "w": 0.05
     },
     {
-     "n": "AMEREN CORPORATION",
-     "t": "AEE",
-     "w": 0.05
-    },
-    {
-     "n": "CENTENE CORP",
-     "t": "CNC",
+     "n": "RAYMOND JAMES FINANCIAL INC",
+     "t": "RJF",
      "w": 0.05
     },
     {
@@ -2286,58 +2271,28 @@
      "w": 0.05
     },
     {
-     "n": "DTE ENERGY COMPANY",
-     "t": "DTE",
+     "n": "AMEREN CORPORATION",
+     "t": "AEE",
+     "w": 0.05
+    },
+    {
+     "n": "CBOE GLOBAL MARKETS INC",
+     "t": "CBOE",
      "w": 0.05
     },
     {
      "n": "ARES MANAGEMENT CORP - A",
      "t": "ARES",
-     "w": 0.04
+     "w": 0.05
     },
     {
-     "n": "NRG ENERGY INC",
-     "t": "NRG",
-     "w": 0.04
-    },
-    {
-     "n": "METTLER-TOLEDO INTERNATIONAL",
-     "t": "MTD",
-     "w": 0.04
-    },
-    {
-     "n": "VICI PROPERTIES INC",
-     "t": "VICI",
-     "w": 0.04
+     "n": "CENTENE CORP",
+     "t": "CNC",
+     "w": 0.05
     },
     {
      "n": "FISERV INC",
      "t": "FISV",
-     "w": 0.04
-    },
-    {
-     "n": "ATMOS ENERGY CORP",
-     "t": "ATO",
-     "w": 0.04
-    },
-    {
-     "n": "LIVE NATION ENTERTAINMENT IN",
-     "t": "LYV",
-     "w": 0.04
-    },
-    {
-     "n": "WILLIAMS-SONOMA INC",
-     "t": "WSM",
-     "w": 0.04
-    },
-    {
-     "n": "XYLEM INC",
-     "t": "XYL",
-     "w": 0.04
-    },
-    {
-     "n": "DOLLAR GENERAL CORP",
-     "t": "DG",
      "w": 0.04
     },
     {
@@ -2346,8 +2301,38 @@
      "w": 0.04
     },
     {
-     "n": "OTIS WORLDWIDE CORP",
-     "t": "OTIS",
+     "n": "DTE ENERGY COMPANY",
+     "t": "DTE",
+     "w": 0.04
+    },
+    {
+     "n": "WILLIAMS-SONOMA INC",
+     "t": "WSM",
+     "w": 0.04
+    },
+    {
+     "n": "LIVE NATION ENTERTAINMENT IN",
+     "t": "LYV",
+     "w": 0.04
+    },
+    {
+     "n": "VICI PROPERTIES INC",
+     "t": "VICI",
+     "w": 0.04
+    },
+    {
+     "n": "XYLEM INC",
+     "t": "XYL",
+     "w": 0.04
+    },
+    {
+     "n": "METTLER-TOLEDO INTERNATIONAL",
+     "t": "MTD",
+     "w": 0.04
+    },
+    {
+     "n": "ATMOS ENERGY CORP",
+     "t": "ATO",
      "w": 0.04
     },
     {
@@ -2356,18 +2341,18 @@
      "w": 0.04
     },
     {
+     "n": "OTIS WORLDWIDE CORP",
+     "t": "OTIS",
+     "w": 0.04
+    },
+    {
+     "n": "DOLLAR GENERAL CORP",
+     "t": "DG",
+     "w": 0.04
+    },
+    {
      "n": "CINCINNATI FINANCIAL CORP",
      "t": "CINF",
-     "w": 0.04
-    },
-    {
-     "n": "EDISON INTERNATIONAL",
-     "t": "EIX",
-     "w": 0.04
-    },
-    {
-     "n": "CENTERPOINT ENERGY INC",
-     "t": "CNP",
      "w": 0.04
     },
     {
@@ -2381,23 +2366,18 @@
      "w": 0.04
     },
     {
+     "n": "CENTERPOINT ENERGY INC",
+     "t": "CNP",
+     "w": 0.04
+    },
+    {
+     "n": "EDISON INTERNATIONAL",
+     "t": "EIX",
+     "w": 0.04
+    },
+    {
      "n": "HALLIBURTON CO",
      "t": "HAL",
-     "w": 0.04
-    },
-    {
-     "n": "PPL CORP",
-     "t": "PPL",
-     "w": 0.04
-    },
-    {
-     "n": "HERSHEY CO/THE",
-     "t": "HSY",
-     "w": 0.04
-    },
-    {
-     "n": "AVALONBAY COMMUNITIES INC",
-     "t": "AVB",
      "w": 0.04
     },
     {
@@ -2411,8 +2391,38 @@
      "w": 0.04
     },
     {
-     "n": "COPART INC",
-     "t": "CPRT",
+     "n": "HERSHEY CO/THE",
+     "t": "HSY",
+     "w": 0.04
+    },
+    {
+     "n": "HUBBELL INC",
+     "t": "HUBB",
+     "w": 0.04
+    },
+    {
+     "n": "PPL CORP",
+     "t": "PPL",
+     "w": 0.04
+    },
+    {
+     "n": "HP INC",
+     "t": "HPQ",
+     "w": 0.04
+    },
+    {
+     "n": "AVALONBAY COMMUNITIES INC",
+     "t": "AVB",
+     "w": 0.04
+    },
+    {
+     "n": "PPG INDUSTRIES INC",
+     "t": "PPG",
+     "w": 0.04
+    },
+    {
+     "n": "FIRST SOLAR INC",
+     "t": "FSLR",
      "w": 0.04
     },
     {
@@ -2421,13 +2431,28 @@
      "w": 0.04
     },
     {
+     "n": "COPART INC",
+     "t": "CPRT",
+     "w": 0.04
+    },
+    {
+     "n": "CORPAY INC",
+     "t": "CPAY",
+     "w": 0.04
+    },
+    {
      "n": "QUEST DIAGNOSTICS INC",
      "t": "DGX",
      "w": 0.04
     },
     {
-     "n": "PPG INDUSTRIES INC",
-     "t": "PPG",
+     "n": "LABCORP HOLDINGS INC",
+     "t": "LH",
+     "w": 0.04
+    },
+    {
+     "n": "SMURFIT WESTROCK PLC",
+     "t": "SW",
      "w": 0.04
     },
     {
@@ -2441,48 +2466,8 @@
      "w": 0.04
     },
     {
-     "n": "LABCORP HOLDINGS INC",
-     "t": "LH",
-     "w": 0.04
-    },
-    {
-     "n": "CORPAY INC",
-     "t": "CPAY",
-     "w": 0.04
-    },
-    {
-     "n": "HUBBELL INC",
-     "t": "HUBB",
-     "w": 0.04
-    },
-    {
-     "n": "FIRST SOLAR INC",
-     "t": "FSLR",
-     "w": 0.04
-    },
-    {
-     "n": "HP INC",
-     "t": "HPQ",
-     "w": 0.04
-    },
-    {
-     "n": "WEST PHARMACEUTICAL SERVICES",
-     "t": "WST",
-     "w": 0.04
-    },
-    {
-     "n": "SMURFIT WESTROCK PLC",
-     "t": "SW",
-     "w": 0.04
-    },
-    {
      "n": "PULTEGROUP INC",
      "t": "PHM",
-     "w": 0.04
-    },
-    {
-     "n": "VERISIGN INC",
-     "t": "VRSN",
      "w": 0.04
     },
     {
@@ -2491,8 +2476,18 @@
      "w": 0.04
     },
     {
-     "n": "FAIR ISAAC CORP",
-     "t": "FICO",
+     "n": "NRG ENERGY INC",
+     "t": "NRG",
+     "w": 0.04
+    },
+    {
+     "n": "WEST PHARMACEUTICAL SERVICES",
+     "t": "WST",
+     "w": 0.04
+    },
+    {
+     "n": "VERISIGN INC",
+     "t": "VRSN",
      "w": 0.04
     },
     {
@@ -2501,18 +2496,13 @@
      "w": 0.04
     },
     {
-     "n": "DARDEN RESTAURANTS INC",
-     "t": "DRI",
+     "n": "FAIR ISAAC CORP",
+     "t": "FICO",
      "w": 0.04
     },
     {
-     "n": "DOLLAR TREE INC",
-     "t": "DLTR",
-     "w": 0.04
-    },
-    {
-     "n": "TEXAS PACIFIC LAND CORP",
-     "t": "TPL",
+     "n": "SOUTHWEST AIRLINES CO",
+     "t": "LUV",
      "w": 0.04
     },
     {
@@ -2526,18 +2516,23 @@
      "w": 0.04
     },
     {
-     "n": "FIDELITY NATIONAL INFO SERV",
-     "t": "FIS",
+     "n": "EXPEDITORS INTL WASH INC",
+     "t": "EXPD",
      "w": 0.04
     },
     {
-     "n": "EQUITY RESIDENTIAL",
-     "t": "EQR",
+     "n": "DOLLAR TREE INC",
+     "t": "DLTR",
      "w": 0.04
     },
     {
-     "n": "SOUTHWEST AIRLINES CO",
-     "t": "LUV",
+     "n": "DARDEN RESTAURANTS INC",
+     "t": "DRI",
+     "w": 0.04
+    },
+    {
+     "n": "OMNICOM GROUP",
+     "t": "OMC",
      "w": 0.04
     },
     {
@@ -2546,23 +2541,23 @@
      "w": 0.03
     },
     {
+     "n": "EQUITY RESIDENTIAL",
+     "t": "EQR",
+     "w": 0.03
+    },
+    {
+     "n": "FIDELITY NATIONAL INFO SERV",
+     "t": "FIS",
+     "w": 0.03
+    },
+    {
      "n": "STERIS PLC",
      "t": "STE",
      "w": 0.03
     },
     {
-     "n": "EXPAND ENERGY CORP",
-     "t": "EXE",
-     "w": 0.03
-    },
-    {
-     "n": "PRINCIPAL FINANCIAL GROUP",
-     "t": "PFG",
-     "w": 0.03
-    },
-    {
-     "n": "OMNICOM GROUP",
-     "t": "OMC",
+     "n": "TEXAS PACIFIC LAND CORP",
+     "t": "TPL",
      "w": 0.03
     },
     {
@@ -2576,13 +2571,8 @@
      "w": 0.03
     },
     {
-     "n": "EXPEDITORS INTL WASH INC",
-     "t": "EXPD",
-     "w": 0.03
-    },
-    {
-     "n": "CMS ENERGY CORP",
-     "t": "CMS",
+     "n": "PRINCIPAL FINANCIAL GROUP",
+     "t": "PFG",
      "w": 0.03
     },
     {
@@ -2591,18 +2581,18 @@
      "w": 0.03
     },
     {
+     "n": "EXPAND ENERGY CORP",
+     "t": "EXE",
+     "w": 0.03
+    },
+    {
+     "n": "CMS ENERGY CORP",
+     "t": "CMS",
+     "w": 0.03
+    },
+    {
      "n": "DOW INC",
      "t": "DOW",
-     "w": 0.03
-    },
-    {
-     "n": "NISOURCE INC",
-     "t": "NI",
-     "w": 0.03
-    },
-    {
-     "n": "SNAP-ON INC",
-     "t": "SNA",
      "w": 0.03
     },
     {
@@ -2611,18 +2601,8 @@
      "w": 0.03
     },
     {
-     "n": "WR BERKLEY CORP",
-     "t": "WRB",
-     "w": 0.03
-    },
-    {
-     "n": "KEYCORP",
-     "t": "KEY",
-     "w": 0.03
-    },
-    {
-     "n": "BROWN & BROWN INC",
-     "t": "BRO",
+     "n": "SNAP-ON INC",
+     "t": "SNA",
      "w": 0.03
     },
     {
@@ -2631,8 +2611,28 @@
      "w": 0.03
     },
     {
+     "n": "NISOURCE INC",
+     "t": "NI",
+     "w": 0.03
+    },
+    {
+     "n": "KEYCORP",
+     "t": "KEY",
+     "w": 0.03
+    },
+    {
      "n": "EQUIFAX INC",
      "t": "EFX",
+     "w": 0.03
+    },
+    {
+     "n": "WR BERKLEY CORP",
+     "t": "WRB",
+     "w": 0.03
+    },
+    {
+     "n": "BROWN & BROWN INC",
+     "t": "BRO",
      "w": 0.03
     },
     {
@@ -2651,38 +2651,18 @@
      "w": 0.03
     },
     {
-     "n": "INCYTE CORP",
-     "t": "INCY",
-     "w": 0.03
-    },
-    {
      "n": "HUNT (JB) TRANSPRT SVCS INC",
      "t": "JBHT",
      "w": 0.03
     },
     {
-     "n": "LOEWS CORP",
-     "t": "L",
+     "n": "INCYTE CORP",
+     "t": "INCY",
      "w": 0.03
     },
     {
      "n": "MODERNA INC",
      "t": "MRNA",
-     "w": 0.03
-    },
-    {
-     "n": "DUPONT DE NEMOURS INC",
-     "t": "DD",
-     "w": 0.03
-    },
-    {
-     "n": "GENERAL MILLS INC",
-     "t": "GIS",
-     "w": 0.03
-    },
-    {
-     "n": "EVERGY INC",
-     "t": "EVRG",
      "w": 0.03
     },
     {
@@ -2696,6 +2676,41 @@
      "w": 0.03
     },
     {
+     "n": "LOEWS CORP",
+     "t": "L",
+     "w": 0.03
+    },
+    {
+     "n": "DUPONT DE NEMOURS INC",
+     "t": "DD",
+     "w": 0.03
+    },
+    {
+     "n": "BROADRIDGE FINANCIAL SOLUTIO",
+     "t": "BR",
+     "w": 0.03
+    },
+    {
+     "n": "EVERGY INC",
+     "t": "EVRG",
+     "w": 0.03
+    },
+    {
+     "n": "GENERAL MILLS INC",
+     "t": "GIS",
+     "w": 0.03
+    },
+    {
+     "n": "LENNAR CORP-A",
+     "t": "LEN",
+     "w": 0.03
+    },
+    {
+     "n": "WEYERHAEUSER CO",
+     "t": "WY",
+     "w": 0.03
+    },
+    {
      "n": "ZIMMER BIOMET HOLDINGS INC",
      "t": "ZBH",
      "w": 0.03
@@ -2706,13 +2721,8 @@
      "w": 0.03
     },
     {
-     "n": "ALLIANT ENERGY CORP",
-     "t": "LNT",
-     "w": 0.03
-    },
-    {
-     "n": "LENNAR CORP-A",
-     "t": "LEN",
+     "n": "FORTIVE CORP",
+     "t": "FTV",
      "w": 0.03
     },
     {
@@ -2721,23 +2731,13 @@
      "w": 0.03
     },
     {
-     "n": "BROADRIDGE FINANCIAL SOLUTIO",
-     "t": "BR",
+     "n": "C.H. ROBINSON WORLDWIDE INC",
+     "t": "CHRW",
      "w": 0.03
     },
     {
-     "n": "WEYERHAEUSER CO",
-     "t": "WY",
-     "w": 0.03
-    },
-    {
-     "n": "CF INDUSTRIES HOLDINGS INC",
-     "t": "CF",
-     "w": 0.03
-    },
-    {
-     "n": "FORTIVE CORP",
-     "t": "FTV",
+     "n": "ALLIANT ENERGY CORP",
+     "t": "LNT",
      "w": 0.03
     },
     {
@@ -2746,28 +2746,8 @@
      "w": 0.03
     },
     {
-     "n": "BALL CORP",
-     "t": "BALL",
-     "w": 0.03
-    },
-    {
-     "n": "C.H. ROBINSON WORLDWIDE INC",
-     "t": "CHRW",
-     "w": 0.03
-    },
-    {
-     "n": "IDEX CORP",
-     "t": "IEX",
-     "w": 0.03
-    },
-    {
-     "n": "NVR INC",
-     "t": "NVR",
-     "w": 0.03
-    },
-    {
-     "n": "KIMCO REALTY CORP",
-     "t": "KIM",
+     "n": "CF INDUSTRIES HOLDINGS INC",
+     "t": "CF",
      "w": 0.03
     },
     {
@@ -2776,13 +2756,33 @@
      "w": 0.03
     },
     {
+     "n": "SUPER MICRO COMPUTER INC",
+     "t": "SMCI",
+     "w": 0.03
+    },
+    {
+     "n": "IDEX CORP",
+     "t": "IEX",
+     "w": 0.03
+    },
+    {
+     "n": "ZEBRA TECHNOLOGIES CORP-CL A",
+     "t": "ZBRA",
+     "w": 0.03
+    },
+    {
+     "n": "NVR INC",
+     "t": "NVR",
+     "w": 0.03
+    },
+    {
      "n": "TRACTOR SUPPLY COMPANY",
      "t": "TSCO",
      "w": 0.03
     },
     {
-     "n": "TYSON FOODS INC-CL A",
-     "t": "TSN",
+     "n": "BALL CORP",
+     "t": "BALL",
      "w": 0.03
     },
     {
@@ -2791,8 +2791,8 @@
      "w": 0.03
     },
     {
-     "n": "INVITATION HOMES INC",
-     "t": "INVH",
+     "n": "KIMCO REALTY CORP",
+     "t": "KIM",
      "w": 0.03
     },
     {
@@ -2801,18 +2801,18 @@
      "w": 0.03
     },
     {
-     "n": "SUPER MICRO COMPUTER INC",
-     "t": "SMCI",
+     "n": "INVITATION HOMES INC",
+     "t": "INVH",
+     "w": 0.03
+    },
+    {
+     "n": "TYSON FOODS INC-CL A",
+     "t": "TSN",
      "w": 0.02
     },
     {
-     "n": "PTC INC",
-     "t": "PTC",
-     "w": 0.02
-    },
-    {
-     "n": "HOST HOTELS & RESORTS INC",
-     "t": "HST",
+     "n": "LEIDOS HOLDINGS INC",
+     "t": "LDOS",
      "w": 0.02
     },
     {
@@ -2821,18 +2821,8 @@
      "w": 0.02
     },
     {
-     "n": "LYONDELLBASELL INDU-CL A",
-     "t": "LYB",
-     "w": 0.02
-    },
-    {
-     "n": "MID-AMERICA APARTMENT COMM",
-     "t": "MAA",
-     "w": 0.02
-    },
-    {
-     "n": "GEN DIGITAL INC",
-     "t": "GEN",
+     "n": "PTC INC",
+     "t": "PTC",
      "w": 0.02
     },
     {
@@ -2841,13 +2831,33 @@
      "w": 0.02
     },
     {
-     "n": "FEDEX FREIGHT HOLDING CO",
-     "t": "FDXF",
+     "n": "HOST HOTELS & RESORTS INC",
+     "t": "HST",
+     "w": 0.02
+    },
+    {
+     "n": "LYONDELLBASELL INDU-CL A",
+     "t": "LYB",
+     "w": 0.02
+    },
+    {
+     "n": "GEN DIGITAL INC",
+     "t": "GEN",
      "w": 0.02
     },
     {
      "n": "MASCO CORP",
      "t": "MAS",
+     "w": 0.02
+    },
+    {
+     "n": "FEDEX FREIGHT HOLDING CO",
+     "t": "FDXF",
+     "w": 0.02
+    },
+    {
+     "n": "MID-AMERICA APARTMENT COMM",
+     "t": "MAA",
      "w": 0.02
     },
     {
@@ -2861,23 +2871,18 @@
      "w": 0.02
     },
     {
-     "n": "LEIDOS HOLDINGS INC",
-     "t": "LDOS",
-     "w": 0.02
-    },
-    {
      "n": "RALPH LAUREN CORP",
      "t": "RL",
      "w": 0.02
     },
     {
-     "n": "EVEREST GROUP LTD",
-     "t": "EG",
+     "n": "BAXTER INTERNATIONAL INC",
+     "t": "BAX",
      "w": 0.02
     },
     {
-     "n": "BAXTER INTERNATIONAL INC",
-     "t": "BAX",
+     "n": "EVEREST GROUP LTD",
+     "t": "EG",
      "w": 0.02
     },
     {
@@ -2896,13 +2901,8 @@
      "w": 0.02
     },
     {
-     "n": "LAS VEGAS SANDS CORP",
-     "t": "LVS",
-     "w": 0.02
-    },
-    {
-     "n": "DECKERS OUTDOOR CORP",
-     "t": "DECK",
+     "n": "LENNOX INTERNATIONAL INC",
+     "t": "LII",
      "w": 0.02
     },
     {
@@ -2911,23 +2911,13 @@
      "w": 0.02
     },
     {
-     "n": "ZEBRA TECHNOLOGIES CORP-CL A",
-     "t": "ZBRA",
-     "w": 0.02
-    },
-    {
-     "n": "ASSURANT INC",
-     "t": "AIZ",
-     "w": 0.02
-    },
-    {
-     "n": "LENNOX INTERNATIONAL INC",
-     "t": "LII",
-     "w": 0.02
-    },
-    {
      "n": "ALLEGION PLC",
      "t": "ALLE",
+     "w": 0.02
+    },
+    {
+     "n": "DECKERS OUTDOOR CORP",
+     "t": "DECK",
      "w": 0.02
     },
     {
@@ -2941,8 +2931,18 @@
      "w": 0.02
     },
     {
-     "n": "REGENCY CENTERS CORP",
-     "t": "REG",
+     "n": "ASSURANT INC",
+     "t": "AIZ",
+     "w": 0.02
+    },
+    {
+     "n": "LAS VEGAS SANDS CORP",
+     "t": "LVS",
+     "w": 0.02
+    },
+    {
+     "n": "TYLER TECHNOLOGIES INC",
+     "t": "TYL",
      "w": 0.02
     },
     {
@@ -2956,13 +2956,8 @@
      "w": 0.02
     },
     {
-     "n": "APA CORP",
-     "t": "APA",
-     "w": 0.02
-    },
-    {
-     "n": "LULULEMON ATHLETICA INC",
-     "t": "LULU",
+     "n": "REGENCY CENTERS CORP",
+     "t": "REG",
      "w": 0.02
     },
     {
@@ -2971,8 +2966,13 @@
      "w": 0.02
     },
     {
-     "n": "TYLER TECHNOLOGIES INC",
-     "t": "TYL",
+     "n": "GENERAC HOLDINGS INC",
+     "t": "GNRC",
+     "w": 0.02
+    },
+    {
+     "n": "LULULEMON ATHLETICA INC",
+     "t": "LULU",
      "w": 0.02
     },
     {
@@ -2981,13 +2981,43 @@
      "w": 0.02
     },
     {
-     "n": "REVVITY INC",
-     "t": "RVTY",
+     "n": "CHARTER COMMUNICATIONS INC-A",
+     "t": "CHTR",
      "w": 0.02
     },
     {
      "n": "JM SMUCKER CO/THE",
      "t": "SJM",
+     "w": 0.02
+    },
+    {
+     "n": "APA CORP",
+     "t": "APA",
+     "w": 0.02
+    },
+    {
+     "n": "CLOROX COMPANY",
+     "t": "CLX",
+     "w": 0.02
+    },
+    {
+     "n": "ECHOSTAR CORP-A",
+     "t": "ECHO",
+     "w": 0.02
+    },
+    {
+     "n": "REVVITY INC",
+     "t": "RVTY",
+     "w": 0.02
+    },
+    {
+     "n": "GARTNER INC",
+     "t": "IT",
+     "w": 0.02
+    },
+    {
+     "n": "PINNACLE WEST CAPITAL",
+     "t": "PNW",
      "w": 0.02
     },
     {
@@ -3001,36 +3031,6 @@
      "w": 0.02
     },
     {
-     "n": "PINNACLE WEST CAPITAL",
-     "t": "PNW",
-     "w": 0.02
-    },
-    {
-     "n": "APTIV PLC",
-     "t": "APTV",
-     "w": 0.02
-    },
-    {
-     "n": "CHARTER COMMUNICATIONS INC-A",
-     "t": "CHTR",
-     "w": 0.02
-    },
-    {
-     "n": "GENERAC HOLDINGS INC",
-     "t": "GNRC",
-     "w": 0.02
-    },
-    {
-     "n": "CLOROX COMPANY",
-     "t": "CLX",
-     "w": 0.02
-    },
-    {
-     "n": "INSULET CORP",
-     "t": "PODD",
-     "w": 0.02
-    },
-    {
      "n": "GODADDY INC - CLASS A",
      "t": "GDDY",
      "w": 0.02
@@ -3041,13 +3041,13 @@
      "w": 0.02
     },
     {
-     "n": "ECHOSTAR CORP-A",
-     "t": "ECHO",
+     "n": "TKO GROUP HOLDINGS INC",
+     "t": "TKO",
      "w": 0.02
     },
     {
-     "n": "TKO GROUP HOLDINGS INC",
-     "t": "TKO",
+     "n": "INSULET CORP",
+     "t": "PODD",
      "w": 0.02
     },
     {
@@ -3066,8 +3066,13 @@
      "w": 0.02
     },
     {
-     "n": "ROLLINS INC",
-     "t": "ROL",
+     "n": "DOMINOS PIZZA INC",
+     "t": "DPZ",
+     "w": 0.02
+    },
+    {
+     "n": "CHARLES RIVER LABORATORIES",
+     "t": "CRL",
      "w": 0.02
     },
     {
@@ -3076,18 +3081,13 @@
      "w": 0.02
     },
     {
-     "n": "DOMINOS PIZZA INC",
-     "t": "DPZ",
+     "n": "ROLLINS INC",
+     "t": "ROL",
      "w": 0.02
     },
     {
      "n": "JACK HENRY & ASSOCIATES INC",
      "t": "JKHY",
-     "w": 0.02
-    },
-    {
-     "n": "CHARLES RIVER LABORATORIES",
-     "t": "CRL",
      "w": 0.02
     },
     {
@@ -3101,13 +3101,13 @@
      "w": 0.02
     },
     {
-     "n": "AES CORP",
-     "t": "AES",
+     "n": "BXP INC",
+     "t": "BXP",
      "w": 0.02
     },
     {
-     "n": "BXP INC",
-     "t": "BXP",
+     "n": "AES CORP",
+     "t": "AES",
      "w": 0.02
     },
     {
@@ -3116,8 +3116,13 @@
      "w": 0.02
     },
     {
-     "n": "GARTNER INC",
-     "t": "IT",
+     "n": "APTIV PLC",
+     "t": "APTV",
+     "w": 0.02
+    },
+    {
+     "n": "SKYWORKS SOLUTIONS INC",
+     "t": "SWKS",
      "w": 0.02
     },
     {
@@ -3128,11 +3133,6 @@
     {
      "n": "FEDERAL REALTY INVS TRUST",
      "t": "FRT",
-     "w": 0.01
-    },
-    {
-     "n": "SKYWORKS SOLUTIONS INC",
-     "t": "SWKS",
      "w": 0.01
     },
     {
@@ -3156,8 +3156,8 @@
      "w": 0.01
     },
     {
-     "n": "ALEXANDRIA REAL ESTATE EQUIT",
-     "t": "ARE",
+     "n": "TRADE DESK INC/THE -CLASS A",
+     "t": "TTD",
      "w": 0.01
     },
     {
@@ -3166,18 +3166,13 @@
      "w": 0.01
     },
     {
-     "n": "TRADE DESK INC/THE -CLASS A",
-     "t": "TTD",
-     "w": 0.01
-    },
-    {
      "n": "BUILDERS FIRSTSOURCE INC",
      "t": "BLDR",
      "w": 0.01
     },
     {
-     "n": "DAVITA INC",
-     "t": "DVA",
+     "n": "ALEXANDRIA REAL ESTATE EQUIT",
+     "t": "ARE",
      "w": 0.01
     },
     {
@@ -3188,6 +3183,11 @@
     {
      "n": "FOX CORP - CLASS B",
      "t": "FOX",
+     "w": 0.01
+    },
+    {
+     "n": "DAVITA INC",
+     "t": "DVA",
      "w": 0.01
     },
     {
@@ -3225,103 +3225,108 @@
    "source": "zeroin"
   },
   "361580": {
-   "asOf": "2026-08-06",
-   "equityWeight": 99.61,
+   "asOf": "2026-08-07",
+   "equityWeight": 99.6,
    "holdings": [
     {
      "n": "삼성전자",
      "t": "005930",
-     "w": 32.21
+     "w": 32.55
     },
     {
      "n": "SK하이닉스",
      "t": "000660",
-     "w": 25.5
+     "w": 24.46
     },
     {
      "n": "SK스퀘어",
      "t": "402340",
-     "w": 2.66
+     "w": 2.6
     },
     {
      "n": "삼성전기",
      "t": "009150",
-     "w": 2.06
+     "w": 2.16
     },
     {
      "n": "현대차",
      "t": "005380",
-     "w": 1.64
+     "w": 1.63
     },
     {
      "n": "KB금융",
      "t": "105560",
-     "w": 1.56
+     "w": 1.62
     },
     {
      "n": "신한지주",
      "t": "055550",
-     "w": 1.33
+     "w": 1.37
     },
     {
      "n": "한화에어로스페이스",
      "t": "012450",
-     "w": 1.05
+     "w": 1.1
     },
     {
      "n": "하나금융지주",
      "t": "086790",
-     "w": 1.0
+     "w": 1.02
     },
     {
      "n": "두산에너빌리티",
      "t": "034020",
-     "w": 0.99
+     "w": 1.01
     },
     {
      "n": "기아",
      "t": "000270",
-     "w": 0.98
+     "w": 1.0
     },
     {
      "n": "삼성물산",
      "t": "028260",
-     "w": 0.96
-    },
-    {
-     "n": "현대모비스",
-     "t": "012330",
-     "w": 0.94
-    },
-    {
-     "n": "NAVER",
-     "t": "035420",
-     "w": 0.93
+     "w": 0.98
     },
     {
      "n": "셀트리온",
      "t": "068270",
-     "w": 0.92
+     "w": 0.94
+    },
+    {
+     "n": "현대모비스",
+     "t": "012330",
+     "w": 0.93
+    },
+    {
+     "n": "NAVER",
+     "t": "035420",
+     "w": 0.87
     },
     {
      "n": "삼성SDI",
      "t": "006400",
-     "w": 0.78
-    },
-    {
-     "n": "삼성생명",
-     "t": "032830",
-     "w": 0.73
+     "w": 0.84
     },
     {
      "n": "우리금융지주",
      "t": "316140",
-     "w": 0.67
+     "w": 0.7
+    },
+    {
+     "n": "삼성생명",
+     "t": "032830",
+     "w": 0.7
     },
     {
      "n": "POSCO홀딩스",
      "t": "005490",
-     "w": 0.65
+     "w": 0.68
+    },
+    {
+     "n": "LG전자",
+     "t": "066570",
+     "w": 0.6
     },
     {
      "n": "삼성화재",
@@ -3334,24 +3339,24 @@
      "w": 0.57
     },
     {
-     "n": "LG전자",
-     "t": "066570",
-     "w": 0.57
-    },
-    {
      "n": "SK",
      "t": "034730",
-     "w": 0.54
+     "w": 0.55
     },
     {
      "n": "LG에너지솔루션",
      "t": "373220",
-     "w": 0.52
+     "w": 0.54
     },
     {
      "n": "HD현대일렉트릭",
      "t": "267260",
-     "w": 0.51
+     "w": 0.52
+    },
+    {
+     "n": "KT&G",
+     "t": "033780",
+     "w": 0.52
     },
     {
      "n": "HD현대중공업",
@@ -3359,14 +3364,9 @@
      "w": 0.51
     },
     {
-     "n": "KT&G",
-     "t": "033780",
-     "w": 0.49
-    },
-    {
      "n": "삼성바이오로직스",
      "t": "207940",
-     "w": 0.49
+     "w": 0.5
     },
     {
      "n": "LS ELECTRIC",
@@ -3379,24 +3379,24 @@
      "w": 0.44
     },
     {
-     "n": "SK텔레콤",
-     "t": "017670",
-     "w": 0.41
-    },
-    {
      "n": "카카오",
      "t": "035720",
-     "w": 0.39
+     "w": 0.41
     },
     {
      "n": "효성중공업",
      "t": "298040",
-     "w": 0.39
+     "w": 0.41
+    },
+    {
+     "n": "SK텔레콤",
+     "t": "017670",
+     "w": 0.4
     },
     {
      "n": "LG화학",
      "t": "051910",
-     "w": 0.36
+     "w": 0.39
     },
     {
      "n": "한화오션",
@@ -3406,7 +3406,7 @@
     {
      "n": "KT",
      "t": "030200",
-     "w": 0.35
+     "w": 0.36
     },
     {
      "n": "한국전력",
@@ -3416,32 +3416,37 @@
     {
      "n": "한국항공우주",
      "t": "047810",
-     "w": 0.32
+     "w": 0.33
     },
     {
      "n": "현대로템",
      "t": "064350",
-     "w": 0.32
+     "w": 0.33
     },
     {
      "n": "HD현대",
      "t": "267250",
-     "w": 0.3
+     "w": 0.31
     },
     {
      "n": "LG",
      "t": "003550",
-     "w": 0.28
+     "w": 0.3
+    },
+    {
+     "n": "LIG디펜스앤에어로스페이스",
+     "t": "079550",
+     "w": 0.29
     },
     {
      "n": "에이피알",
      "t": "278470",
-     "w": 0.28
+     "w": 0.29
     },
     {
      "n": "메리츠금융지주",
      "t": "138040",
-     "w": 0.28
+     "w": 0.29
     },
     {
      "n": "미래에셋증권",
@@ -3449,28 +3454,18 @@
      "w": 0.28
     },
     {
-     "n": "LIG디펜스앤에어로스페이스",
-     "t": "079550",
-     "w": 0.28
-    },
-    {
-     "n": "삼성에스디에스",
-     "t": "018260",
-     "w": 0.26
-    },
-    {
-     "n": "고려아연",
-     "t": "010130",
-     "w": 0.26
-    },
-    {
-     "n": "한미반도체",
-     "t": "042700",
-     "w": 0.26
+     "n": "SK이노베이션",
+     "t": "096770",
+     "w": 0.27
     },
     {
      "n": "두산",
      "t": "000150",
+     "w": 0.26
+    },
+    {
+     "n": "삼성에스디에스",
+     "t": "018260",
      "w": 0.25
     },
     {
@@ -3479,13 +3474,13 @@
      "w": 0.25
     },
     {
-     "n": "한국금융지주",
-     "t": "071050",
+     "n": "한미반도체",
+     "t": "042700",
      "w": 0.25
     },
     {
-     "n": "SK이노베이션",
-     "t": "096770",
+     "n": "고려아연",
+     "t": "010130",
      "w": 0.24
     },
     {
@@ -3494,19 +3489,24 @@
      "w": 0.24
     },
     {
-     "n": "삼성E&A",
-     "t": "028050",
-     "w": 0.23
-    },
-    {
      "n": "현대글로비스",
      "t": "086280",
      "w": 0.23
     },
     {
+     "n": "삼성E&A",
+     "t": "028050",
+     "w": 0.23
+    },
+    {
+     "n": "한국금융지주",
+     "t": "071050",
+     "w": 0.23
+    },
+    {
      "n": "카카오뱅크",
      "t": "323410",
-     "w": 0.22
+     "w": 0.23
     },
     {
      "n": "대한항공",
@@ -3514,33 +3514,43 @@
      "w": 0.21
     },
     {
-     "n": "HMM",
-     "t": "011200",
-     "w": 0.2
-    },
-    {
      "n": "크래프톤",
      "t": "259960",
-     "w": 0.2
+     "w": 0.21
+    },
+    {
+     "n": "HMM",
+     "t": "011200",
+     "w": 0.21
     },
     {
      "n": "DB손해보험",
      "t": "005830",
-     "w": 0.19
+     "w": 0.2
     },
     {
-     "n": "한진칼",
-     "t": "180640",
-     "w": 0.18
-    },
-    {
-     "n": "삼성증권",
-     "t": "016360",
-     "w": 0.18
+     "n": "S-Oil",
+     "t": "010950",
+     "w": 0.17
     },
     {
      "n": "기업은행",
      "t": "024110",
+     "w": 0.17
+    },
+    {
+     "n": "한진칼",
+     "t": "180640",
+     "w": 0.17
+    },
+    {
+     "n": "삼성증권",
+     "t": "016360",
+     "w": 0.17
+    },
+    {
+     "n": "포스코퓨처엠",
+     "t": "003670",
      "w": 0.17
     },
     {
@@ -3551,16 +3561,6 @@
     {
      "n": "코웨이",
      "t": "021240",
-     "w": 0.16
-    },
-    {
-     "n": "포스코퓨처엠",
-     "t": "003670",
-     "w": 0.16
-    },
-    {
-     "n": "S-Oil",
-     "t": "010950",
      "w": 0.16
     },
     {
@@ -3576,11 +3576,16 @@
     {
      "n": "유한양행",
      "t": "000100",
-     "w": 0.14
+     "w": 0.15
     },
     {
-     "n": "이수페타시스",
-     "t": "007660",
+     "n": "한화솔루션",
+     "t": "009830",
+     "w": 0.15
+    },
+    {
+     "n": "삼양식품",
+     "t": "003230",
      "w": 0.14
     },
     {
@@ -3589,33 +3594,18 @@
      "w": 0.14
     },
     {
-     "n": "키움증권",
-     "t": "039490",
-     "w": 0.13
-    },
-    {
-     "n": "GS",
-     "t": "078930",
-     "w": 0.13
+     "n": "이수페타시스",
+     "t": "007660",
+     "w": 0.14
     },
     {
      "n": "JB금융지주",
      "t": "175330",
-     "w": 0.13
+     "w": 0.14
     },
     {
-     "n": "삼양식품",
-     "t": "003230",
-     "w": 0.13
-    },
-    {
-     "n": "NH투자증권",
-     "t": "005940",
-     "w": 0.13
-    },
-    {
-     "n": "한화솔루션",
-     "t": "009830",
+     "n": "GS",
+     "t": "078930",
      "w": 0.13
     },
     {
@@ -3624,13 +3614,28 @@
      "w": 0.13
     },
     {
-     "n": "LG유플러스",
-     "t": "032640",
-     "w": 0.12
+     "n": "키움증권",
+     "t": "039490",
+     "w": 0.13
+    },
+    {
+     "n": "NH투자증권",
+     "t": "005940",
+     "w": 0.13
     },
     {
      "n": "BNK금융지주",
      "t": "138930",
+     "w": 0.13
+    },
+    {
+     "n": "NC",
+     "t": "036570",
+     "w": 0.12
+    },
+    {
+     "n": "LG유플러스",
+     "t": "032640",
      "w": 0.12
     },
     {
@@ -3639,13 +3644,13 @@
      "w": 0.12
     },
     {
-     "n": "NC",
-     "t": "036570",
-     "w": 0.12
-    },
-    {
      "n": "HD현대마린솔루션",
      "t": "443060",
+     "w": 0.11
+    },
+    {
+     "n": "OCI홀딩스",
+     "t": "010060",
      "w": 0.11
     },
     {
@@ -3654,8 +3659,8 @@
      "w": 0.1
     },
     {
-     "n": "대우건설",
-     "t": "047040",
+     "n": "SK바이오팜",
+     "t": "326030",
      "w": 0.1
     },
     {
@@ -3664,8 +3669,8 @@
      "w": 0.1
     },
     {
-     "n": "SK바이오팜",
-     "t": "326030",
+     "n": "대우건설",
+     "t": "047040",
      "w": 0.1
     },
     {
@@ -3674,14 +3679,9 @@
      "w": 0.1
     },
     {
-     "n": "OCI홀딩스",
-     "t": "010060",
-     "w": 0.1
-    },
-    {
      "n": "LG생활건강",
      "t": "051900",
-     "w": 0.09
+     "w": 0.1
     },
     {
      "n": "LG디스플레이",
@@ -3694,18 +3694,8 @@
      "w": 0.09
     },
     {
-     "n": "DB하이텍",
-     "t": "000990",
-     "w": 0.08
-    },
-    {
-     "n": "산일전기",
-     "t": "062040",
-     "w": 0.08
-    },
-    {
-     "n": "달바글로벌",
-     "t": "483650",
+     "n": "엘앤에프",
+     "t": "066970",
      "w": 0.08
     },
     {
@@ -3714,19 +3704,24 @@
      "w": 0.08
     },
     {
-     "n": "신세계",
-     "t": "004170",
+     "n": "달바글로벌",
+     "t": "483650",
      "w": 0.08
     },
     {
-     "n": "현대오토에버",
-     "t": "307950",
-     "w": 0.07
+     "n": "산일전기",
+     "t": "062040",
+     "w": 0.08
     },
     {
-     "n": "엘앤에프",
-     "t": "066970",
-     "w": 0.07
+     "n": "DB하이텍",
+     "t": "000990",
+     "w": 0.08
+    },
+    {
+     "n": "신세계",
+     "t": "004170",
+     "w": 0.08
     },
     {
      "n": "iM금융지주",
@@ -3734,13 +3729,13 @@
      "w": 0.07
     },
     {
-     "n": "삼성에피스홀딩스",
-     "t": "0126Z0",
+     "n": "현대오토에버",
+     "t": "307950",
      "w": 0.07
     },
     {
-     "n": "한화엔진",
-     "t": "082740",
+     "n": "삼성에피스홀딩스",
+     "t": "0126Z0",
      "w": 0.07
     },
     {
@@ -3759,23 +3754,18 @@
      "w": 0.07
     },
     {
+     "n": "한화엔진",
+     "t": "082740",
+     "w": 0.07
+    },
+    {
      "n": "현대해상",
      "t": "001450",
      "w": 0.07
     },
     {
-     "n": "영원무역",
-     "t": "111770",
-     "w": 0.06
-    },
-    {
      "n": "DL이앤씨",
      "t": "375500",
-     "w": 0.06
-    },
-    {
-     "n": "한솔케미칼",
-     "t": "014680",
      "w": 0.06
     },
     {
@@ -3784,13 +3774,18 @@
      "w": 0.06
     },
     {
-     "n": "CJ",
-     "t": "001040",
+     "n": "한솔케미칼",
+     "t": "014680",
      "w": 0.06
     },
     {
-     "n": "한올바이오파마",
-     "t": "009420",
+     "n": "영원무역",
+     "t": "111770",
+     "w": 0.06
+    },
+    {
+     "n": "CJ",
+     "t": "001040",
      "w": 0.06
     },
     {
@@ -3799,8 +3794,8 @@
      "w": 0.06
     },
     {
-     "n": "현대엘리베이터",
-     "t": "017800",
+     "n": "한올바이오파마",
+     "t": "009420",
      "w": 0.06
     },
     {
@@ -3809,18 +3804,23 @@
      "w": 0.06
     },
     {
+     "n": "현대엘리베이터",
+     "t": "017800",
+     "w": 0.06
+    },
+    {
+     "n": "금호석유화학",
+     "t": "011780",
+     "w": 0.06
+    },
+    {
      "n": "한국콜마",
      "t": "161890",
      "w": 0.05
     },
     {
-     "n": "금호석유화학",
-     "t": "011780",
-     "w": 0.05
-    },
-    {
-     "n": "HL만도",
-     "t": "204320",
+     "n": "코스맥스",
+     "t": "192820",
      "w": 0.05
     },
     {
@@ -3829,8 +3829,8 @@
      "w": 0.05
     },
     {
-     "n": "코스맥스",
-     "t": "192820",
+     "n": "HL만도",
+     "t": "204320",
      "w": 0.05
     },
     {
@@ -3844,13 +3844,13 @@
      "w": 0.05
     },
     {
-     "n": "카카오페이",
-     "t": "377300",
+     "n": "KCC",
+     "t": "002380",
      "w": 0.05
     },
     {
-     "n": "KCC",
-     "t": "002380",
+     "n": "카카오페이",
+     "t": "377300",
      "w": 0.05
     },
     {
@@ -3859,23 +3859,23 @@
      "w": 0.05
     },
     {
-     "n": "미스토홀딩스",
-     "t": "081660",
-     "w": 0.04
-    },
-    {
-     "n": "풍산",
-     "t": "103140",
-     "w": 0.04
-    },
-    {
      "n": "농심",
      "t": "004370",
      "w": 0.04
     },
     {
+     "n": "미스토홀딩스",
+     "t": "081660",
+     "w": 0.04
+    },
+    {
      "n": "에코프로머티",
      "t": "450080",
+     "w": 0.04
+    },
+    {
+     "n": "풍산",
+     "t": "103140",
      "w": 0.04
     },
     {
@@ -3894,13 +3894,38 @@
      "w": 0.04
     },
     {
+     "n": "한국가스공사",
+     "t": "036460",
+     "w": 0.04
+    },
+    {
      "n": "삼성카드",
      "t": "029780",
      "w": 0.04
     },
     {
-     "n": "한국가스공사",
-     "t": "036460",
+     "n": "BGF리테일",
+     "t": "282330",
+     "w": 0.04
+    },
+    {
+     "n": "한미사이언스",
+     "t": "008930",
+     "w": 0.04
+    },
+    {
+     "n": "이수스페셜티케미컬",
+     "t": "457190",
+     "w": 0.04
+    },
+    {
+     "n": "넷마블",
+     "t": "251270",
+     "w": 0.04
+    },
+    {
+     "n": "한온시스템",
+     "t": "018880",
      "w": 0.04
     },
     {
@@ -3914,38 +3939,13 @@
      "w": 0.04
     },
     {
-     "n": "한온시스템",
-     "t": "018880",
-     "w": 0.04
-    },
-    {
-     "n": "이수스페셜티케미컬",
-     "t": "457190",
-     "w": 0.04
-    },
-    {
-     "n": "한미사이언스",
-     "t": "008930",
-     "w": 0.04
-    },
-    {
-     "n": "롯데쇼핑",
-     "t": "023530",
-     "w": 0.04
-    },
-    {
-     "n": "넷마블",
-     "t": "251270",
-     "w": 0.04
-    },
-    {
      "n": "코오롱인더",
      "t": "120110",
-     "w": 0.03
+     "w": 0.04
     },
     {
-     "n": "BGF리테일",
-     "t": "282330",
+     "n": "롯데케미칼",
+     "t": "011170",
      "w": 0.03
     },
     {
@@ -3954,13 +3954,13 @@
      "w": 0.03
     },
     {
-     "n": "포스코DX",
-     "t": "022100",
+     "n": "롯데쇼핑",
+     "t": "023530",
      "w": 0.03
     },
     {
-     "n": "롯데케미칼",
-     "t": "011170",
+     "n": "포스코DX",
+     "t": "022100",
      "w": 0.03
     },
     {
@@ -3969,23 +3969,13 @@
      "w": 0.03
     },
     {
-     "n": "현대위아",
-     "t": "011210",
-     "w": 0.03
-    },
-    {
-     "n": "DN오토모티브",
-     "t": "007340",
-     "w": 0.03
-    },
-    {
      "n": "영원무역홀딩스",
      "t": "009970",
      "w": 0.03
     },
     {
-     "n": "F&F",
-     "t": "383220",
+     "n": "현대위아",
+     "t": "011210",
      "w": 0.03
     },
     {
@@ -3994,13 +3984,23 @@
      "w": 0.03
     },
     {
-     "n": "금호타이어",
-     "t": "073240",
+     "n": "DN오토모티브",
+     "t": "007340",
+     "w": 0.03
+    },
+    {
+     "n": "F&F",
+     "t": "383220",
      "w": 0.03
     },
     {
      "n": "GS리테일",
      "t": "007070",
+     "w": 0.03
+    },
+    {
+     "n": "금호타이어",
+     "t": "073240",
      "w": 0.03
     },
     {
@@ -4014,13 +4014,13 @@
      "w": 0.03
     },
     {
-     "n": "효성티앤씨",
-     "t": "298020",
+     "n": "동서",
+     "t": "026960",
      "w": 0.02
     },
     {
-     "n": "동서",
-     "t": "026960",
+     "n": "효성티앤씨",
+     "t": "298020",
      "w": 0.02
     },
     {
@@ -4039,13 +4039,13 @@
      "w": 0.02
     },
     {
-     "n": "롯데지주",
-     "t": "004990",
+     "n": "아모레퍼시픽홀딩스",
+     "t": "002790",
      "w": 0.02
     },
     {
-     "n": "아모레퍼시픽홀딩스",
-     "t": "002790",
+     "n": "롯데지주",
+     "t": "004990",
      "w": 0.02
     },
     {
@@ -4074,6 +4074,11 @@
      "w": 0.02
     },
     {
+     "n": "SK아이이테크놀로지",
+     "t": "361610",
+     "w": 0.02
+    },
+    {
      "n": "DL",
      "t": "000210",
      "w": 0.02
@@ -4084,18 +4089,13 @@
      "w": 0.02
     },
     {
-     "n": "SK아이이테크놀로지",
-     "t": "361610",
-     "w": 0.02
+     "n": "세아베스틸지주",
+     "t": "001430",
+     "w": 0.01
     },
     {
      "n": "하이트진로",
      "t": "000080",
-     "w": 0.01
-    },
-    {
-     "n": "세아베스틸지주",
-     "t": "001430",
      "w": 0.01
     },
     {
@@ -4139,13 +4139,13 @@
      "w": 0.01
     },
     {
-     "n": "대웅",
-     "t": "003090",
+     "n": "TKG휴켐스",
+     "t": "069260",
      "w": 0.01
     },
     {
-     "n": "TKG휴켐스",
-     "t": "069260",
+     "n": "대웅",
+     "t": "003090",
      "w": 0.01
     },
     {
@@ -4164,23 +4164,23 @@
      "w": 0.01
     },
     {
-     "n": "코스모화학",
-     "t": "005420",
-     "w": 0.01
-    },
-    {
      "n": "롯데웰푸드",
      "t": "280360",
      "w": 0.01
     },
     {
-     "n": "아세아",
-     "t": "002030",
+     "n": "코스모화학",
+     "t": "005420",
      "w": 0.01
     },
     {
      "n": "에스디바이오센서",
      "t": "137310",
+     "w": 0.01
+    },
+    {
+     "n": "아세아",
+     "t": "002030",
      "w": 0.01
     },
     {
@@ -4193,143 +4193,143 @@
    "source": "krx"
   },
   "426020": {
-   "asOf": "2026-08-05",
-   "equityWeight": 100.03,
+   "asOf": "2026-08-06",
+   "equityWeight": 100.02,
    "holdings": [
+    {
+     "n": "S&P500 EMINI FUT SEPT 2026",
+     "t": "ESU6",
+     "w": 7.6
+    },
     {
      "n": "ALPHABET INC-CL A",
      "t": "GOOGL",
-     "w": 6.78
+     "w": 6.16
     },
     {
      "n": "NVIDIA CORP",
      "t": "NVDA",
-     "w": 6.21
-    },
-    {
-     "n": "SS SPDR S&P 500 ETF TRUST-US",
-     "t": "SPY",
-     "w": 5.1
+     "w": 5.76
     },
     {
      "n": "MICROSOFT CORP",
      "t": "MSFT",
-     "w": 5.04
+     "w": 5.14
+    },
+    {
+     "n": "SS SPDR S&P 500 ETF TRUST-US",
+     "t": "SPY",
+     "w": 4.7
     },
     {
      "n": "AMAZON.COM INC",
      "t": "AMZN",
-     "w": 4.51
+     "w": 3.98
     },
     {
      "n": "BERKSHIRE HATHAWAY INC-CL B",
      "t": "BRK.B",
-     "w": 3.83
+     "w": 3.37
     },
     {
      "n": "APPLE INC",
      "t": "AAPL",
-     "w": 3.65
+     "w": 3.36
     },
     {
      "n": "BROADCOM INC",
      "t": "AVGO",
-     "w": 3.4
-    },
-    {
-     "n": "JOHNSON & JOHNSON",
-     "t": "JNJ",
-     "w": 3.24
-    },
-    {
-     "n": "JPMORGAN CHASE & CO",
-     "t": "JPM",
-     "w": 2.97
-    },
-    {
-     "n": "ADVANCED MICRO DEVICES",
-     "t": "AMD",
-     "w": 2.91
+     "w": 3.27
     },
     {
      "n": "CATERPILLAR INC",
      "t": "CAT",
-     "w": 2.8
+     "w": 3.05
+    },
+    {
+     "n": "JOHNSON & JOHNSON",
+     "t": "JNJ",
+     "w": 2.94
+    },
+    {
+     "n": "JPMORGAN CHASE & CO",
+     "t": "JPM",
+     "w": 2.72
     },
     {
      "n": "UNITEDHEALTH GROUP INC",
      "t": "UNH",
-     "w": 2.3
-    },
-    {
-     "n": "ELI LILLY & CO",
-     "t": "LLY",
-     "w": 1.89
-    },
-    {
-     "n": "CHEVRON CORP",
-     "t": "CVX",
-     "w": 1.86
+     "w": 2.04
     },
     {
      "n": "DELL TECHNOLOGIES -C",
      "t": "DELL",
-     "w": 1.86
+     "w": 1.83
+    },
+    {
+     "n": "ELI LILLY & CO",
+     "t": "LLY",
+     "w": 1.7
+    },
+    {
+     "n": "ADVANCED MICRO DEVICES",
+     "t": "AMD",
+     "w": 1.69
     },
     {
      "n": "NEXTERA ENERGY INC",
      "t": "NEE",
-     "w": 1.85
+     "w": 1.67
+    },
+    {
+     "n": "CHEVRON CORP",
+     "t": "CVX",
+     "w": 1.66
     },
     {
      "n": "TAIWAN SEMICONDUCTOR-SP ADR",
      "t": "TSM",
-     "w": 1.76
+     "w": 1.63
     },
     {
      "n": "MICRON TECHNOLOGY INC",
      "t": "MU",
-     "w": 1.6
-    },
-    {
-     "n": "META PLATFORMS INC-CLASS A",
-     "t": "META",
-     "w": 1.56
-    },
-    {
-     "n": "COCA-COLA CO/THE",
-     "t": "KO",
-     "w": 1.48
-    },
-    {
-     "n": "GE VERNOVA INC",
-     "t": "GEV",
-     "w": 1.45
-    },
-    {
-     "n": "VISA INC-CLASS A SHARES",
-     "t": "V",
-     "w": 1.41
-    },
-    {
-     "n": "SEAGATE TECHNOLOGY HOLDINGS",
-     "t": "STX",
-     "w": 1.4
+     "w": 1.55
     },
     {
      "n": "MARVELL TECHNOLOGY INC",
      "t": "MRVL",
-     "w": 1.4
+     "w": 1.43
+    },
+    {
+     "n": "META PLATFORMS INC-CLASS A",
+     "t": "META",
+     "w": 1.41
+    },
+    {
+     "n": "GE VERNOVA INC",
+     "t": "GEV",
+     "w": 1.33
+    },
+    {
+     "n": "COCA-COLA CO/THE",
+     "t": "KO",
+     "w": 1.32
+    },
+    {
+     "n": "SEAGATE TECHNOLOGY HOLDINGS",
+     "t": "STX",
+     "w": 1.29
+    },
+    {
+     "n": "VISA INC-CLASS A SHARES",
+     "t": "V",
+     "w": 1.29
     },
     {
      "n": "COSTCO WHOLESALE CORP",
      "t": "COST",
-     "w": 1.38
-    },
-    {
-     "n": "SNOWFLAKE INC",
-     "t": "SNOW",
-     "w": 1.26
+     "w": 1.24
     },
     {
      "n": "INTEL CORP",
@@ -4337,69 +4337,54 @@
      "w": 1.18
     },
     {
-     "n": "PEPSICO INC",
-     "t": "PEP",
-     "w": 1.18
+     "n": "SNOWFLAKE INC",
+     "t": "SNOW",
+     "w": 1.1
     },
     {
      "n": "ROBINHOOD MARKETS INC - A",
      "t": "HOOD",
-     "w": 1.17
+     "w": 1.08
+    },
+    {
+     "n": "PEPSICO INC",
+     "t": "PEP",
+     "w": 1.06
     },
     {
      "n": "VERTIV HOLDINGS CO-A",
      "t": "VRT",
-     "w": 1.14
-    },
-    {
-     "n": "LUMENTUM HOLDINGS INC",
-     "t": "LITE",
-     "w": 1.13
+     "w": 1.06
     },
     {
      "n": "STARBUCKS CORP",
      "t": "SBUX",
-     "w": 1.09
+     "w": 1.0
     },
     {
      "n": "TESLA INC",
      "t": "TSLA",
-     "w": 1.08
-    },
-    {
-     "n": "MERCK & CO. INC.",
-     "t": "MRK",
-     "w": 1.08
+     "w": 1.0
     },
     {
      "n": "LINDE PLC",
      "t": "LIN",
-     "w": 1.04
+     "w": 0.95
+    },
+    {
+     "n": "MERCK & CO. INC.",
+     "t": "MRK",
+     "w": 0.95
     },
     {
      "n": "BANK OF AMERICA CORP",
      "t": "BAC",
-     "w": 1.04
+     "w": 0.94
     },
     {
-     "n": "RTX CORP",
-     "t": "RTX",
-     "w": 0.99
-    },
-    {
-     "n": "WALMART INC",
-     "t": "WMT",
-     "w": 0.99
-    },
-    {
-     "n": "GENERAL ELECTRIC",
-     "t": "GE",
-     "w": 0.98
-    },
-    {
-     "n": "MORGAN STANLEY",
-     "t": "MS",
-     "w": 0.97
+     "n": "LUMENTUM HOLDINGS INC",
+     "t": "LITE",
+     "w": 0.92
     },
     {
      "n": "ARM HOLDINGS PLC-ADR",
@@ -4407,34 +4392,54 @@
      "w": 0.92
     },
     {
+     "n": "GENERAL ELECTRIC",
+     "t": "GE",
+     "w": 0.9
+    },
+    {
+     "n": "RTX CORP",
+     "t": "RTX",
+     "w": 0.9
+    },
+    {
+     "n": "WALMART INC",
+     "t": "WMT",
+     "w": 0.9
+    },
+    {
+     "n": "MORGAN STANLEY",
+     "t": "MS",
+     "w": 0.9
+    },
+    {
      "n": "WESTERN DIGITAL CORP",
      "t": "WDC",
-     "w": 0.89
+     "w": 0.83
     },
     {
      "n": "CISCO SYSTEMS INC",
      "t": "CSCO",
-     "w": 0.84
+     "w": 0.77
     },
     {
      "n": "DATADOG INC - CLASS A",
      "t": "DDOG",
-     "w": 0.79
+     "w": 0.75
     },
     {
      "n": "APPLIED MATERIALS INC",
      "t": "AMAT",
-     "w": 0.75
+     "w": 0.71
     },
     {
      "n": "GOLDMAN SACHS GROUP INC",
      "t": "GS",
-     "w": 0.74
+     "w": 0.69
     },
     {
      "n": "NEBIUS GROUP NV",
      "t": "NBIS",
-     "w": 0.66
+     "w": 0.64
     },
     {
      "n": "SANDISK CORP",
@@ -4442,182 +4447,187 @@
      "w": 0.62
     },
     {
-     "n": "CONSTELLATION ENERGY",
-     "t": "CEG",
-     "w": 0.59
+     "n": "ENTEGRIS INC",
+     "t": "ENTG",
+     "w": 0.6
     },
     {
      "n": "LAM RESEARCH CORP",
      "t": "LRCX",
-     "w": 0.57
+     "w": 0.55
     },
     {
-     "n": "VERIZON COMMUNICATIONS INC",
-     "t": "VZ",
-     "w": 0.56
+     "n": "CONSTELLATION ENERGY",
+     "t": "CEG",
+     "w": 0.52
     },
     {
      "n": "HOWMET AEROSPACE INC",
      "t": "HWM",
-     "w": 0.55
+     "w": 0.5
     },
     {
      "n": "WELLS FARGO & CO",
      "t": "WFC",
-     "w": 0.55
+     "w": 0.5
+    },
+    {
+     "n": "VERIZON COMMUNICATIONS INC",
+     "t": "VZ",
+     "w": 0.5
     },
     {
      "n": "CVS HEALTH CORP",
      "t": "CVS",
-     "w": 0.53
+     "w": 0.48
     },
     {
      "n": "MCDONALDS CORP",
      "t": "MCD",
-     "w": 0.51
+     "w": 0.47
     }
    ],
    "name": "TIME 미국S&P500액티브",
    "source": "zeroin"
   },
   "426030": {
-   "asOf": "2026-08-05",
-   "equityWeight": 100.04,
+   "asOf": "2026-08-06",
+   "equityWeight": 100.03,
    "holdings": [
     {
      "n": "NVIDIA CORP",
      "t": "NVDA",
-     "w": 6.82
+     "w": 6.56
     },
     {
      "n": "MICROSOFT CORP",
      "t": "MSFT",
-     "w": 6.33
-    },
-    {
-     "n": "AMAZON.COM INC",
-     "t": "AMZN",
-     "w": 5.55
-    },
-    {
-     "n": "ALPHABET INC-CL A",
-     "t": "GOOGL",
-     "w": 5.44
-    },
-    {
-     "n": "ADVANCED MICRO DEVICES",
-     "t": "AMD",
-     "w": 5.12
-    },
-    {
-     "n": "INTEL CORP",
-     "t": "INTC",
-     "w": 4.65
+     "w": 6.03
     },
     {
      "n": "SANDISK CORP",
      "t": "SNDK",
-     "w": 4.54
+     "w": 5.6
     },
     {
-     "n": "NASDAQ 100 E-MINI INDEX SEPT 2026",
-     "t": "NQU6",
-     "w": 3.7
+     "n": "ADVANCED MICRO DEVICES",
+     "t": "AMD",
+     "w": 5.17
+    },
+    {
+     "n": "ALPHABET INC-CL A",
+     "t": "GOOGL",
+     "w": 5.13
+    },
+    {
+     "n": "AMAZON.COM INC",
+     "t": "AMZN",
+     "w": 5.07
+    },
+    {
+     "n": "INTEL CORP",
+     "t": "INTC",
+     "w": 4.83
     },
     {
      "n": "MICRON TECHNOLOGY INC",
      "t": "MU",
-     "w": 3.59
+     "w": 3.64
     },
     {
-     "n": "NEBIUS GROUP NV",
-     "t": "NBIS",
-     "w": 3.34
-    },
-    {
-     "n": "CREDO TECHNOLOGY GROUP HOLDI",
-     "t": "CRDO",
-     "w": 3.04
+     "n": "NASDAQ 100 E-MINI INDEX SEPT 2026",
+     "t": "NQU6",
+     "w": 3.61
     },
     {
      "n": "APPLIED OPTOELECTRONICS INC",
      "t": "AAOI",
-     "w": 2.74
+     "w": 3.58
     },
     {
-     "n": "SEAGATE TECHNOLOGY HOLDINGS",
-     "t": "STX",
-     "w": 2.53
+     "n": "NEBIUS GROUP NV",
+     "t": "NBIS",
+     "w": 3.31
+    },
+    {
+     "n": "CREDO TECHNOLOGY GROUP HOLDI",
+     "t": "CRDO",
+     "w": 3.13
     },
     {
      "n": "DELL TECHNOLOGIES -C",
      "t": "DELL",
-     "w": 2.34
-    },
-    {
-     "n": "SK HYNIX INC-ADR",
-     "t": "SKHY",
-     "w": 2.33
+     "w": 2.4
     },
     {
      "n": "BROADCOM INC",
      "t": "AVGO",
-     "w": 2.32
-    },
-    {
-     "n": "COINBASE GLOBAL INC -CLASS A",
-     "t": "COIN",
-     "w": 2.23
+     "w": 2.34
     },
     {
      "n": "WESTERN DIGITAL CORP",
      "t": "WDC",
-     "w": 2.2
+     "w": 2.15
+    },
+    {
+     "n": "SK HYNIX INC-ADR",
+     "t": "SKHY",
+     "w": 2.05
+    },
+    {
+     "n": "TOWER SEMICONDUCTOR LTD",
+     "t": "TSEM",
+     "w": 1.99
     },
     {
      "n": "APPLE INC",
      "t": "AAPL",
-     "w": 2.04
+     "w": 1.96
+    },
+    {
+     "n": "SEAGATE TECHNOLOGY HOLDINGS",
+     "t": "STX",
+     "w": 1.91
     },
     {
      "n": "META PLATFORMS INC-CLASS A",
      "t": "META",
-     "w": 1.99
-    },
-    {
-     "n": "ROBINHOOD MARKETS INC - A",
-     "t": "HOOD",
-     "w": 1.87
+     "w": 1.86
     },
     {
      "n": "APPLIED MATERIALS INC",
      "t": "AMAT",
-     "w": 1.83
+     "w": 1.82
+    },
+    {
+     "n": "ROBINHOOD MARKETS INC - A",
+     "t": "HOOD",
+     "w": 1.81
     },
     {
      "n": "MARVELL TECHNOLOGY INC",
      "t": "MRVL",
-     "w": 1.61
+     "w": 1.72
     },
     {
      "n": "TERADYNE INC",
      "t": "TER",
-     "w": 1.58
+     "w": 1.65
     },
     {
-     "n": "TESLA INC",
-     "t": "TSLA",
-     "w": 1.55
+     "n": "COINBASE GLOBAL INC -CLASS A",
+     "t": "COIN",
+     "w": 1.64
     },
     {
      "n": "LUMENTUM HOLDINGS INC",
      "t": "LITE",
-     "w": 1.5
+     "w": 1.54
     },
     {
-     "n": "VERTIV HOLDINGS CO-A",
-     "t": "VRT",
-     "w": 1.26
+     "n": "TESLA INC",
+     "t": "TSLA",
+     "w": 1.48
     },
     {
      "n": "COREWEAVE INC-CL A",
@@ -4625,59 +4635,49 @@
      "w": 1.25
     },
     {
-     "n": "ELI LILLY & CO",
-     "t": "LLY",
-     "w": 1.08
-    },
-    {
-     "n": "LAM RESEARCH CORP",
-     "t": "LRCX",
-     "w": 1.04
-    },
-    {
-     "n": "ASTERA LABS INC",
-     "t": "ALAB",
-     "w": 1.03
-    },
-    {
-     "n": "TOWER SEMICONDUCTOR LTD",
-     "t": "TSEM",
-     "w": 1.01
+     "n": "VERTIV HOLDINGS CO-A",
+     "t": "VRT",
+     "w": 1.18
     },
     {
      "n": "ARM HOLDINGS PLC-ADR",
      "t": "ARM",
-     "w": 1.0
+     "w": 1.1
     },
     {
-     "n": "GE VERNOVA INC",
-     "t": "GEV",
-     "w": 0.97
+     "n": "ASTERA LABS INC",
+     "t": "ALAB",
+     "w": 1.09
+    },
+    {
+     "n": "LAM RESEARCH CORP",
+     "t": "LRCX",
+     "w": 1.06
+    },
+    {
+     "n": "ELI LILLY & CO",
+     "t": "LLY",
+     "w": 1.01
     },
     {
      "n": "SPACE EXPLORATION TECHN-CL A",
      "t": "SPCX",
+     "w": 0.93
+    },
+    {
+     "n": "GE VERNOVA INC",
+     "t": "GEV",
      "w": 0.92
     },
     {
      "n": "TAIWAN SEMICONDUCTOR-SP ADR",
      "t": "TSM",
-     "w": 0.91
-    },
-    {
-     "n": "BLOOM ENERGY CORP- A",
-     "t": "BE",
-     "w": 0.84
-    },
-    {
-     "n": "STRATEGY INC",
-     "t": "MSTR",
-     "w": 0.81
+     "w": 0.88
     },
     {
      "n": "QUALCOMM INC",
      "t": "QCOM",
-     "w": 0.8
+     "w": 0.81
     },
     {
      "n": "CORNING INC",
@@ -4685,9 +4685,14 @@
      "w": 0.8
     },
     {
-     "n": "COSTCO WHOLESALE CORP",
-     "t": "COST",
-     "w": 0.61
+     "n": "BLOOM ENERGY CORP- A",
+     "t": "BE",
+     "w": 0.79
+    },
+    {
+     "n": "STRATEGY INC",
+     "t": "MSTR",
+     "w": 0.77
     },
     {
      "n": "ROCKET LAB CORP",
@@ -4697,17 +4702,22 @@
     {
      "n": "WALMART INC",
      "t": "WMT",
-     "w": 0.6
+     "w": 0.57
+    },
+    {
+     "n": "COSTCO WHOLESALE CORP",
+     "t": "COST",
+     "w": 0.57
     },
     {
      "n": "SILICON MOTION TECHNOL-ADR",
      "t": "SIMO",
-     "w": 0.56
+     "w": 0.57
     },
     {
      "n": "APPLOVIN CORP-CLASS A",
      "t": "APP",
-     "w": 0.46
+     "w": 0.44
     },
     {
      "n": "KLA CORP",
@@ -4724,41 +4734,41 @@
    "source": "zeroin"
   },
   "442580": {
-   "asOf": "2026-08-06",
-   "equityWeight": 32.04,
+   "asOf": "2026-08-07",
+   "equityWeight": 32.68,
    "holdings": [
     {
      "n": "삼성전자",
      "t": "005930",
-     "w": 15.7529
+     "w": 16.4651
     },
     {
      "n": "SK하이닉스",
      "t": "000660",
-     "w": 15.205
-    },
-    {
-     "n": "테크윙",
-     "t": "089030",
-     "w": 0.3897
+     "w": 15.0837
     },
     {
      "n": "디아이",
      "t": "003160",
-     "w": 0.3525
+     "w": 0.412
+    },
+    {
+     "n": "테크윙",
+     "t": "089030",
+     "w": 0.3747
     },
     {
      "n": "한미반도체",
      "t": "042700",
-     "w": 0.3407
+     "w": 0.3408
     }
    ],
    "name": "PLUS 글로벌HBM반도체",
    "source": "krx"
   },
   "487230": {
-   "asOf": "2026-08-05",
-   "equityWeight": 100.0,
+   "asOf": "2026-08-06",
+   "equityWeight": 99.99,
    "holdings": [
     {
      "n": "GE Vernova LLC",
@@ -4768,67 +4778,67 @@
     {
      "n": "Comfort Systems USA Inc",
      "t": "FIX",
-     "w": 16.98
+     "w": 16.83
     },
     {
      "n": "Vertiv Holdings Co",
      "t": "VRT",
-     "w": 14.75
+     "w": 14.96
     },
     {
      "n": "Quanta Services Inc",
      "t": "PWR",
-     "w": 12.7
+     "w": 12.79
     },
     {
      "n": "BLOOM ENERGY CORPORATION",
      "t": "BE",
-     "w": 10.88
+     "w": 11.24
     },
     {
      "n": "CAMECO CORP",
      "t": "CCJ",
-     "w": 7.53
+     "w": 7.72
     },
     {
      "n": "MasTec Inc",
      "t": "MTZ",
-     "w": 5.84
+     "w": 6.0
     },
     {
      "n": "Sterling Infrastructure Inc",
      "t": "STRL",
-     "w": 5.82
+     "w": 5.09
     },
     {
      "n": "Powell Industries Inc",
      "t": "POWL",
-     "w": 4.18
+     "w": 3.97
     },
     {
      "n": "Oklo Inc",
      "t": "OKLO",
-     "w": 1.67
+     "w": 1.74
     }
    ],
    "name": "KODEX 미국AI전력핵심인프라",
    "source": "zeroin"
   },
   "490590": {
-   "asOf": "2026-08-06",
-   "equityWeight": 4.33,
+   "asOf": "2026-08-07",
+   "equityWeight": 4.39,
    "holdings": [
     {
      "n": "RISE 미국AI밸류체인TOP3Plus",
      "t": "485690",
-     "w": 4.3331
+     "w": 4.3872
     }
    ],
    "name": "RISE 미국AI밸류체인데일리고정커버드콜",
    "source": "krx"
   },
   "BMNU": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 7.87,
    "holdings": [
     {
@@ -4841,7 +4851,7 @@
    "source": "yfinance"
   },
   "DRAM": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 61.34,
    "holdings": [
     {
@@ -4874,7 +4884,7 @@
    "source": "yfinance"
   },
   "QLD": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 38.36,
    "holdings": [
     {
@@ -4927,7 +4937,7 @@
    "source": "yfinance"
   },
   "QQQ": {
-   "asOf": "2026-08-06",
+   "asOf": "2026-08-07",
    "equityWeight": 46.31,
    "holdings": [
     {
@@ -4985,62 +4995,62 @@
    "source": "yfinance"
   },
   "SPYM": {
-   "asOf": "2026-08-06",
-   "equityWeight": 39.61,
+   "asOf": "2026-08-07",
+   "equityWeight": 37.58,
    "holdings": [
     {
      "n": "NVIDIA Corp",
      "t": "NVDA",
-     "w": 7.379
+     "w": 7.5409
     },
     {
      "n": "Apple Inc",
      "t": "AAPL",
-     "w": 7.0705
+     "w": 7.0365
     },
     {
      "n": "Microsoft Corp",
      "t": "MSFT",
-     "w": 6.2486
+     "w": 5.3539
     },
     {
      "n": "Amazon.com Inc",
      "t": "AMZN",
-     "w": 3.8672
-    },
-    {
-     "n": "Broadcom Inc",
-     "t": "AVGO",
-     "w": 3.2383
+     "w": 4.1231
     },
     {
      "n": "Alphabet Inc Class A",
      "t": "GOOGL",
-     "w": 3.1822
+     "w": 3.2387
+    },
+    {
+     "n": "Broadcom Inc",
+     "t": "AVGO",
+     "w": 2.8585
     },
     {
      "n": "Alphabet Inc Class C",
      "t": "GOOG",
-     "w": 2.5541
+     "w": 2.6143
     },
     {
      "n": "Meta Platforms Inc Class A",
      "t": "META",
-     "w": 2.4012
+     "w": 1.8961
     },
     {
-     "n": "Tesla Inc",
-     "t": "TSLA",
-     "w": 2.0624
+     "n": "JPMorgan Chase & Co",
+     "t": "JPM",
+     "w": 1.462
     },
     {
      "n": "Berkshire Hathaway Inc Class B",
      "t": "BRK-B",
-     "w": 1.6098
+     "w": 1.4545
     }
    ],
    "name": "State Street SPDR Portfolio S&P",
-   "source": "alias:SPLG"
+   "source": "yfinance"
   }
  },
  "failures": []
