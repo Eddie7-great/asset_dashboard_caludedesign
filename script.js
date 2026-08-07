@@ -555,14 +555,19 @@ async function fetchDivData() {
 }
 
 // 종목별 배당 raw 이력 (10년치) — YoC/CAGR/DRIP 위젯용
-// 응답 캐시 키: divHistRaw_<YYYY-MM-DD> (7일간 유효)
+// 국내 .KS → .KQ 폴백을 포함하는 캐시 스키마. 버전 변경 시 기존 누락 캐시를 한 번 갱신한다.
+const DIV_HIST_CACHE_VERSION = 2;
 window._divHistoryRawCache = window._divHistoryRawCache || {};
 async function fetchDividendHistory(force = false) {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
   const tickers = [...new Set(
     pfolioData.filter(i => i.grp==='주식' && i.qty>0)
-      .map(i => (i.tkr||'').replace(/\.(KS|KQ)$/,''))
+      .map(i => {
+        const raw=String(i.tkr||'').toUpperCase();
+        const base=raw.replace(/\.(KS|KQ)$/,'');
+        if (/\.KQ$/.test(raw) || String(i.market||'').toUpperCase().includes('KOSDAQ')) return base+'.KQ';
+        if (/\.KS$/.test(raw)) return base+'.KS';
+        return raw;
+      })
       .filter(Boolean)
   )];
   if (!tickers.length) return;
@@ -572,11 +577,19 @@ async function fetchDividendHistory(force = false) {
       const cached = localStorage.getItem('divHistRaw');
       if (cached) {
         const obj = JSON.parse(cached);
-        if (obj && obj.savedAt && (Date.now() - obj.savedAt) < 7*86400000 && obj.data
-          && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t))) {
-          window._divHistoryRawCache = Object.fromEntries(Object.entries(obj.data||{}).map(
-            ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
-          ));
+        const age = obj?.savedAt ? Date.now()-obj.savedAt : Infinity;
+        const normalizedData = Object.fromEntries(Object.entries(obj?.data||{}).map(
+          ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
+        ));
+        const expectedDividendKeys = tickers
+          .map(t=>String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''))
+          .filter(t=>Number(window._divDataCache?.[t]?.annualDps)>0);
+        const missingExpected = expectedDividendKeys.filter(t=>!Array.isArray(normalizedData[t]?.events)||!normalizedData[t].events.length);
+        // 정상 캐시는 7일간 재사용한다. 배당 지급 종목인데 원본 이력이 빠진 경우만 하루 뒤 재검증한다.
+        const missingRetryDue = missingExpected.length>0 && age>=86400000;
+        if (obj && obj.version===DIV_HIST_CACHE_VERSION && age < 7*86400000 && obj.data
+          && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t)) && !missingRetryDue) {
+          window._divHistoryRawCache = normalizedData;
           return;
         }
       }
@@ -592,7 +605,7 @@ async function fetchDividendHistory(force = false) {
     window._divHistoryRawCache = Object.fromEntries(Object.entries(data.result).map(
       ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
     ));
-    try { localStorage.setItem('divHistRaw', JSON.stringify({ savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
+    try { localStorage.setItem('divHistRaw', JSON.stringify({ version:DIV_HIST_CACHE_VERSION, savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
   } catch(e) { console.error('[fetchDividendHistory]', e); }
 }
 
@@ -633,17 +646,21 @@ function rememberCfDeletion(item){
     if (at){
       if (!Array.isArray(at.skipMonths)) at.skipMonths=[];
       if (!at.skipMonths.includes(ym)) at.skipMonths.push(ym);
-      saveAutoTransfers();
+      saveAutoTransfers(false);
     }
   }
   return key;
 }
 const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572'};
-// 자동이체 등록 데이터: {id, type, cat, desc, amt, cycle:'daily'|'weekly'|'monthly'|'month-end'|'month-start', dayOfWeek:0-6, dayOfMonth:1-31, lastApplied:'YYYY-MM'}
+// 자동이체 등록 데이터: {id, owner, type, cat, desc, amt, cycle, dayOfWeek, dayOfMonth,
+// isFixedCost:true|false|undefined(기존 데이터 검토 필요), startMonth, endMonth, lastApplied}
 let autoTransferData = [];
 try { const s=localStorage.getItem('autoTransferData'); if(s) autoTransferData=JSON.parse(s); } catch(e){}
 
-function saveAutoTransfers(){ try{localStorage.setItem('autoTransferData',JSON.stringify(autoTransferData));}catch(e){} }
+function saveAutoTransfers(syncRemote=true){
+  try{localStorage.setItem('autoTransferData',JSON.stringify(autoTransferData));}catch(e){}
+  if(syncRemote && typeof saveExtDataToKV==='function') saveExtDataToKV();
+}
 
 /** 월별 유효 자동이체 금액 – amountChanges 타임라인을 반영 */
 function _effectiveAutoTransferAmt(at, y, m) {
@@ -689,12 +706,12 @@ function applyAutoTransfers() {
     if (shouldApply) {
       const dateStr = today.toISOString().substring(0,10);
       const effAmt = _effectiveAutoTransferAmt(at, today.getFullYear(), today.getMonth()+1);
-      cfData.push({date:dateStr, type:at.type, cat:at.cat, desc:'[자동] '+at.desc, amt:effAmt, isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
+      cfData.push({date:dateStr, type:at.type, cat:at.cat, desc:'[자동] '+at.desc, amt:effAmt, owner:at.owner||'미지정', isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
       at.lastApplied = ym;
       changed = true;
     }
   });
-  if (changed) { saveAutoTransfers(); saveCfData(); renderCashFlow(); saveExtDataToKV(); updateNetAssetDisplay(); }
+  if (changed) { saveAutoTransfers(false); saveCfData(); renderCashFlow(); saveExtDataToKV(); updateNetAssetDisplay(); }
 }
 
 function _getCycleLabel(at) {
@@ -714,19 +731,25 @@ function addAutoTransfer() {
   const cycle = document.getElementById('at-cycle').value;
   const dom = parseInt(document.getElementById('at-dom').value)||1;
   const dow = parseInt(document.getElementById('at-dow').value)||1;
+  const owner = document.getElementById('cf-owner-input')?.value || (_cfOwner==='전체'?'':_cfOwner);
+  const isFixedCost = !!document.getElementById('cf-fixed-flag')?.checked;
   if (!desc||!amt) { alert('내용과 금액을 입력하세요.'); return; }
+  if (!OWNERS.includes(owner)) { alert('소유주를 선택하세요.'); return; }
   const today = new Date();
   const ym = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
-  const at = {id:Date.now(), type, cat, desc, amt, cycle, dayOfMonth:dom, dayOfWeek:dow, lastApplied: ym, startMonth: ym};
+  const at = {id:Date.now(), owner, type, cat, desc, amt, cycle, dayOfMonth:dom, dayOfWeek:dow, isFixedCost, lastApplied: ym, startMonth: ym};
   autoTransferData.push(at);
-  saveAutoTransfers();
+  saveAutoTransfers(false);
   // 등록 즉시 상세 내역 리스트에 추가 (중복 방지용 [자동] 접두사 추가)
   const dateStr = today.toISOString().substring(0,10);
-  cfData.push({date:dateStr, type, cat, desc: '[자동] ' + desc, amt, isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
+  cfData.push({date:dateStr, type, cat, desc: '[자동] ' + desc, amt, owner, isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
   saveCfData();
+  saveExtDataToKV();
   renderCashFlow();
   const descEl=document.getElementById('cf-desc');if(descEl)descEl.value='';
   const amtEl=document.getElementById('cf-amt');if(amtEl)amtEl.value='';
+  const fixedEl=document.getElementById('cf-fixed-flag');if(fixedEl)fixedEl.checked=false;
+  renderFixedCostView();
 }
 
 function deleteAutoTransfer(id) {
@@ -747,7 +770,8 @@ function deleteAutoTransfer(id) {
     ));
     saveCfData();
   }
-  saveAutoTransfers();
+  saveAutoTransfers(false);
+  saveExtDataToKV();
   if (typeof renderCashFlow === 'function') renderCashFlow();
 }
 
@@ -793,7 +817,7 @@ function editAutoTransferMonth(atId, y, m) {
   const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const newEntry = {
     date: dateStr, type: at.type, cat: at.cat,
-    desc: '[자동] ' + (at.desc||''), amt: total,
+    desc: '[자동] ' + (at.desc||''), amt: total, owner:at.owner||'미지정',
     isAuto: true, atId: at.id, cycleLabel: _getCycleLabel(at)
   };
   cfData.push(newEntry);
@@ -829,8 +853,9 @@ function editAutoTransferFromMonth(atId, y, m) {
       c.amt = newAmt;
     }
   });
-  saveAutoTransfers();
+  saveAutoTransfers(false);
   saveCfData();
+  saveExtDataToKV();
   renderCashFlow();
   alert(`${y}년 ${m}월부터 ₩${newAmt.toLocaleString()} 로 변경되었습니다.`);
 }
@@ -856,8 +881,9 @@ function skipAutoTransferMonth(atId, y, m) {
     new Date(c.date).getFullYear() === y &&
     new Date(c.date).getMonth()+1 === m
   ));
-  saveAutoTransfers();
+  saveAutoTransfers(false);
   saveCfData();
+  saveExtDataToKV();
   renderCashFlow();
 }
 
@@ -882,8 +908,9 @@ function deleteAutoTransferFromMonth(atId, y, m) {
       return !(cd.getFullYear() > y || (cd.getFullYear()===y && cd.getMonth()+1 >= m));
     });
   }
-  saveAutoTransfers();
+  saveAutoTransfers(false);
   saveCfData();
+  saveExtDataToKV();
   renderCashFlow();
   alert(`${y}년 ${m}월부터 이 자동이체가 중단됩니다.`);
 }
@@ -919,8 +946,10 @@ function toggleCfMode() {
   // 날짜 vs 주기 필드
   const dateGrp = document.getElementById('cf-date-group');
   const cycleGrp = document.getElementById('cf-cycle-group');
+  const fixedFlag = document.getElementById('cf-fixed-flag-group');
   if(dateGrp) dateGrp.style.display = isAuto?'none':'';
   if(cycleGrp) cycleGrp.style.display = isAuto?'':'none';
+  if(fixedFlag) fixedFlag.style.display = isAuto?'flex':'none';
   // 주기 관련 필드 표시
   toggleAtCycleFields();
 }
@@ -934,6 +963,272 @@ function submitCfEntry() {
   } else {
     addCashFlow();
   }
+}
+
+function _cfEsc(value) {
+  return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function _cfMonthKey(date=new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+
+function switchCashFlowSection(section, btn) {
+  _cfSection = section === 'fixed' ? 'fixed' : 'monthly';
+  const monthly = document.getElementById('cf-monthly-section');
+  const fixed = document.getElementById('cf-fixed-section');
+  if (monthly) monthly.style.display = _cfSection === 'monthly' ? '' : 'none';
+  if (fixed) fixed.style.display = _cfSection === 'fixed' ? 'flex' : 'none';
+  document.querySelectorAll('.cf-section-tab').forEach(tab => {
+    const active = tab === btn || tab.id === `cf-section-tab-${_cfSection}`;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  if (_cfSection === 'fixed') renderFixedCostView();
+  else requestAnimationFrame(()=>{
+    if(window.cfDonutChartInst) window.cfDonutChartInst.resize();
+    if(window.cfTrendChartInst) window.cfTrendChartInst.resize();
+  });
+}
+
+function _autoTransferActiveInMonth(at, y, m) {
+  if (!at) return false;
+  const ym = `${y}-${String(m).padStart(2,'0')}`;
+  if (at.startMonth && ym < at.startMonth) return false;
+  if (at.endMonth && ym > at.endMonth) return false;
+  if (Array.isArray(at.skipMonths) && at.skipMonths.includes(ym)) return false;
+  return true;
+}
+
+function _autoTransferMonthlyEquivalent(at, y, m) {
+  const amount = _effectiveAutoTransferAmt(at, y, m);
+  if (at.cycle === 'daily') return amount * 365 / 12;
+  if (at.cycle === 'weekly') return amount * 52 / 12;
+  if (at.cycle === 'quarterly') return amount / 3;
+  if (at.cycle === 'yearly') return amount / 12;
+  return amount;
+}
+
+function _fixedCostCycleText(at) {
+  if (at.cycle === 'weekly') return `매주 ${DOW_LABELS[Number(at.dayOfWeek)||0]}요일`;
+  if (at.cycle === 'month-start') return '매월초';
+  if (at.cycle === 'month-end') return '매월말';
+  if (at.cycle === 'daily') return '매일';
+  if (at.cycle === 'quarterly') return '분기';
+  if (at.cycle === 'yearly') return '매년';
+  return `매월 ${Math.max(1,Math.min(31,Number(at.dayOfMonth)||1))}일`;
+}
+
+function _autoTransferOccursOn(at, date) {
+  const y=date.getFullYear(),m=date.getMonth()+1,day=date.getDate();
+  if (!_autoTransferActiveInMonth(at,y,m)) return false;
+  if (at.cycle === 'daily') return true;
+  if (at.cycle === 'weekly') return date.getDay() === (Number(at.dayOfWeek)||0);
+  if (at.cycle === 'month-start') return day === 1;
+  if (at.cycle === 'month-end') return day === new Date(y,m,0).getDate();
+  if (at.cycle === 'yearly') {
+    const startMonth=Number(String(at.startMonth||'').slice(5,7))||1;
+    return m===startMonth && day===Math.min(Number(at.dayOfMonth)||1,new Date(y,m,0).getDate());
+  }
+  if (at.cycle === 'quarterly') {
+    const startMonth=Number(String(at.startMonth||'').slice(5,7))||1;
+    return ((m-startMonth+12)%3===0) && day===Math.min(Number(at.dayOfMonth)||1,new Date(y,m,0).getDate());
+  }
+  return day === Math.min(Number(at.dayOfMonth)||1,new Date(y,m,0).getDate());
+}
+
+function _nextFixedCostDate(at, fromDate=new Date()) {
+  const cursor=new Date(fromDate.getFullYear(),fromDate.getMonth(),fromDate.getDate());
+  for(let offset=0;offset<=370;offset++){
+    const d=new Date(cursor);d.setDate(cursor.getDate()+offset);
+    if(_autoTransferOccursOn(at,d)) return d;
+  }
+  return null;
+}
+
+function _fixedCostOwnerMatches(at) {
+  if (_cfOwner === '전체') return true;
+  return at.owner === _cfOwner;
+}
+
+function _fixedCostIncomeForMonth(y,m) {
+  const materializedIds=new Set();
+  let income=0;
+  cfData.forEach(item=>{
+    const d=new Date(item.date);
+    if(d.getFullYear()!==y||d.getMonth()+1!==m||item.type!=='수입') return;
+    if(_cfOwner!=='전체'&&item.owner!==_cfOwner) return;
+    income+=Number(item.amt)||0;
+    if(item.atId) materializedIds.add(item.atId);
+  });
+  autoTransferData.forEach(at=>{
+    if(at.type!=='수입'||materializedIds.has(at.id)||!_fixedCostOwnerMatches(at)||!_autoTransferActiveInMonth(at,y,m)) return;
+    income+=_autoTransferMonthlyEquivalent(at,y,m);
+  });
+  return income;
+}
+
+function renderFixedCostView() {
+  const body=document.getElementById('cf-fixed-table-body');
+  if(!body) return;
+  const now=new Date(), y=now.getFullYear(),m=now.getMonth()+1;
+  const ownerExpenses=autoTransferData.filter(at=>at.type==='지출'&&_fixedCostOwnerMatches(at));
+  const excluded=ownerExpenses.filter(at=>at.isFixedCost===false);
+  const visible=ownerExpenses.filter(at=>at.isFixedCost!==false||_cfShowExcluded);
+  const included=visible.filter(at=>at.isFixedCost===true&&_autoTransferActiveInMonth(at,y,m));
+  const pending=visible.filter(at=>at.isFixedCost==null);
+  const monthly=included.reduce((sum,at)=>sum+_autoTransferMonthlyEquivalent(at,y,m),0);
+  const annual=monthly*12;
+  const income=_fixedCostIncomeForMonth(y,m);
+  const ratio=income>0?monthly/income*100:null;
+  const nextList=included.map(at=>({at,date:_nextFixedCostDate(at,now)})).filter(x=>x.date).sort((a,b)=>a.date-b.date);
+  const next=nextList[0];
+  const monthlyEl=document.getElementById('cf-fixed-monthly');if(monthlyEl)monthlyEl.textContent=`₩${Math.round(monthly).toLocaleString()}`;
+  const annualEl=document.getElementById('cf-fixed-annual');if(annualEl)annualEl.textContent=`₩${Math.round(annual).toLocaleString()}`;
+  const ratioEl=document.getElementById('cf-fixed-ratio');if(ratioEl)ratioEl.textContent=ratio==null?'-':`${ratio.toFixed(1)}%`;
+  const ratioNote=document.getElementById('cf-fixed-ratio-note');if(ratioNote)ratioNote.textContent=income>0?`이번 달 수입 ₩${Math.round(income).toLocaleString()} 기준`:'이번 달 수입 내역이 없습니다';
+  const nextEl=document.getElementById('cf-fixed-next');if(nextEl)nextEl.textContent=next?`₩${Math.round(_effectiveAutoTransferAmt(next.at,next.date.getFullYear(),next.date.getMonth()+1)).toLocaleString()}`:'-';
+  const nextNote=document.getElementById('cf-fixed-next-note');if(nextNote)nextNote.textContent=next?`${next.date.getMonth()+1}월 ${next.date.getDate()}일 · ${next.at.owner||'미지정'} · ${next.at.desc}`:'예정된 결제가 없습니다';
+  const monthNote=document.getElementById('cf-fixed-monthly-note');if(monthNote)monthNote.textContent=`${_cfOwner==='전체'?'가구 전체':_cfOwner} · ${included.length}개 항목`;
+  const review=document.getElementById('cf-fixed-review-note');if(review)review.textContent=pending.length?`기존 자동이체 ${pending.length}건은 소유주와 고정비 여부를 확인해야 합계에 반영됩니다.`:'분류가 완료된 고정비만 합산합니다.';
+  const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
+  const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
+
+  const rows=visible.slice().sort((a,b)=>{
+    const ap=a.isFixedCost===true?0:(a.isFixedCost==null?1:2),bp=b.isFixedCost===true?0:(b.isFixedCost==null?1:2);
+    return ap-bp||String(a.owner||'').localeCompare(String(b.owner||''),'ko')||String(a.desc||'').localeCompare(String(b.desc||''),'ko');
+  });
+  body.innerHTML=rows.length?rows.map(at=>{
+    const isPending=at.isFixedCost==null;
+    const isExcluded=at.isFixedCost===false;
+    const active=_autoTransferActiveInMonth(at,y,m);
+    const monthlyAmt=_autoTransferMonthlyEquivalent(at,y,m);
+    const owner=at.owner||'미지정';
+    const ownerCell=isPending&&!OWNERS.includes(at.owner)
+      ?`<select class="cf-fixed-inline-owner" aria-label="${_cfEsc(at.desc)} 소유주" onchange="setAutoTransferOwner(${at.id},this.value)"><option value="">미지정</option>${OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`
+      :`<span class="cf-fixed-owner"><i style="background:${ownerColors[owner]||'#8a97b0'}"></i>${_cfEsc(owner)}</span>`;
+    const state=isExcluded?'<span class="cf-fixed-state is-ended">제외</span>':(isPending?'<span class="cf-fixed-state is-pending">분류 필요</span>':(!active?'<span class="cf-fixed-state is-ended">종료</span>':'<span class="cf-fixed-state is-included">합산</span>'));
+    const actions=isExcluded
+      ?`<button class="btn-action" onclick="restoreFixedCost(${at.id})" title="고정비 검토 대상으로 복원">↺</button>`
+      :isPending
+      ?`<button class="btn-action" onclick="includeFixedCost(${at.id})" title="고정비로 포함">✓</button><button class="btn-action" onclick="editFixedCost(${at.id})" title="확인 후 수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${at.id})" title="고정비에서 제외">✕</button>`
+      :`<button class="btn-action" onclick="editFixedCost(${at.id})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${at.id})" title="고정비에서 제외">✕</button>`;
+    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>`;
+  }).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>';
+}
+
+function toggleFixedCostScheduleFields() {
+  const cycle=document.getElementById('cf-fixed-cycle')?.value;
+  const day=document.getElementById('cf-fixed-day-group');
+  const dow=document.getElementById('cf-fixed-dow-group');
+  if(day)day.style.display=cycle==='monthly'?'':'none';
+  if(dow)dow.style.display=cycle==='weekly'?'':'none';
+}
+
+function resetFixedCostForm() {
+  const edit=document.getElementById('cf-fixed-edit-id');if(edit)edit.value='';
+  const title=document.getElementById('cf-fixed-form-title');if(title)title.textContent='고정비 등록';
+  const submit=document.getElementById('cf-fixed-submit');if(submit)submit.textContent='등록';
+  const cancel=document.getElementById('cf-fixed-cancel');if(cancel)cancel.style.display='none';
+  const desc=document.getElementById('cf-fixed-desc');if(desc)desc.value='';
+  const amt=document.getElementById('cf-fixed-amt');if(amt)amt.value='';
+  const cycle=document.getElementById('cf-fixed-cycle');if(cycle)cycle.value='monthly';
+  const day=document.getElementById('cf-fixed-day');if(day)day.value='25';
+  const start=document.getElementById('cf-fixed-start');if(start)start.value=_cfMonthKey();
+  const owner=document.getElementById('cf-fixed-owner');if(owner)owner.value=_cfOwner==='전체'?'본인':_cfOwner;
+  toggleFixedCostScheduleFields();
+}
+
+function submitFixedCost() {
+  if(isMobileLayout())return;
+  const id=Number(document.getElementById('cf-fixed-edit-id')?.value)||0;
+  const owner=document.getElementById('cf-fixed-owner')?.value;
+  const cat=document.getElementById('cf-fixed-cat')?.value||'기타';
+  const desc=document.getElementById('cf-fixed-desc')?.value.trim();
+  const amt=Number((document.getElementById('cf-fixed-amt')?.value||'').replace(/,/g,''));
+  const cycle=document.getElementById('cf-fixed-cycle')?.value||'monthly';
+  const day=Math.max(1,Math.min(31,Number(document.getElementById('cf-fixed-day')?.value)||1));
+  const dow=Number(document.getElementById('cf-fixed-dow')?.value)||0;
+  const start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
+  if(!OWNERS.includes(owner)){alert('소유주를 선택하세요.');return;}
+  if(!desc||!amt||amt<0){alert('항목과 금액을 입력하세요.');return;}
+  const existing=autoTransferData.find(at=>at.id===id);
+  if(existing){
+    const changeFrom=_cfMonthKey();
+    Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true});
+    if(start>changeFrom){
+      existing.amt=amt;
+      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
+    }else{
+      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<changeFrom);
+      existing.amountChanges.push({from:changeFrom,amt});
+    }
+  }else{
+    autoTransferData.push({id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:'',lastApplied:'',isFixedCost:true});
+  }
+  saveAutoTransfers();
+  resetFixedCostForm();
+  renderFixedCostView();
+  renderCashFlow();
+}
+
+function editFixedCost(id) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
+  document.getElementById('cf-fixed-edit-id').value=String(id);
+  document.getElementById('cf-fixed-owner').value=OWNERS.includes(at.owner)?at.owner:(_cfOwner==='전체'?'본인':_cfOwner);
+  document.getElementById('cf-fixed-cat').value=at.cat||'기타';
+  document.getElementById('cf-fixed-desc').value=at.desc||'';
+  const now=new Date();
+  document.getElementById('cf-fixed-amt').value=Number(_effectiveAutoTransferAmt(at,now.getFullYear(),now.getMonth()+1)||0).toLocaleString();
+  document.getElementById('cf-fixed-cycle').value=['monthly','month-start','month-end','weekly'].includes(at.cycle)?at.cycle:'monthly';
+  document.getElementById('cf-fixed-day').value=at.dayOfMonth||1;
+  document.getElementById('cf-fixed-dow').value=String(at.dayOfWeek||0);
+  document.getElementById('cf-fixed-start').value=at.startMonth||_cfMonthKey();
+  document.getElementById('cf-fixed-form-title').textContent='고정비 수정';
+  document.getElementById('cf-fixed-submit').textContent='수정';
+  document.getElementById('cf-fixed-cancel').style.display='';
+  toggleFixedCostScheduleFields();
+  document.getElementById('cf-fixed-desc').focus();
+}
+
+function setAutoTransferOwner(id,owner) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at||!OWNERS.includes(owner))return;
+  at.owner=owner;
+  saveAutoTransfers();
+  renderFixedCostView();
+}
+
+function includeFixedCost(id) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
+  if(!OWNERS.includes(at.owner)){alert('먼저 소유주를 선택하세요.');return;}
+  at.isFixedCost=true;
+  saveAutoTransfers();
+  renderFixedCostView();
+}
+
+function excludeFixedCost(id) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
+  at.isFixedCost=false;
+  saveAutoTransfers();
+  resetFixedCostForm();
+  renderFixedCostView();
+}
+
+function restoreFixedCost(id) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
+  delete at.isFixedCost;
+  saveAutoTransfers();
+  renderFixedCostView();
+}
+
+function toggleExcludedFixedCosts() {
+  _cfShowExcluded=!_cfShowExcluded;
+  renderFixedCostView();
 }
 
 // 경제 캘린더/뉴스 데이터는 제거됨 (메뉴 삭제)
@@ -1206,12 +1501,16 @@ function switchView(viewId, btn) {
   if (analysisBar) analysisBar.style.display = (viewId==='analysis') ? 'flex' : 'none';
   if (viewId==='cashflow') {
     _cfOwner='전체';
+    _cfSection='monthly';
     document.querySelectorAll('#cf-owner-bar .owner-btn').forEach(b=>b.classList.remove('active'));
     const allCfBtn=document.getElementById('cf-owner-전체');
     if(allCfBtn)allCfBtn.classList.add('active');
+    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value='본인';
+    resetFixedCostForm();
+    switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }
   if (viewId==='dividend'){if(window.allOwnersDivChartInst)window.allOwnersDivChartInst.resize();if(window.mainDivChartInst)window.mainDivChartInst.resize();renderDivTable(window.activeMainDivMonth);}
-  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true));renderAutoTransfers();renderCfDivPanel();requestAnimationFrame(()=>{if(window.cfDonutChartInst)window.cfDonutChartInst.resize();if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
+  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfDonutChartInst)window.cfDonutChartInst.resize();if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
   if (viewId==='gift'){if(window.giftChartInst)window.giftChartInst.resize();setTimeout(()=>calcGift(),50);}
   if (viewId==='portfolio'){if(portPerfChartInst)portPerfChartInst.resize();renderPortfolioTop3();if(window.allOwnersDivChartInst)window.allOwnersDivChartInst.resize();if(window.mainDivChartInst)window.mainDivChartInst.resize();renderDivTable(window.activeMainDivMonth);renderFxExposure(currentOwner);renderDcaWidget(currentOwner);}
   if (viewId==='holdings'){
@@ -3201,13 +3500,18 @@ function renderDivTable(mIdx) {
 // =============================================
 let currentCfDate=new Date(),cfYear=currentCfDate.getFullYear(),cfMonth=currentCfDate.getMonth()+1;
 let _cfOwner = '전체';
+let _cfSection = 'monthly';
+let _cfShowExcluded = false;
 
 function setCfOwner(owner, btn) {
   _cfOwner = owner;
   document.querySelectorAll('[id^="cf-owner-"]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  const ownerInput=document.getElementById('cf-owner-input');if(ownerInput&&owner!=='전체')ownerInput.value=owner;
+  const fixedOwner=document.getElementById('cf-fixed-owner');if(fixedOwner&&owner!=='전체')fixedOwner.value=owner;
   renderCfDivPanel();
   renderCashFlow();
+  renderFixedCostView();
 }
 
 function renderCfDivPanel() {
@@ -3545,8 +3849,10 @@ function addCashFlow() {
   const dt=document.getElementById('cf-date').value,typ=document.getElementById('cf-type').value;
   const cat=document.getElementById('cf-cat').value,des=document.getElementById('cf-desc').value.trim();
   const am=parseInt((document.getElementById('cf-amt').value||'').replace(/,/g,''));
+  const owner=document.getElementById('cf-owner-input')?.value||(_cfOwner==='전체'?'':_cfOwner);
   if(!dt||!des||!am){alert('항목을 모두 입력해주세요.');return;}
-  const newItem={date:dt,type:typ,cat:cat,desc:des,amt:am,owner:_cfOwner};
+  if(!OWNERS.includes(owner)){alert('소유주를 선택하세요.');return;}
+  const newItem={date:dt,type:typ,cat:cat,desc:des,amt:am,owner};
   if(editIdx>-1){cfData[editIdx]=newItem;document.getElementById('cf-edit-index').value='-1';document.getElementById('btn-cf-submit').innerText='저장';}
   else cfData.push(newItem);
   document.getElementById('cf-desc').value='';document.getElementById('cf-amt').value='';saveCfData();renderCashFlow();saveExtDataToKV();
@@ -3568,6 +3874,7 @@ function editCF(idx){
   const item=cfData[idx];document.getElementById('cf-edit-index').value=idx;
   document.getElementById('cf-date').value=item.date;document.getElementById('cf-type').value=item.type;
   document.getElementById('cf-cat').value=item.cat;document.getElementById('cf-desc').value=item.desc;
+  const ownerInput=document.getElementById('cf-owner-input');if(ownerInput&&OWNERS.includes(item.owner))ownerInput.value=item.owner;
   document.getElementById('cf-amt').value=item.amt;document.getElementById('btn-cf-submit').innerText='수정';
 }
 // 편집 상태 해제 — 폼 패널 바깥을 클릭했을 때 호출.
@@ -3580,6 +3887,7 @@ function resetCfForm() {
   const dEl = document.getElementById('cf-date'); if (dEl) dEl.value = new Date().toISOString().substring(0,10);
   const tEl = document.getElementById('cf-type'); if (tEl) tEl.value = '지출';
   const cEl = document.getElementById('cf-cat'); if (cEl && cEl.options.length) cEl.selectedIndex = 0;
+  const oEl = document.getElementById('cf-owner-input'); if (oEl) oEl.value = _cfOwner==='전체'?'본인':_cfOwner;
   const btn = document.getElementById('btn-cf-submit'); if (btn) btn.innerText = '저장';
 }
 // 폼 바깥 클릭 시 편집 상태 자동 해제. mousedown 으로 잡되, 다른 행의 ✎/✕ 클릭은
@@ -3604,6 +3912,7 @@ function updateCfTrendChart() {
     const ymKey = y+'-'+String(m).padStart(2,'0');
     autoTransferData.forEach(at=>{
       if (!at.amt || !at.cycle) return;
+      if (_cfOwner!=='전체' && at.owner!==_cfOwner) return;
       // 등록 시작 월 이전이면 제외 (4월 등록 시 3월 이전엔 포함되지 않음)
       if (at.startMonth) {
         const [sy, sm] = at.startMonth.split('-').map(Number);
@@ -3644,7 +3953,7 @@ function updateCfTrendChart() {
   for(let i=5;i>=0;i--){
     let d=new Date(cfYear,cfMonth-1-i,1);let y=d.getFullYear();let m=d.getMonth()+1;
     labels.push(m + '월');let mIn=0,mOut=0;
-    cfData.forEach(item=>{let idate=new Date(item.date);if(idate.getFullYear()===y&&idate.getMonth()+1===m){if(item.type==='수입')mIn+=item.amt;else mOut+=item.amt;}});
+    cfData.forEach(item=>{let idate=new Date(item.date);if(idate.getFullYear()===y&&idate.getMonth()+1===m&&(_cfOwner==='전체'||item.owner===_cfOwner)){if(item.type==='수입')mIn+=item.amt;else mOut+=item.amt;}});
     // 자동이체 예상금액 포함 (실체화된 항목/skip/종료 이후는 calcAutoTransferForMonth에서 이미 제외됨)
     const atAmts = calcAutoTransferForMonth(y, m);
     mIn+=atAmts.atIn; mOut+=atAmts.atOut;
@@ -3679,6 +3988,7 @@ function renderCashFlow() {
   const ymKey=cfYear+'-'+String(cfMonth).padStart(2,'0');
   autoTransferData.forEach(at=>{
     if(!at.amt||!at.cycle)return;
+    if(_cfOwner!=='전체'&&at.owner!==_cfOwner)return;
     // 최초 등록 월부터 표시
     if (at.startMonth) {
       const [sy, sm] = at.startMonth.split('-').map(Number);
@@ -3716,7 +4026,7 @@ function renderCashFlow() {
     const atCls = at.type === '수입' ? 'var(--up)' : 'var(--dn)';
     const atSign = at.type === '수입' ? '+' : '-';
     const cycleLbl = at.cycle === 'monthly' ? '매월' : at.cycle === 'weekly' ? '매주' : at.cycle === 'daily' ? '매일' : at.cycle;
-    const atOwnerCell = `<td class="text-left"></td>`;
+    const atOwnerCell = `<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${at.owner||'미지정'}</span></td>`;
     html+=`<tr style="opacity:.75">
       <td class="text-left">-</td>
       <td class="text-left"><span style="color:${atCls};font-weight:bold">${at.type}</span></td>
@@ -3747,6 +4057,7 @@ function renderCashFlow() {
     window.cfDonutChartInst.update();
   }
   updateCfTrendChart();window.activeCfCat=null;
+  if(_cfSection==='fixed')renderFixedCostView();
 }
 
 function prevCfMonth(){cfMonth--;if(cfMonth<1){cfMonth=12;cfYear--;}renderCashFlow();}
@@ -4506,7 +4817,7 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
   const res = await setKV('ext_data', ext);
   if (!(res && res.result === "OK")) showSaveError();
 }
@@ -4530,6 +4841,15 @@ async function loadExtDataFromKV() {
       cfData = data.cfData;
       try { localStorage.setItem('cfData', JSON.stringify(cfData)); } catch(e) {}
       if (document.getElementById('view-cashflow')?.classList.contains('active')) renderCashFlow();
+    }
+    if (Array.isArray(data.autoTransferData)) {
+      autoTransferData = data.autoTransferData;
+      try { localStorage.setItem('autoTransferData', JSON.stringify(autoTransferData)); } catch(e) {}
+      if (document.getElementById('view-cashflow')?.classList.contains('active')) {
+        renderAutoTransfers();
+        renderFixedCostView();
+        renderCashFlow();
+      }
     }
     if (Array.isArray(data.cfDeletedKeys)) {
       cfDeletedKeys = data.cfDeletedKeys;
@@ -6519,6 +6839,16 @@ function _bubbleOwnerColor(owner){
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
 }
+function _bubbleOwnerFill(owner,panelColor){
+  const theme=_bubbleThemeKey();
+  const mixToPanel=theme==='light'?0.82:theme==='dark'?0.72:0.68;
+  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
+}
+function _bubbleOwnerStroke(owner,panelColor){
+  const theme=_bubbleThemeKey();
+  const mixToPanel=theme==='light'?0.24:theme==='dark'?0.18:0.14;
+  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
+}
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
     const s=String(v||'').trim();
@@ -6848,9 +7178,9 @@ function renderBubbleChart(mode) {
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      // 전체 화면의 소유주 링은 별도 팔레트로 채우지 않는다.
-      // 투명한 웨지 위 라벨 앞의 소유주 컬러 점으로만 구분해 섹터 색상과 경쟁하지 않게 한다.
-      colors.push('rgba(0,0,0,0)');
+      // 소유주 링은 섹터 팔레트의 같은 hue를 쓰되 테마 패널색과 섞어 옅게 채운다.
+      // 소유주 구분은 유지하면서 바깥 섹터·종목 링보다 시각적 우선순위가 낮게 보인다.
+      colors.push(_bubbleOwnerFill(owner,panelColor));
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -6946,10 +7276,14 @@ function renderBubbleChart(mode) {
     customdata
   };
 
+  const longestLeafLabel=Math.max(0,...customdata
+    .filter(d=>d.kind==='leaf')
+    .map(d=>Array.from(String(d.displayName||d.name||'')).length));
+  const labelMargin=Math.min(240,Math.max(165,Math.round(38+longestLeafLabel*6.4)));
   const layout = {
     // 외부 종목 라벨(국문명 최대 길이) 확보를 위한 넉넉한 좌우 여백
-    // 단일 소유주 선택 시 우측 라벨이 많으므로 right margin을 더 확보
-    margin: { t: 36, l: 140, r: filterOwner ? 200 : 140, b: 36 },
+    // 가장 긴 라벨 길이에 따라 여백을 늘리되 차트 본체가 지나치게 작아지지 않게 상한을 둔다.
+    margin: { t: 72, l: labelMargin, r: Math.min(265,labelMargin+(filterOwner?25:0)), b: 68 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
@@ -7008,32 +7342,49 @@ function renderBubbleChart(mode) {
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
-    svgEl.querySelectorAll('.cb-bubble-owner-dot').forEach(dot=>dot.remove());
+    svgEl.querySelectorAll('.sunburstlayer path').forEach(path=>{
+      const dnode=path.__data__;
+      const nodeId=(dnode?.data&&dnode.data.id)||dnode?.id||'';
+      if(String(nodeId).startsWith('O::')){
+        const ownerName=String(nodeId).slice(3);
+        path.style.fill=_bubbleOwnerFill(ownerName,panelColor);
+        path.style.fillOpacity='1';
+        path.style.stroke=_bubbleOwnerStroke(ownerName,panelColor);
+        path.style.strokeWidth='1.6px';
+        path.style.strokeLinejoin='round';
+        path.style.strokeDasharray='none';
+      }
+    });
     svgEl.querySelectorAll('.sunburstlayer text').forEach(t => {
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('dominant-baseline', 'central');
-      const ownerName=(t.textContent||'').trim();
+      const ownerName=(t.textContent||'').replace(/^●\s*/,'').trim();
       const isOwnerLabel=ownerLabelNames.has(ownerName);
       t.style.fontSize=isOwnerLabel?'16px':'13px';
       t.style.fontWeight=isOwnerLabel?'800':'650';
       if(isOwnerLabel) {
+        t.setAttribute('data-cb-bubble-owner',ownerName);
         t.style.letterSpacing='.02em';
-        try {
-          const box=t.getBBox();
-          const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
-          dot.classList.add('cb-bubble-owner-dot');
-          dot.setAttribute('cx', String(box.x-7));
-          dot.setAttribute('cy', String(box.y+box.height/2));
-          dot.setAttribute('r', '4');
-          dot.setAttribute('fill', _bubbleOwnerColor(ownerName));
-          dot.setAttribute('stroke', _bubbleThemeKey()==='light'?'rgba(255,255,255,.92)':'rgba(255,255,255,.45)');
-          dot.setAttribute('stroke-width', '1');
-          t.parentNode?.insertBefore(dot,t);
-        } catch(e){}
+        while(t.firstChild) t.removeChild(t.firstChild);
+        const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        dotSpan.textContent='● ';
+        dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
+        dotSpan.style.fontSize='12px';
+        dotSpan.style.fontWeight='900';
+        const labelSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        labelSpan.textContent=ownerName;
+        labelSpan.setAttribute('fill',textColor);
+        labelSpan.style.fontSize='16px';
+        labelSpan.style.fontWeight='800';
+        t.append(dotSpan,labelSpan);
+      } else {
+        t.removeAttribute('data-cb-bubble-owner');
       }
       t.querySelectorAll('tspan').forEach(s=>{
-        s.style.fontSize=isOwnerLabel?'16px':'13px';
-        s.style.fontWeight=isOwnerLabel?'800':'650';
+        if(!isOwnerLabel){
+          s.style.fontSize='13px';
+          s.style.fontWeight='650';
+        }
       });
     });
   };
@@ -7165,8 +7516,8 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   const labelOpacity = 1;
 
   const startR = R - 2;
-  const lineR = R + 18;
-  const textR = R + 26;
+  const lineR = R + 15;
+  const textR = R + 29;
   // 라벨이 들어갈 수 있는 세로 가용 공간 (사이드별 동일)
   const availH = (R + 40) * 2;
   const yMax = cy + R + 40;
@@ -7175,7 +7526,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   // 많으면 최소 11px 까지 압축해 모든 종목명을 노출한다.
   const computeLabelH = (count) => {
     if (count <= 1) return 15;
-    return Math.max(11, Math.min(15, availH / count));
+    return Math.max(9, Math.min(15, availH / count));
   };
 
   // 좌/우 분리하여 Y 좌표 기준 anti-collision — 비중이 작아도 모든 종목을 노출한다.
@@ -7193,7 +7544,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
 
   // 각 사이드: 위→아래 순으로 정렬 후 적응적 간격(labelH) 으로 anti-collision
   const resolve = (arr, labelH) => {
-    arr.sort((a, b) => a.desiredY - b.desiredY);
+    arr.sort((a, b) => (a.desiredY - b.desiredY) || ((b.info.value||0)-(a.info.value||0)));
     // 1차: 위→아래로 누르며 최소 간격 확보
     for (let i = 1; i < arr.length; i++) {
       if (arr[i].desiredY - arr[i - 1].desiredY < labelH) {
@@ -7225,7 +7576,7 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
   resolve(left, labelH_L);
 
   // 적응적 간격이 좁아지면 폰트도 약간 축소 (가독성 균형)
-  const fontFor = (lh) => (lh >= 14 ? 12 : lh >= 12 ? 11 : 10);
+  const fontFor = (lh) => (lh >= 14 ? 12 : lh >= 12 ? 11 : lh >= 10 ? 10 : 9);
 
   // overlay 를 먼저 SVG 에 삽입 — paint() 내에서 getComputedTextLength() 로 라벨 폭 측정 가능
   if (layer.parentNode) layer.parentNode.appendChild(overlay);
@@ -7237,6 +7588,11 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
     let w = 0;
     try { w = textEl.getComputedTextLength(); } catch (e) { return; }
     if (w <= maxWidth || maxWidth <= 0) return;
+    const originalSize=parseFloat(textEl.getAttribute('font-size'))||10;
+    const fittedSize=Math.max(8,Math.floor(originalSize*maxWidth/w*10)/10);
+    textEl.setAttribute('font-size',String(fittedSize));
+    try { w=textEl.getComputedTextLength(); } catch(e){}
+    if(w<=maxWidth) return;
     let lo = 0, hi = fullText.length;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
@@ -7253,7 +7609,8 @@ function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor
     const fontSize = fontFor(labelH);
     arr.forEach(({ info, sx, sy, lx, ly, tx, desiredY, dx }) => {
       const finalY = desiredY;
-      // 좌/우 라벨 모두 SVG 경계 안쪽으로 클램프 (우: COMPOSITION 패널 침범, 좌: 컨테이너 밖 절단 방지)
+      // 원주의 각도를 따라 라벨 X를 유지하고, SVG 경계만 클램프한다.
+      // 상·하단 라벨은 원에 가깝게, 좌·우 라벨은 자연스럽게 바깥으로 퍼진다.
       const finalTx = dx >= 0 ? Math.min(tx, rightXMax) : Math.max(tx, leftXMin);
       const line = document.createElementNS(NS, 'polyline');
       // 슬라이스 → 방사형 끝점 → 수평(라벨까지) 의 3-세그먼트 L자 리더
