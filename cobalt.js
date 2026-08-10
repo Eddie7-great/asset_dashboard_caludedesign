@@ -2651,11 +2651,12 @@ function cbDcaScheduleSummary(i, asOf){
   const todayKey=cbDcaDateKey(today);
   const monthEnd=new Date(today.getFullYear(),today.getMonth()+1,0,12,0,0,0);
   const horizon=new Date(today); horizon.setDate(horizon.getDate()+370);
-  const lastExec=String(i&&i.dcaLastExec||'').slice(0,10);
   let nextDate='', remainingCount=0;
   for(let d=new Date(today);d<=horizon;d.setDate(d.getDate()+1)){
     const key=cbDcaDateKey(d);
-    if (key<todayKey || (lastExec && key<=lastExec) || !cbDcaScheduledOn(i,d)) continue;
+    // 이 앱은 증권사의 실제 체결 데이터를 받지 않는다. 과거에 앱이 임의로 기록한
+    // dcaLastExec 때문에 같은 시장·같은 주기의 예정일이 달라지지 않도록 일정에서 제외한다.
+    if (key<todayKey || !cbDcaScheduledOn(i,d)) continue;
     if (!nextDate) nextDate=key;
     if (d<=monthEnd) remainingCount++;
     if (nextDate && d>monthEnd) break;
@@ -2666,6 +2667,31 @@ function cbDcaScheduleSummary(i, asOf){
     remainingAmount:remainingCount*cbDcaPerOrderKRW(i),
     expectedQty:cbDcaExpectedQty(i)
   };
+}
+function cbDcaIsUsDst(value){
+  const d=cbDcaDateAt(value);
+  const year=d.getFullYear();
+  const march1=new Date(year,2,1,12,0,0,0);
+  const dstStart=new Date(year,2,1+((7-march1.getDay())%7)+7,12,0,0,0);
+  const nov1=new Date(year,10,1,12,0,0,0);
+  const dstEnd=new Date(year,10,1+((7-nov1.getDay())%7),12,0,0,0);
+  return d>=dstStart && d<dstEnd;
+}
+function cbDcaBrokerTiming(i, asOf){
+  const broker=String(i&&i.broker||'').replace(/\s+/g,'');
+  const market=cbDcaMarket(i||{});
+  if (market==='CRYPTO') return {label:'상시 자동주문',note:'거래소 점검 제외'};
+  if (broker.includes('메리츠') && market==='US'){
+    const orderTime=cbDcaIsUsDst(asOf)?'21:30':'22:30';
+    return {label:orderTime+' 주문',note:'D+1 영업일 체결·배분'};
+  }
+  if (broker.includes('삼성') && market==='KR') return {label:'오전 장중',note:'미체결 시 당일 재주문'};
+  if (broker.includes('삼성') && market==='US') return {label:'미국장 기준시간',note:'미체결 시 당일 재주문'};
+  if (broker.includes('토스') && market==='US') return {label:'당일 자동주문',note:'체결 시각 유동'};
+  if (broker.includes('토스') && market==='KR') return {label:'국내장 자동주문',note:'체결 시각 유동'};
+  if (market==='US') return {label:'미국장 자동주문',note:'증권사 앱 확인'};
+  if (market==='KR') return {label:'국내장 자동주문',note:'증권사 앱 확인'};
+  return {label:'시장 기준 자동주문',note:'증권사 앱 확인'};
 }
 function cbDcaNextLabel(dateKey){
   if (!dateKey) return '—';
@@ -2695,7 +2721,10 @@ function cbRenderDca(){
   const active = items.filter(x=>x.i.dca);
   const monthly = active.reduce((s,x)=>s+cbDcaPerMonthKRW(x.i),0);
   const daily = monthly / 21.7; // 월평균 영업일 기준 일평균
-  items.forEach(x=>{ x.schedule=cbDcaScheduleSummary(x.i); });
+  items.forEach(x=>{
+    x.schedule=cbDcaScheduleSummary(x.i);
+    x.timing=cbDcaBrokerTiming(x.i,x.schedule.nextDate||new Date());
+  });
   const remainingCount=active.reduce((s,x)=>s+x.schedule.remainingCount,0);
   const remainingAmount=active.reduce((s,x)=>s+x.schedule.remainingAmount,0);
   const dcaAllocMap = new Map();
@@ -2710,7 +2739,7 @@ function cbRenderDca(){
   });
   const dcaTopAlloc=Array.from(dcaAllocMap.values()).sort((a,b)=>b.amount-a.amount).slice(0,5);
   // 규칙 등록·수정은 "자산 내역" 페이지에서만 한다 (이 페이지는 현황 조회 + 활성 토글 전용)
-  cbSetHead('<span data-tip="Dollar Cost Averaging — 시점을 나눠 일정 금액을 기계적으로 매수해 평균 단가를 관리하는 적립식 투자법">DCA</span> 규칙에 따라 기계적으로 매수합니다 · 규칙 등록은 "자산 내역"에서',
+  cbSetHead('<span data-tip="Dollar Cost Averaging — 시점을 나눠 일정 금액을 기계적으로 매수해 평균 단가를 관리하는 적립식 투자법">DCA</span> 예정일은 시장 기준 · 실제 주문·체결 시점은 증권사별 상이 · 규칙 등록은 "자산 내역"에서',
     cbOwnerBtns(_cbDcaOwner,'cbDcaOwner'));
   el.innerHTML = `
     <div class="cb-dca-summary-grid">
@@ -2719,15 +2748,15 @@ function cbRenderDca(){
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">월 자동매수 합계 (활성 기준)</div><div class="cb-dca-summary-value">${cbDisp(monthly)}</div></div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">연간 적립 예상</div><div class="cb-dca-summary-value">${cbDisp(monthly*12)}</div></div>
       <div class="cb-panel cb-dca-summary-card cb-dca-remaining-card">
-        <div class="cb-dca-summary-label"><span data-tip="오늘 이후 이번 달에 남아 있는 활성 DCA 체결일을 시장 휴장일 기준으로 계산합니다.">이번 달 남은 매수</span></div>
+        <div class="cb-dca-summary-label"><span data-tip="오늘 이후 이번 달에 남아 있는 활성 DCA 예정일을 시장 휴장일 기준으로 계산합니다. 실제 체결 여부는 증권사 앱에서 확인해야 합니다.">이번 달 남은 매수</span></div>
         <div class="cb-dca-summary-value">${remainingCount}<span>회</span></div>
         <div class="cb-dca-summary-sub">${remainingCount?cbDisp(remainingAmount)+' 예정':'이번 달 일정 완료'}</div>
       </div>
     </div>
     <div class="cb-dca-detail-grid">
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
-      <div class="cb-thead cb-dca-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:858px">
-        <span style="width:62px">소유주</span><span style="flex:1;box-sizing:border-box;padding-left:35px">종목</span><span class="cb-mobile-secondary" style="width:92px;text-align:right">회당 금액</span><span style="width:92px;text-align:right">주기</span><span style="width:88px;text-align:right">다음 매수</span><span class="cb-mobile-secondary" style="width:82px;text-align:right"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary" style="width:110px;text-align:right">계좌</span><span style="width:100px;text-align:right">월 환산</span><span style="width:58px;text-align:center">활성</span>
+      <div class="cb-thead cb-dca-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:990px">
+        <span style="width:62px">소유주</span><span style="flex:1;box-sizing:border-box;padding-left:35px">종목</span><span class="cb-mobile-secondary" style="width:92px;text-align:right">회당 금액</span><span style="width:92px;text-align:right">주기</span><span style="width:88px;text-align:right">다음 매수</span><span class="cb-mobile-secondary" style="width:132px;text-align:right"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary" style="width:82px;text-align:right"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary" style="width:96px;text-align:right">계좌</span><span style="width:100px;text-align:right">월 환산</span><span style="width:58px;text-align:center">활성</span>
       </div>
       ${items.map(x=>{
         const r=x.r;
@@ -2735,7 +2764,7 @@ function cbRenderDca(){
           ? (x.i.dcaQty||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
           : cbFmtNative(x.i.dcaAmt||0, x.i.dcaCur||'KRW');
         return `
-        <div class="cb-dca-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:858px;${x.i.dca?'':'opacity:.45'}">
+        <div class="cb-dca-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:990px;${x.i.dca?'':'opacity:.45'}">
           <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
           <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">
             ${cbFlagCell(r, 27, 15)}
@@ -2747,8 +2776,9 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="width:92px;text-align:right;font-weight:700">${amtLabel}</span>
           <span style="width:92px;text-align:right;color:var(--mut);font-size:11.5px">${cbEsc(cbDcaRuleLabel(x.i))}</span>
           <span style="width:88px;text-align:right;color:${x.i.dca?'var(--acc)':'var(--dim)'};font-weight:700;white-space:nowrap" aria-label="${x.i.dca&&x.schedule.nextDate?'다음 매수일 '+cbEsc(x.schedule.nextDate):'다음 매수일 없음'}">${x.i.dca?cbDcaNextLabel(x.schedule.nextDate):'—'}</span>
+          <span class="cb-mobile-secondary cb-dca-timing-cell" style="width:132px;text-align:right" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
           <span class="cb-mobile-secondary" style="width:82px;text-align:right;color:var(--mut);font-size:11.5px">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
-          <span class="cb-mobile-secondary" style="width:110px;text-align:right;color:var(--mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
+          <span class="cb-mobile-secondary" style="width:96px;text-align:right;color:var(--mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="width:100px;text-align:right;font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
           <span style="width:58px;display:flex;justify-content:center">
             <span onclick="cbDcaToggle(${x.idx})" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
