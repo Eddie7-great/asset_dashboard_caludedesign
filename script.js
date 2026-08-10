@@ -2345,65 +2345,10 @@ function countMonthDaysBetween(lastExecStr, todayStr, day) {
 }
 
 async function applyPendingDCA() {
-  const todayStr = new Date().toISOString().slice(0,10);
-  let applied = 0;
-  const usdRate = RATES.USD || 1380;
-
-  pfolioData.filter(i => i.dca && i.curP > 0 && (i.dcaAmt > 0 || (i.dcaMode === 'qty' && i.dcaQty > 0))).forEach(i => {
-    const lastExec = i.dcaLastExec || null;
-    let count = 0;
-
-    if (!lastExec) {
-      count = 1; // 최초 등록: 오늘 1회 적용
-    } else if (lastExec >= todayStr) {
-      return; // 오늘 이미 처리됨
-    } else {
-      if (i.dcaCycle === '매일') {
-        count = Math.max(0, Math.round((new Date(todayStr) - new Date(lastExec)) / 86400000));
-      } else if (i.dcaCycle === '매주') {
-        const days = Array.isArray(i.dcaDays) ? i.dcaDays : (i.dcaDay !== undefined ? [i.dcaDay] : [1]);
-        count = countWeekdaysBetween(lastExec, todayStr, days);
-      } else {
-        count = countMonthDaysBetween(lastExec, todayStr, i.dcaDay || 1);
-      }
-    }
-
-    if (count <= 0) return;
-
-    const jpyRate = RATES.JPY || 9.2;
-
-    let addedQty, totalKRW;
-    if (i.dcaMode === 'qty' && i.dcaQty > 0) {
-      // 수량 기준 DCA: 매회 dcaQty 주 추가
-      addedQty = i.dcaQty * count;
-      const priceNative = i.curP; // 원화/달러/엔화 기준 현재가
-      totalKRW = addedQty * (i.cur === 'USD' ? priceNative * usdRate : (i.cur === 'JPY' ? priceNative * jpyRate : priceNative));
-    } else {
-      // 금액 기준 DCA: dcaCur에 따라 KRW 환산 후 매수
-      const priceInKRW = i.cur === 'USD' ? i.curP * usdRate : (i.cur === 'JPY' ? i.curP * jpyRate : i.curP);
-      if (!priceInKRW || priceInKRW <= 0) return;
-      const dcaCur = i.dcaCur || 'KRW';
-      const dcaFx = dcaCur === 'USD' ? usdRate : (dcaCur === 'JPY' ? jpyRate : 1);
-      totalKRW = i.dcaAmt * dcaFx * count;
-      addedQty = totalKRW / priceInKRW;
-    }
-
-    const prevInvestKRW = i.qty * (i.cur === 'USD' ? i.avgP * usdRate : (i.cur === 'JPY' ? i.avgP * jpyRate : i.avgP));
-    const newTotalQty = i.qty + addedQty;
-    i.avgP = i.cur === 'USD'
-      ? (prevInvestKRW + totalKRW) / newTotalQty / usdRate
-      : (i.cur === 'JPY' ? (prevInvestKRW + totalKRW) / newTotalQty / jpyRate : (prevInvestKRW + totalKRW) / newTotalQty);
-    i.qty = newTotalQty;
-    i.dcaLastExec = todayStr;
-    applied += count;
-  });
-
-  if (applied > 0) {
-    syncDivHistory();
-    changeOwner(currentOwner, null, true);
-    await saveAssetsToKV();
-    showToast(`DCA ${applied}건 자동 체결 반영됨`);
-  }
+  // DCA는 각 증권사에 등록된 외부 자동주문 규칙이다.
+  // 실제 주문/체결 내역을 수신하지 않는 대시보드가 보유수량·평균단가·체결일을
+  // 임의로 변경하지 않도록 과거 자동 반영 엔진을 무변경 호환 함수로 남긴다.
+  return { applied: 0, mode: 'schedule-only' };
 }
 
 function stopDca(owner, tkr, idx = -1) {
@@ -4342,11 +4287,9 @@ function applyFNG(sfg,cfg) {
   if(window._gaugeCrypto){window._gaugeCrypto.data.datasets[0].needleValue=cfg;window._gaugeCrypto.update();}
 }
 
-// NOTE: 과거 DCA 실행 엔진(triggerDCA)은 제거됨.
-// 실제 DCA 자동매수는 applyPendingDCA() 하나로 통일되어 처리된다
-// (항목별 dcaLastExec 게이트). 전역 last_dca_date 게이트를 쓰던
-// triggerDCA는 호출처가 없는 dead code였고, 재연결 시 같은 날 이중 매수
-// 위험이 있어 삭제했다.
+// DCA는 증권사 외부 서비스이므로 이 앱에서 체결을 생성하지 않는다.
+// applyPendingDCA()는 과거 호출과의 호환을 위한 무변경 함수이며,
+// 일정 표시는 cobalt.js의 시장·증권사별 계산만 사용한다.
 
 // =============================================
 // 자산이력 데이터
@@ -5241,8 +5184,7 @@ function initDashboard(){
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
     fetchBenchmarkData();
-    // DCA 자동 체결 반영 (시세 로드 후 실행)
-    await applyPendingDCA();
+    // DCA는 증권사에서 체결되므로 이 앱에서는 일정만 표시한다.
     // 순자산 일별 스냅샷 저장 (하루 1회)
     await saveNetWorthSnapshot();
     // 순자산 추이 차트 갱신 — 사용자가 이미 탭을 열어둔 경우에만

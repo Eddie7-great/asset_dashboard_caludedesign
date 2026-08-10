@@ -1043,6 +1043,9 @@
     .cb-dca-summary-value{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dca-summary-value>span{font-size:13px;color:var(--lab);margin-left:2px}
     .cb-dca-summary-sub{font-size:10px;color:var(--mut);font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-dca-timing-cell{display:flex;flex-direction:column;justify-content:center;gap:1px;box-sizing:border-box;padding-left:8px;color:var(--mut);white-space:nowrap;line-height:1.2}
+    .cb-dca-timing-cell b{font-size:11px;color:var(--txt);font-weight:750}
+    .cb-dca-timing-cell small{font-size:9.5px;color:var(--dim);font-weight:600}
     .cb-dca-remaining-card{border-top:3px solid var(--acc)}
     .cb-family-mix-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
     .cb-family-mix-owner{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);border-radius:8px;padding:7px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,border-color .15s}

@@ -266,7 +266,8 @@ const dcaScheduleContext = { cbRate:cur=>cur==='USD'?1400:1 }
 vm.createContext(dcaScheduleContext)
 for (const name of [
   'cbDcaPerMonthKRW','cbDcaPerOrderKRW','cbDcaExpectedQty','cbDcaDateAt','cbDcaDateKey',
-  'cbDcaMarket','cbDcaIsHoliday','cbDcaScheduledOn','cbDcaScheduleSummary'
+  'cbDcaMarket','cbDcaIsHoliday','cbDcaScheduledOn','cbDcaScheduleSummary',
+  'cbDcaIsUsDst','cbDcaBrokerTiming'
 ]) {
   vm.runInContext(extractFunction(cobaltSource, name), dcaScheduleContext)
 }
@@ -279,10 +280,30 @@ assert.equal(monthlySchedule.nextDate, '2026-07-31', '다음 월간 DCA 매수�
 assert.equal(monthlySchedule.remainingCount, 1, '이번 달 남은 매수 횟수 계산')
 assert.equal(monthlySchedule.remainingAmount, 100_000, '이번 달 남은 매수 금액 계산')
 assert.equal(monthlySchedule.expectedQty, 2, '현재가 기준 회당 예상 매수 수량 계산')
+const usDailyBase = {
+  dca:true,dcaCycle:'매일',dcaMode:'amount',dcaAmt:10_000,dcaCur:'KRW',
+  cur:'USD',curP:70,grp:'주식'
+}
+const meritzUsSchedule = dcaScheduleContext.cbDcaScheduleSummary({
+  ...usDailyBase,broker:'메리츠증권',dcaLastExec:'2026-08-10'
+}, '2026-08-10')
+const tossUsSchedule = dcaScheduleContext.cbDcaScheduleSummary({
+  ...usDailyBase,broker:'토스증권'
+}, '2026-08-10')
+assert.equal(meritzUsSchedule.nextDate, '2026-08-10', '과거 내부 체결기록과 무관하게 미국주식 예정일 계산')
+assert.equal(tossUsSchedule.nextDate, meritzUsSchedule.nextDate, '같은 미국시장·주기 종목은 증권사가 달라도 예정일 통일')
+const meritzSummerTiming = dcaScheduleContext.cbDcaBrokerTiming({ ...usDailyBase,broker:'메리츠증권' }, '2026-08-10')
+const meritzWinterTiming = dcaScheduleContext.cbDcaBrokerTiming({ ...usDailyBase,broker:'메리츠증권' }, '2026-12-10')
+assert.equal(meritzSummerTiming.label, '21:30 주문', '메리츠 미국주식 서머타임 주문 기준 반영')
+assert.equal(meritzWinterTiming.label, '22:30 주문', '메리츠 미국주식 표준시간 주문 기준 반영')
+assert.equal(dcaScheduleContext.cbDcaBrokerTiming({ ...usDailyBase,broker:'토스증권' }, '2026-08-10').label, '당일 자동주문', '토스 미국주식은 공개된 확정시각 없이 당일 처리로 표시')
+assert.equal(dcaScheduleContext.cbDcaBrokerTiming({ ...usDailyBase,cur:'KRW',broker:'삼성증권' }, '2026-08-10').label, '오전 장중', '삼성 국내주식 장중 처리 반영')
 assert.equal(dcaScheduleContext.cbDcaPerMonthKRW({
   dcaCycle:'매주',dcaDays:[1,5],dcaMode:'amount',dcaAmt:10_000,dcaCur:'KRW'
 }), 86_600, '복수 요일 주간 DCA 월 환산에 선택 요일 수 반영')
 assert.match(cobaltSource, /이번 달 남은 매수[\s\S]*remainingCount[\s\S]*remainingAmount[\s\S]*다음 매수[\s\S]*예상 수량/, 'DCA 상단 잔여 일정 위젯과 내역 신규 칼럼 추가')
+assert.match(cobaltSource, /예상 처리[\s\S]*cb-dca-timing-cell[\s\S]*x\.timing\.label[\s\S]*x\.timing\.note/, 'DCA 내역에 증권사별 예상 처리 시점 표시')
+assert.doesNotMatch(scriptSource, /i\.dcaLastExec\s*=|i\.qty\s*=\s*newTotalQty/, '페이지 로드시 DCA 체결일·보유수량을 임의 변경하지 않음')
 assert.match(styleSource, /\.cb-dca-summary-grid\{display:grid;grid-template-columns:repeat\(5/, 'DCA 상단 다섯 요약 위젯을 균등 배치')
 
 const riskInsightRows = [
