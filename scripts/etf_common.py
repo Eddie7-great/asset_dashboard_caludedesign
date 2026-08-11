@@ -160,11 +160,27 @@ def parse_krx_pdf(output):
     if not rows:
         return [], 0.0
 
-    has_rto = any((_to_float(r.get('COMPST_RTO')) or 0) > 0 for r in rows)
+    # KRX/pykrx 버전에 따라 비중 키가 COMPST_RTO 또는 COMPST_RTIO로 온다.
+    # 양쪽을 모두 허용하되, 응답에 실제 양수 비중이 없을 때만 금액 기반 폴백을 쓴다.
+    def row_ratio(row):
+        for key in ('COMPST_RTO', 'COMPST_RTIO'):
+            value = _to_float(row.get(key))
+            if value is not None:
+                return value
+        return None
+
+    def row_amount(row):
+        for key in ('COMPST_AMT', 'VALU_AMT'):
+            value = _to_float(row.get(key))
+            if value is not None:
+                return value
+        return None
+
+    has_rto = any((row_ratio(r) or 0) > 0 for r in rows)
     total_amt = 0.0
     if not has_rto:
         for r in rows:
-            v = _to_float(r.get('COMPST_AMT'))
+            v = row_amount(r)
             if v and v > 0:
                 total_amt += v
 
@@ -175,9 +191,9 @@ def parse_krx_pdf(output):
         if not is_equity_row(code, name):
             continue
         if has_rto:
-            w = _to_float(r.get('COMPST_RTO'))
+            w = row_ratio(r)
         else:
-            amt = _to_float(r.get('COMPST_AMT'))
+            amt = row_amount(r)
             w = (amt / total_amt * 100) if (amt and amt > 0 and total_amt > 0) else None
         if w is None or w <= 0:
             continue
