@@ -657,6 +657,68 @@ const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff
 let autoTransferData = [];
 try { const s=localStorage.getItem('autoTransferData'); if(s) autoTransferData=JSON.parse(s); } catch(e){}
 
+// 은행 영업일 계산용 국내 공휴일. 2026년 월력요항과 이후 확정된
+// 노동절·제헌절 공휴일, 전국동시지방선거일을 반영한다.
+const _KR_BANK_HOLIDAYS = new Set([
+  '2026-01-01',
+  '2026-02-16','2026-02-17','2026-02-18',
+  '2026-03-01','2026-03-02',
+  '2026-05-01','2026-05-05','2026-05-24','2026-05-25',
+  '2026-06-03','2026-06-06','2026-07-17',
+  '2026-08-15','2026-08-17',
+  '2026-09-24','2026-09-25','2026-09-26',
+  '2026-10-03','2026-10-05','2026-10-09','2026-12-25',
+]);
+
+function _cfLocalDateKey(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function _isKrBankBusinessDay(date){
+  const dow=date.getDay();
+  return dow!==0 && dow!==6 && !_KR_BANK_HOLIDAYS.has(_cfLocalDateKey(date));
+}
+
+function _nextKrBankBusinessDay(date){
+  const result=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  for(let guard=0;guard<14&&!_isKrBankBusinessDay(result);guard++) result.setDate(result.getDate()+1);
+  return result;
+}
+
+function _normalizeAutoTransferSchedules(list=autoTransferData){
+  let changed=false;
+  (Array.isArray(list)?list:[]).forEach(at=>{
+    if(at&&at.cycle==='month-start'){
+      at.cycle='monthly';
+      at.dayOfMonth=1;
+      changed=true;
+    }
+  });
+  return changed;
+}
+
+function _autoTransferScheduledDate(at,y,m){
+  const lastDay=new Date(y,m,0).getDate();
+  const day=at&&at.cycle==='month-end' ? lastDay : Math.min(Math.max(1,Number(at&&at.dayOfMonth)||1),lastDay);
+  const nominal=new Date(y,m-1,day);
+  return at&&at.businessDayRule==='exact' ? nominal : _nextKrBankBusinessDay(nominal);
+}
+
+function _autoTransferMonthlyOccurrences(at,y,m){
+  if(!at||!['monthly','month-end','month-start'].includes(at.cycle))return [];
+  const result=[];
+  for(const offset of [0,-1]){
+    const nominal=new Date(y,m-1+offset,1);
+    const ny=nominal.getFullYear(),nm=nominal.getMonth()+1;
+    if(!_autoTransferActiveInMonth(at,ny,nm))continue;
+    const actual=_autoTransferScheduledDate(at,ny,nm);
+    if(actual.getFullYear()===y&&actual.getMonth()+1===m)result.push({date:actual,scheduleMonth:`${ny}-${String(nm).padStart(2,'0')}`});
+  }
+  return result;
+}
+
+_normalizeAutoTransferSchedules();
+
 function saveAutoTransfers(syncRemote=true){
   try{localStorage.setItem('autoTransferData',JSON.stringify(autoTransferData));}catch(e){}
   if(syncRemote && typeof saveExtDataToKV==='function') saveExtDataToKV();
@@ -687,7 +749,18 @@ function applyAutoTransfers() {
   const ym = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
   let changed = false;
   autoTransferData.forEach(at => {
-    if (at.lastApplied === ym) return; // 이미 이번 달 처리됨
+    const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
+    const scheduledDate=monthlyCycle?_autoTransferScheduledDate(at,today.getFullYear(),today.getMonth()+1):today;
+    const scheduledKey=_cfLocalDateKey(scheduledDate);
+    if (at.lastApplied === ym) {
+      // 구버전이 월초·지정일 자동이체를 페이지를 연 날짜로 저장한 경우,
+      // 연결된 현재 월 행을 실제 예정일로 1회 교정한다.
+      if(monthlyCycle){
+        const legacy=cfData.find(item=>item.atId===at.id&&item.isAuto===true&&String(item.date||'').slice(0,7)===ym);
+        if(legacy&&legacy.date!==scheduledKey){legacy.date=scheduledKey;legacy.scheduleMonth=ym;changed=true;}
+      }
+      return;
+    }
     // 시작 월 이전이면 적용 금지 (4월 등록 자동이체가 3월 이하로 소급되지 않도록)
     if (at.startMonth) {
       const [sy, sm] = at.startMonth.split('-').map(Number);
@@ -699,14 +772,12 @@ function applyAutoTransfers() {
       if (today.getFullYear() > ey || (today.getFullYear() === ey && (today.getMonth()+1) > em)) return;
     }
     let shouldApply = false;
-    if (at.cycle === 'monthly' && today.getDate() >= (at.dayOfMonth||1)) shouldApply = true;
-    else if (at.cycle === 'month-end') { const lastDay=new Date(today.getFullYear(),today.getMonth()+1,0).getDate(); if(today.getDate()>=lastDay) shouldApply=true; }
-    else if (at.cycle === 'month-start' && today.getDate() >= 1) shouldApply = true;
+    if (monthlyCycle && _cfLocalDateKey(today)>=scheduledKey) shouldApply = true;
     else if (at.cycle === 'weekly' || at.cycle === 'daily') shouldApply = true;
     if (shouldApply) {
-      const dateStr = today.toISOString().substring(0,10);
+      const dateStr = monthlyCycle?scheduledKey:_cfLocalDateKey(today);
       const effAmt = _effectiveAutoTransferAmt(at, today.getFullYear(), today.getMonth()+1);
-      cfData.push({date:dateStr, type:at.type, cat:at.cat, desc:'[자동] '+at.desc, amt:effAmt, owner:at.owner||'미지정', isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
+      cfData.push({date:dateStr, type:at.type, cat:at.cat, desc:'[자동] '+at.desc, amt:effAmt, owner:at.owner||'미지정', isAuto:true, atId:at.id, scheduleMonth:ym, cycleLabel:_getCycleLabel(at)});
       at.lastApplied = ym;
       changed = true;
     }
@@ -737,12 +808,17 @@ function addAutoTransfer() {
   if (!OWNERS.includes(owner)) { alert('소유주를 선택하세요.'); return; }
   const today = new Date();
   const ym = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
-  const at = {id:Date.now(), owner, type, cat, desc, amt, cycle, dayOfMonth:dom, dayOfWeek:dow, isFixedCost, lastApplied: ym, startMonth: ym};
+  const at = {id:Date.now(), owner, type, cat, desc, amt, cycle, dayOfMonth:dom, dayOfWeek:dow, isFixedCost, businessDayRule:'next', lastApplied:'', startMonth: ym};
   autoTransferData.push(at);
   saveAutoTransfers(false);
-  // 등록 즉시 상세 내역 리스트에 추가 (중복 방지용 [자동] 접두사 추가)
-  const dateStr = today.toISOString().substring(0,10);
-  cfData.push({date:dateStr, type, cat, desc: '[자동] ' + desc, amt, owner, isAuto:true, atId:at.id, cycleLabel:_getCycleLabel(at)});
+  // 이미 도래한 월간 일정만 실제 예정일로 상세 내역에 추가한다.
+  const monthlyCycle=['monthly','month-end'].includes(cycle);
+  const scheduledDate=monthlyCycle?_autoTransferScheduledDate(at,today.getFullYear(),today.getMonth()+1):today;
+  if(!monthlyCycle||_cfLocalDateKey(today)>=_cfLocalDateKey(scheduledDate)){
+    const dateStr=monthlyCycle?_cfLocalDateKey(scheduledDate):_cfLocalDateKey(today);
+    cfData.push({date:dateStr, type, cat, desc: '[자동] ' + desc, amt, owner, isAuto:true, atId:at.id, scheduleMonth:ym, cycleLabel:_getCycleLabel(at)});
+    at.lastApplied=ym;
+  }
   saveCfData();
   saveExtDataToKV();
   renderCashFlow();
@@ -806,7 +882,9 @@ function editAutoTransferMonth(atId, y, m) {
   // 단일월 예외 수정: 해당 월 행을 실체화 후 편집 폼 오픈
   const daysInMonth = new Date(y, m, 0).getDate();
   let times=0;
-  if(at.cycle==='monthly'||at.cycle==='month-end'||at.cycle==='month-start')times=1;
+  const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
+  const monthlyOccurrences=monthlyCycle?_autoTransferMonthlyOccurrences(at,y,m):[];
+  if(monthlyCycle)times=monthlyOccurrences.length;
   else if(at.cycle==='weekly')times=Math.floor(daysInMonth/7);
   else if(at.cycle==='daily')times=daysInMonth;
   const effAmt = _effectiveAutoTransferAmt(at, y, m);
@@ -814,7 +892,9 @@ function editAutoTransferMonth(atId, y, m) {
   let day = 1;
   if (at.cycle==='monthly') day = Math.min(at.dayOfMonth||1, daysInMonth);
   else if (at.cycle==='month-end') day = daysInMonth;
-  const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  const dateStr = monthlyOccurrences.length
+    ? _cfLocalDateKey(monthlyOccurrences[0].date)
+    : `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const newEntry = {
     date: dateStr, type: at.type, cat: at.cat,
     desc: '[자동] ' + (at.desc||''), amt: total, owner:at.owner||'미지정',
@@ -1021,11 +1101,13 @@ function _fixedCostCycleText(at) {
 
 function _autoTransferOccursOn(at, date) {
   const y=date.getFullYear(),m=date.getMonth()+1,day=date.getDate();
+  if (['monthly','month-end','month-start'].includes(at.cycle)) {
+    const wanted=_cfLocalDateKey(date);
+    return _autoTransferMonthlyOccurrences(at,y,m).some(row=>_cfLocalDateKey(row.date)===wanted);
+  }
   if (!_autoTransferActiveInMonth(at,y,m)) return false;
   if (at.cycle === 'daily') return true;
   if (at.cycle === 'weekly') return date.getDay() === (Number(at.dayOfWeek)||0);
-  if (at.cycle === 'month-start') return day === 1;
-  if (at.cycle === 'month-end') return day === new Date(y,m,0).getDate();
   if (at.cycle === 'yearly') {
     const startMonth=Number(String(at.startMonth||'').slice(5,7))||1;
     return m===startMonth && day===Math.min(Number(at.dayOfMonth)||1,new Date(y,m,0).getDate());
@@ -1155,7 +1237,7 @@ function submitFixedCost() {
   const existing=autoTransferData.find(at=>at.id===id);
   if(existing){
     const changeFrom=_cfMonthKey();
-    Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true});
+    Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true,businessDayRule:existing.businessDayRule||'next'});
     if(start>changeFrom){
       existing.amt=amt;
       existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
@@ -1164,7 +1246,7 @@ function submitFixedCost() {
       existing.amountChanges.push({from:changeFrom,amt});
     }
   }else{
-    autoTransferData.push({id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:'',lastApplied:'',isFixedCost:true});
+    autoTransferData.push({id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:'',lastApplied:'',isFixedCost:true,businessDayRule:'next'});
   }
   saveAutoTransfers();
   resetFixedCostForm();
@@ -1181,7 +1263,7 @@ function editFixedCost(id) {
   document.getElementById('cf-fixed-desc').value=at.desc||'';
   const now=new Date();
   document.getElementById('cf-fixed-amt').value=Number(_effectiveAutoTransferAmt(at,now.getFullYear(),now.getMonth()+1)||0).toLocaleString();
-  document.getElementById('cf-fixed-cycle').value=['monthly','month-start','month-end','weekly'].includes(at.cycle)?at.cycle:'monthly';
+  document.getElementById('cf-fixed-cycle').value=['monthly','month-end','weekly'].includes(at.cycle)?at.cycle:'monthly';
   document.getElementById('cf-fixed-day').value=at.dayOfMonth||1;
   document.getElementById('cf-fixed-dow').value=String(at.dayOfWeek||0);
   document.getElementById('cf-fixed-start').value=at.startMonth||_cfMonthKey();
@@ -3858,18 +3940,19 @@ function updateCfTrendChart() {
     autoTransferData.forEach(at=>{
       if (!at.amt || !at.cycle) return;
       if (_cfOwner!=='전체' && at.owner!==_cfOwner) return;
+      const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
       // 등록 시작 월 이전이면 제외 (4월 등록 시 3월 이전엔 포함되지 않음)
-      if (at.startMonth) {
+      if (!monthlyCycle&&at.startMonth) {
         const [sy, sm] = at.startMonth.split('-').map(Number);
         if (y < sy || (y === sy && m < sm)) return;
       }
       // 취소 종료 월 이후에도 제외
-      if (at.endMonth) {
+      if (!monthlyCycle&&at.endMonth) {
         const [ey, em] = at.endMonth.split('-').map(Number);
         if (y > ey || (y === ey && m > em)) return;
       }
       // 해당 월 단건 skip
-      if (Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
+      if (!monthlyCycle&&Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
       // 이미 cfData에 atId로 실체화된 항목이 있으면 가상 금액 제외 (cfData 합계에 이미 포함됨)
       const hasMaterialized = cfData.some(item=>{
         const idate=new Date(item.date);
@@ -3885,8 +3968,7 @@ function updateCfTrendChart() {
       });
       if (hasLegacy) return;
       let times = 0;
-      if (at.cycle==='monthly') times=1;
-      else if (at.cycle==='month-end'||at.cycle==='month-start') times=1;
+      if (monthlyCycle) times=_autoTransferMonthlyOccurrences(at,y,m).length;
       else if (at.cycle==='weekly') times=Math.floor(daysInMonth/7);
       else if (at.cycle==='daily') times=daysInMonth;
       const effAmt = _effectiveAutoTransferAmt(at, y, m);
@@ -3934,18 +4016,21 @@ function renderCashFlow() {
   autoTransferData.forEach(at=>{
     if(!at.amt||!at.cycle)return;
     if(_cfOwner!=='전체'&&at.owner!==_cfOwner)return;
+    const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
+    const monthlyOccurrences=monthlyCycle?_autoTransferMonthlyOccurrences(at,cfYear,cfMonth):[];
+    if(monthlyCycle&&!monthlyOccurrences.length)return;
     // 최초 등록 월부터 표시
-    if (at.startMonth) {
+    if (!monthlyCycle&&at.startMonth) {
       const [sy, sm] = at.startMonth.split('-').map(Number);
       if (cfYear < sy || (cfYear === sy && cfMonth < sm)) return;
     }
     // 종료 월(취소 월) 이후에는 표시 안 함
-    if (at.endMonth) {
+    if (!monthlyCycle&&at.endMonth) {
       const [ey, em] = at.endMonth.split('-').map(Number);
       if (cfYear > ey || (cfYear === ey && cfMonth > em)) return;
     }
     // 특정 월 skip 설정
-    if (Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
+    if (!monthlyCycle&&Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
     // 이미 해당 월 atId로 실체화된 cfData 항목이 있으면 가상 행 skip
     const hasMaterialized = cfData.some(item=>{
       const idate=new Date(item.date);
@@ -3961,7 +4046,7 @@ function renderCashFlow() {
     });
     if (hasLegacyAuto) return;
     let times=0;
-    if(at.cycle==='monthly'||at.cycle==='month-end'||at.cycle==='month-start')times=1;
+    if(monthlyCycle)times=monthlyOccurrences.length;
     else if(at.cycle==='weekly')times=Math.floor(daysInMonth/7);
     else if(at.cycle==='daily')times=daysInMonth;
     const effAmt = _effectiveAutoTransferAmt(at, cfYear, cfMonth);
@@ -3970,10 +4055,13 @@ function renderCashFlow() {
     else{tOut+=total;expByCat[at.cat]=(expByCat[at.cat]||0)+total;}
     const atCls = at.type === '수입' ? 'var(--up)' : 'var(--dn)';
     const atSign = at.type === '수입' ? '+' : '-';
-    const cycleLbl = at.cycle === 'monthly' ? '매월' : at.cycle === 'weekly' ? '매주' : at.cycle === 'daily' ? '매일' : at.cycle;
+    const cycleLbl = _getCycleLabel(at);
+    const scheduledLabel=monthlyCycle&&monthlyOccurrences.length
+      ? _cfLocalDateKey(monthlyOccurrences[0].date).substring(5).replace('-','/')
+      : '-';
     const atOwnerCell = `<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${at.owner||'미지정'}</span></td>`;
     html+=`<tr style="opacity:.75">
-      <td class="text-left">-</td>
+      <td class="text-left">${scheduledLabel}</td>
       <td class="text-left"><span style="color:${atCls};font-weight:bold">${at.type}</span></td>
       ${atOwnerCell}<td class="text-left">${at.cat||'-'}</td>
       <td class="text-left"><span style="color:var(--t3)">[예정]</span> ${at.desc||'자동이체'}</td>
@@ -4787,6 +4875,7 @@ async function loadExtDataFromKV() {
     }
     if (Array.isArray(data.autoTransferData)) {
       autoTransferData = data.autoTransferData;
+      _normalizeAutoTransferSchedules(autoTransferData);
       try { localStorage.setItem('autoTransferData', JSON.stringify(autoTransferData)); } catch(e) {}
       if (document.getElementById('view-cashflow')?.classList.contains('active')) {
         renderAutoTransfers();
