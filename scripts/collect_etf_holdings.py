@@ -6,8 +6,8 @@ GitHub Actions 배치 전용이다. 브라우저에서 외부 사이트를 직�
 
 수집 우선순위
   1순위  KRX 내부 JSON API (국내 ETF)  — bld 값은 pykrx 소스에서 확인한 것
-  2순위  ZEROIN 공통 구성종목(국내 ETF·운용사 무관)
-  3순위  운용사 공식 어댑터·네이버(국내) / yfinance·stockanalysis(해외)
+  2순위  운용사 공식 어댑터(지원 운용사) / ZEROIN(그 외 국내 ETF)
+  3순위  네이버(국내) / yfinance·stockanalysis(해외)
   4순위  Playwright 헤드리스 브라우저 (앞선 소스가 모두 실패한 ETF만)
 
 사용법
@@ -19,6 +19,7 @@ GitHub Actions 배치 전용이다. 브라우저에서 외부 사이트를 직�
 
 import argparse
 import datetime
+import http.cookiejar
 import json
 import os
 import re
@@ -52,6 +53,7 @@ BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
 # 줄 수 있어, "정상인데 수가 적은" 경우와 "파싱이 깨진" 경우를 구분한다.
 SMOKE_HARD_MIN = 5    # 이하이면 명백히 깨진 것 → job 실패 (요구사항: "1~2줄만 나오면 멈추고 보고")
 SMOKE_EXPECT_ROWS = 30  # 이하이면 경고만 — 데이터는 쓸 수 있으나 소스가 상위 일부만 준 상태
+SMOKE_CACHE_MAX_AGE_DAYS = 35  # ETF 리밸런싱 주기를 감안한 일시 장애 허용 범위
 
 
 # ── KRX ─────────────────────────────────────────────────────────
@@ -266,6 +268,10 @@ def fetch_zeroin(code):
 
 
 # ── 3순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+TIGER_DETAIL_URL = (
+    'https://investments.miraeasset.com/tigeretf/ko/product/search/detail/'
+    'index.do?ksdFund={ksd_fund}'
+)
 TIGER_PDF_URL = (
     'https://investments.miraeasset.com/tigeretf/ko/product/search/detail/'
     'pdfListAjax.ajax'
@@ -317,40 +323,68 @@ def parse_tiger_pdf_html(text):
 
 
 def fetch_tiger(code):
-    """미래에셋 TIGER 공식 사이트에서 최신 PDF 구성종목 전체를 받는다."""
+    """미래에셋 TIGER 공식 사이트 → (구성종목, 실제 공시 기준일)."""
     ksd_fund = kr_isin_from_short_code(code)
     if not ksd_fund:
-        return []
-    body = urllib.parse.urlencode({
-        'ksdFund': ksd_fund,
-        'pageIndex': '1',
-        'firstIndex': '0',
-        'listCnt': '500',
-    }).encode('utf-8')
-    headers = {
+        return [], None
+    detail_url = TIGER_DETAIL_URL.format(ksd_fund=ksd_fund)
+    base_headers = {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+    }
+    ajax_headers = {
         'User-Agent': UA,
         'Accept': 'text/html, */*; q=0.01',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Referer': (
-            'https://investments.miraeasset.com/tigeretf/ko/product/search/'
-            'detail/index.do?ksdFund=' + ksd_fund
-        ),
+        'Referer': detail_url,
         'X-Requested-With': 'XMLHttpRequest',
     }
+
+    # 2026년 사이트 개편 뒤 목록 API를 세션 없이 직접 호출하면 403을 반환한다.
+    # 실제 웹 페이지와 동일하게 상세 페이지를 먼저 열어 JSESSIONID를 받은 다음,
+    # 기준일·정렬·페이징 값을 모두 포함해 목록을 요청한다.
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+    )
     try:
-        req = urllib.request.Request(TIGER_PDF_URL, data=body, headers=headers)
-        with urllib.request.urlopen(req, timeout=25) as r:
-            text = r.read().decode('utf-8', 'replace')
-        holdings = parse_tiger_pdf_html(text)
-        print('[tiger] %s (%s): 공식 PDF %d행 추출'
-              % (code, ksd_fund, len(holdings)), file=sys.stderr)
-        return holdings
+        req = urllib.request.Request(detail_url, headers=base_headers)
+        with opener.open(req, timeout=25) as r:
+            r.read(1)
     except Exception as e:
-        print('[tiger] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
-        return []
+        print('[tiger] %s: 세션 초기화 %s: %s'
+              % (code, type(e).__name__, e), file=sys.stderr)
+        return [], None
+
+    last_error = None
+    for d in recent_biz_days(5):
+        body = urllib.parse.urlencode({
+            'ksdFund': ksd_fund,
+            'pageIndex': '1',
+            'firstIndex': '0',
+            'listCnt': '500',
+            'fixDate': '%s.%s.%s' % (d[:4], d[4:6], d[6:]),
+            'prfPrd': 'Week01',
+            'order': 'SRD',
+        }).encode('utf-8')
+        try:
+            req = urllib.request.Request(TIGER_PDF_URL, data=body, headers=ajax_headers)
+            with opener.open(req, timeout=25) as r:
+                text = r.read().decode('utf-8', 'replace')
+            holdings = parse_tiger_pdf_html(text)
+            print('[tiger] %s (%s) %s: 공식 PDF %d행 추출'
+                  % (code, ksd_fund, d, len(holdings)), file=sys.stderr)
+            if holdings:
+                return holdings, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
+        except Exception as e:
+            last_error = e
+            print('[tiger] %s %s: %s: %s'
+                  % (code, d, type(e).__name__, e), file=sys.stderr)
+    if last_error is None:
+        print('[tiger] %s: 최근 5영업일 공식 PDF가 비었습니다.' % code, file=sys.stderr)
+    return [], None
 
 
-# 브랜드 → callable(code) -> [{'t','n','w'}]
+# 브랜드 → callable(code) -> ([{'t','n','w'}], asOf)
 PROVIDER_ADAPTERS = {
     'TIGER': fetch_tiger,
 }
@@ -366,12 +400,15 @@ def brand_of(name):
 def fetch_provider(code, name):
     fn = PROVIDER_ADAPTERS.get(brand_of(name) or '')
     if not fn:
-        return []
+        return [], None
     try:
-        return fn(code) or []
+        result = fn(code)
+        if isinstance(result, tuple) and len(result) == 2:
+            return result
+        return result or [], None
     except Exception as e:
         print('[provider] %s: %s' % (code, type(e).__name__), file=sys.stderr)
-        return []
+        return [], None
 
 
 # ── 4순위 · Playwright ──────────────────────────────────────────
@@ -554,12 +591,12 @@ def collect_one(code, name, lookup=None):
         h, eq, as_of = fetch_krx(code)
         if h:
             return h, eq, as_of, 'krx'
+        h, as_of = fetch_provider(code, name)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of or today, 'provider'
         h, eq, as_of = fetch_zeroin(code)
         if h:
             return h, eq, as_of or today, 'zeroin'
-        h = fetch_provider(code, name)
-        if h:
-            return h, round(sum(x['w'] for x in h), 2), today, 'provider'
         h = fetch_naver(code)
         if h:
             return h, round(sum(x['w'] for x in h), 2), today, 'naver'
@@ -643,6 +680,19 @@ def smoke(code):
     for h in holdings[:5]:
         print('    %-12s %-28s %6.2f%%' % (h['t'], h['n'][:28], h['w']))
     if len(holdings) < SMOKE_HARD_MIN:
+        old = load_previous().get('etfs', {}).get(code)
+        old_holdings = old.get('holdings') if isinstance(old, dict) else None
+        try:
+            old_date = datetime.date.fromisoformat(str(old.get('asOf')))
+            old_age = (datetime.date.today() - old_date).days
+        except Exception:
+            old_age = SMOKE_CACHE_MAX_AGE_DAYS + 1
+        if (isinstance(old_holdings, list) and len(old_holdings) >= SMOKE_HARD_MIN
+                and 0 <= old_age <= SMOKE_CACHE_MAX_AGE_DAYS):
+            print('\n경고: 실시간 수집 경로가 모두 실패했습니다. 빈 데이터로 덮어쓰지 않고 '
+                  '직전 정상 스냅샷 %d행(%s, %d일 전)을 검증해 이번 실행을 계속합니다.'
+                  % (len(old_holdings), old.get('asOf'), old_age))
+            return 0
         print('\n실패: %d행은 정상 범위가 아닙니다(최소 %d행). 수집 경로를 점검해야 합니다.'
               % (len(holdings), SMOKE_HARD_MIN), file=sys.stderr)
         return 1

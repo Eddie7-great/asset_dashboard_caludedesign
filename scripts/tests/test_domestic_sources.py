@@ -3,11 +3,14 @@
 
 import os
 import sys
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
+import collect_etf_holdings as collector  # noqa: E402
 from collect_etf_holdings import (  # noqa: E402
+    fetch_tiger,
     kr_isin_from_short_code,
     parse_tiger_pdf_html,
     parse_zeroin_holdings_html,
@@ -91,6 +94,47 @@ def main():
           '현금·금 현물 제외')
     check(eq == 42.36, '주식 비중 합계 계산')
     check(as_of == '2026-07-27', '공시 기준일 추출')
+
+    print('\n[TIGER 세션 기반 전체 목록 요청]')
+
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self, *_):
+            return self.body
+
+    class FakeOpener:
+        def __init__(self):
+            self.requests = []
+
+        def open(self, request, timeout=0):
+            self.requests.append(request)
+            if len(self.requests) == 1:
+                return FakeResponse(b'<html>session ready</html>')
+            return FakeResponse(TIGER_SAMPLE.encode('utf-8'))
+
+    fake = FakeOpener()
+    original_build_opener = collector.urllib.request.build_opener
+    collector.urllib.request.build_opener = lambda *_: fake
+    try:
+        live_shape, live_as_of = fetch_tiger('133690')
+    finally:
+        collector.urllib.request.build_opener = original_build_opener
+    body = urllib.parse.parse_qs(fake.requests[1].data.decode('utf-8'))
+    check(len(fake.requests) == 2, '상세 페이지로 세션을 만든 뒤 목록 API 호출')
+    check(body.get('listCnt') == ['500'] and body.get('firstIndex') == ['0'],
+          '전체 구성종목을 한 번에 받는 페이징 값 전송')
+    check(bool(body.get('fixDate')) and body.get('order') == ['SRD'],
+          '기준일과 비중 내림차순 정렬 값 전송')
+    check(len(live_shape) == 3, '세션 기반 응답을 기존 공식 PDF 파서로 처리')
+    check(bool(live_as_of), '실제 응답 기준일을 함께 반환')
 
     print('\n%d개 항목 · 실패 %d건' % (len(holdings) + len(zeroin), len(fails)))
     return 1 if fails else 0

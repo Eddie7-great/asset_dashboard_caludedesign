@@ -59,6 +59,26 @@ def main():
     check(equity_weight == expected, 'equityWeight = 주식 비중 합 %.2f%% (100%% 아님)' % expected)
     check(equity_weight < 100, 'equityWeight < 100 — 현금·채권·선물이 빠진 사실이 드러난다')
 
+    print('\n[KRX 변경 필드 호환]')
+    alt_rows = [
+        {'COMPST_ISU_CD': '005930', 'COMPST_ISU_NM': '삼성전자',
+         'COMPST_RTO': '-', 'COMPST_RTIO': '60.0'},
+        {'COMPST_ISU_CD': '000660', 'COMPST_ISU_NM': 'SK하이닉스',
+         'COMPST_RTO': '-', 'COMPST_RTIO': '40.0'},
+    ]
+    alt_holdings, alt_weight = parse_krx_pdf(alt_rows)
+    check(len(alt_holdings) == 2 and alt_weight == 100.0,
+          'COMPST_RTIO 비중 필드도 정상 파싱')
+    amount_rows = [
+        {'COMPST_ISU_CD': '005930', 'COMPST_ISU_NM': '삼성전자',
+         'COMPST_AMT': '-', 'VALU_AMT': '750'},
+        {'COMPST_ISU_CD': '000660', 'COMPST_ISU_NM': 'SK하이닉스',
+         'COMPST_AMT': '-', 'VALU_AMT': '250'},
+    ]
+    amount_holdings, amount_weight = parse_krx_pdf(amount_rows)
+    check([h['w'] for h in amount_holdings] == [75.0, 25.0] and amount_weight == 100.0,
+          'COMPST_AMT가 없으면 VALU_AMT로 비중 산출')
+
     print('\n[정렬]')
     check(all(holdings[i]['w'] >= holdings[i + 1]['w'] for i in range(len(holdings) - 1)),
           '비중 내림차순 정렬')
