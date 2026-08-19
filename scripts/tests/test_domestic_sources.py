@@ -10,8 +10,11 @@ sys.path.insert(0, os.path.dirname(HERE))
 
 import collect_etf_holdings as collector  # noqa: E402
 from collect_etf_holdings import (  # noqa: E402
+    fetch_sol,
     fetch_tiger,
+    fetch_zeroin,
     kr_isin_from_short_code,
+    parse_sol_pdf_json,
     parse_tiger_pdf_html,
     parse_zeroin_holdings_html,
 )
@@ -51,6 +54,12 @@ ZEROIN_SAMPLE = """
 <tr><td>4</td><td>KRX금현물</td><td>KRD040200002</td><td>100.00%</td><td>1</td><td>1</td><td>일반상품</td></tr>
 </tbody></table>
 """
+
+SOL_SAMPLE = [
+    {'STOCK_CODE': 'US67066G1040', 'SEC_NM': 'NVIDIA', 'WT_DISP': '8.19%'},
+    {'STOCK_CODE': 'US0378331005', 'SEC_NM': 'APPLE INC', 'WT_DISP': '6.74%'},
+    {'STOCK_CODE': 'KRD010010001', 'SEC_NM': '현금성자산', 'WT_DISP': '-0.07%'},
+]
 
 fails = []
 
@@ -95,6 +104,31 @@ def main():
     check(eq == 42.36, '주식 비중 합계 계산')
     check(as_of == '2026-07-27', '공시 기준일 추출')
 
+    sol = parse_sol_pdf_json(SOL_SAMPLE)
+    by = {h['t']: h for h in sol}
+
+    print('\n[SOL 공식 API 파싱]')
+    check(len(sol) == 2, '공식 API에서 주식 행만 추출')
+    check(by.get('NVDA', {}).get('w') == 8.19, 'SOL ISIN을 미국 티커로 정규화')
+    check(by.get('AAPL', {}).get('w') == 6.74, 'SOL 공시 비중 유지')
+    check('KRD010010001' not in by, '현금성자산 제외')
+
+    print('\n[SOL 최근 공시일 폴백]')
+    sol_requests = []
+    original_http_json = collector.http_json
+
+    def fake_sol_json(url, **_):
+        sol_requests.append(url)
+        return [] if len(sol_requests) == 1 else SOL_SAMPLE
+
+    collector.http_json = fake_sol_json
+    try:
+        live_sol, sol_as_of = fetch_sol('433330')
+    finally:
+        collector.http_json = original_http_json
+    check(len(sol_requests) == 2, '당일 공시가 비면 직전 영업일 재조회')
+    check(len(live_sol) == 2 and bool(sol_as_of), '직전 정상 공시를 반환')
+
     print('\n[TIGER 세션 기반 전체 목록 요청]')
 
     class FakeResponse:
@@ -135,6 +169,28 @@ def main():
           '기준일과 비중 내림차순 정렬 값 전송')
     check(len(live_shape) == 3, '세션 기반 응답을 기존 공식 PDF 파서로 처리')
     check(bool(live_as_of), '실제 응답 기준일을 함께 반환')
+
+    print('\n[ZEROIN 일시 장애 재시도]')
+    zeroin_calls = []
+    original_urlopen = collector.urllib.request.urlopen
+    original_sleep = collector.time.sleep
+
+    def fake_urlopen(request, timeout=0):
+        zeroin_calls.append((request, timeout))
+        if len(zeroin_calls) == 1:
+            raise TimeoutError('temporary timeout')
+        return FakeResponse(ZEROIN_SAMPLE.encode('utf-8'))
+
+    collector.urllib.request.urlopen = fake_urlopen
+    collector.time.sleep = lambda *_: None
+    try:
+        retried, retried_eq, retried_as_of = fetch_zeroin('433330')
+    finally:
+        collector.urllib.request.urlopen = original_urlopen
+        collector.time.sleep = original_sleep
+    check(len(zeroin_calls) == 2, '타임아웃 뒤 재시도')
+    check(len(retried) == 3 and retried_eq == 42.36 and retried_as_of == '2026-07-27',
+          '재시도 성공 응답 반환')
 
     print('\n%d개 항목 · 실패 %d건' % (len(holdings) + len(zeroin), len(fails)))
     return 1 if fails else 0

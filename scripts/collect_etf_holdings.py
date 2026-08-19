@@ -24,6 +24,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
@@ -54,6 +55,7 @@ BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
 SMOKE_HARD_MIN = 5    # 이하이면 명백히 깨진 것 → job 실패 (요구사항: "1~2줄만 나오면 멈추고 보고")
 SMOKE_EXPECT_ROWS = 30  # 이하이면 경고만 — 데이터는 쓸 수 있으나 소스가 상위 일부만 준 상태
 SMOKE_CACHE_MAX_AGE_DAYS = 35  # ETF 리밸런싱 주기를 감안한 일시 장애 허용 범위
+ZEROIN_RETRY_DELAYS = (2, 5)  # 최초 요청 포함 최대 3회. GitHub runner의 순간 타임아웃 흡수
 
 
 # ── KRX ─────────────────────────────────────────────────────────
@@ -254,20 +256,77 @@ def fetch_zeroin(code):
         'Accept': 'text/html,application/xhtml+xml',
         'Referer': 'https://etf.zeroin.co.kr/',
     }
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=25) as r:
-            text = r.read().decode('utf-8', 'replace')
-        holdings, eq, as_of = parse_zeroin_holdings_html(text)
-        print('[zeroin] %s: 주식 %d행 (equityWeight %.1f%%, %s)'
-              % (code, len(holdings), eq, as_of), file=sys.stderr)
-        return holdings, eq, as_of
-    except Exception as e:
-        print('[zeroin] %s: %s: %s' % (code, type(e).__name__, e), file=sys.stderr)
-        return [], 0.0, None
+    attempts = len(ZEROIN_RETRY_DELAYS) + 1
+    last_as_of = None
+    for attempt in range(1, attempts + 1):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=25) as r:
+                text = r.read().decode('utf-8', 'replace')
+            holdings, eq, as_of = parse_zeroin_holdings_html(text)
+            last_as_of = as_of or last_as_of
+            print('[zeroin] %s: 주식 %d행 (equityWeight %.1f%%, %s) [%d/%d]'
+                  % (code, len(holdings), eq, as_of, attempt, attempts), file=sys.stderr)
+            if holdings:
+                return holdings, eq, as_of
+        except Exception as e:
+            print('[zeroin] %s: %s: %s [%d/%d]'
+                  % (code, type(e).__name__, e, attempt, attempts), file=sys.stderr)
+        if attempt < attempts:
+            time.sleep(ZEROIN_RETRY_DELAYS[attempt - 1])
+    return [], 0.0, last_as_of
 
 
 # ── 3순위 · 운용사 내부 API 어댑터 ───────────────────────────────
+SOL_FUND_CODES = {
+    # SOL 공식 상품 페이지의 fund_cd. 공식 API는 STOCK_CODE(ISIN)와 WT_DISP(비중)를 함께 준다.
+    '433330': '210930',
+}
+SOL_PDF_URL = 'https://www.soletf.com/api/fund/pdfList?fund_cd={fund_cd}&work_dt={date}'
+SOL_DETAIL_URL = 'https://www.soletf.com/ko/fund/etf/{fund_cd}?tabIndex=3'
+
+
+def parse_sol_pdf_json(rows):
+    """SOL 공식 pdfList JSON → 정규화된 주식 구성종목."""
+    picked = []
+    for item in rows or []:
+        if not isinstance(item, dict):
+            continue
+        raw_code = str(item.get('STOCK_CODE') or '').strip().upper()
+        name = str(item.get('SEC_NM') or '').strip()
+        ticker = norm_holding_code(raw_code)
+        if not ticker or not is_equity_row(raw_code, name):
+            continue
+        try:
+            weight = float(str(item.get('WT_DISP') or '').replace(',', '').replace('%', '').strip())
+        except Exception:
+            continue
+        if weight > 0:
+            picked.append((ticker, name or ticker, weight))
+    return merge_holdings(picked)
+
+
+def fetch_sol(code):
+    """SOL 공식 API에서 최근 공시일의 전체 PDF 구성종목을 받는다."""
+    fund_cd = SOL_FUND_CODES.get(str(code).strip())
+    if not fund_cd:
+        return [], None
+    headers = {'Referer': SOL_DETAIL_URL.format(fund_cd=fund_cd)}
+    for d in recent_biz_days(5):
+        try:
+            rows = http_json(SOL_PDF_URL.format(fund_cd=fund_cd, date=d),
+                             headers=headers, timeout=25)
+            holdings = parse_sol_pdf_json(rows)
+            print('[sol] %s (%s) %s: 공식 PDF %d행 추출'
+                  % (code, fund_cd, d, len(holdings)), file=sys.stderr)
+            if holdings:
+                return holdings, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
+        except Exception as e:
+            print('[sol] %s %s: %s: %s'
+                  % (code, d, type(e).__name__, e), file=sys.stderr)
+    return [], None
+
+
 TIGER_DETAIL_URL = (
     'https://investments.miraeasset.com/tigeretf/ko/product/search/detail/'
     'index.do?ksdFund={ksd_fund}'
@@ -387,6 +446,7 @@ def fetch_tiger(code):
 # 브랜드 → callable(code) -> ([{'t','n','w'}], asOf)
 PROVIDER_ADAPTERS = {
     'TIGER': fetch_tiger,
+    'SOL': fetch_sol,
 }
 
 BRAND_RE = re.compile(r'^(TIGER|KODEX|RISE|PLUS|TIME|ACE|SOL|KOSEF|HANARO|KBSTAR|ARIRANG)', re.I)
