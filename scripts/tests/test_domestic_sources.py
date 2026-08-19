@@ -129,6 +129,20 @@ def main():
     check(len(sol_requests) == 2, '당일 공시가 비면 직전 영업일 재조회')
     check(len(live_sol) == 2 and bool(sol_as_of), '직전 정상 공시를 반환')
 
+    sol_fail_requests = []
+
+    def fake_sol_timeout(url, **_):
+        sol_fail_requests.append(url)
+        raise collector.urllib.error.URLError('timed out')
+
+    collector.http_json = fake_sol_timeout
+    try:
+        failed_sol, failed_sol_as_of = fetch_sol('433330')
+    finally:
+        collector.http_json = original_http_json
+    check(len(sol_fail_requests) == 1, 'SOL 호스트 연결 실패 시 다른 날짜 재시도 중단')
+    check(failed_sol == [] and failed_sol_as_of is None, 'SOL 연결 실패 결과를 빈 값으로 반환')
+
     print('\n[TIGER 세션 기반 전체 목록 요청]')
 
     class FakeResponse:
