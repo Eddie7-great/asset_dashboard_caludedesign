@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
@@ -55,7 +56,8 @@ BLD_ETF_PDF = 'dbms/MDC/STAT/standard/MDCSTAT05001'
 SMOKE_HARD_MIN = 5    # 이하이면 명백히 깨진 것 → job 실패 (요구사항: "1~2줄만 나오면 멈추고 보고")
 SMOKE_EXPECT_ROWS = 30  # 이하이면 경고만 — 데이터는 쓸 수 있으나 소스가 상위 일부만 준 상태
 SMOKE_CACHE_MAX_AGE_DAYS = 35  # ETF 리밸런싱 주기를 감안한 일시 장애 허용 범위
-ZEROIN_RETRY_DELAYS = (2, 5)  # 최초 요청 포함 최대 3회. GitHub runner의 순간 타임아웃 흡수
+ZEROIN_RETRY_DELAYS = (2,)  # 최초 요청 포함 최대 2회. 순간 장애만 흡수하고 runner 차단은 빨리 포기
+EXTERNAL_SOURCE_TIMEOUT = 12  # 차단된 국내 사이트 때문에 전체 배치가 30분을 소진하지 않게 제한
 
 
 # ── KRX ─────────────────────────────────────────────────────────
@@ -261,7 +263,7 @@ def fetch_zeroin(code):
     for attempt in range(1, attempts + 1):
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=25) as r:
+            with urllib.request.urlopen(req, timeout=EXTERNAL_SOURCE_TIMEOUT) as r:
                 text = r.read().decode('utf-8', 'replace')
             holdings, eq, as_of = parse_zeroin_holdings_html(text)
             last_as_of = as_of or last_as_of
@@ -315,12 +317,17 @@ def fetch_sol(code):
     for d in recent_biz_days(5):
         try:
             rows = http_json(SOL_PDF_URL.format(fund_cd=fund_cd, date=d),
-                             headers=headers, timeout=25)
+                             headers=headers, timeout=EXTERNAL_SOURCE_TIMEOUT)
             holdings = parse_sol_pdf_json(rows)
             print('[sol] %s (%s) %s: 공식 PDF %d행 추출'
                   % (code, fund_cd, d, len(holdings)), file=sys.stderr)
             if holdings:
                 return holdings, '%s-%s-%s' % (d[:4], d[4:6], d[6:])
+        except urllib.error.URLError as e:
+            print('[sol] %s %s: %s: %s'
+                  % (code, d, type(e).__name__, e), file=sys.stderr)
+            # 같은 호스트의 날짜만 바꿔 재요청해도 연결 차단은 풀리지 않는다.
+            break
         except Exception as e:
             print('[sol] %s %s: %s: %s'
                   % (code, d, type(e).__name__, e), file=sys.stderr)

@@ -39,23 +39,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install playwright          # 4순위 폴백용
 
-      - name: Chromium 설치
-        run: playwright install --with-deps chromium
+      # BROWSER_SOURCES가 비어 있어 현재 브라우저 폴백은 사용하지 않는다.
+      # Playwright/Chromium을 매번 설치하면 실제 수집 전에 불필요한 네트워크 장애 지점이 생긴다.
 
-      # 국내·해외 주식형 ETF를 여러 운용사에서 확인한다. 1~2줄만 나오면 잘못된 것이므로
-      # 여기서 job 을 실패시켜 잘못된 데이터 커밋을 막는다.
-      # KRX_ID/KRX_PW 는 선택 사항 — 없으면 ZEROIN 공통 소스로 수집한다.
-      # (KRX 는 회원 로그인을 요구하도록 바뀌어, 자격이 없으면 400 만 돌아온다)
+      # GitHub hosted runner에서는 일부 국내 운용사 사이트가 데이터센터 IP를 차단한다.
+      # 네트워크가 불안정한 해외주식형 ETF를 하드 게이트로 쓰지 않고, 실제 보유 중이며
+      # KRX가 비중까지 공시하는 KODEX·TIGER·SOL 국내주식형 ETF로 수집 경로를 검증한다.
+      # 운용사 공식 API와 외부 HTML 파서는 아래 네트워크 없는 단위 테스트에서 별도 검증한다.
       - name: 여러 운용사 스모크 테스트
         env:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
         run: |
           python scripts/collect_etf_holdings.py --smoke 069500
-          python scripts/collect_etf_holdings.py --smoke 133690
-          python scripts/collect_etf_holdings.py --smoke 433330
+          python scripts/collect_etf_holdings.py --smoke 0117V0
+          python scripts/collect_etf_holdings.py --smoke 0167A0
 
       - name: 파서 단위 테스트
         run: |
