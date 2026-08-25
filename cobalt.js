@@ -27,6 +27,7 @@ let _cbDivVerifyPromise = null;
 let _cbDivOwner = '전체';      // 배당 관리 소유주 필터
 let _cbDivYear = null;         // 배당 캘린더 조회 연도 (null=올해)
 let _cbDivMonthFilter = null;  // 캘린더 클릭으로 하단 내역을 거르는 월(0~11)
+let _cbDivBasis = 'gross';     // 배당 표시 기준: 'gross'(세전) | 'net'(세후, 계좌별 원천징수 반영)
 let _cbRiskOwner = '전체';     // 리스크 진단 소유주 필터
 let _cbDcaOwner = '전체';      // DCA 자동매수 소유주 필터
 let _cbPerfTf = '1Y';         // 성과 비교 선택 기간 (5D/1M/3M/6M/YTD/1Y)
@@ -47,7 +48,13 @@ const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
 const CB_VIEWS  = { cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
-const CB_TITLES = { cdash:'대시보드', perf2:'성과 비교', fam2:'가족 투자자산', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수', data2:'데이터 상태' };
+const CB_TITLES = { cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수', data2:'데이터 상태' };
+// cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
+const CB_LEGACY_SUB = {
+  holdings: '투자자산 추가·수정·삭제와 DCA 규칙 등록 · 여기서 저장한 값이 모든 화면의 원본입니다',
+  cashflow: '월별 수입·지출 기록과 고정비 관리 · 고정비로 분류한 항목이 재무상태표의 현금 안전판 기준이 됩니다',
+  bubble:   '보유 종목 비중을 면적으로 비교 · 주식·가상화폐만 포함하며 원을 클릭하면 하위 종목으로 들어갑니다',
+};
 
 // ───────────────────────── 헬퍼 ─────────────────────────
 function cbStrip(t){ return String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,''); }
@@ -97,6 +104,55 @@ function cbDivOf(i){
 function cbDivIncomeKRW(i){
   const d = cbDivOf(i); if (!d) return 0;
   return d.annualDps * (i.qty||0) * cbRate(d.cur || i.cur);
+}
+
+// ── 배당 세후 계산 ───────────────────────────────────────
+// 세율 규칙은 script.js 의 getAccountDivTaxInfo 하나만 쓴다(일반 15.4% / ISA 9.9%+200만 공제 /
+// 연금·IRP 과세이연). ISA 공제는 소유주·연도 단위라서 종목별로 나눠 계산할 수 없다 —
+// 소유주별 ISA 배당 총액에서 공제를 먼저 뺀 뒤 세금을 종목에 배당수입 비례로 나눈다.
+const CB_FIN_INCOME_THRESHOLD = 20000000;   // 금융소득종합과세 기준 (이자+배당 합산 2,000만원)
+function cbDivTaxInfo(acc){
+  return (typeof getAccountDivTaxInfo==='function')
+    ? getAccountDivTaxInfo(acc)
+    : { type:'일반', normalRate:0.154, exempt:0, label:'일반, 15.4%' };
+}
+// entries: [{owner, acc, gross, ref}] → 각 entry 에 tax/net 을 채우고 소유주별 요약을 함께 돌려준다.
+function cbDivTaxAllocate(entries){
+  const list=(entries||[]).map(e=>({...e, info:cbDivTaxInfo(e.acc), tax:0, net:Number(e.gross)||0}));
+  // 소유주별 ISA 배당 합계 → 공제 후 과세표준 → 세액을 비례 배분
+  const isaByOwner={};
+  list.forEach(e=>{ if(e.info.type==='ISA') isaByOwner[e.owner]=(isaByOwner[e.owner]||0)+e.gross; });
+  const isaTaxByOwner={};
+  Object.keys(isaByOwner).forEach(o=>{
+    const gross=isaByOwner[o];
+    const exempt=Math.min(cbDivTaxInfo('ISA').exempt||0, gross);
+    isaTaxByOwner[o]=Math.max(0, gross-exempt)*(cbDivTaxInfo('ISA').normalRate||0);
+  });
+  list.forEach(e=>{
+    if(e.info.type==='연금'){ e.tax=0; }
+    else if(e.info.type==='ISA'){
+      const ownerGross=isaByOwner[e.owner]||0;
+      e.tax = ownerGross>0 ? (isaTaxByOwner[e.owner]||0)*(e.gross/ownerGross) : 0;
+    } else {
+      e.tax = e.gross*(e.info.normalRate||0);
+    }
+    e.net = e.gross - e.tax;
+  });
+  const owners={};
+  list.forEach(e=>{
+    const o=owners[e.owner]||(owners[e.owner]={owner:e.owner,gross:0,net:0,tax:0,general:0,isa:0,pension:0});
+    o.gross+=e.gross; o.net+=e.net; o.tax+=e.tax;
+    if(e.info.type==='ISA') o.isa+=e.gross;
+    else if(e.info.type==='연금') o.pension+=e.gross;
+    else o.general+=e.gross;
+  });
+  // 금융소득종합과세 판정 대상은 일반계좌 배당만 — ISA 분리과세분과 연금 과세이연분은 제외한다.
+  Object.values(owners).forEach(o=>{
+    o.comprehensiveBase=o.general;
+    o.comprehensivePct=o.general/CB_FIN_INCOME_THRESHOLD*100;
+    o.comprehensiveOver=Math.max(0,o.general-CB_FIN_INCOME_THRESHOLD);
+  });
+  return { list, owners:Object.values(owners).sort((a,b)=>b.gross-a.gross) };
 }
 function cbDivGrowthInfo(i){
   try{
@@ -581,25 +637,15 @@ function cbRiskInsights(ownerFilter, baseRisk){
   const dividendTop3=dividendSources.slice(0,3).reduce((s,x)=>s+x,0);
   const dividendTop3Pct=dividendAnnual>0?dividendTop3/dividendAnnual*100:0;
 
-  // 현금성 자산이 월 DCA 약정과 등록된 정기지출을 몇 개월 감당하는지 계산한다.
-  const cashVal=rows.filter(r=>r.cls==='cash').reduce((s,r)=>s+r.val,0);
-  const dcaMonthly=(pfolioData||[])
-    .filter(i=>i&&i.dca&&(!ownerFilter||i.owner===ownerFilter))
-    .reduce((s,i)=>s+(typeof cbDcaPerMonthKRW==='function'?cbDcaPerMonthKRW(i):0),0);
-  const today=new Date();
-  const daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
-  const recurringExpense=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)
-    ? autoTransferData : []).filter(at=>
-      at&&at.type==='지출'&&at.cat!=='저축/투자'&&(!ownerFilter||at.owner===ownerFilter)
-    ).reduce((s,at)=>{
-      const amount=typeof _effectiveAutoTransferAmt==='function'
-        ? _effectiveAutoTransferAmt(at,today.getFullYear(),today.getMonth()+1)
-        : Number(at.amt)||0;
-      const times=at.cycle==='daily'?daysInMonth:at.cycle==='weekly'?daysInMonth/7:1;
-      return s+amount*times;
-    },0);
-  const monthlyCommitment=dcaMonthly+recurringExpense;
-  const liquidityMonths=monthlyCommitment>0?cashVal/monthlyCommitment:null;
+  // 현금 소진 기간은 재무상태표의 '현금 안전판'과 같은 값이어야 한다.
+  // 필수지출 정의(고정비 관리와 동일: isFixedCost===true, 저축/투자 제외)를 중복 구현하지 않고
+  // finCashSafety 하나에 위임한다. finance.js 미로드 시에만 현금만으로 축약해 표시한다.
+  const safety=(typeof finCashSafety==='function')
+    ? finCashSafety(ownerFilter)
+    : {cash:rows.filter(r=>r.cls==='cash').reduce((s,r)=>s+r.val,0),committed:0,committedRunway:null,pendingCount:0};
+  const cashVal=safety.cash;
+  const monthlyCommitment=safety.committed;
+  const liquidityMonths=safety.committedRunway;
 
   // 취득가를 아는 투자자산만 사용해 현재 평가손실에서 원금까지 필요한 반등률을 계산한다.
   const recoveryRows=rows.filter(r=>r.i.grp!=='현금'&&!r.i.costUnknown&&r.cost>0);
@@ -650,9 +696,11 @@ function cbRiskInsights(ownerFilter, baseRisk){
     {
       id:'liquidity-coverage', title:'현금 유동성 커버리지',
       value:liquidityMonths==null?'약정 없음':liquidityMonths.toFixed(1)+'개월',
-      detail:monthlyCommitment>0?`월 약정 ${cbDisp(monthlyCommitment)}`:`현금 ${cbDisp(cashVal)}`,
+      detail:monthlyCommitment>0
+        ? `월 약정 ${cbDisp(monthlyCommitment)}${safety.pendingCount?` · 미분류 ${safety.pendingCount}건 제외`:''}`
+        : `현금 ${cbDisp(cashVal)}`,
       tone:liquidityMonths==null?up:toneLow(liquidityMonths,3,1),
-      tip:'현금성 자산을 월 DCA 자동매수액과 등록된 정기지출 합계로 나눈 값입니다.',
+      tip:'현금성 자산을 "월 필수지출 + 월 DCA 자동매수액"으로 나눈 값입니다. 필수지출은 현금 흐름 > 고정비 관리에서 고정비로 분류한 항목만 쓰며(저축/투자 제외), 가족 재무상태표의 현금 안전판과 같은 기준입니다.',
     },
     {
       id:'recovery-return', title:'손실 회복 필요 수익률',
@@ -1077,7 +1125,7 @@ function cbRenderPerf(){
 
   // 소제목·기간 버튼은 메인 제목 라인(글로벌 헤더)으로
   cbSetHead(
-    `${CB_PERF_TF_LABEL[tf]} · 시작점 0% 정규화 · <span data-tip="S&P 500(^GSPC)·KOSPI(^KS11) 실지수 대비 소유주별 포트폴리오 수익률. 전일 확정 종가 기준입니다.">전일 종가 기준</span>`,
+    `${CB_PERF_TF_LABEL[tf]} · 시작점 0% 정규화 · <span data-tip="S&P 500(^GSPC)·KOSPI(^KS11) 실지수 대비 소유주별 포트폴리오 수익률. 전일 확정 종가 기준입니다.">전일 종가 기준</span> · <span data-tip="지금 보유한 종목과 비중을 기간 시작일부터 그대로 들고 있었다고 가정해 되짚은 값입니다. 기간 중 매수·매도 시점은 반영되지 않으므로 실제 실현 수익률과 다릅니다. 실제로 기록된 금액 추이는 가족 재무상태표 &gt; 순자산 추이에서 확인하세요."><b>소급 적용(백캐스트)</b></span>`,
     `<div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">
       ${CB_PERF_TFS.map(t=>`<button class="owner-btn${t===tf?' active':''}" onclick="cbPerfTf('${t}')">${t}</button>`).join('')}
     </div>`
@@ -1131,7 +1179,7 @@ function cbRenderPerf(){
               </div>`).join('')}
           </div>`).join('')}
       </div>
-      <div class="cb-perf-detail-note">※ 소유주별 라인은 각 소유주 보유 종목의 가중 수익률입니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
+      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 실제 금액 추이는 <b>가족 재무상태표 &gt; 순자산 추이</b>를 보세요. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
 }
 function cbPerfTf(t){ _cbPerfTf = t; cbRenderPerf(); }
@@ -1586,27 +1634,49 @@ function cbRenderDiv(){
   cbEnsureDivHist();
   const el = document.getElementById('cb-divm'); if(!el) return;
   const ownerF = (_cbDivOwner && _cbDivOwner!=='전체') ? _cbDivOwner : null;
-  let rows = cbAllRows().filter(r=>cbDivOf(r.i));
-  if (ownerF) rows = rows.filter(r=>r.i.owner===ownerF);
+  const netBasis = _cbDivBasis==='net';
+  const allRows = cbAllRows().filter(r=>cbDivOf(r.i));
+  let rows = ownerF ? allRows.filter(r=>r.i.owner===ownerF) : allRows;
+
+  // 세후 계산은 계좌 단위 세율이 필요하므로 다계좌 취합 '전' 행으로 배분한다.
+  // 소유주별 금융소득 게이지는 소유주 필터와 무관하게 가구 전체를 보여준다.
+  const divKeyOf = r => r.i.owner + '::' + cbStrip(r.i.tkr);
+  const alloc = cbDivTaxAllocate(allRows.map(r=>({
+    owner:r.i.owner, acc:r.i.acc, gross:cbDivIncomeKRW(r.i), key:divKeyOf(r)
+  })));
+  const netByKey = new Map();
+  alloc.list.forEach(e=>{
+    const cur = netByKey.get(e.key) || {gross:0, net:0, tax:0};
+    cur.gross+=e.gross; cur.net+=e.net; cur.tax+=e.tax;
+    netByKey.set(e.key, cur);
+  });
+
   // 같은 소유주+티커(다계좌) 취합
   const merged = new Map();
   rows.forEach(r=>{
-    const key = r.i.owner + '::' + cbStrip(r.i.tkr);
+    const key = divKeyOf(r);
     if (merged.has(key)){ const m = merged.get(key); m.qty += (r.i.qty||0); m.cost += r.cost; if(r.i.acc) m.accts.add(r.i.acc); }
-    else merged.set(key, { i:r.i, cl:r.cl, cls:r.cls, title:r.title, tkr:r.tkr, chip:r.chip, qty:(r.i.qty||0), cost:r.cost, idx:r.idx, accts:new Set(r.i.acc?[r.i.acc]:[]) });
+    else merged.set(key, { key, i:r.i, cl:r.cl, cls:r.cls, title:r.title, tkr:r.tkr, chip:r.chip, qty:(r.i.qty||0), cost:r.cost, idx:r.idx, accts:new Set(r.i.acc?[r.i.acc]:[]) });
   });
   const list = cbSortDividendRows(Array.from(merged.values()).map(m=>{
     const d = cbDivOf(m.i);
-    const incomeKRW = d.annualDps * m.qty * cbRate(d.cur || m.i.cur);
+    const grossKRW = d.annualDps * m.qty * cbRate(d.cur || m.i.cur);
+    const tx = netByKey.get(m.key) || {gross:grossKRW, net:grossKRW, tax:0};
+    const netKRW = tx.net;
     const growth = cbDivGrowthInfo(m.i);
     const g = growth.value;
     const rate = cbRate(m.i.cur);
     const avgNative = (m.qty>0 && rate>0) ? m.cost/(m.qty*rate) : cbAvgNative(m.i);
-    return { ...m, d, incomeKRW, g, growth, avgNative,
-      yoc: avgNative>0 ? d.annualDps/avgNative*100 : null };
+    // incomeKRW 는 현재 표시 기준을 따른다 — 캘린더·TOP3·집중도가 모두 이 값을 쓴다.
+    const incomeKRW = netBasis ? netKRW : grossKRW;
+    const netRatio = grossKRW>0 ? netKRW/grossKRW : 1;
+    return { ...m, d, incomeKRW, grossKRW, netKRW, taxKRW:tx.tax, netRatio, g, growth, avgNative,
+      yoc: avgNative>0 ? (d.annualDps*(netBasis?netRatio:1))/avgNative*100 : null };
   }));
 
   const divAnnual = list.reduce((s,x)=>s+x.incomeKRW,0);
+  const divGrossAnnual = list.reduce((s,x)=>s+x.grossKRW,0);
+  const divTaxAnnual = list.reduce((s,x)=>s+x.taxKRW,0);
   const divCost = list.reduce((s,x)=>s+x.cost,0) || 1;
   // 평균 배당성장률 — 배당 이력으로 CAGR 이 산출된 종목만 배당수입 가중평균한다.
   // (전체 배당수입으로 나누면 이력이 없는 종목이 분모만 키워 0쪽으로 희석된다)
@@ -1649,17 +1719,22 @@ function cbRenderDiv(){
     ? list.filter(x=>selectedTickers.has(cbStrip(x.tkr||x.title)))
     : list;
 
-  // 소유주 버튼·조회 연도는 메인 제목 라인(글로벌 헤더) 우측으로
+  // 소유주 버튼·표시 기준·조회 연도는 메인 제목 라인(글로벌 헤더) 우측으로
+  const basisLabel = netBasis ? '세후' : '세전';
   cbSetHead(
-    '<span data-tip="Yield on Cost — 내 평단가 대비 연간 배당금 비율. 배당성장 + 장기보유의 효과를 보여줍니다.">YoC</span>는 평단가(가중평균) 기준입니다',
-    `${cbOwnerBtns(_cbDivOwner,'cbDivOwner')}
+    `<span data-tip="Yield on Cost — 내 평단가 대비 연간 배당금 비율. 배당성장 + 장기보유의 효과를 보여줍니다.">YoC</span>는 평단가(가중평균) 기준 · 현재 <b>${basisLabel}</b> 표시`,
+    `<div class="owner-tabs" style="display:inline-flex;gap:3px">
+       <button class="owner-btn${netBasis?'':' active'}" onclick="cbDivBasis('gross')">세전</button>
+       <button class="owner-btn${netBasis?' active':''}" onclick="cbDivBasis('net')">세후</button>
+     </div>
+     ${cbOwnerBtns(_cbDivOwner,'cbDivOwner')}
      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--lab);font-weight:600">연도
        <select class="cb-input" onchange="cbDivYear(this.value)" style="padding:6px 9px">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}년</option>`).join('')}</select>
      </label>`
   );
   el.innerHTML = `
     <div class="cb-div-summary-grid">
-      <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">연간 배당 수입${ownerF?' · '+cbEsc(ownerF):''}</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div></div>
+      <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">연간 배당 수입 · ${basisLabel}${ownerF?' · '+cbEsc(ownerF):''}</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div>${netBasis?`<div style="font-size:10px;color:var(--dim);margin-top:2px">세전 ${cbDisp(divGrossAnnual)} · 세금 ${cbDisp(divTaxAnnual)}</div>`:''}</div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:11px;color:var(--lab)">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
@@ -1685,9 +1760,28 @@ function cbRenderDiv(){
         </div>
       </div>
     </div>
+    <div class="cb-panel cb-fin-income-panel">
+      <div class="fin-section-head">
+        <span><span data-tip="이자·배당 등 연 금융소득이 2,000만원을 넘으면 초과분이 다른 소득과 합산돼 종합과세됩니다. 여기서는 일반계좌 배당만 집계합니다 — ISA는 분리과세, 연금·IRP는 과세이연이라 판정 대상이 아닙니다.">금융소득종합과세 근접도</span> <span style="color:var(--dim);font-weight:500">· 소유주별 · 일반계좌 배당 기준</span></span>
+        <small>기준 ${cbDisp(CB_FIN_INCOME_THRESHOLD)} · 이 앱에 없는 예적금 이자는 미포함</small>
+      </div>
+      <div class="cb-fin-income-grid">
+        ${alloc.owners.filter(o=>o.gross>0).map(o=>{
+          const pct=Math.min(100,o.comprehensivePct);
+          const over=o.comprehensiveOver>0;
+          const near=!over&&o.comprehensivePct>=80;
+          return `<div class="cb-fin-income-card${over?' is-over':near?' is-near':''}">
+            <div class="cb-fin-income-head"><b><i style="background:${cbOwnerColor(o.owner)}"></i>${cbEsc(o.owner)}</b><span>${o.comprehensivePct.toFixed(0)}%</span></div>
+            <div class="cb-fin-income-track"><i style="width:${pct}%"></i></div>
+            <div class="cb-fin-income-meta">일반 ${cbDisp(o.general)}${o.isa>0?` · ISA ${cbDisp(o.isa)}`:''}${o.pension>0?` · 연금 ${cbDisp(o.pension)}`:''}</div>
+            <div class="cb-fin-income-note">${over?`⚠ 기준 초과 ${cbDisp(o.comprehensiveOver)} — 종합과세 대상`:near?'기준에 근접했습니다 — 절세계좌 이전을 검토하세요.':`잔여 ${cbDisp(Math.max(0,CB_FIN_INCOME_THRESHOLD-o.general))}`}</div>
+          </div>`;
+        }).join('') || '<div class="fin-empty">배당 지급 종목이 없습니다.</div>'}
+      </div>
+    </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 ${cal.actual?'<span style="color:var(--up)">· 실제 지급</span>':'<span style="color:var(--dim)">· 예상</span>'}</span>
+        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?'<span style="color:var(--up)">· 실제 지급</span>':'<span style="color:var(--dim)">· 예상</span>'}</span>
         <span style="margin-left:auto;font-size:11px;color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
       ${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}
@@ -1698,11 +1792,11 @@ function cbRenderDiv(){
         <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbDivMonthFilter+1}월 예상 종목 · 전체 보기 ×</button>`:''}
       </div>
-      <div class="cb-thead cb-div-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1018px">
-        <span style="width:62px">소유주</span><span style="width:38px" aria-label="국가"></span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입</span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+      <div class="cb-thead cb-div-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1110px">
+        <span style="width:62px">소유주</span><span style="width:38px" aria-label="국가"></span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입 · ${basisLabel}</span><span class="cb-mobile-secondary" style="width:92px;text-align:right"><span data-tip="계좌 종류에 따른 배당 원천징수액입니다. 일반 15.4%, ISA는 소유주별 200만원 공제 후 9.9%, 연금·IRP는 인출 시점까지 과세이연이라 0원으로 계산합니다.">배당세</span></span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
       </div>
       ${visibleList.map(x=>`
-        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:1018px">
+        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px;min-width:1110px">
           <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
           <span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">${cbFlagSvg(x,15)}</span>
           <div style="flex:1;display:flex;align-items:center;min-width:0">
@@ -1712,6 +1806,7 @@ function cbRenderDiv(){
             </span>
           </div>
           <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
+          <span class="cb-num cb-mobile-secondary" style="width:92px;text-align:right;font-size:11.5px;${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(cbDivTaxInfo(Array.from(x.accts)[0]||x.i.acc).label)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):'비과세'}</span>
           <span class="cb-num" style="width:76px;text-align:right;font-size:11.5px;font-weight:600">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
           <span class="cb-num cb-mobile-secondary" style="width:86px;text-align:right;font-size:11.5px">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
           <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
@@ -1753,6 +1848,8 @@ function cbDivMonthPick(m){
 }
 function cbDivOwner(o){ _cbDivOwner=o; _cbDivMonthFilter=null; cbRenderDiv(); }
 function cbDivYear(y){ _cbDivYear=y; _cbDivMonthFilter=null; cbRenderDiv(); }
+// 세전/세후 전환 — 카드·캘린더·종목표·TOP3 가 모두 같은 기준을 따른다.
+function cbDivBasis(b){ _cbDivBasis = (b==='net'?'net':'gross'); cbDivBarHide(); cbRenderDiv(); }
 
 // ───────────────────────── 페이지: 가족 증여 ─────────────────────────
 // 좌: 자녀 정기증여(유기정기금 PV) / 우: 부부 증여(10년 6억 공제 한도)
@@ -2820,8 +2917,21 @@ function cbRerender(){
   if (_cobaltActive && CB_VIEWS[_cobaltActive]){
     try{ CB_VIEWS[_cobaltActive](); }catch(e){ console.error('[cobalt render]', e); }
   }
-  const fn=document.getElementById('feed-note');
-  if (fn) fn.textContent = '전일 종가 연동 · ' + new Date().toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});
+  cbSyncFeedStatus();
+}
+// 사이드바 푸터 상태 줄 — 데이터 상태 페이지의 요약을 그대로 보여준다.
+// 확인이 필요한 항목이 있으면 점을 붉게 바꿔 페이지를 열어보게 만든다.
+function cbSyncFeedStatus(){
+  const fn=document.getElementById('feed-note'); if(!fn) return;
+  const btn=document.getElementById('menu-data2');
+  let warn=0;
+  if (typeof finDataStatusRows==='function'){
+    try{ warn=finDataStatusRows().filter(x=>!x.ok).length; }catch(e){ warn=0; }
+  }
+  fn.textContent = warn
+    ? `데이터 확인 필요 ${warn}건`
+    : '전일 종가 연동 · ' + new Date().toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});
+  if (btn) btn.classList.toggle('has-warning', warn>0);
 }
 
 const _cbOrigSwitchView = switchView;
@@ -2831,10 +2941,15 @@ switchView = function(id, btn){
     if(tip){ tip.style.display='none'; tip._anchor=null; }
   });
   if (id === 'dashboard'){ id='cdash'; btn = btn || document.getElementById('menu-dashboard'); }
-  if (!CB_VIEWS[id]){ _cobaltActive=null; cbSetHead(null, null); return _cbOrigSwitchView(id, btn); }
+  if (!CB_VIEWS[id]){
+    // 레거시 화면도 Cobalt 페이지와 같이 제목 옆 소제목을 채운다 — 비어 있으면 헤더가 페이지마다 들쭉날쭉해 보인다.
+    _cobaltActive=null; cbSetHead(CB_LEGACY_SUB[id] || null, null);
+    return _cbOrigSwitchView(id, btn);
+  }
   _cobaltActive = id;
   try{ if (typeof closeSidebar==='function') closeSidebar(); }catch(e){}
-  document.querySelectorAll('.menu-btn').forEach(b=>b.classList.remove('active'));
+  // 데이터 상태는 사이드바 푸터 버튼에서 열리므로 활성 표시 초기화 대상에 함께 넣는다.
+  document.querySelectorAll('.menu-btn,.footer-status-btn').forEach(b=>b.classList.remove('active'));
   const mbtn = btn || document.getElementById('menu-' + (id==='cdash' ? 'dashboard' : id));
   if (mbtn && mbtn.classList) mbtn.classList.add('active');
   if(typeof expandActiveMenuGroup==='function') expandActiveMenuGroup(mbtn);

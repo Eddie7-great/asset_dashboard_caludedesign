@@ -178,7 +178,7 @@ assert.match(scriptSource, /mobilePreview[\s\S]*desktopPreview[\s\S]*sidebar-lay
 assert.match(scriptSource, /초기 대시보드 렌더가 그 해시를 덮어쓰지 않게[\s\S]*requestedView!==normalized/, '모바일 미리보기에서도 현재 페이지 해시를 유지')
 assert.match(styleSource, /\.layout-preview-overlay\.mode-mobile \.layout-preview-stage\{width:390px[\s\S]*\.mode-desktop \.layout-preview-stage\{width:1280px/, '미리보기 iframe에 실제 모바일·PC 반응형 폭 적용')
 assert.match(cobaltSource, /aria-label="국가"><\/span>/, '배당 관리 국가 헤더 문구는 숨기고 국기 칸 유지')
-assert.match(cobaltSource, /연간 수입<\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역 보유 주수를 연간 수입과 주당 배당 사이에 배치')
+assert.match(cobaltSource, /연간 수입 · \$\{basisLabel\}<\/span><span[^>]*>[\s\S]{0,400}?배당세<\/span><\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역을 연간 수입 → 배당세 → 보유 주수 → 주당 배당 순으로 배치')
 assert.match(scriptSource, /holdings-asset-flag/, '자산 내역 종목명 왼쪽에 국기·자산 아이콘 슬롯 추가')
 assert.doesNotMatch(cobaltSource, /function cbDcaDel\(/, '자산 내역에서 불러오는 DCA 페이지의 별도 삭제 기능 제거')
 assert.doesNotMatch(cobaltSource, /width:44px;text-align:right">관리<\/span>/, 'DCA 페이지 관리 칼럼 제거')

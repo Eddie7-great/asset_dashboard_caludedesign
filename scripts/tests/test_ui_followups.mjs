@@ -6,6 +6,7 @@ import vm from 'node:vm'
 
 const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
 const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const priceApiSource = fs.readFileSync(new URL('../../api/price.ts', import.meta.url), 'utf8')
@@ -322,7 +323,14 @@ const riskInsightRows = [
 ]
 const riskInsightContext = {
   pfolioData:riskInsightRows.map(row=>row.i),
-  autoTransferData:[{owner:'본인',type:'지출',cat:'주거/통신',cycle:'monthly',amt:100}],
+  // 필수지출은 '고정비로 분류된(isFixedCost===true) 지출'만 — 현금 흐름 화면과 같은 기준
+  autoTransferData:[
+    {owner:'본인',type:'지출',cat:'주거/통신',cycle:'monthly',amt:100,isFixedCost:true},
+    {owner:'본인',type:'지출',cat:'저축/투자',cycle:'monthly',amt:500,isFixedCost:true},   // 자산 이동이라 제외돼야 함
+    {owner:'본인',type:'지출',cat:'식비',cycle:'monthly',amt:900},                          // 미분류라 합산되지 않아야 함
+  ],
+  window:{ _balanceSheet:{assets:[],liabilities:[],cashTargetMonths:6}, _dataFreshness:{} },
+  goalData:[],
   cbAllRows:()=>riskInsightRows,
   cbLookThrough:()=>({list:[{via:50}]}),
   cbMergeRows:rows=>rows,
@@ -331,10 +339,27 @@ const riskInsightContext = {
   cbStrip:ticker=>String(ticker||'').toUpperCase(),
   cbDcaPerMonthKRW:item=>item.dca?100:0,
   _effectiveAutoTransferAmt:at=>at.amt,
+  _autoTransferActiveInMonth:()=>true,
+  _autoTransferMonthlyEquivalent:at=>at.amt,
   cbDisp:value=>'₩'+Math.round(value),
 }
 vm.createContext(riskInsightContext)
+// 리스크 페이지의 현금 커버리지는 재무상태표의 현금 안전판과 같은 함수를 써야 한다.
+// finance.js 의 실제 구현을 넣어 두 화면이 같은 값을 내는지 여기서 검증한다.
+;['FIN_DEFAULT_TARGET','FIN_SAVING_CATS'].forEach(name=>{
+  const line = financeSource.split('\n').find(l=>l.startsWith(`const ${name}=`))
+  assert.ok(line, `${name} 상수를 찾을 수 없음`)
+  vm.runInContext(line, riskInsightContext)
+})
+;['finNewId','finEnsureState','finOwnerF','finRows','finMonthlyFixedCost','finCashSafety']
+  .forEach(name=>vm.runInContext(extractFunction(financeSource, name), riskInsightContext))
 vm.runInContext(extractFunction(cobaltSource, 'cbRiskInsights'), riskInsightContext)
+
+// 필수지출 단일 소스: 미분류(식비 900)와 저축/투자(500)는 빠지고 고정비 100만 남는다
+const safetyProbe = riskInsightContext.finCashSafety('본인')
+assert.equal(safetyProbe.fixed, 100, '고정비로 분류된 지출만 필수지출에 합산')
+assert.equal(safetyProbe.pendingCount, 1, '미분류 자동이체는 합산하지 않고 건수만 보고')
+assert.equal(safetyProbe.committed, 200, '월 약정액 = 필수지출 + DCA')
 const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
 const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
 assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 생성')

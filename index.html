@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=42">
+  <link rel="stylesheet" href="style.css?v=43">
 </head>
 <body>
 
@@ -55,7 +55,7 @@
         <button class="menu-group-title" type="button" onclick="toggleMenuGroup('summary',this)" aria-expanded="true"><span>요약</span><span class="menu-group-chevron">⌄</span></button>
         <div class="menu-group-items">
           <button class="menu-btn active" id="menu-dashboard" onclick="switchView('cdash',this)"><span class="menu-ico">◧</span>대시보드</button>
-          <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>가족 투자자산</button>
+          <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>구성원별 보유</button>
           <button class="menu-btn" id="menu-balance2" onclick="switchView('balance2',this)"><span class="menu-ico">▤</span>가족 재무상태표</button>
         </div>
       </section>
@@ -74,7 +74,6 @@
           <button class="menu-btn" id="menu-plan2" onclick="switchView('plan2',this)"><span class="menu-ico">◎</span>목표·리밸런싱</button>
           <button class="menu-btn" id="menu-dca2" onclick="switchView('dca2',this)"><span class="menu-ico">⟳</span>DCA 자동매수</button>
           <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>가족 증여</button>
-          <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
         </div>
       </section>
       <section class="menu-group" data-menu-group="records">
@@ -82,7 +81,8 @@
         <div class="menu-group-items">
           <button class="menu-btn" id="menu-holdings" onclick="switchView('holdings',this)"><span class="menu-ico">⊞</span>자산 내역</button>
           <button class="menu-btn" id="menu-cashflow" onclick="switchView('cashflow',this)"><span class="menu-ico">⇄</span>현금 흐름</button>
-          <button class="menu-btn" id="menu-data2" onclick="switchView('data2',this)"><span class="menu-ico">✓</span>데이터 상태</button>
+          <!-- 양도소득세는 실현손익을 기록하는 화면이라 '계획'이 아니라 기록 쪽에 둔다 -->
+          <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
         </div>
       </section>
     </div>
@@ -98,9 +98,10 @@
       <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
       <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:.78rem;font-weight:700">모바일버전</span></button>
       <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span aria-hidden="true">◉</span><span id="sidebar-privacy-label" style="font-size:.78rem;font-weight:700">금액 가리기</span></button>
-      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);padding:0 3px">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--up);flex-shrink:0"></span><span id="feed-note">시세 연동 대기</span>
-      </div>
+      <!-- 데이터 상태는 하루에 한 번 볼까 말까 한 화면이라 메뉴 대신 이 상태 줄에서 연다 -->
+      <button id="menu-data2" class="footer-status-btn" onclick="switchView('data2',this)" title="데이터 출처·최근 확인 시각 보기">
+        <span id="feed-dot" class="footer-status-dot"></span><span id="feed-note">시세 연동 대기</span><span class="footer-status-go">›</span>
+      </button>
     </div>
   </aside>
 
@@ -890,8 +891,8 @@
   </div>
 </div>
 
-<script src="script.js?v=37"></script>
-<script src="finance.js?v=1"></script>
-<script src="cobalt.js?v=17"></script>
+<script src="script.js?v=38"></script>
+<script src="finance.js?v=2"></script>
+<script src="cobalt.js?v=18"></script>
 </body>
 </html>
