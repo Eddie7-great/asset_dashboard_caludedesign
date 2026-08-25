@@ -94,7 +94,7 @@ const context = {
 }
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
-vm.runInContext(`const FIN_ASSET_CATS=['부동산','예·적금','기타 자산']; const FIN_LIABILITY_CATS=['주택담보대출','기타 부채']; const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finBalanceEdit=null; let _finGoalEdit=null; let _finBalanceOwner='전체'; let _finPlanOwner='전체'; let _finNwTf='6M';`, context)
+vm.runInContext(`const FIN_ASSET_CATS=['부동산','예·적금','기타 자산']; const FIN_LIABILITY_CATS=['주택담보대출','기타 부채']; const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finBalanceEdit=null; let _finGoalEdit=null; let _finBalanceOwner='전체'; let _finPlanOwner='전체'; let _finNwTf='6M'; const FIN_SESSION_ID='test-session';`, context)
 for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
@@ -158,14 +158,39 @@ assert.match(elements['cb-data2'].innerHTML, /manualRefresh\('assets'\)[\s\S]*ma
 
 const untouchedStatus = context.finDataStatusRows()
 assert.equal(untouchedStatus.every(row => row.ok === false), true, '실제 요청 전에는 기본값·빈 배열만으로 정상 판정하지 않음')
+// 아직 조회하지 않은 것과 조회해서 실패한 것을 구분한다 — 부팅 직후 전부 '오류'로 켜지면
+// 진짜 오류가 묻히고 사용자가 표시를 무시하게 된다.
+assert.equal(untouchedStatus.every(row => row.state === 'pending'), true, '요청 전에는 오류가 아니라 확인 전(pending) 상태')
 context.window._dataFreshness.assets = { ok:true, detail:'0개 항목 로드', updatedAt:'2026-08-25T00:00:00Z' }
 assert.equal(context.finDataStatusRows().find(row => row.key === 'assets').ok, true, '명시적으로 성공한 요청만 정상 표시')
+assert.equal(context.finDataStatusRows().find(row => row.key === 'assets').state, 'ok', '성공 기록은 ok 상태')
+context.window._dataFreshness.ext = { ok:false, detail:'로드 실패', updatedAt:'2026-08-25T00:00:00Z' }
+assert.equal(context.finDataStatusRows().find(row => row.key === 'ext').state, 'warn', '실패 기록은 warn 상태')
+// 다른 기기/이전 접속의 기록인지 구분 (KV 로 공유되므로 '3시간 전 확인'이 내 확인이 아닐 수 있다)
+assert.equal(context.finDataStatusRows().find(row => row.key === 'assets').sameSession, false, '세션 표식이 없는 기록은 다른 접속으로 취급')
+context.window._dataFreshness.rates = { ok:true, detail:'환율 로드', updatedAt:'2026-08-25T00:00:00Z', session:'test-session' }
+assert.equal(context.finDataStatusRows().find(row => row.key === 'rates').sameSession, true, '이번 접속에서 확인한 기록은 sameSession')
+delete context.window._dataFreshness.ext
+delete context.window._dataFreshness.rates
 context.window._dataFreshness.prices = { ok:true, detail:'조회 성공', updatedAt:'2026-08-25T00:00:00Z' }
 context.pfolioData = [{ grp:'주식', _priceStale:true }]
 const staleStatus = context.finDataStatusRows().find(row => row.key === 'prices')
 assert.equal(staleStatus.ok, false, '과거 성공 기록이 있어도 현재 시세 누락 자산이 있으면 확인 필요')
+assert.equal(staleStatus.state, 'warn', '시세 누락은 pending 이 아니라 warn')
+// 조회 기록이 아예 없어도 시세가 빈 자산이 실재하면 '확인 전'이 아니라 '확인 필요'
+delete context.window._dataFreshness.prices
+context.pfolioData = [{ grp:'주식', _priceStale:true }]
+assert.equal(context.finDataStatusRows().find(row => row.key === 'prices').state, 'warn', '기록이 없어도 시세 누락이 확인되면 warn')
+context.pfolioData = []
+context.window._dataFreshness.prices = { ok:true, detail:'조회 성공', updatedAt:'2026-08-25T00:00:00Z' }
 assert.match(staleStatus.detail, /1개 최신 시세 확인 필요/, '현재 누락 건수를 상태에 표시')
 context.pfolioData = []
+delete context.window._dataFreshness.prices
+
+// 사이드바 푸터가 pending 을 오류로 표시하지 않는지 (cobalt.js 배선)
+assert.match(cobaltSource, /warn=rows\.filter\(x=>x\.state==='warn'\)\.length/, '푸터 경고는 warn 만 집계')
+assert.match(cobaltSource, /pending \? `데이터 확인 중/, '확인 전 항목은 경고가 아닌 대기 문구로 표시')
+assert.match(styleSource, /\.footer-status-btn\.is-pending \.footer-status-dot\{background:var\(--lab\)\}/, '확인 전 상태 점은 경고색을 쓰지 않음')
 
 // 계좌 진단도 공통 엔진을 사용해 동일 소유주의 ISA 공제를 계좌마다 반복하지 않는다.
 const originalAllRows = context.cbAllRows

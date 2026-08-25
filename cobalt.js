@@ -2915,14 +2915,23 @@ function cbRerender(){
 function cbSyncFeedStatus(){
   const fn=document.getElementById('feed-note'); if(!fn) return;
   const btn=document.getElementById('menu-data2');
-  let warn=0;
+  let warn=0, pending=0;
   if (typeof finDataStatusRows==='function'){
-    try{ warn=finDataStatusRows().filter(x=>!x.ok).length; }catch(e){ warn=0; }
+    try{
+      const rows=finDataStatusRows();
+      warn=rows.filter(x=>x.state==='warn').length;
+      pending=rows.filter(x=>x.state==='pending').length;
+    }catch(e){ warn=0; pending=0; }
   }
-  fn.textContent = warn
-    ? `데이터 확인 필요 ${warn}건`
+  // 아직 조회하지 않은 것(pending)은 오류가 아니다 — 부팅 직후 전부 붉게 켜지면
+  // 진짜 오류가 묻히므로 실패(warn)일 때만 경고색을 쓴다.
+  fn.textContent = warn ? `데이터 확인 필요 ${warn}건`
+    : pending ? `데이터 확인 중 · ${pending}건 대기`
     : '전일 종가 연동 · ' + new Date().toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});
-  if (btn) btn.classList.toggle('has-warning', warn>0);
+  if (btn){
+    btn.classList.toggle('has-warning', warn>0);
+    btn.classList.toggle('is-pending', warn===0&&pending>0);
+  }
 }
 
 const _cbOrigSwitchView = switchView;
