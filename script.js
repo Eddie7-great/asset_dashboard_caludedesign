@@ -349,7 +349,37 @@ function getDivStocks() {
     .filter(Boolean);
 }
 
-let divHistory = {'2025':{},'2026':{}};
+// 배당 이력 연도는 하드코딩하지 않는다 — 작년·올해·내년을 매 실행 시점에 계산한다.
+// (예전에는 ['2025','2026'] 이 박혀 있어 2027년이 되면 조용히 빈 화면이 됐다)
+function divHistoryYears(){
+  const y = new Date().getFullYear();
+  return [String(y-1), String(y), String(y+1)];
+}
+function _emptyDivHistory(){
+  const o = {};
+  divHistoryYears().forEach(y=>{ o[y] = {}; });
+  return o;
+}
+// 없는 연도/소유주를 읽어도 터지지 않도록 항상 12칸 배열을 돌려준다.
+function divHistoryOf(year, owner){
+  const y = String(year || new Date().getFullYear());
+  return ((divHistory[y] || {})[owner]) || Array(12).fill(0);
+}
+// 연도 드롭다운도 하드코딩된 <option> 대신 실행 시점 기준으로 다시 채운다.
+function refreshYearSelects(){
+  const now = new Date().getFullYear();
+  const fill = (id, years, def) => {
+    const el = document.getElementById(id); if(!el) return;
+    const keep = el.value;
+    el.innerHTML = years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+    el.value = years.includes(keep) ? keep : String(def);
+  };
+  const divYears = divHistoryYears().slice().reverse();          // 내년·올해·작년
+  ['valYearSelect','mainDivYearSelect','divYearSelect'].forEach(id=>fill(id, divYears, now));
+  // 실현손익은 미래 연도가 의미 없으니 올해부터 과거 3년
+  fill('pl-year-select', [now, now-1, now-2].map(String), now);
+}
+let divHistory = _emptyDivHistory();
 
 // =============================================
 // 한국 계좌별 배당 세제 혜택
@@ -391,14 +421,17 @@ function _defaultMonthsForCycle(cycle) {
 }
 
 function syncDivHistory() {
-  ['2025','2026'].forEach(y=>{
+  const YEARS = divHistoryYears();
+  YEARS.forEach(y=>{
+    if(!divHistory[y]) divHistory[y]={};
     ALL_OWNERS.forEach(o=>{
       divHistory[y][o]=Array(12).fill(0);
     });
   });
   // divHistoryGross: 세전 배당 (기존 호환성), divHistory: 세후 배당 (세제 혜택 반영)
-  if (!window.divHistoryGross) window.divHistoryGross = {'2025':{},'2026':{}};
-  ['2025','2026'].forEach(y=>{
+  if (!window.divHistoryGross) window.divHistoryGross = _emptyDivHistory();
+  YEARS.forEach(y=>{
+    if(!window.divHistoryGross[y]) window.divHistoryGross[y]={};
     ALL_OWNERS.forEach(o=>{
       window.divHistoryGross[y][o]=Array(12).fill(0);
     });
@@ -429,7 +462,7 @@ function syncDivHistory() {
     let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
     if (!months) months = [2,5,8,11];
     const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
-    ['2025','2026'].forEach(y=>{
+    YEARS.forEach(y=>{
       months.forEach(m=>{
         if(m>=0&&m<12){
           window.divHistoryGross[y][item.owner][m]+=payout;
@@ -454,7 +487,7 @@ function syncDivHistory() {
     const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
     const taxInfo = getAccountDivTaxInfo(item.acc);
 
-    ['2025','2026'].forEach(y=>{
+    YEARS.forEach(y=>{
       months.forEach(m=>{
         if(m<0||m>=12) return;
         let netPayout;
@@ -1490,32 +1523,39 @@ function closeSidebar() {
 function toggleSidebar() {
   document.querySelector('.menu-col')?.classList.contains('open') ? closeSidebar() : openSidebar();
 }
+// 첫 방문 기본값 — 자주 여는 '요약'·'분석'만 펼쳐 둔다. 4그룹을 모두 펼치면
+// 항목이 13개라 접기의 이점이 사라진다. 이후에는 사용자가 접은 상태를 그대로 따른다.
+const MENU_GROUP_DEFAULT_COLLAPSED = { planning:true, records:true };
 function _menuGroupState(){
   try{ return JSON.parse(localStorage.getItem('menuGroupState')||'{}')||{}; }
   catch(e){ return {}; }
 }
+function _setMenuGroup(group, collapsed, persist){
+  if(!group) return;
+  group.classList.toggle('collapsed', collapsed);
+  group.querySelector('.menu-group-title')?.setAttribute('aria-expanded', String(!collapsed));
+  if(!persist) return;
+  // 화면과 저장 상태가 어긋나면 접어둔 그룹이 새로고침마다 다시 열려 혼란스럽다.
+  // 자동 펼침도 저장해 localStorage 가 항상 화면과 같은 값을 갖게 한다.
+  const state=_menuGroupState(); state[group.dataset.menuGroup]=collapsed;
+  try{ localStorage.setItem('menuGroupState',JSON.stringify(state)); }catch(e){}
+}
 function toggleMenuGroup(key, btn){
   const group=document.querySelector(`.menu-group[data-menu-group="${key}"]`); if(!group) return;
-  const collapsed=!group.classList.contains('collapsed');
-  group.classList.toggle('collapsed',collapsed);
-  (btn||group.querySelector('.menu-group-title'))?.setAttribute('aria-expanded',String(!collapsed));
-  const state=_menuGroupState(); state[key]=collapsed;
-  try{ localStorage.setItem('menuGroupState',JSON.stringify(state)); }catch(e){}
+  _setMenuGroup(group, !group.classList.contains('collapsed'), true);
 }
 function initMenuGroups(){
   const state=_menuGroupState();
   document.querySelectorAll('.menu-group').forEach(group=>{
     const key=group.dataset.menuGroup;
-    const collapsed=state[key]===true;
-    group.classList.toggle('collapsed',collapsed);
-    group.querySelector('.menu-group-title')?.setAttribute('aria-expanded',String(!collapsed));
+    const collapsed = (state[key]===undefined) ? !!MENU_GROUP_DEFAULT_COLLAPSED[key] : state[key]===true;
+    _setMenuGroup(group, collapsed, false);
   });
   expandActiveMenuGroup(document.querySelector('.menu-btn.active'));
 }
 function expandActiveMenuGroup(btn){
   const group=btn?.closest?.('.menu-group'); if(!group) return;
-  group.classList.remove('collapsed');
-  group.querySelector('.menu-group-title')?.setAttribute('aria-expanded','true');
+  if(group.classList.contains('collapsed')) _setMenuGroup(group, false, true);
 }
 // 대시보드 자산 구성 상세(NET 요약) 접기/펼치기 — 모바일 전용 토글 (데스크톱은 항상 펼침)
 function toggleNetSummary() {
@@ -1577,7 +1617,7 @@ function switchView(viewId, btn) {
   if (prevActive && prevActive.id === 'view-bubble' && viewId !== 'bubble') {
     if (_bubbleChart) { try { _bubbleChart.destroy(); } catch(e){} _bubbleChart = null; }
   }
-  document.querySelectorAll('.menu-btn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active');
+  document.querySelectorAll('.menu-btn,.footer-status-btn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active');
   expandActiveMenuGroup(btn);
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active')); viewEl.classList.add('active');
   if (isMobileLayout()) closeSidebar();
@@ -2807,7 +2847,7 @@ function changeOwner(owner, btn, isRefresh=false) {
   rerenderBenchmark();
 
   syncDivHistory();
-  if (miniDivChart){const y=document.getElementById('valYearSelect').value||'2026';miniDivChart.data.datasets[0].data=divHistory[y][currentOwner];miniDivChart.update();}
+  if (miniDivChart){const y=document.getElementById('valYearSelect')?.value;miniDivChart.data.datasets[0].data=divHistoryOf(y,currentOwner);miniDivChart.update();}
   if (window.mainDivChartInst){
     const y=(document.getElementById('mainDivYearSelect')||document.getElementById('divYearSelect'))?.value||'2026';
     const divArr=((divHistory[y]||{})[currentOwner]||Array(12).fill(0)).map(v=>Math.round(v));
@@ -2833,7 +2873,7 @@ function changeOwner(owner, btn, isRefresh=false) {
   if (window.allOwnersDivChartInst){
     const y=document.getElementById('valYearSelect').value||'2026';
     OWNERS.forEach((o,i)=>{
-      window.allOwnersDivChartInst.data.datasets[i].data=divHistory[y][o].map(v=>Math.round(v));
+      window.allOwnersDivChartInst.data.datasets[i].data=divHistoryOf(y,o).map(v=>Math.round(v));
     });
     window.allOwnersDivChartInst.update();
   }
@@ -2878,7 +2918,7 @@ function updateValueChartYear() {
   const allMonthLabels=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const curMonth=new Date().getMonth(); // 0-based, April = 3
   let dVals, dLbls=allMonthLabels;
-  if(y==='2026'){
+  if(y===String(new Date().getFullYear())){
     // 1월~현재월은 추정 데이터, 이후는 null (선 끊김)
     const base=Math.round(totalNow*0.82);
     const step=curMonth>0?(totalNow-base)/curMonth:0;
@@ -2887,7 +2927,7 @@ function updateValueChartYear() {
     // 2025 전체 추정
     dVals=allMonthLabels.map((_,i)=>Math.round(totalNow*(0.63+(0.82-0.63)*i/11)));
   }
-  if (miniDivChart){miniDivChart.data.datasets[0].data=divHistory[y][currentOwner];miniDivChart.update();}
+  if (miniDivChart){miniDivChart.data.datasets[0].data=divHistoryOf(y,currentOwner);miniDivChart.update();}
   if (miniValueChart){miniValueChart.data.labels=dLbls;miniValueChart.data.datasets[0].data=dVals;miniValueChart.update();}
 }
 
@@ -3440,7 +3480,7 @@ function submitAddModal() {
 // =============================================
 function showDividendBreakdown(mIdx) {
   const mLabels=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  const total=divHistory[document.getElementById('valYearSelect').value||'2026'][currentOwner][mIdx];
+  const total=divHistoryOf(document.getElementById('valYearSelect')?.value,currentOwner)[mIdx];
   const c=document.getElementById('div-breakdown');
   if(!total){c.innerHTML=`<strong style="color:var(--acc2)">${mLabels[mIdx]} 배당 내역</strong><br><span style="color:var(--t3);font-size:.75rem">배당 내역이 없습니다.</span>`;c.style.display='block';return;}
   c.innerHTML=`<strong style="color:var(--acc2)">${mLabels[mIdx]} 종목별 배당 (세전)</strong><div style="margin-top:6px;font-size:.75rem">총 예상: ₩${Math.round(total).toLocaleString()}</div>`;
@@ -4807,11 +4847,18 @@ async function saveNetWorthSnapshot() {
   const nonInvestmentAssets = (bs.assets||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
   const liabilities = (bs.liabilities||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
   const total = portfolio + nonInvestmentAssets - liabilities;
-  // 소유주별 포트폴리오 스냅샷 — 리스크 & 성과 view 의 언더워터 차트 소유주 필터링에 사용
+  // 소유주별 포트폴리오 스냅샷 — 순자산 추이 차트의 소유주 필터링에 사용
   const owners = OWNERS;
   const portfolioByOwner = {};
-  owners.forEach(o => { portfolioByOwner[o] = Math.round(sumAssets(getFilteredAssets(o))); });
-  const entry = { date: todayStr, total: Math.round(total), portfolio: Math.round(portfolio), nonInvestmentAssets:Math.round(nonInvestmentAssets), liabilities:Math.round(liabilities), portfolioByOwner };
+  const netByOwner = {};
+  const ownerSum = (list, o) => (list||[]).filter(x=>x && x.owner===o).reduce((s,x)=>s+(Number(x.amount)||0),0);
+  owners.forEach(o => {
+    portfolioByOwner[o] = Math.round(sumAssets(getFilteredAssets(o)));
+    netByOwner[o] = Math.round(portfolioByOwner[o] + ownerSum(bs.assets, o) - ownerSum(bs.liabilities, o));
+  });
+  // schemaV 1 = total 이 투자자산만 담던 시절. 2 = 기타자산·부채까지 포함.
+  // 정의가 섞이면 순자산 변화 분석의 잔차가 왜곡되므로 버전을 함께 기록한다.
+  const entry = { date: todayStr, schemaV: 2, total: Math.round(total), portfolio: Math.round(portfolio), nonInvestmentAssets:Math.round(nonInvestmentAssets), liabilities:Math.round(liabilities), portfolioByOwner, netByOwner };
   const hist = window._netWorthHistory;
   const idx = hist.findIndex(h => h.date === todayStr);
   if (idx > -1) hist[idx] = entry;
@@ -5165,7 +5212,7 @@ function initDashboard(){
     type:'bar',
     data:{
       labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-      datasets:OWNERS.map(o=>({label:o, data:[...divHistory['2026'][o]], backgroundColor:ownerColors[o], stack:'Stack 0'}))
+      datasets:OWNERS.map(o=>({label:o, data:[...divHistoryOf(null,o)], backgroundColor:ownerColors[o], stack:'Stack 0'}))
     },
     options:{
       interaction:{mode:'index',intersect:false},
@@ -5191,7 +5238,7 @@ function initDashboard(){
 
   window.mainDivChartInst=new Chart(document.getElementById('mainDivChart').getContext('2d'),{
     type:'bar',
-    data:{labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],datasets:[{label:'월별 배당금',data:[...divHistory['2026'][currentOwner]].map(v=>Math.round(v)),backgroundColor:'#06B6D4',borderRadius:6}]},
+    data:{labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],datasets:[{label:'월별 배당금',data:[...divHistoryOf(null,currentOwner)].map(v=>Math.round(v)),backgroundColor:'#06B6D4',borderRadius:6}]},
     options:{
       plugins:{
         legend:{display:false},
@@ -5343,6 +5390,7 @@ function initDashboard(){
 window.onload = function() {
   initAmountPrivacy();
   initMenuGroups();
+  refreshYearSelects();
   const token = sessionStorage.getItem('_dashAuth');
   if (!token) {
     document.getElementById('login-overlay').style.display = 'flex';

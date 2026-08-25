@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+// 배당 세후 계산 + 금융소득종합과세 근접도
+//   - 세율은 script.js 의 getAccountDivTaxInfo 하나만 쓴다 (일반 15.4% / ISA 9.9% / 연금 과세이연)
+//   - ISA 200만원 공제는 종목이 아니라 소유주·연도 단위이므로, 소유주 합계에서 공제한 뒤
+//     세액을 종목에 배당수입 비례로 나눠야 한다.
+//   - 종합과세 판정 대상은 일반계좌 배당뿐 (ISA 분리과세·연금 과세이연 제외)
+
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import vm from 'node:vm'
+
+const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
+
+function extractFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`)
+  assert.notEqual(start, -1, `${name} 함수를 찾을 수 없음`)
+  const open = source.indexOf('{', start)
+  let depth = 0
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === '{') depth++
+    if (source[i] === '}') {
+      depth--
+      if (depth === 0) return source.slice(start, i + 1)
+    }
+  }
+  throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
+}
+
+const context = { console, Date }
+vm.createContext(context)
+// 세율 규칙은 실제 script.js 구현을 그대로 가져와 중복 정의를 만들지 않는다
+vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), context)
+vm.runInContext('const CB_FIN_INCOME_THRESHOLD=20000000;', context)
+vm.runInContext(extractFunction(cobaltSource, 'cbDivTaxInfo'), context)
+vm.runInContext(extractFunction(cobaltSource, 'cbDivTaxAllocate'), context)
+
+// ── 계좌별 세율 ────────────────────────────────────────
+const single = context.cbDivTaxAllocate([
+  { owner: '본인', acc: '일반', gross: 10_000_000, key: 'a' },
+  { owner: '본인', acc: '연금저축', gross: 5_000_000, key: 'b' },
+])
+const byKey = Object.fromEntries(single.list.map(e => [e.key, e]))
+assert.equal(Math.round(byKey.a.tax), 1_540_000, '일반계좌는 15.4% 원천징수')
+assert.equal(byKey.b.tax, 0, '연금저축은 배당 시점 과세이연이라 세금 0')
+assert.equal(Math.round(byKey.a.net), 8_460_000, '일반계좌 세후 배당')
+
+// ── ISA 공제는 소유주 단위 ─────────────────────────────
+// 같은 소유주의 ISA 배당 300만 → 200만 공제 후 100만에 9.9% = 99,000원
+const isa = context.cbDivTaxAllocate([
+  { owner: '본인', acc: 'ISA', gross: 2_000_000, key: 'x' },
+  { owner: '본인', acc: 'ISA', gross: 1_000_000, key: 'y' },
+])
+const isaTax = isa.list.reduce((s, e) => s + e.tax, 0)
+assert.equal(Math.round(isaTax), 99_000, 'ISA 공제를 소유주 합계에 한 번만 적용')
+const isaByKey = Object.fromEntries(isa.list.map(e => [e.key, e]))
+assert.equal(Math.round(isaByKey.x.tax), 66_000, 'ISA 세액을 배당수입 비례로 배분 (2/3)')
+assert.equal(Math.round(isaByKey.y.tax), 33_000, 'ISA 세액을 배당수입 비례로 배분 (1/3)')
+
+// 종목별로 따로 공제하면 둘 다 200만 이하라 세금이 0이 된다 — 그 오류를 막았는지 확인
+assert.notEqual(Math.round(isaTax), 0, '종목별 공제로 계산해 세금이 사라지지 않아야 함')
+
+// 소유주가 다르면 각자 200만원씩 공제
+const twoOwners = context.cbDivTaxAllocate([
+  { owner: '본인', acc: 'ISA', gross: 2_000_000, key: 'p' },
+  { owner: '아내', acc: 'ISA', gross: 2_000_000, key: 'q' },
+])
+assert.equal(twoOwners.list.reduce((s, e) => s + e.tax, 0), 0, '소유주별로 200만원 공제를 각각 적용')
+
+// ── 금융소득종합과세 근접도 ────────────────────────────
+const comp = context.cbDivTaxAllocate([
+  { owner: '본인', acc: '일반', gross: 18_000_000, key: 'g1' },
+  { owner: '본인', acc: 'ISA', gross: 9_000_000, key: 'g2' },
+  { owner: '본인', acc: 'IRP', gross: 9_000_000, key: 'g3' },
+  { owner: '아내', acc: '일반', gross: 25_000_000, key: 'g4' },
+])
+const owners = Object.fromEntries(comp.owners.map(o => [o.owner, o]))
+assert.equal(owners['본인'].comprehensiveBase, 18_000_000, '종합과세 판정에는 일반계좌 배당만 포함')
+assert.equal(owners['본인'].comprehensiveOver, 0, 'ISA·연금을 더해 넘긴 것으로 오판하지 않음')
+assert.equal(Math.round(owners['본인'].comprehensivePct), 90, '기준 대비 근접도 계산')
+assert.equal(owners['아내'].comprehensiveOver, 5_000_000, '기준 초과분 계산')
+assert.equal(owners['본인'].isa, 9_000_000, 'ISA 배당을 별도로 집계')
+assert.equal(owners['본인'].pension, 9_000_000, '연금 배당을 별도로 집계')
+
+// ── 페이지 배선 ────────────────────────────────────────
+assert.match(cobaltSource, /onclick="cbDivBasis\('gross'\)"[\s\S]*onclick="cbDivBasis\('net'\)"/, '배당 관리에 세전/세후 토글 제공')
+assert.match(cobaltSource, /const incomeKRW = netBasis \? netKRW : grossKRW/, '표시 기준에 따라 카드·캘린더·표가 같은 값을 사용')
+assert.match(cobaltSource, /금융소득종합과세 근접도/, '소유주별 금융소득 게이지 제공')
+assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
+assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
+assert.doesNotMatch(scriptSource.replace(/^.*예전에는.*$/m, ''), /\['2025','2026'\]/, '연도 하드코딩 제거')
+
+console.log('PASS 배당 세후·금융소득종합과세')
