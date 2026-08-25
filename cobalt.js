@@ -46,8 +46,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca };
-const CB_TITLES = { cdash:'대시보드', perf2:'성과 비교', fam2:'가족 자산', risk2:'리스크 진단', divm:'배당 관리', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수' };
+const CB_VIEWS  = { cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
+const CB_TITLES = { cdash:'대시보드', perf2:'성과 비교', fam2:'가족 투자자산', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수', data2:'데이터 상태' };
 
 // ───────────────────────── 헬퍼 ─────────────────────────
 function cbStrip(t){ return String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,''); }
@@ -367,7 +367,7 @@ function cbSyntheticEtfHoldings(i){
   return null;
 }
 
-// 레버리지·인버스 노출은 ETF 평가액 자체를 순자산과 비교한다.
+// 레버리지·인버스 노출은 ETF 평가액 자체를 투자자산과 비교한다.
 // 국내 상품명 규칙과 해외 대표 티커/영문 상품명 규칙을 함께 사용해 특정 ETF에 한정하지 않는다.
 function cbLeveragedInverseMeta(i){
   if (!cbIsEtf(i)) return null;
@@ -498,8 +498,8 @@ function cbRisk(ownerFilter){
       leveragedInverseTop
         ? [
             leveragedInverse.length+'개 상품을 보유 중이며 최대 기여 상품은 '+leveragedInverseTop.r.title+'입니다.',
-            '순자산의 5%를 넘습니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 변동성에 유의하세요.',
-            '순자산의 10%를 초과합니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 비중 축소를 검토하세요.',
+            '투자자산의 5%를 넘습니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 변동성에 유의하세요.',
+            '투자자산의 10%를 초과합니다. 최대 기여 상품 '+leveragedInverseTop.r.title+'의 비중 축소를 검토하세요.',
           ]
         : [
             '보유 중인 레버리지·인버스 상품이 없습니다.',
@@ -507,7 +507,7 @@ function cbRisk(ownerFilter){
             '레버리지·인버스 상품 비중 축소를 검토하세요.',
           ]),
   ];
-  cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 순자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
+  cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 투자자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
   const score = Math.max(0, Math.min(100, 100 - cards.reduce((s,c)=>s+c.lvl*10,0)));
   return { score, grade: score>=75?'안정적':score>=50?'주의 필요':'고위험',
     color: score>=75?upC:score>=50?wnC:dnC,
@@ -527,7 +527,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
   const toneHigh=(value,warnAt,badAt)=>value>badAt?down:value>warnAt?warn:up;
   const toneLow=(value,warnAt,badAt)=>value<badAt?down:value<warnAt?warn:up;
 
-  // 직접 보유 회사와 ETF 편입 종목이 겹쳐 생긴 간접 보유분의 순자산 대비 비중.
+  // 직접 보유 회사와 ETF 편입 종목이 겹쳐 생긴 간접 보유분의 투자자산 대비 비중.
   const look=cbLookThrough(ownerFilter);
   const overlapVal=look.list.reduce((s,x)=>s+(Number(x.via)||0),0);
   const overlapPct=overlapVal/nw*100;
@@ -613,7 +613,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
       id:'etf-overlap', title:'ETF 중복 노출률', value:overlapPct.toFixed(1)+'%',
       detail:overlapPct>0?`간접 중복 ${cbDisp(overlapVal)}`:'직접·간접 중복 없음',
       tone:toneHigh(overlapPct,5,15),
-      tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 순자산으로 나눈 비중입니다.',
+      tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 투자자산으로 나눈 비중입니다.',
     },
     {
       id:'effective-holdings', title:'실효 종목 수', value:effectiveCount.toFixed(1)+'개',
@@ -632,13 +632,13 @@ function cbRiskInsights(ownerFilter, baseRisk){
       value:topCountry[1]>0?`${topCountry[0]} ${topCountryPct.toFixed(1)}%`:'주식 없음',
       detail:'상장통화·상품명 기준 추정',
       tone:toneHigh(topCountryPct,45,65),
-      tip:'주식과 ETF의 상장통화 및 상품명으로 투자 지역을 추정한 뒤 전체 순자산 대비 최대 지역 비중을 표시합니다.',
+      tip:'주식과 ETF의 상장통화 및 상품명으로 투자 지역을 추정한 뒤 전체 투자자산 대비 최대 지역 비중을 표시합니다.',
     },
     {
       id:'top2-sectors', title:'상위 2개 섹터 집중도', value:topTwoSectorPct.toFixed(1)+'%',
       detail:topTwoSectorNames,
       tone:toneHigh(topTwoSectorPct,50,70),
-      tip:'가장 큰 두 주식 섹터의 비중을 합산합니다. 비중 분모에는 현금·금·가상화폐를 포함한 전체 순자산을 사용합니다.',
+      tip:'가장 큰 두 주식 섹터의 비중을 합산합니다. 비중 분모에는 현금·금·가상화폐를 포함한 전체 투자자산을 사용합니다.',
     },
     {
       id:'dividend-dependency', title:'배당원 TOP3 의존도',
@@ -886,8 +886,8 @@ function cbRenderDash(){
     }
   });
 
-  // "가족 순자산 · 전일 종가 기준" 은 상단 메인 제목 옆으로 (툴팁은 헤더에서 아래로 펼쳐져 가려지지 않음)
-  cbSetHead(`${ownerF?cbEsc(ownerF)+' 자산':'가족 순자산'} · <span data-tip="주식·가상화폐·금·현금 전체 평가액 합계. 전일 종가 및 최근 고시 환율 기준입니다.">전일 종가 기준</span>`);
+  // 투자자산과 전체 순자산을 구분한다. 전체 순자산은 가족 재무상태표에서 확인한다.
+  cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 가족 재무상태표에서 분리해 관리합니다.">전일 종가 기준</span>`);
 
   // 요약 배지 — 라벨(작은 글씨)이 옆 원화 금액의 세로 중앙에 오도록 inline-flex 정렬
   const badge=(lab,val,valStyle,bg,click)=>`<span ${click?`onclick="${click}" `:''}style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:16px;background:${bg};${click?'cursor:pointer':''}">
@@ -907,6 +907,8 @@ function cbRenderDash(){
       </div>
       <div style="margin-left:auto">${cbOwnerBtns(_cdashOwner,'cbDashOwner')}</div>
     </div>
+
+    ${finDashboardFocus(ownerF)}
 
     <div class="cb-dash-insight-grid">
       <div class="cb-panel" style="min-width:0;padding:16px 18px">
@@ -1217,7 +1219,7 @@ function cbRenderFam(){
     <div class="cb-family-detail-grid">
     <div class="cb-panel cb-table-panel cb-family-table-panel" style="padding:14px 16px">
       <div class="cb-family-table-toolbar" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${_famKey==='all'?'전체 보유 자산':cbEsc(_famKey)+' 보유 자산'} · ${held.length}종목</div>
+        <div style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${_famKey==='all'?'전체 투자자산':cbEsc(_famKey)+' 투자자산'} · ${held.length}종목</div>
         <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
           <span style="color:var(--dim);font-size:12px">⌕</span>
           <input value="${cbEsc(_famQ)}" oninput="cbFamSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:'Noto Sans KR',sans-serif;font-size:12px;width:100%;outline:none" />
@@ -1348,7 +1350,7 @@ function cbLookThroughPanel(ownerFilter){
   return `
     <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 순자산 대비':'전체 순자산 대비'}</span></span>
+        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 투자자산 대비':'전체 투자자산 대비'}</span></span>
         <div style="display:flex;gap:12px;font-size:10.5px;color:var(--mut);margin-left:auto;flex-wrap:wrap">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_DIR}"></span>직접 보유</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_VIA}"></span>ETF 간접 보유</span>
@@ -2835,6 +2837,7 @@ switchView = function(id, btn){
   document.querySelectorAll('.menu-btn').forEach(b=>b.classList.remove('active'));
   const mbtn = btn || document.getElementById('menu-' + (id==='cdash' ? 'dashboard' : id));
   if (mbtn && mbtn.classList) mbtn.classList.add('active');
+  if(typeof expandActiveMenuGroup==='function') expandActiveMenuGroup(mbtn);
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active'));
   const v = document.getElementById('view-'+id); if(v) v.classList.add('active');
   const title = document.getElementById('main-title'); if (title) title.textContent = CB_TITLES[id];
@@ -2864,17 +2867,29 @@ saveAssetsToKV = async function(){
 const _cbOrigLoadAssets = loadAssetsFromKV;
 loadAssetsFromKV = async function(){
   const r = await _cbOrigLoadAssets();
+  if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',true,`${(pfolioData||[]).length}개 항목 로드`);
+  cbRerender();
+  return r;
+};
+const _cbOrigLoadExt = loadExtDataFromKV;
+loadExtDataFromKV = async function(){
+  const r = await _cbOrigLoadExt();
+  if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',true,'확장 데이터 로드 완료');
   cbRerender();
   return r;
 };
 const _cbOrigFetchDivData = fetchDivData;
 fetchDivData = async function(){
-  await _cbOrigFetchDivData();
+  try{
+    await _cbOrigFetchDivData();
+    if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',true,`${Object.keys(window._divDataCache||{}).length}개 티커 캐시`);
+  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',false,e?.message||'조회 실패'); throw e; }
   cbRerender();
 };
 const _cbOrigUpdateBenchmark = updateBenchmark;
 updateBenchmark = function(tf, btn){
   _cbOrigUpdateBenchmark(tf, btn);
+  if(typeof finMarkFresh==='function') finMarkFresh('benchmark','성과 벤치마크','시장 지수 데이터',true,`${tf||'기간'} 데이터 표시`);
   if (_cobaltActive === 'perf2') cbRerender();
 };
 // 테마 전환 시 활성 페이지 재렌더 — 인라인으로 해석된 테마 색(hex)을 새 테마 기준으로 다시 계산
@@ -2882,6 +2897,25 @@ const _cbOrigSetTheme = setTheme;
 setTheme = function(mode){
   _cbOrigSetTheme(mode);
   cbRerender();
+};
+
+// 새로고침 결과를 데이터 상태 센터와 연결한다.
+const _cbOrigLiveRefresh = liveRefresh;
+liveRefresh = async function(){
+  try{
+    const r=await _cbOrigLiveRefresh();
+    const stale=(pfolioData||[]).filter(i=>i&&i._priceStale).length;
+    if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',stale===0,stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태');
+    return r;
+  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',false,e?.message||'조회 실패'); throw e; }
+};
+const _cbOrigRefreshPyData = refreshPyData;
+refreshPyData = async function(){
+  try{
+    const r=await _cbOrigRefreshPyData();
+    if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','Yahoo Finance · COMEX',Number(RATES?.USD)>0,`USD ${Number(RATES?.USD||0).toLocaleString()} · JPY ${Number(RATES?.JPY||0).toLocaleString()}`);
+    return r;
+  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','한국수출입은행·금 시세',false,e?.message||'조회 실패'); throw e; }
 };
 
 // 리스크 페이지에 들어갈 때까지 기다리지 않고 앱을 열자마자 최신 ETF 스냅샷을 확인한다.

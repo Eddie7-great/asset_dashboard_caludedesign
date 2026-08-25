@@ -12,7 +12,7 @@
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/treemap.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=41">
+  <link rel="stylesheet" href="style.css?v=42">
 </head>
 <body>
 
@@ -50,19 +50,41 @@
         <strong id="side-gold-rate" class="side-rate-val">-</strong>
       </div>
     </div>
-    <div class="menu-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
-      <button class="menu-btn active" id="menu-dashboard" onclick="switchView('cdash',this)"><span class="menu-ico">◧</span>대시보드</button>
-      <button class="menu-btn" id="menu-perf2" onclick="switchView('perf2',this)"><span class="menu-ico">⇗</span>성과 비교</button>
-      <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>가족 자산</button>
-      <button class="menu-btn" id="menu-risk2" onclick="switchView('risk2',this)"><span class="menu-ico">◬</span>리스크 진단</button>
-      <button class="menu-btn" id="menu-divm" onclick="switchView('divm',this)"><span class="menu-ico">₪</span>배당 관리</button>
-      <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>가족 증여</button>
-      <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
-      <button class="menu-btn" id="menu-dca2" onclick="switchView('dca2',this)"><span class="menu-ico">⟳</span>DCA 자동매수</button>
-      <div class="cb-menu-sep"></div>
-      <button class="menu-btn" id="menu-holdings" onclick="switchView('holdings',this)"><span class="menu-ico">⊞</span>자산 내역</button>
-      <button class="menu-btn" onclick="switchView('cashflow',this)"><span class="menu-ico">⇄</span>현금 흐름</button>
-      <button class="menu-btn" id="menu-bubble" onclick="switchView('bubble',this)"><span class="menu-ico">◉</span>비중 차트</button>
+    <div class="menu-list grouped-menu" id="sidebar-menu">
+      <section class="menu-group" data-menu-group="summary">
+        <button class="menu-group-title" type="button" onclick="toggleMenuGroup('summary',this)" aria-expanded="true"><span>요약</span><span class="menu-group-chevron">⌄</span></button>
+        <div class="menu-group-items">
+          <button class="menu-btn active" id="menu-dashboard" onclick="switchView('cdash',this)"><span class="menu-ico">◧</span>대시보드</button>
+          <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico">◔</span>가족 투자자산</button>
+          <button class="menu-btn" id="menu-balance2" onclick="switchView('balance2',this)"><span class="menu-ico">▤</span>가족 재무상태표</button>
+        </div>
+      </section>
+      <section class="menu-group" data-menu-group="analysis">
+        <button class="menu-group-title" type="button" onclick="toggleMenuGroup('analysis',this)" aria-expanded="true"><span>분석</span><span class="menu-group-chevron">⌄</span></button>
+        <div class="menu-group-items">
+          <button class="menu-btn" id="menu-perf2" onclick="switchView('perf2',this)"><span class="menu-ico">⇗</span>성과 비교</button>
+          <button class="menu-btn" id="menu-risk2" onclick="switchView('risk2',this)"><span class="menu-ico">◬</span>리스크 진단</button>
+          <button class="menu-btn" id="menu-divm" onclick="switchView('divm',this)"><span class="menu-ico">₪</span>배당 관리</button>
+          <button class="menu-btn" id="menu-bubble" onclick="switchView('bubble',this)"><span class="menu-ico">◉</span>비중 차트</button>
+        </div>
+      </section>
+      <section class="menu-group" data-menu-group="planning">
+        <button class="menu-group-title" type="button" onclick="toggleMenuGroup('planning',this)" aria-expanded="true"><span>계획</span><span class="menu-group-chevron">⌄</span></button>
+        <div class="menu-group-items">
+          <button class="menu-btn" id="menu-plan2" onclick="switchView('plan2',this)"><span class="menu-ico">◎</span>목표·리밸런싱</button>
+          <button class="menu-btn" id="menu-dca2" onclick="switchView('dca2',this)"><span class="menu-ico">⟳</span>DCA 자동매수</button>
+          <button class="menu-btn" id="menu-gift2" onclick="switchView('gift2',this)"><span class="menu-ico">⌂</span>가족 증여</button>
+          <button class="menu-btn" id="menu-tax2" onclick="switchView('tax2',this)"><span class="menu-ico">⊟</span>양도소득세</button>
+        </div>
+      </section>
+      <section class="menu-group" data-menu-group="records">
+        <button class="menu-group-title" type="button" onclick="toggleMenuGroup('records',this)" aria-expanded="true"><span>기록·관리</span><span class="menu-group-chevron">⌄</span></button>
+        <div class="menu-group-items">
+          <button class="menu-btn" id="menu-holdings" onclick="switchView('holdings',this)"><span class="menu-ico">⊞</span>자산 내역</button>
+          <button class="menu-btn" id="menu-cashflow" onclick="switchView('cashflow',this)"><span class="menu-ico">⇄</span>현금 흐름</button>
+          <button class="menu-btn" id="menu-data2" onclick="switchView('data2',this)"><span class="menu-ico">✓</span>데이터 상태</button>
+        </div>
+      </section>
     </div>
     <div class="sidebar-footer">
       <div>
@@ -119,7 +141,7 @@
       </div>
     </div>
 
-    <!-- ===== 메인 8페이지 (cobalt.js가 렌더링) ===== -->
+    <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
     <div id="view-fam2" class="view-section"><div class="cb-scroll" id="cb-fam2"></div></div>
@@ -128,6 +150,9 @@
     <div id="view-gift2" class="view-section"><div class="cb-scroll" id="cb-gift2"></div></div>
     <div id="view-tax2" class="view-section"><div class="cb-scroll" id="cb-tax2"></div></div>
     <div id="view-dca2" class="view-section"><div class="cb-scroll" id="cb-dca2"></div></div>
+    <div id="view-balance2" class="view-section"><div class="cb-scroll" id="cb-balance2"></div></div>
+    <div id="view-plan2" class="view-section"><div class="cb-scroll" id="cb-plan2"></div></div>
+    <div id="view-data2" class="view-section"><div class="cb-scroll" id="cb-data2"></div></div>
 
     <!-- DASHBOARD (legacy — 메뉴에서 제거됨, 렌더 함수 호환을 위해 DOM 유지) -->
     <div id="view-dashboard" class="view-section">
@@ -865,7 +890,8 @@
   </div>
 </div>
 
-<script src="script.js?v=35"></script>
-<script src="cobalt.js?v=16"></script>
+<script src="script.js?v=36"></script>
+<script src="finance.js?v=1"></script>
+<script src="cobalt.js?v=17"></script>
 </body>
 </html>

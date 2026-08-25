@@ -1490,6 +1490,33 @@ function closeSidebar() {
 function toggleSidebar() {
   document.querySelector('.menu-col')?.classList.contains('open') ? closeSidebar() : openSidebar();
 }
+function _menuGroupState(){
+  try{ return JSON.parse(localStorage.getItem('menuGroupState')||'{}')||{}; }
+  catch(e){ return {}; }
+}
+function toggleMenuGroup(key, btn){
+  const group=document.querySelector(`.menu-group[data-menu-group="${key}"]`); if(!group) return;
+  const collapsed=!group.classList.contains('collapsed');
+  group.classList.toggle('collapsed',collapsed);
+  (btn||group.querySelector('.menu-group-title'))?.setAttribute('aria-expanded',String(!collapsed));
+  const state=_menuGroupState(); state[key]=collapsed;
+  try{ localStorage.setItem('menuGroupState',JSON.stringify(state)); }catch(e){}
+}
+function initMenuGroups(){
+  const state=_menuGroupState();
+  document.querySelectorAll('.menu-group').forEach(group=>{
+    const key=group.dataset.menuGroup;
+    const collapsed=state[key]===true;
+    group.classList.toggle('collapsed',collapsed);
+    group.querySelector('.menu-group-title')?.setAttribute('aria-expanded',String(!collapsed));
+  });
+  expandActiveMenuGroup(document.querySelector('.menu-btn.active'));
+}
+function expandActiveMenuGroup(btn){
+  const group=btn?.closest?.('.menu-group'); if(!group) return;
+  group.classList.remove('collapsed');
+  group.querySelector('.menu-group-title')?.setAttribute('aria-expanded','true');
+}
 // 대시보드 자산 구성 상세(NET 요약) 접기/펼치기 — 모바일 전용 토글 (데스크톱은 항상 펼침)
 function toggleNetSummary() {
   document.getElementById('dash-net-summary')?.classList.toggle('expanded');
@@ -1551,6 +1578,7 @@ function switchView(viewId, btn) {
     if (_bubbleChart) { try { _bubbleChart.destroy(); } catch(e){} _bubbleChart = null; }
   }
   document.querySelectorAll('.menu-btn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active');
+  expandActiveMenuGroup(btn);
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active')); viewEl.classList.add('active');
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
@@ -4605,8 +4633,10 @@ function renderFamilyView() {
   }
 }
 
-// 목표 관리 제거됨 - KV 호환성을 위해 goalData 유지
+// 가족 재무계획 데이터 — 기존 goalData 키를 재사용해 이전 KV와 호환
 let goalData = [];
+window._balanceSheet = window._balanceSheet || { assets:[], liabilities:[], cashTargetMonths:6 };
+window._dataFreshness = window._dataFreshness || {};
 
 // =============================================
 // 환율 노출도 분석
@@ -4773,11 +4803,15 @@ async function saveNetWorthSnapshot() {
     return s + (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
   }, 0);
   const portfolio = sumAssets(getFilteredAssets('전체'));
+  const bs = window._balanceSheet || {};
+  const nonInvestmentAssets = (bs.assets||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
+  const liabilities = (bs.liabilities||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
+  const total = portfolio + nonInvestmentAssets - liabilities;
   // 소유주별 포트폴리오 스냅샷 — 리스크 & 성과 view 의 언더워터 차트 소유주 필터링에 사용
   const owners = OWNERS;
   const portfolioByOwner = {};
   owners.forEach(o => { portfolioByOwner[o] = Math.round(sumAssets(getFilteredAssets(o))); });
-  const entry = { date: todayStr, total: Math.round(portfolio), portfolio: Math.round(portfolio), realestate: 0, liabilities: 0, portfolioByOwner };
+  const entry = { date: todayStr, total: Math.round(total), portfolio: Math.round(portfolio), nonInvestmentAssets:Math.round(nonInvestmentAssets), liabilities:Math.round(liabilities), portfolioByOwner };
   const hist = window._netWorthHistory;
   const idx = hist.findIndex(h => h.date === todayStr);
   if (idx > -1) hist[idx] = entry;
@@ -4848,7 +4882,7 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, dataFreshness:window._dataFreshness || {}, giftActual: window._giftActual || null };
   const res = await setKV('ext_data', ext);
   if (!(res && res.result === "OK")) showSaveError();
 }
@@ -4860,6 +4894,14 @@ async function loadExtDataFromKV() {
     if (Array.isArray(data.goalData)) goalData = data.goalData;
     if (Array.isArray(data.netWorthHistory)) window._netWorthHistory = data.netWorthHistory;
     if (data.targetAlloc && typeof data.targetAlloc === 'object') window._targetAlloc = data.targetAlloc;
+    if (data.balanceSheet && typeof data.balanceSheet === 'object') {
+      window._balanceSheet = {
+        assets:Array.isArray(data.balanceSheet.assets)?data.balanceSheet.assets:[],
+        liabilities:Array.isArray(data.balanceSheet.liabilities)?data.balanceSheet.liabilities:[],
+        cashTargetMonths:Math.max(1,Number(data.balanceSheet.cashTargetMonths)||6)
+      };
+    }
+    if (data.dataFreshness && typeof data.dataFreshness === 'object') window._dataFreshness=data.dataFreshness;
     if (data.giftActual && typeof data.giftActual === 'object') {
       window._giftActual = data.giftActual;
       try { localStorage.setItem('giftActual', JSON.stringify(data.giftActual)); } catch(e) {}
@@ -5300,6 +5342,7 @@ function initDashboard(){
 
 window.onload = function() {
   initAmountPrivacy();
+  initMenuGroups();
   const token = sessionStorage.getItem('_dashAuth');
   if (!token) {
     document.getElementById('login-overlay').style.display = 'flex';
