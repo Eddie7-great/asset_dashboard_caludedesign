@@ -104,7 +104,7 @@ assert.equal(
 )
 cashContext.rememberCfDeletion({ atId: 7, date: '2026-07-15' })
 assert.deepEqual(Array.from(cashContext.autoTransferData[0].skipMonths), ['2026-07'], '삭제한 자동이체 월을 건너뛰기로 기록')
-assert.match(scriptSource, /cfDeletedKeys\.includes\(`div:\$\{divKey\}`\)/, '페이지 재진입 시 삭제한 자동 배당 재생성 차단')
+assert.match(scriptSource, /cfDeletedKeys\.some\(key=>\{[\s\S]*raw===divKey[\s\S]*_normDivKey\(raw\)===legacyNorm/, '페이지 재진입 시 신규·구형 삭제 키 모두 자동 배당 재생성 차단')
 assert.match(scriptSource, /rememberCfDeletion\(item\)[\s\S]*await saveExtDataToKV\(\)/, '삭제 상태를 원격 확장 데이터까지 저장')
 assert.match(
   scriptSource,

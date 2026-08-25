@@ -3885,7 +3885,15 @@ async function autoAddDividendCashFlow(silent=false) {
     const owner=entry.owner;
     const accType=entry.info.type;
     const divKey=`div_${ref.tkrNorm}_${owner}_${accType}_${yr}_${mo+1}`;
-    if(cfDeletedKeys.includes(`div:${divKey}`)) return;
+    const legacyDivKey=`div_${ref.tkrNorm}_${owner}_${yr}_${mo+1}`;
+    const legacyNorm=_normDivKey(legacyDivKey);
+    const wasDeleted=cfDeletedKeys.some(key=>{
+      if(typeof key!=='string'||!key.startsWith('div:')) return false;
+      const raw=key.slice(4);
+      if(raw===divKey) return true;
+      return raw.split('_').length===5&&_normDivKey(raw)===legacyNorm;
+    });
+    if(wasDeleted) return;
     const netRatio=entry.gross>0?entry.net/entry.gross:1;
     const netPayout=ref.payout*netRatio;
     const existing=monthlyGroups.get(divKey);
@@ -3923,6 +3931,18 @@ async function autoAddDividendCashFlow(silent=false) {
     changed=true;
     added++;
   });
+
+  // 현재 연·월에 앱이 만든 6-part 자동 배당 중 더 이상 계산되지 않는 행을 제거한다.
+  // 매도, 배당월 변경, 일반↔ISA 계좌유형 변경 뒤 옛 금액이 남아 이중계상되는 것을 막는다.
+  const beforeStaleCleanup=cfData.length;
+  cfData=cfData.filter(entry=>{
+    if(entry.type!=='수입'||entry.cat!=='배당금'||!entry.divKey) return true;
+    const parts=entry.divKey.split('_');
+    const isManaged=parts.length===6&&parts[0]==='div'&&['ISA','연금','일반'].includes(parts[3]);
+    if(!isManaged||String(parts[4])!==String(yr)||String(parseInt(parts[5],10))!==String(mo+1)) return true;
+    return monthlyGroups.has(entry.divKey);
+  });
+  if(cfData.length!==beforeStaleCleanup) changed=true;
   // 레거시 combined entry(div_TKR_OWNER_YR_MO; 5 parts) 정리 — 새 account-aware entry로 대체된 항목 제거
   const accAwareKeys = new Set();
   cfData.forEach(e => {
@@ -4004,12 +4024,14 @@ async function autoAddDividendCashFlow(silent=false) {
     }
   });
   if (enriched > 0) changed=true;
-  if(changed){
-    saveCfData();
-    renderCashFlow();
+  if(changed) globalThis._cfRemoteDirty=true;
+  if(changed||globalThis._cfRemoteDirty===true){
+    if(changed){saveCfData();renderCashFlow();}
+    // 실패 시 dirty를 유지해 다음 호출이 무변경이어도 원격 저장을 다시 시도한다.
     const saved=typeof saveExtDataToKV==='function'?await saveExtDataToKV():{ok:true,skipped:true};
+    if(saved?.ok!==false) globalThis._cfRemoteDirty=false;
     if(added>0&&!silent) alert(`${added}건의 배당 수입이 자동 등록되었습니다.`);
-    return {ok:saved?.ok!==false,changed:true,added,enriched,saved};
+    return {ok:saved?.ok!==false,changed,added,enriched,saved,retried:!changed};
   }
   return {ok:true,changed:false,added:0,enriched:0};
 }
@@ -8716,6 +8738,44 @@ async function fetchPyPrices(tickers) {
   }
 }
 
+// Python API의 dps도 TS API와 동일하게 '연간 DPS'다. 회당 eps로 정규화해
+// 월/분기 배당을 지급 횟수만큼 다시 곱하는 과대계상을 막는다.
+function _normalizePyDividendInfo(tkr,info,existing) {
+  existing=existing||{};
+  if(!info||info.dps==='미조회') return null;
+  const cleanMonths=list=>[...new Set((Array.isArray(list)?list:[])
+    .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12))];
+  let cycle=info.cycle||existing.cycle||'-';
+  let months=cleanMonths(info.months);
+  if(!months.length) months=cleanMonths(existing.months);
+  if(!months.length) months=cleanMonths(_defaultMonthsForCycle(cycle));
+
+  const providedDps=Number(info.dps);
+  const existingPeriods=months.length||(CYCLE_COUNT[existing.cycle||cycle]||1);
+  const existingAnnual=Number(existing.annualDps)||(Number(existing.eps)||0)*existingPeriods;
+  const annualDps=Number.isFinite(providedDps)&&providedDps>0?providedDps:existingAnnual;
+  if(!months.length&&annualDps>0) months=[2,5,8,11];
+  if(cycle==='-'&&months.length) cycle=months.length===12?'월배당':months.length===2?'반기':months.length===1?'연간':'분기';
+  const payoutCount=months.length||(CYCLE_COUNT[cycle]||1);
+  const eps=annualDps>0?annualDps/payoutCount:0;
+  const yldNum=Number(info.yld);
+  const safeYld=Number.isFinite(yldNum)?yldNum:(Number(existing.yldNum)||parseFloat(String(existing.yld||''))||0);
+  if(!(eps>0)&&!(safeYld>0)) return null;
+  const cur=info.cur||existing.cur||(/^[0-9A-Z]{6}$/.test(tkr)?'KRW':(/\.T$/i.test(tkr)?'JPY':'USD'));
+  return {
+    ...existing,
+    eps,
+    annualDps,
+    yld:safeYld.toFixed(2)+'%',
+    yldNum:safeYld,
+    cur,
+    months,
+    cycle,
+    exDiv:existing.exDiv||'-',
+    payDay:typeof info.payDay==='number'?info.payDay:(existing.payDay||null)
+  };
+}
+
 /**
  * fetchPyDividends() – Python(pykrx/yfinance) 배당 데이터 보완
  * 등록된 모든 주식(국내 6자리 숫자/알파뉴메릭 + 해외 티커)을 병합 조회.
@@ -8735,24 +8795,10 @@ async function fetchPyDividends() {
   const foreignTickers = allTickers.filter(t => !/^[0-9A-Z]{6}$/.test(t));
 
   const mergeOne = (tkr, info) => {
-    if (!info || info.dps === '미조회') return;
     const cacheTkr = normDivTkr(tkr);
     const existing = window._divDataCache[cacheTkr] || DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
-    const dps = typeof info.dps === 'number' ? info.dps : (existing.eps || 0);
-    const yld = typeof info.yld === 'number' ? info.yld.toFixed(2)+'%' : (existing.yld || '0%');
-    const cur = info.cur || existing.cur || (/^[0-9A-Z]{6}$/.test(tkr) ? 'KRW' : (/\.T$/i.test(tkr) ? 'JPY' : 'USD'));
-    // months: 기존 DB > cycle 추론 > 기본 분기
-    let months = (Array.isArray(existing.months) && existing.months.length) ? existing.months : null;
-    if (!months) months = _defaultMonthsForCycle(existing.cycle);
-    if (!months && dps > 0) months = [2,5,8,11]; // fallback: 분기
-    window._divDataCache[cacheTkr] = {
-      eps: dps,
-      yld,
-      cur,
-      months: months || [],
-      cycle: existing.cycle || (months && months.length === 12 ? '월배당' : (months && months.length === 2 ? '반기' : (months && months.length === 1 ? '연간' : '분기'))),
-      exDiv: existing.exDiv || '-'
-    };
+    const normalized=_normalizePyDividendInfo(tkr,info,existing);
+    if(normalized) window._divDataCache[cacheTkr]=normalized;
   };
 
   // 국내 종목 배당 (pykrx 기반)

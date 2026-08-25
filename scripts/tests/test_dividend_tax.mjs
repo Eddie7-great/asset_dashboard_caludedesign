@@ -139,9 +139,13 @@ assert.equal(Math.round(historicalNet.monthAmt[5]), 967_000, '연간 ISA 세액�
 // 같은 소유주·종목·계좌유형의 복수 계좌를 한 항목에 합산하고, ISA 연 공제를 한 번만 적용한다.
 let localSaveCount = 0
 let remoteSaveCount = 0
+let remoteSaveOk = true
 const cashContext = {
   console, Date, JSON, Math, Number, Set, Map,
-  cfData: [], cfDeletedKeys: [], cfYear: 2026, cfMonth: 3,
+  cfData: [{
+    date:'2026-03-15', type:'수입', cat:'배당금', desc:'예전 일반계좌 자동 배당', amt:1,
+    owner:'본인', divKey:'div_AAA_본인_일반_2026_3',
+  }], cfDeletedKeys: [], cfYear: 2026, cfMonth: 3,
   RATES: { KRW: 1, USD: 1380, JPY: 9.2 },
   pfolioData: [
     { grp:'주식', qty:1_000_000, tkr:'AAA', owner:'본인', broker:'A증권', acc:'A ISA' },
@@ -150,29 +154,67 @@ const cashContext = {
   getDivStocks: () => [{ name:'테스트배당주', tkr:'AAA', eps:1.5, months:[2], cycle:'연간', cur:'KRW', payDay:15 }],
   cleanupDuplicateDivEntries: () => {},
   saveCfData: () => { localSaveCount++ },
-  saveExtDataToKV: async () => { remoteSaveCount++; return { ok:true } },
+  saveExtDataToKV: async () => { remoteSaveCount++; return { ok:remoteSaveOk } },
   renderCashFlow: () => {},
   alert: () => {},
 }
 vm.createContext(cashContext)
 vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), cashContext)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), cashContext)
+vm.runInContext(extractFunction(scriptSource, '_normDivKey'), cashContext)
 vm.runInContext(extractFunction(scriptSource, 'autoAddDividendCashFlow'), cashContext)
 
 const firstCashSync = await cashContext.autoAddDividendCashFlow(true)
 assert.equal(firstCashSync.ok, true, '자동 배당 현금흐름 원격 저장 성공')
 assert.equal(cashContext.cfData.length, 1, '동일 유형 ISA 복수 계좌를 중복 없이 한 항목으로 합산')
+assert.equal(cashContext.cfData[0].divKey, 'div_AAA_본인_ISA_2026_3', '계좌유형 변경 전 오래된 자동 배당 제거')
 assert.equal(cashContext.cfData[0].amt, 2_901_000, 'ISA 연 300만원에서 200만원 공제 후 세후액 반영')
 assert.equal(localSaveCount, 1, '변경된 자동 배당을 로컬에 한 번 저장')
 assert.equal(remoteSaveCount, 1, '변경된 자동 배당을 원격 정본에도 한 번 저장')
 
 cashContext.pfolioData[1].qty = 2_000_000
-await cashContext.autoAddDividendCashFlow(true)
+remoteSaveOk = false
+const failedCashSync = await cashContext.autoAddDividendCashFlow(true)
+assert.equal(failedCashSync.ok, false, '원격 저장 실패를 성공으로 처리하지 않음')
 assert.equal(cashContext.cfData.length, 1, '보유수량 변경 후에도 기존 자동 배당 항목을 재사용')
 assert.equal(cashContext.cfData[0].amt, 4_252_500, '보유수량 변경 시 기존 자동 배당 금액 갱신')
 assert.equal(remoteSaveCount, 2, '금액 갱신도 원격 정본에 저장')
+remoteSaveOk = true
+const retriedCashSync = await cashContext.autoAddDividendCashFlow(true)
+assert.equal(retriedCashSync.retried, true, '저장 실패 뒤 무변경 호출도 원격 저장 재시도')
+assert.equal(remoteSaveCount, 3, '실패한 원격 저장을 성공할 때까지 재시도')
 await cashContext.autoAddDividendCashFlow(true)
-assert.equal(remoteSaveCount, 2, '변경이 없으면 불필요한 원격 저장 생략')
+assert.equal(remoteSaveCount, 3, '저장 성공 뒤 변경이 없으면 불필요한 원격 저장 생략')
+
+cashContext.pfolioData.forEach(item => { item.qty = 0 })
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(cashContext.cfData.length, 0, '전량 매도한 종목의 오래된 자동 배당 제거')
+assert.equal(remoteSaveCount, 4, '오래된 자동 배당 제거도 원격 정본에 저장')
+
+cashContext.pfolioData[0].qty = 1_000_000
+cashContext.pfolioData[1].qty = 1_000_000
+cashContext.cfDeletedKeys.push('div:div_AAA_본인_2026_03')
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(cashContext.cfData.length, 0, '구형 5-part 삭제 키도 신규 계좌유형 자동 배당 재생성을 차단')
+assert.equal(remoteSaveCount, 4, '삭제된 자동 배당은 새 원격 변경을 만들지 않음')
+
+// Python API의 dps는 연간 합계이므로 지급월 수로 나눠 회당 eps를 만든다.
+const normalizeContext = {
+  Number, Set,
+  CYCLE_COUNT:{'월배당':12,'분기':4,'반기':2,'연간':1,'-':1},
+}
+vm.createContext(normalizeContext)
+vm.runInContext(extractFunction(scriptSource, '_defaultMonthsForCycle'), normalizeContext)
+vm.runInContext(extractFunction(scriptSource, '_normalizePyDividendInfo'), normalizeContext)
+const quarterlyPy = normalizeContext._normalizePyDividendInfo(
+  'AAA', {dps:120, yld:4, cycle:'분기', months:[2,5,8,11], cur:'USD'}, {},
+)
+assert.equal(quarterlyPy.annualDps, 120, 'Python 연간 DPS 원값 보존')
+assert.equal(quarterlyPy.eps, 30, '분기배당 연간 DPS를 4회로 나눔')
+const monthlyPy = normalizeContext._normalizePyDividendInfo(
+  'BBB', {dps:120, yld:6, cycle:'월배당', months:[0,1,2,3,4,5,6,7,8,9,10,11], cur:'USD'}, {},
+)
+assert.equal(monthlyPy.eps, 10, '월배당 연간 DPS를 12회로 나눔')
 
 // ── 페이지 배선 ────────────────────────────────────────
 assert.match(cobaltSource, /onclick="cbDivBasis\('gross'\)"[\s\S]*onclick="cbDivBasis\('net'\)"/, '배당 관리에 세전/세후 토글 제공')
@@ -183,6 +225,7 @@ assert.match(cobaltSource, /금융소득종합과세 근접도/, '소유주별 �
 assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
 assert.match(scriptSource, /async function autoAddDividendCashFlow[\s\S]*allocateDividendTax\(annualLots\)[\s\S]*await saveExtDataToKV\(\)/, '자동 현금흐름도 공통 연간 세금 엔진과 원격 저장 사용')
+assert.match(scriptSource, /function _normalizePyDividendInfo[\s\S]*annualDps\/payoutCount/, 'Python 연간 DPS를 회당 지급액으로 정규화')
 assert.doesNotMatch(scriptSource.replace(/^.*예전에는.*$/m, ''), /\['2025','2026'\]/, '연도 하드코딩 제거')
 
 console.log('PASS 배당 세후·금융소득종합과세')
