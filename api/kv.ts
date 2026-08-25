@@ -48,8 +48,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
       const r = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: kvAuthHeaders });
-      if (!r.ok) console.warn('[api/kv] GET 비정상 응답', r.status, key);
+      if (!r.ok) {
+        console.warn('[api/kv] GET 비정상 응답', r.status, key);
+        return res.status(502).json({ error: 'KV upstream GET failed' });
+      }
       const data = await r.json();
+      if (!data || !Object.prototype.hasOwnProperty.call(data, 'result')) {
+        return res.status(502).json({ error: 'KV upstream GET response invalid' });
+      }
       return res.status(200).json(data);
     }
 
@@ -62,8 +68,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: kvAuthHeaders,
         body: bodyValue,
       });
-      if (!r.ok) console.warn('[api/kv] SET 비정상 응답', r.status, key);
+      if (!r.ok) {
+        console.warn('[api/kv] SET 비정상 응답', r.status, key);
+        return res.status(502).json({ error: 'KV upstream SET failed' });
+      }
       const data = await r.json();
+      if (!data || data.result !== 'OK') {
+        return res.status(502).json({ error: 'KV upstream SET response invalid' });
+      }
       return res.status(200).json(data);
     }
 

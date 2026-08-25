@@ -1,6 +1,10 @@
 {
   "name": "asset-dashboard",
   "version": "1.0.0",
+  "scripts": {
+    "test": "node scripts/tests/run_all.mjs",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@vercel/node": "^3.0.0",
     "axios": "^1.6.0",

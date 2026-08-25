@@ -403,6 +403,50 @@ function getAccountDivTaxInfo(acc) {
   return { type:'일반', normalRate:0.154, exempt:0, label:'일반, 15.4%' };
 }
 
+// 계좌별 배당세 계산의 단일 엔진.
+// ISA 비과세 한도는 종목별이 아니라 소유주별 연간 ISA 배당 합계에 한 번만 적용한다.
+function allocateDividendTax(entries, comprehensiveThreshold=20000000) {
+  const list=(entries||[]).map(e=>({
+    ...e,
+    owner:e.owner||'미지정',
+    gross:Number(e.gross)||0,
+    info:getAccountDivTaxInfo(e.acc),
+    tax:0,
+    net:Number(e.gross)||0
+  }));
+  const isaByOwner={};
+  list.forEach(e=>{
+    if(e.info.type==='ISA') isaByOwner[e.owner]=(isaByOwner[e.owner]||0)+e.gross;
+  });
+  const isaTaxByOwner={};
+  Object.entries(isaByOwner).forEach(([owner,gross])=>{
+    const info=getAccountDivTaxInfo('ISA');
+    isaTaxByOwner[owner]=Math.max(0,gross-(info.exempt||0))*(info.normalRate||0);
+  });
+  list.forEach(e=>{
+    if(e.info.type==='연금') e.tax=0;
+    else if(e.info.type==='ISA') {
+      const ownerGross=isaByOwner[e.owner]||0;
+      e.tax=ownerGross>0?(isaTaxByOwner[e.owner]||0)*(e.gross/ownerGross):0;
+    } else e.tax=e.gross*(e.info.normalRate||0);
+    e.net=e.gross-e.tax;
+  });
+  const owners={};
+  list.forEach(e=>{
+    const row=owners[e.owner]||(owners[e.owner]={owner:e.owner,gross:0,net:0,tax:0,general:0,isa:0,pension:0});
+    row.gross+=e.gross; row.net+=e.net; row.tax+=e.tax;
+    if(e.info.type==='ISA') row.isa+=e.gross;
+    else if(e.info.type==='연금') row.pension+=e.gross;
+    else row.general+=e.gross;
+  });
+  Object.values(owners).forEach(row=>{
+    row.comprehensiveBase=row.general;
+    row.comprehensivePct=comprehensiveThreshold>0?row.general/comprehensiveThreshold*100:0;
+    row.comprehensiveOver=Math.max(0,row.general-comprehensiveThreshold);
+  });
+  return {list,owners:Object.values(owners).sort((a,b)=>b.gross-a.gross)};
+}
+
 // 배당 원천징수 세율 (세전→세후)
 // 단, ISA 200만원 공제는 owner·연도·계좌 집계가 필요하므로 syncDivHistory에서 처리
 function getDivWithholdingRate(acc) {
@@ -472,9 +516,10 @@ function syncDivHistory() {
     });
   });
 
-  // 2단계: 세제 혜택 반영 (계좌별)
-  // 소유주·연도·계좌별 연간 배당 합계를 먼저 집계한 뒤 ISA 200만원 공제 적용
-  pfolioData.forEach(item=>{
+  // 2단계: 연간 세전 배당을 공통 세금 엔진에 한 번 모은 뒤 월별 세후 금액으로 배분한다.
+  // 이 과정을 종목별 루프 안에서 처리하면 ISA 200만원 공제가 종목 수만큼 중복된다.
+  const taxEntries=[];
+  pfolioData.forEach((item,itemIndex)=>{
     if(item.grp!=='주식'||item.qty<=0) return;
     const tkr6 = normDivTkr(item.tkr);
     const cached = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
@@ -485,27 +530,23 @@ function syncDivHistory() {
     let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
     if (!months) months = [2,5,8,11];
     const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
-    const taxInfo = getAccountDivTaxInfo(item.acc);
-
-    YEARS.forEach(y=>{
+    taxEntries.push({
+      owner:item.owner,
+      acc:item.acc,
+      gross:payout*months.length,
+      ref:{itemIndex,payout,months}
+    });
+  });
+  const taxed=allocateDividendTax(taxEntries);
+  YEARS.forEach(y=>{
+    taxed.list.forEach(entry=>{
+      const payout=entry.ref.payout;
+      const months=entry.ref.months;
+      const netRatio=entry.gross>0?entry.net/entry.gross:1;
       months.forEach(m=>{
         if(m<0||m>=12) return;
-        let netPayout;
-        if (taxInfo.type === '연금') {
-          // 연금저축/IRP: 배당 시점 과세이연 → 세후 = 세전 100%
-          netPayout = payout;
-        } else if (taxInfo.type === 'ISA') {
-          // ISA: 소유주당 연간 200만원 비과세, 초과분 9.9%
-          // 간소화: 월별로 균등 공제 처리 (200만 / 배당 지급 횟수)
-          const annualGross = payout * months.length;
-          const exemptPerPayout = annualGross > 0 ? (Math.min(taxInfo.exempt, annualGross) / months.length) : 0;
-          const taxable = Math.max(0, payout - exemptPerPayout);
-          netPayout = (payout - exemptPerPayout) * (1 - taxInfo.normalRate) + exemptPerPayout;
-        } else {
-          // 일반: 15.4% 원천징수
-          netPayout = payout * (1 - taxInfo.normalRate);
-        }
-        divHistory[y][item.owner][m]+=netPayout;
+        const netPayout=payout*netRatio;
+        divHistory[y][entry.owner][m]+=netPayout;
         divHistory[y]['전체'][m]+=netPayout;
       });
     });
@@ -518,7 +559,7 @@ syncDivHistory();
 //   - API 결과에 dps/yld/cycle/months 가 포함되어 반환되므로 연간 eps 를
 //     cycle 에 맞게 분할해 저장한다.
 //   - eps 가 누락되었어도 yld 만으로 연 배당금 추정이 가능하면 보조로 저장.
-async function fetchDivData() {
+async function fetchDivData(force=false) {
   const today = new Date().toISOString().split('T')[0];
   const cacheKey = 'divCache_' + today;
   const verifiedKey = 'divCacheTickers_' + today;
@@ -527,9 +568,9 @@ async function fetchDivData() {
       .map(i=>(i.tkr||'').replace(/\.(KS|KQ)$/,''))
       .filter(Boolean)
   )];
-  if (!tickers.length) return;
+  if (!tickers.length) return {ok:true,skipped:true,detail:'조회할 주식 자산 없음'};
   const cached = localStorage.getItem(cacheKey);
-  if (cached) {
+  if (cached&&!force) {
     try {
       const verified = JSON.parse(localStorage.getItem(verifiedKey) || '[]');
       // 무배당 종목은 결과 캐시에 키가 생기지 않으므로, 실제 요청을 마친 티커 목록을
@@ -541,7 +582,7 @@ async function fetchDivData() {
           ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
         ));
         syncDivHistory();
-        return;
+        return {ok:true,cached:true,count:Object.keys(window._divDataCache).length};
       }
     } catch(e) {}
   }
@@ -550,9 +591,9 @@ async function fetchDivData() {
     const _divFetch = fetchTimeout(20000);
     const resp = await authFetch('/api/price?type=dividend&tickers='+tickers.join(','), { signal: _divFetch.signal });
     _divFetch.done();
-    if (!resp.ok) { console.warn('[fetchDivData] HTTP', resp.status); return; }
+    if (!resp.ok) return {ok:false,error:`배당 데이터 HTTP ${resp.status}`};
     const data = await resp.json();
-    if (!data.success || !data.result) return;
+    if (!data.success || !data.result) return {ok:false,error:data?.error||'배당 데이터 응답이 비어 있습니다.'};
     for (const [tkr, d] of Object.entries(data.result)) {
       const cacheTkr = String(tkr).toUpperCase().replace(/\.(KS|KQ|T)$/,'');
       const existing = DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
@@ -584,7 +625,11 @@ async function fetchDivData() {
     localStorage.setItem(verifiedKey, JSON.stringify(tickers));
     syncDivHistory();
     resolvePendingDivDates();
-  } catch(e) { console.error('[fetchDivData]', e); }
+    return {ok:true,count:Object.keys(window._divDataCache).length};
+  } catch(e) {
+    console.error('[fetchDivData]', e);
+    return {ok:false,error:e?.message||'배당 데이터 조회 실패'};
+  }
 }
 
 // 종목별 배당 raw 이력 (10년치) — YoC/CAGR/DRIP 위젯용
@@ -4341,31 +4386,69 @@ function getFGColor(v){if(v<=20)return'#EF4444';if(v<=40)return'#F97316';if(v<=6
 // =============================================
 // 실시간 시세 갱신 (30초)
 // =============================================
-function manualRefresh() {
+let _manualRefreshRunning=false;
+async function manualRefresh(source='all') {
+  if(_manualRefreshRunning) return {ok:false,busy:true};
+  _manualRefreshRunning=true;
   const btn = document.getElementById('sidebar-refresh-btn');
-  if(btn){btn.style.opacity='0.6';setTimeout(()=>btn.style.opacity='1',1000);}
-  // 수동 새로고침: EOD 시세 재조회 후 순차 렌더
-  (async () => {
-    await liveRefresh(); // internals use currentOwner
-    // 네이버 스크래핑 기반 국내 ETF/주식 실시간 가격도 함께 보완
-    liveRefreshDomesticEtfs();
-    refreshFNG();
-    fetchDivData();
-    refreshPyData().then(() => {
-      const activeView = document.querySelector('.view-section.active');
-      if (activeView && activeView.id === 'view-bubble') renderBubbleChart('weight');
-      // 현재 소유주 상태 유지하며 연관 차트/텍스트 일괄 갱신
-      changeOwner(currentOwner);
-    });
-  })();
+  if(btn) btn.style.opacity='0.6';
+  const wants=key=>source==='all'||source===key;
+  let assetsResult={ok:window._kvLoadState?.assets==='ready',skipped:true};
+  let extResult={ok:window._kvLoadState?.ext==='ready',skipped:true};
+  const results={};
+  try{
+    const loadTasks=[];
+    if(wants('assets')) loadTasks.push(loadAssetsFromKV().then(r=>{assetsResult=r;results.assets=r;}));
+    if(wants('ext')) loadTasks.push(loadExtDataFromKV().then(r=>{extResult=r;results.ext=r;}));
+    if(loadTasks.length) await Promise.all(loadTasks);
+
+    // 자동이체 실체화는 원격 확장 데이터를 정상적으로 받은 뒤에만 실행한다.
+    if(wants('ext')&&extResult?.ok&&(source!=='all'||assetsResult?.ok)) applyAutoTransfers();
+    const assetsReady=assetsResult?.ok===true&&window._kvLoadState?.assets==='ready';
+    const markAssetBlocked=(key,label,sourceLabel)=>{
+      const result={ok:false,blocked:true,error:'투자자산 원장을 먼저 정상적으로 불러와야 합니다.'};
+      results[key]=result;
+      if(typeof finMarkFresh==='function') finMarkFresh(key,label,sourceLabel,false,result.error);
+    };
+    if(wants('prices')){
+      if(assetsReady) results.prices=await refreshMarketPrices();
+      else markAssetBlocked('prices','시장 시세','시장별 시세 API');
+    }
+    if(wants('dividends')){
+      if(assetsReady) results.dividends=await fetchDivData(true);
+      else markAssetBlocked('dividends','배당 데이터','배당 데이터 API');
+    }
+    if(wants('rates')) results.rates=await refreshPyData({includeDividends:source==='all'&&assetsResult?.ok&&extResult?.ok});
+    if(wants('benchmark')){
+      if(assetsReady) results.benchmark=await fetchBenchmarkData();
+      else markAssetBlocked('benchmark','성과 벤치마크','시장 지수 데이터');
+    }
+    if(source==='all') refreshFNG();
+
+    // 전체 새로고침에서 두 KV 원본이 모두 정상일 때만 오늘 스냅샷을 다시 저장한다.
+    if(source==='all'&&assetsResult?.ok&&extResult?.ok) results.snapshot=await saveNetWorthSnapshot();
+    const activeView=document.querySelector('.view-section.active');
+    if(activeView&&activeView.id==='view-bubble') renderBubbleChart('weight');
+    changeOwner(currentOwner,null,true);
+    if(typeof cbRerender==='function') cbRerender();
+    const attempted=Object.values(results);
+    return {ok:attempted.length>0&&attempted.every(r=>r?.ok===true),results};
+  }catch(e){
+    console.error('[manualRefresh]',e);
+    return {ok:false,error:e?.message||'새로고침 실패',results};
+  }finally{
+    _manualRefreshRunning=false;
+    if(btn) btn.style.opacity='1';
+  }
 }
 
 async function liveRefresh() {
   const tickers=new Set();
   pfolioData.forEach(i=>{if(i.grp==='주식'||i.grp==='가상화폐')tickers.add(i.tkr);});
-  if(!tickers.size)return;
+  if(!tickers.size)return {ok:true,skipped:true,stale:0,detail:'조회할 시세 자산 없음'};
   try {
     const resp=await authFetch(`/api/price?tickers=${Array.from(tickers).join(',')}`);
+    if(!resp.ok) throw new Error(`시세 HTTP ${resp.status}`);
     const data=await resp.json();
     if(!data.success)throw new Error(data.error);
 
@@ -4395,12 +4478,14 @@ async function liveRefresh() {
           const gm = i.unit==='돈'?3.75:(i.unit==='kg'?1000:1);
           i.curP = window._GOLD_G_KRW * gm;
         }
-      } else if(data.quotes){
+      } else if(i.grp==='주식'||i.grp==='가상화폐'){
         // interval=1d는 완성된 일봉만 반환 → closes[last]가 마지막 거래일 확정 종가
         const t6=i.tkr.replace(/\.(?:KS|KQ)$/,'');
-        const q=data.quotes[i.tkr]||data.quotes[t6]||data.quotes[t6+'.KS']||data.quotes[t6+'.KQ'];
-        if(q){
-          i.curP = q.price || q.prevClose;i._priceStale=false;
+        const quotes=data.quotes||{};
+        const q=quotes[i.tkr]||quotes[t6]||quotes[t6+'.KS']||quotes[t6+'.KQ'];
+        const price=Number(q?.price||q?.prevClose);
+        if(q&&price>0){
+          i.curP = price;i._priceStale=false;
           // 일간 변동(DAILY) 산출용 — 전일 종가 및 종가 간 차이를 시세 수신 시점에 저장
           i.prevP = q.prevClose || null;
           i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
@@ -4409,7 +4494,12 @@ async function liveRefresh() {
     });
     syncDivHistory();changeOwner(currentOwner,null,true);
     renderPortFxPanel();
-  } catch(err){console.error('[EOD Price Fetch Error]',err);}
+    const stale=pfolioData.filter(i=>i&&i._priceStale).length;
+    return {ok:stale===0,stale,detail:stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태'};
+  } catch(err){
+    console.error('[EOD Price Fetch Error]',err);
+    return {ok:false,error:err?.message||'시세 조회 실패'};
+  }
 }
 
 // [수정7] 공포/탐욕: 하루 1번만 업데이트 (DAILY)
@@ -4677,6 +4767,9 @@ function renderFamilyView() {
 let goalData = [];
 window._balanceSheet = window._balanceSheet || { assets:[], liabilities:[], cashTargetMonths:6 };
 window._dataFreshness = window._dataFreshness || {};
+// 원격 원장을 정상적으로 읽기 전에는 빈 초기값을 다시 저장하지 않는다.
+// 실패 후 데이터 상태의 개별 재시도가 성공하면 ready로 전환된다.
+window._kvLoadState = window._kvLoadState || {assets:'pending',ext:'pending'};
 
 // =============================================
 // 환율 노출도 분석
@@ -4836,8 +4929,10 @@ function renderFxExposure(owner) {
 window._netWorthHistory = window._netWorthHistory || [];
 window._netWorthHistoryChart = null;
 
-async function saveNetWorthSnapshot() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+// 오늘 순자산 스냅샷을 메모리에서 갱신한다. 저장 여부는 호출자가 결정한다.
+// 재무상태표 CRUD 직후에도 이 함수를 호출해 KPI와 차트 마지막 점을 일치시킨다.
+function updateNetWorthSnapshot() {
+  const todayStr = _cfLocalDateKey(new Date());
   const sumAssets = (arr) => arr.reduce((s, a) => {
     if (a.grp === '금') return s + (a.qty||0) * (a.curP||0);
     return s + (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
@@ -4864,7 +4959,15 @@ async function saveNetWorthSnapshot() {
   if (idx > -1) hist[idx] = entry;
   else { hist.push(entry); hist.sort((a,b) => a.date.localeCompare(b.date)); }
   if (hist.length > 365) hist.splice(0, hist.length - 365);
-  await saveExtDataToKV();
+  return entry;
+}
+
+async function saveNetWorthSnapshot() {
+  if(window._kvLoadState?.assets!=='ready'||window._kvLoadState?.ext!=='ready') {
+    return {ok:false,blocked:true,error:'원격 원장을 정상적으로 불러오기 전에는 순자산 스냅샷을 저장할 수 없습니다.'};
+  }
+  updateNetWorthSnapshot();
+  return saveExtDataToKV();
 }
 
 function renderNetWorthHistoryChart(tf, btn) {
@@ -4904,7 +5007,12 @@ function renderNetWorthHistoryChart(tf, btn) {
   }
   const chart = window._netWorthHistoryChart;
   chart.data.labels = filtered.map(h => h.date.slice(5).replace('-', '/'));
-  chart.data.datasets[0].data = filtered.map(h => h.total);
+  const bs=window._balanceSheet||{};
+  const balanceSheetEmpty=(bs.assets||[]).reduce((s,x)=>s+(Number(x.amount)||0),0)===0
+    &&(bs.liabilities||[]).reduce((s,x)=>s+(Number(x.amount)||0),0)===0;
+  chart.data.datasets[0].data = filtered.map(h => typeof finSnapshotNet==='function'
+    ? finSnapshotNet(h,balanceSheetEmpty)
+    : h.total);
   chart.data.datasets[1].data = filtered.map(h => h.portfolio);
   chart.update();
 }
@@ -4929,57 +5037,107 @@ function switchDashTab(tab, btn) {
 // 확장 데이터 KV 저장/로드
 // =============================================
 async function saveExtDataToKV() {
+  if(window._kvLoadState?.ext!=='ready') {
+    showSaveError('⚠️ 재무 데이터를 정상적으로 불러오기 전에는 저장할 수 없습니다. 데이터 상태에서 다시 확인해 주세요.');
+    if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
+    return {ok:false,blocked:true,status:null};
+  }
   const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, dataFreshness:window._dataFreshness || {}, giftActual: window._giftActual || null };
   const res = await setKV('ext_data', ext);
-  if (!(res && res.result === "OK")) showSaveError();
+  const ok=!!(res&&res.result==="OK");
+  if (!ok) showSaveError();
+  if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',ok,ok?'확장 데이터 저장 완료':`저장 실패${res?.status?' ('+res.status+')':''}`);
+  return {ok,status:res?.status||null};
 }
 
 async function loadExtDataFromKV() {
-  const data = await getKV('ext_data');
-  if (data && typeof data === 'object') {
-    if (Array.isArray(data.assetHistory)) assetHistory = data.assetHistory;
-    if (Array.isArray(data.goalData)) goalData = data.goalData;
-    if (Array.isArray(data.netWorthHistory)) window._netWorthHistory = data.netWorthHistory;
-    if (data.targetAlloc && typeof data.targetAlloc === 'object') window._targetAlloc = data.targetAlloc;
-    if (data.balanceSheet && typeof data.balanceSheet === 'object') {
-      window._balanceSheet = {
-        assets:Array.isArray(data.balanceSheet.assets)?data.balanceSheet.assets:[],
-        liabilities:Array.isArray(data.balanceSheet.liabilities)?data.balanceSheet.liabilities:[],
-        cashTargetMonths:Math.max(1,Number(data.balanceSheet.cashTargetMonths)||6)
-      };
+  window._kvLoadState.ext='pending';
+  let data;
+  try { data=await getKV('ext_data'); }
+  catch(e) {
+    console.error('[loadExtDataFromKV]',e);
+    window._kvLoadState.ext='failed';
+    showKvLoadError('⚠️ 재무계획·현금흐름을 불러오지 못했습니다. 기존 데이터를 덮어쓰지 않도록 저장을 중단했습니다.','ext');
+    return {ok:false,error:e?.message||'확장 데이터 로드 실패'};
+  }
+  if (data==null) {
+    window._kvLoadState.ext='ready';
+    clearKvLoadError('ext');
+    return {ok:true,empty:true,detail:'저장된 확장 데이터 없음'};
+  }
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const arrayFields=['assetHistory','goalData','netWorthHistory','monthlyPLData','cfData','autoTransferData','cfDeletedKeys'];
+    const objectFields=['targetAlloc','balanceSheet','dataFreshness','giftActual'];
+    const knownFields=[...arrayFields,...objectFields];
+    const owns=key=>Object.prototype.hasOwnProperty.call(data,key);
+    const balance=data.balanceSheet;
+    const balanceInvalid=owns('balanceSheet')&&balance!=null&&(
+      (Object.prototype.hasOwnProperty.call(balance,'assets')&&!Array.isArray(balance.assets))
+      ||(Object.prototype.hasOwnProperty.call(balance,'liabilities')&&!Array.isArray(balance.liabilities))
+      ||(Object.prototype.hasOwnProperty.call(balance,'cashTargetMonths')&&(!Number.isFinite(Number(balance.cashTargetMonths))||Number(balance.cashTargetMonths)<=0))
+    );
+    const invalid=!knownFields.some(owns)
+      || arrayFields.some(key=>owns(key)&&!Array.isArray(data[key]))
+      || objectFields.some(key=>owns(key)&&data[key]!=null&&(typeof data[key]!=='object'||Array.isArray(data[key])))
+      || balanceInvalid;
+    if(invalid){
+      window._kvLoadState.ext='failed';
+      showKvLoadError('⚠️ 재무 데이터 형식이 올바르지 않습니다. 기존 데이터를 덮어쓰지 않도록 저장을 중단했습니다.','ext');
+      return {ok:false,error:'확장 데이터 형식이 올바르지 않습니다.'};
     }
-    if (data.dataFreshness && typeof data.dataFreshness === 'object') window._dataFreshness=data.dataFreshness;
-    if (data.giftActual && typeof data.giftActual === 'object') {
-      window._giftActual = data.giftActual;
-      try { localStorage.setItem('giftActual', JSON.stringify(data.giftActual)); } catch(e) {}
+    // 원격 객체가 존재하면 그 객체가 정본이다. 누락 필드를 샘플·localStorage 값으로 남겨
+    // 다음 자동 저장 때 원격에 섞지 않도록 명시적 빈 값으로 정규화한다.
+    const normalized={};
+    arrayFields.forEach(key=>{normalized[key]=owns(key)?data[key]:[];});
+    normalized.targetAlloc=owns('targetAlloc')?data.targetAlloc:null;
+    normalized.balanceSheet=owns('balanceSheet')&&data.balanceSheet?data.balanceSheet:{assets:[],liabilities:[],cashTargetMonths:6};
+    normalized.dataFreshness=owns('dataFreshness')?data.dataFreshness:null;
+    normalized.giftActual=owns('giftActual')?data.giftActual:null;
+
+    assetHistory=normalized.assetHistory;
+    goalData=normalized.goalData;
+    window._netWorthHistory=normalized.netWorthHistory;
+    window._targetAlloc=normalized.targetAlloc;
+    window._balanceSheet={
+      assets:normalized.balanceSheet.assets||[],
+      liabilities:normalized.balanceSheet.liabilities||[],
+      cashTargetMonths:Math.max(1,Number(normalized.balanceSheet.cashTargetMonths)||6)
+    };
+    if (normalized.dataFreshness && typeof normalized.dataFreshness === 'object') {
+      // 현재 세션에서 이미 기록한 실패/성공 상태가 과거 저장값에 덮이지 않게 한다.
+      window._dataFreshness={...normalized.dataFreshness,...(window._dataFreshness||{})};
     }
-    if (Array.isArray(data.monthlyPLData) && data.monthlyPLData.length > 0) {
-      monthlyPLData = data.monthlyPLData;
-      try { localStorage.setItem('monthlyPLData', JSON.stringify(monthlyPLData)); } catch(e) {}
-    }
-    if (Array.isArray(data.cfData)) {
-      cfData = data.cfData;
-      try { localStorage.setItem('cfData', JSON.stringify(cfData)); } catch(e) {}
-      if (document.getElementById('view-cashflow')?.classList.contains('active')) renderCashFlow();
-    }
-    if (Array.isArray(data.autoTransferData)) {
-      autoTransferData = data.autoTransferData;
-      _normalizeAutoTransferSchedules(autoTransferData);
-      try { localStorage.setItem('autoTransferData', JSON.stringify(autoTransferData)); } catch(e) {}
-      if (document.getElementById('view-cashflow')?.classList.contains('active')) {
-        renderAutoTransfers();
-        renderFixedCostView();
-        renderCashFlow();
-      }
-    }
-    if (Array.isArray(data.cfDeletedKeys)) {
-      cfDeletedKeys = data.cfDeletedKeys;
-      saveCfDeletedKeys();
+    window._giftActual=normalized.giftActual;
+    try {
+      if(normalized.giftActual) localStorage.setItem('giftActual',JSON.stringify(normalized.giftActual));
+      else localStorage.removeItem?.('giftActual');
+    } catch(e) {}
+    monthlyPLData=normalized.monthlyPLData;
+    cfData=normalized.cfData;
+    autoTransferData=normalized.autoTransferData;
+    cfDeletedKeys=normalized.cfDeletedKeys;
+    _normalizeAutoTransferSchedules(autoTransferData);
+    try {
+      localStorage.setItem('monthlyPLData',JSON.stringify(monthlyPLData));
+      localStorage.setItem('cfData',JSON.stringify(cfData));
+      localStorage.setItem('autoTransferData',JSON.stringify(autoTransferData));
+    } catch(e) {}
+    saveCfDeletedKeys();
+    if (document.getElementById('view-cashflow')?.classList.contains('active')) {
+      renderAutoTransfers();
+      renderFixedCostView();
+      renderCashFlow();
     }
     renderHistoryChart();
     updateNetAssetDisplay();
     changeOwner(currentOwner, null, true);
+    window._kvLoadState.ext='ready';
+    clearKvLoadError('ext');
+    return {ok:true,detail:`목표 ${goalData.length}개 · 순자산 기록 ${(window._netWorthHistory||[]).length}개`};
   }
+  window._kvLoadState.ext='failed';
+  showKvLoadError('⚠️ 재무 데이터 형식이 올바르지 않습니다. 기존 데이터를 덮어쓰지 않도록 저장을 중단했습니다.','ext');
+  return {ok:false,error:'확장 데이터 형식이 올바르지 않습니다.'};
 }
 
 // =============================================
@@ -5071,9 +5229,6 @@ async function attemptLogin() {
       // 초기 렌더 후 차트 크기 보정 (오버레이가 사라진 뒤 실제 컨테이너 크기 반영)
       setTimeout(_fitActiveCharts, 800);
       setTimeout(_fitActiveCharts, 2500);
-      // window.addEventListener('load') 타이머가 로그인 전 실행됐으므로 재트리거
-      // (벤치마크는 initDashboard 의 IIFE가 자산 로드 완료 후 호출하므로 여기선 환율/금만 갱신)
-      setTimeout(() => { refreshPyData(); }, 200);
     } else {
       errEl.style.display = 'block';
       pwEl.value = '';
@@ -5348,7 +5503,6 @@ function initDashboard(){
   // 창을 열면 항상 대시보드로 시작
   switchView('dashboard', document.getElementById('menu-dashboard'));
   renderAutoTransfers();
-  applyAutoTransfers();
   calcGift();
 
   // 초기 로드: KV에서 자산 로드 후 EOD 시세 1회 반영
@@ -5356,21 +5510,24 @@ function initDashboard(){
   window.familyStackChartInst = null;
   (async () => {
     // KRX 종목 DB(data/stocks.json)와 자산을 병렬 로드
-    await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
+    const [assetsResult,extResult]=await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
+    // 로컬 기본값을 원격 데이터 위에 저장하지 않도록, 확장 KV 로드 성공 뒤에만 자동이체를 실체화한다.
+    if(assetsResult?.ok&&extResult?.ok) applyAutoTransfers();
     // 자산 로드 직후 벤치마크 차트 1회 정리 (placeholder → 실제 소유주 리스트)
     rerenderBenchmark();
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
-    injectInitialFromStocksDB();
+    if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
-    await liveRefresh();
+    if(assetsResult?.ok) await refreshMarketPrices();
     // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
-    refreshPyData();
+    refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok});
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
-    fetchBenchmarkData();
+    if(assetsResult?.ok) fetchBenchmarkData();
     // DCA는 증권사에서 체결되므로 이 앱에서는 일정만 표시한다.
     // 순자산 일별 스냅샷 저장 (하루 1회)
-    await saveNetWorthSnapshot();
+    if(assetsResult?.ok&&extResult?.ok) await saveNetWorthSnapshot();
+    else console.warn('[initDashboard] 원본 KV 로드 실패로 순자산 스냅샷 저장을 건너뜁니다.');
     // 순자산 추이 차트 갱신 — 사용자가 이미 탭을 열어둔 경우에만
     // (탭이 닫힌 상태에서 차트를 새로 만들면 캔버스가 0x0으로 초기화되어
     //  이후 탭을 열어도 스케일이 갱신되지 않음. 닫힌 상태면 switchDashTab이
@@ -5378,12 +5535,10 @@ function initDashboard(){
     if (window._netWorthHistoryChart) {
       (document.querySelector('.nwh-tf-btn.active') || document.querySelector('.nwh-tf-btn'))?.click();
     }
-    // 3차: 네이버 스크래핑으로 국내 ETF/주식 실시간 가격을 '자연스럽게' 덮어쓰기
-    //       (await 하지 않고 병렬 실행하여 페이지 반응성 유지)
-    liveRefreshDomesticEtfs();
+    // 국내 시세 보완은 refreshMarketPrices에서 주 시세 API와 함께 최종 판정한다.
     refreshFNG();
     fetchHeatmapData();
-    fetchDivData();
+    if(assetsResult?.ok) fetchDivData();
   })();
 }
 
@@ -7973,7 +8128,16 @@ window.handleBubbleSectorClick = function(sector) {
 // KV 접근은 /api/kv 서버측 프록시를 통해서만 (토큰은 Vercel 환경변수 KV_REST_API_*에 보관)
 async function setKV(key,value){try{const bodyValue=typeof value==='object'?JSON.stringify(value):value;const res=await authFetch(`/api/kv?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:bodyValue})});if(!res.ok){console.warn("[KV SET] 비정상 응답 status",res.status,key);return {ok:false,status:res.status};}const data=await res.json();return data;}catch(err){console.error("[KV SET Error]",err);return {ok:false};}}
 
-async function getKV(key){try{const res=await authFetch(`/api/kv?key=${encodeURIComponent(key)}`);if(!res.ok){console.warn("[KV GET] 비정상 응답 status",res.status,key);return;}const data=await res.json();if(data.result&&(data.result.startsWith('{')||data.result.startsWith('['))){try{return JSON.parse(data.result);}catch(e){return data.result;}}return data.result;}catch(err){console.error("[KV GET Error]",err);}}
+async function getKV(key){
+  const res=await authFetch(`/api/kv?key=${encodeURIComponent(key)}`);
+  if(!res.ok) throw new Error(`KV GET ${key} 실패 (${res.status})`);
+  const data=await res.json();
+  if(!data||!Object.prototype.hasOwnProperty.call(data,'result')) throw new Error(`KV GET ${key} 응답 형식 오류`);
+  if(typeof data.result==='string'&&(data.result.startsWith('{')||data.result.startsWith('['))){
+    try{return JSON.parse(data.result);}catch(e){return data.result;}
+  }
+  return data.result;
+}
 
 // KV 저장 실패 시 사용자에게 보이는 자동 소멸 토스트 (재호출 시 타이머만 리셋 — 중복 방지)
 function showSaveError(msg){
@@ -7990,7 +8154,18 @@ function showSaveError(msg){
   clearTimeout(window._kvSaveToastT);
   window._kvSaveToastT=setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>{ if(el)el.style.display='none'; },350); },4500);
 }
-async function saveAssetsToKV(){const res=await setKV("assets",pfolioData);if(res&&res.result==="OK"){console.log("KV 저장 성공");}else{showSaveError();}}
+async function saveAssetsToKV(){
+  if(window._kvLoadState?.assets!=='ready'){
+    showSaveError('⚠️ 자산 원장을 정상적으로 불러오기 전에는 저장할 수 없습니다. 데이터 상태에서 다시 확인해 주세요.');
+    if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
+    return {ok:false,blocked:true,status:null};
+  }
+  const res=await setKV('assets',pfolioData);
+  const ok=!!(res&&res.result==='OK');
+  if(ok) console.log('KV 저장 성공'); else showSaveError();
+  if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',ok,ok?`${pfolioData.length}개 항목 저장`:`저장 실패${res?.status?' ('+res.status+')':''}`);
+  return {ok,status:res?.status||null};
+}
 
 // 알려진 US 주식 티커 목록 (cur 자동 교정용)
 const KNOWN_US_TICKERS = new Set(['NVDA','AAPL','MSFT','TSLA','AMZN','GOOGL','META','JPM','JEPI','JEPQ','MU','AMD','INTC','NFLX','DIS','VTI','SPY','QQQ','IWM','GLD','SLV','TLT','BND','VYM','SCHD',
@@ -8018,24 +8193,73 @@ function fixAssetCurrencies(arr) {
   });
   return arr;
 }
+function showKvLoadError(message,source='general'){
+  let banner=document.getElementById('kv-error-banner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='kv-error-banner';
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#EF4444;color:#fff;text-align:center;font-size:.85rem;font-weight:600;';
+    document.body.prepend(banner);
+  }
+  let row=banner.querySelector(`[data-kv-source="${source}"]`);
+  if(!row){row=document.createElement('div');row.dataset.kvSource=source;row.style.padding='9px 16px';banner.appendChild(row);}
+  row.textContent=message||'⚠️ 데이터를 불러오지 못했습니다. 데이터 상태에서 다시 확인해 주세요.';
+}
+function clearKvLoadError(source='general'){
+  const banner=document.getElementById('kv-error-banner');
+  if(!banner)return;
+  banner.querySelector(`[data-kv-source="${source}"]`)?.remove();
+  if(!banner.children.length) banner.remove();
+}
+
 async function loadAssetsFromKV(){
+  window._kvLoadState.assets='pending';
   let data;
-  try { data = await getKV("assets"); } catch(e) { data = null; }
+  try { data=await getKV('assets'); }
+  catch(e){
+    console.error('[loadAssetsFromKV]',e);
+    window._kvLoadState.assets='failed';
+    showKvLoadError('⚠️ 자산 데이터를 불러오지 못했습니다. 기존 데이터를 덮어쓰지 않도록 저장을 중단했습니다.','assets');
+    return {ok:false,error:e?.message||'투자자산 원장 로드 실패'};
+  }
+  if(data==null) data=[];
   if(data&&typeof data==='object'){
-    if(Array.isArray(data))pfolioData=fixAssetCurrencies(data);
-    else{let flat=[];for(const o in data){if(Array.isArray(data[o]))data[o].forEach(i=>{i.owner=o;flat.push(i);})}if(flat.length>0)pfolioData=fixAssetCurrencies(flat);}
+    let candidate;
+    if(Array.isArray(data)) candidate=data;
+    else {
+      if(!Object.values(data).every(Array.isArray)){
+        window._kvLoadState.assets='failed';
+        showKvLoadError('⚠️ 자산 데이터 형식이 올바르지 않습니다. 저장을 중단했습니다.','assets');
+        return {ok:false,error:'투자자산 원장 형식 오류'};
+      }
+      const flat=[];
+      for(const owner in data){
+        if(Array.isArray(data[owner])) data[owner].forEach(item=>flat.push(item&&typeof item==='object'&&!Array.isArray(item)?{...item,owner}:item));
+      }
+      candidate=flat;
+    }
+    if(!candidate.every(item=>item&&typeof item==='object'&&!Array.isArray(item))){
+      window._kvLoadState.assets='failed';
+      showKvLoadError('⚠️ 자산 항목 형식이 올바르지 않습니다. 저장을 중단했습니다.','assets');
+      return {ok:false,error:'투자자산 원장 항목 형식 오류'};
+    }
+    try{
+      pfolioData=fixAssetCurrencies(candidate);
+    }catch(e){
+      window._kvLoadState.assets='failed';
+      showKvLoadError('⚠️ 자산 데이터를 해석하지 못했습니다. 저장을 중단했습니다.','assets');
+      return {ok:false,error:e?.message||'투자자산 원장 해석 오류'};
+    }
+    window._kvLoadState.assets='ready';
+    clearKvLoadError('assets');
     changeOwner(currentOwner,null,true);
     // 잘못된 티커 자동 보정 실행
     setTimeout(() => { autoFixTickers(); }, 2000);
-  } else if (data === null || data === undefined) {
-    // getKV가 null/undefined 반환 = 네트워크 오류 또는 KV 서버 장애
-    console.error('[loadAssetsFromKV] KV 데이터 로드 실패 — 자산 데이터를 불러오지 못했습니다.');
-    const banner = document.createElement('div');
-    banner.id = 'kv-error-banner';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#EF4444;color:#fff;text-align:center;padding:10px 16px;font-size:.85rem;font-weight:600;';
-    banner.innerHTML = '⚠️ 자산 데이터를 불러오지 못했습니다. 네트워크 상태를 확인하고 <a href="javascript:location.reload()" style="color:#fff;text-decoration:underline">새로고침</a>해 주세요.';
-    document.body.prepend(banner);
+    return {ok:true,count:pfolioData.length,detail:`${pfolioData.length}개 항목 로드`};
   }
+  window._kvLoadState.assets='failed';
+  showKvLoadError('⚠️ 자산 데이터 형식이 올바르지 않습니다. 저장을 중단했습니다.','assets');
+  return {ok:false,error:'투자자산 원장 형식 오류'};
 }
 
 /**
@@ -8264,8 +8488,7 @@ async function liveRefreshDomesticEtfs() {
       .map(i => String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase())
       .filter(t => KR_CODE_RE.test(t))
   ));
-  if (tickers.length === 0) return;
-
+  if (tickers.length === 0) return {ok:true,skipped:true,updated:0,attempted:0,stale:0};
   // 네이버 과요청 방지: 10개씩 청크
   const CHUNK = 10;
   const chunks = [];
@@ -8273,7 +8496,7 @@ async function liveRefreshDomesticEtfs() {
     chunks.push(tickers.slice(i, i + CHUNK));
   }
 
-  let updated = 0;
+  const updatedTickers=new Set();
   for (const chunk of chunks) {
     try {
       const resp = await authFetch(`/api/stock-price?tickers=${chunk.join(',')}`);
@@ -8293,19 +8516,36 @@ async function liveRefreshDomesticEtfs() {
           // — curP가 안정값(전일종가)이라 curP-prevP 방식으로는 0이 되므로 별도 저장
           i.prevP = q.prevClose || null;
           i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
+          updatedTickers.add(t6);
         }
       });
-      updated += Object.keys(result).length;
     } catch (e) {
       console.warn('[DomesticEtfLive] chunk error:', e && e.message);
     }
   }
 
-  if (updated > 0) {
+  if (updatedTickers.size > 0) {
     try { changeOwner(currentOwner, null, true); } catch (_) {}
     try { renderPortFxPanel && renderPortFxPanel(); } catch (_) {}
-    console.log(`[DomesticEtfLive] ${updated}종목 실시간 가격 반영 완료`);
+    console.log(`[DomesticEtfLive] ${updatedTickers.size}종목 실시간 가격 반영 완료`);
   }
+  const stale=items.filter(i=>i&&i._priceStale).length;
+  return {ok:updatedTickers.size===tickers.length,updated:updatedTickers.size,attempted:tickers.length,stale};
+}
+
+// 주 시세 API와 국내 보완 소스를 한 번의 최종 결과로 합친다.
+async function refreshMarketPrices(){
+  const primary=await liveRefresh();
+  const domestic=await liveRefreshDomesticEtfs();
+  const marketItems=(pfolioData||[]).filter(i=>i&&(i.grp==='주식'||i.grp==='가상화폐'));
+  const stale=marketItems.filter(i=>i._priceStale).length;
+  const hasForeign=marketItems.some(i=>!_isDomesticEquity(i));
+  const primaryResponded=!primary?.error;
+  const domesticCoversAll=marketItems.length>0&&!hasForeign&&marketItems.every(i=>KR_CODE_RE.test(String(i.tkr||'').replace(/\.(KS|KQ)$/i,'').toUpperCase()));
+  const ok=stale===0&&(primaryResponded||(domesticCoversAll&&domestic?.ok===true));
+  const result={ok,stale,primary,domestic,detail:ok?'등록 자산 최신 상태':(stale?`${stale}개 최신 확인 필요`:(primary?.error||'시세 조회 실패'))};
+  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',ok,result.detail);
+  return result;
 }
 
 // =============================================
@@ -8333,13 +8573,13 @@ async function _pyFetch(params) {
  */
 async function fetchPyRates() {
   const d = await _pyFetch({type:'rates'});
-  if (!d || !d.success || !d.rates) return;
+  if (!d || !d.success || !d.rates) return false;
   const rates = d.rates;
 
   const flash2 = (id, newV, oldV) => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (typeof newV === 'number') {
+    if (Number.isFinite(newV) && newV>0) {
       el.textContent = newV.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
       if (Math.abs(newV - (oldV||0)) > 0.01) flash(el, newV > (oldV||0) ? 'up' : 'down');
     } else {
@@ -8348,21 +8588,22 @@ async function fetchPyRates() {
   };
 
   // '미조회' 문자열·키 누락(undefined) 모두 방어 — 숫자일 때만 갱신
-  if (typeof rates.usd_krw === 'number') {
+  if (Number.isFinite(rates.usd_krw) && rates.usd_krw>0) {
     flash2('side-usd-rate', rates.usd_krw, RATES.USD);
     RATES.USD = rates.usd_krw;
   }
-  if (typeof rates.usd_jpy === 'number') {
+  if (Number.isFinite(rates.usd_jpy) && rates.usd_jpy>0) {
     flash2('side-usdjpy-rate', rates.usd_jpy, RATES.USDJPY||150);
     RATES.USDJPY = rates.usd_jpy;
   }
-  if (typeof rates.jpy100_krw === 'number') {
+  if (Number.isFinite(rates.jpy100_krw) && rates.jpy100_krw>0) {
     // JPY100/KRW
     const jpyFmt = rates.jpy100_krw.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
     const el = document.getElementById('side-jpy-rate');
     if (el) el.textContent = jpyFmt;
     RATES.JPY = rates.jpy100_krw / 100;
   }
+  return Number.isFinite(rates.usd_krw)&&rates.usd_krw>0&&Number.isFinite(rates.jpy100_krw)&&rates.jpy100_krw>0;
 }
 
 /**
@@ -8372,7 +8613,7 @@ async function fetchPyRates() {
 async function fetchPyGold(unit) {
   unit = unit || window._goldUnit || 'g';
   const d = await _pyFetch({type:'gold', unit});
-  if (!d || !d.success || !d.gold) return;
+  if (!d || !d.success || !d.gold) return false;
   const g = d.gold;
 
   // 단위 레이블 갱신
@@ -8380,19 +8621,22 @@ async function fetchPyGold(unit) {
   if (selEl) selEl.value = unit;
 
   const hG = document.getElementById('side-gold-rate');
-  if (!hG) return;
 
-  if (g.price === '미조회') {
-    hG.textContent = '미조회';
-    return;
+  const priceValid=Number.isFinite(g.price)&&g.price>0;
+  const gramPriceValid=Number.isFinite(g.price_per_g)&&g.price_per_g>0;
+  if (!priceValid||!gramPriceValid) {
+    if(hG) hG.textContent = '미조회';
+    return false;
   }
   const oldVal = window._GOLD_G_KRW_UNIT || 0;
-  hG.textContent = '₩' + Math.round(g.price).toLocaleString();
-  if (g.price !== oldVal) flash(hG, g.price > oldVal ? 'up' : 'down');
+  if(hG){
+    hG.textContent = '₩' + Math.round(g.price).toLocaleString();
+    if (g.price !== oldVal) flash(hG, g.price > oldVal ? 'up' : 'down');
+  }
   window._GOLD_G_KRW_UNIT = g.price;
 
   // g 단위일 때만 GOLD_G_KRW 업데이트 (포트폴리오 계산용)
-  if (g.price_per_g && g.price_per_g !== '미조회') {
+  if (gramPriceValid) {
     const oldGold = window._GOLD_G_KRW || 0;
     window._GOLD_G_KRW = g.price_per_g;
     // 금 자산 curP 갱신
@@ -8403,6 +8647,7 @@ async function fetchPyGold(unit) {
       }
     });
   }
+  return true;
 }
 
 /** 금 단위 변경 핸들러 (select onchange) */
@@ -8514,14 +8759,15 @@ async function fetchPyDividends() {
 // =============================================
 
 /** 전체 Python API 새로고침 (순차 실행) */
-async function refreshPyData() {
+async function refreshPyData(options={}) {
   // 환율 + 금 시세는 병렬 조회
-  await Promise.all([
+  const [ratesOk,goldOk]=await Promise.all([
     fetchPyRates(),
     fetchPyGold(window._goldUnit)
   ]);
-  // 배당 보완 (pykrx)
-  await fetchPyDividends();
+  // 배당 보완은 확장 KV가 정상 로드된 흐름에서만 실행한다.
+  // 이 함수는 배당 현금흐름을 실체화해 ext_data를 저장할 수 있기 때문이다.
+  if(options.includeDividends!==false) await fetchPyDividends();
   // TS API에서 미조회(_priceStale)된 종목 Python으로 보완
   const staleTickers = [...new Set(
     pfolioData
@@ -8529,6 +8775,14 @@ async function refreshPyData() {
       .map(i => i.tkr.replace(/\.(KS|KQ)$/,''))
   )];
   if (staleTickers.length) await fetchPyPrices(staleTickers);
+  return {
+    ok:!!ratesOk&&!!goldOk,
+    ratesOk:!!ratesOk,
+    goldOk:!!goldOk,
+    detail:ratesOk&&goldOk
+      ? `USD ${Number(RATES.USD||0).toLocaleString()} · JPY ${Number(RATES.JPY||0).toLocaleString()}`
+      : `환율 ${ratesOk?'정상':'실패'} · 금 ${goldOk?'정상':'실패'}`
+  };
 }
 
 
@@ -8622,7 +8876,7 @@ async function _jsBenchmarkFallback(tickersWithWeights) {
     const kospi_data = indices.map(i => pct(kospi, i));
     // 포트폴리오: 가중평균 (weight × 종가비율)
     let portfolio_data = [];
-    if (tickersWithWeights && tickersWithWeights.length) {
+    if (tickersWithWeights && tickersWithWeights.length && Object.keys(tickerSeries).length) {
       portfolio_data = indices.map(i => {
         let totB=0, totV=0;
         tickersWithWeights.forEach(([tkr, w]) => {
@@ -8720,7 +8974,7 @@ async function fetchBenchmarkData(ownerOverride) {
             const hasGood = Array.isArray(cur) && cur.some(v => v != null);
             if (benchData[tf] && !hasGood) benchData[tf].data[owner] = [];
           });
-          return;
+          return false;
         }
       } else {
         console.log(`[Benchmark] ${owner} 백엔드 데이터 로드 완료`);
@@ -8730,6 +8984,8 @@ async function fetchBenchmarkData(ownerOverride) {
       }
 
       const bm = data.benchmark;
+      let hasBenchmarkSeries=false;
+      let hasPortfolioSeries=allAssets.length===0;
       Object.keys(bm).forEach(tf => {
         const bd = bm[tf];
         if (!bd || !bd.labels) return;
@@ -8738,18 +8994,21 @@ async function fetchBenchmarkData(ownerOverride) {
         // 벤치마크는 공통(모든 소유주가 같은 S&P500/KOSPI 라인 공유)
         if (Array.isArray(bd.sp500)) benchData[tf].data['S&P 500'] = bd.sp500;
         if (Array.isArray(bd.kospi)) benchData[tf].data['KOSPI'] = bd.kospi;
+        if([bd.sp500,bd.kospi].some(series=>Array.isArray(series)&&series.length===bd.labels.length&&series.some(Number.isFinite))) hasBenchmarkSeries=true;
         // 해당 소유주의 포트폴리오 성과
-        if (Array.isArray(bd.portfolio) && bd.portfolio.length === bd.labels.length) {
+        if (Array.isArray(bd.portfolio) && bd.portfolio.length === bd.labels.length && bd.portfolio.some(Number.isFinite)) {
           benchData[tf].data[owner] = bd.portfolio;
+          hasPortfolioSeries=true;
         }
       });
 
       // 라인이 들어오는 대로 점진 렌더 (전부 끝날 때까지 빈 차트로 두지 않음)
       rerenderBenchmark();
+      return hasBenchmarkSeries&&hasPortfolioSeries;
     };
 
     // 모든 소유주를 병렬로 로드 — 순차 대기 제거로 체감 로딩 대폭 단축
-    await Promise.all(targets.map(loadOwner));
+    const results=await Promise.all(targets.map(loadOwner));
 
     // '전체' 소유주는 활성 소유주들의 가치 가중 평균으로 합성
     try {
@@ -8781,14 +9040,18 @@ async function fetchBenchmarkData(ownerOverride) {
 
     // 최종 차트 갱신 ('전체' 합산 라인 포함)
     rerenderBenchmark();
-  } catch(e) { console.error('[Benchmark]', e); }
+    const loaded=results.filter(Boolean).length;
+    return {ok:loaded===targets.length,loaded,attempted:targets.length,detail:`${loaded}/${targets.length}개 범위 로드`};
+  } catch(e) {
+    console.error('[Benchmark]', e);
+    return {ok:false,error:e?.message||'벤치마크 조회 실패'};
+  }
 }
 
 
 // 페이지 초기 로드 시 Python 데이터 자동 수집 (환율/금/배당 보완)
 //   벤치마크는 initDashboard 의 IIFE가 자산 로드 완료 후 호출하므로 여기선 다루지 않는다.
 window.addEventListener('load', () => {
-  setTimeout(() => { refreshPyData(); }, 1200);
   setTimeout(() => {
     const hashMatch=String(location.hash||'').match(/^#view=(.+)$/);
     const target=window.history.state?.assetView||(hashMatch?decodeURIComponent(hashMatch[1]):null);

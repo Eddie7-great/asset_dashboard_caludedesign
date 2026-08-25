@@ -31,6 +31,7 @@ const context = { console, Date }
 vm.createContext(context)
 // 세율 규칙은 실제 script.js 구현을 그대로 가져와 중복 정의를 만들지 않는다
 vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), context)
+vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
 vm.runInContext('const CB_FIN_INCOME_THRESHOLD=20000000;', context)
 vm.runInContext(extractFunction(cobaltSource, 'cbDivTaxInfo'), context)
 vm.runInContext(extractFunction(cobaltSource, 'cbDivTaxAllocate'), context)
@@ -82,9 +83,60 @@ assert.equal(owners['아내'].comprehensiveOver, 5_000_000, '기준 초과분 �
 assert.equal(owners['본인'].isa, 9_000_000, 'ISA 배당을 별도로 집계')
 assert.equal(owners['본인'].pension, 9_000_000, '연금 배당을 별도로 집계')
 
+// legacy 차트 동기화 경로도 모든 종목을 모은 뒤 같은 엔진을 한 번만 호출한다.
+Object.assign(context, {
+  ALL_OWNERS:['전체','본인'],
+  divHistory:{},
+  divHistoryYears:()=>['2026'],
+  pfolioData:[
+    {grp:'주식',qty:1_000_000,tkr:'AAA',owner:'본인',acc:'ISA',cur:'KRW'},
+    {grp:'주식',qty:1_000_000,tkr:'BBB',owner:'본인',acc:'ISA',cur:'KRW'},
+  ],
+  DIV_INFO_DB:{}, CYCLE_COUNT:{}, RATES:{KRW:1},
+  normDivTkr:ticker=>ticker,
+  _emptyDivHistory:()=>({}),
+})
+context.window = {
+  _divDataCache:{
+    AAA:{eps:2,months:[2],cur:'KRW'},
+    BBB:{eps:1,months:[5],cur:'KRW'},
+  },
+}
+vm.runInContext(extractFunction(scriptSource, 'syncDivHistory'), context)
+context.syncDivHistory()
+assert.equal(Math.round(context.divHistory['2026']['본인'][2]), 1_934_000, 'legacy 3월 ISA 세후 배당 비례 배분')
+assert.equal(Math.round(context.divHistory['2026']['본인'][5]), 967_000, 'legacy 6월 ISA 세후 배당 비례 배분')
+
+// ── 과거 캘린더 세후 금액 ───────────────────────────────
+// 서로 다른 두 ISA 종목의 과거 지급액도 종목별 공제가 아니라 소유주 연간 합계로 계산한다.
+Object.assign(context, {
+  window: {
+    _divHistoryRawCache: {
+      AAA: { cur: 'KRW', events: [{ date: '2025-03-15', amount: 2 }] },
+      BBB: { cur: 'KRW', events: [{ date: '2025-06-15', amount: 1 }] },
+    },
+  },
+  cbRate: () => 1,
+})
+for (const name of ['cbStrip', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear']) {
+  vm.runInContext(extractFunction(cobaltSource, name), context)
+}
+const historicalList = [
+  { i:{ owner:'본인', tkr:'AAA', cur:'KRW' }, tkr:'AAA', title:'A', qty:1_000_000, d:{cur:'KRW'}, taxLots:[{owner:'본인',acc:'ISA',qty:1_000_000}] },
+  { i:{ owner:'본인', tkr:'BBB', cur:'KRW' }, tkr:'BBB', title:'B', qty:1_000_000, d:{cur:'KRW'}, taxLots:[{owner:'본인',acc:'ISA',qty:1_000_000}] },
+]
+const historicalGross = context.cbDivMonthlyForYear(historicalList, '2025', false)
+const historicalNet = context.cbDivMonthlyForYear(historicalList, '2025', true)
+assert.equal(Math.round(historicalGross.monthAmt.reduce((s, value) => s + value, 0)), 3_000_000, '과거 세전 캘린더는 지급 이력 합계')
+assert.equal(Math.round(historicalNet.monthAmt.reduce((s, value) => s + value, 0)), 2_901_000, '과거 세후 캘린더도 ISA 연간 공제를 한 번만 적용')
+assert.equal(Math.round(historicalNet.monthAmt[2]), 1_934_000, '연간 ISA 세액을 3월 지급액에 비례 배분')
+assert.equal(Math.round(historicalNet.monthAmt[5]), 967_000, '연간 ISA 세액을 6월 지급액에 비례 배분')
+
 // ── 페이지 배선 ────────────────────────────────────────
 assert.match(cobaltSource, /onclick="cbDivBasis\('gross'\)"[\s\S]*onclick="cbDivBasis\('net'\)"/, '배당 관리에 세전/세후 토글 제공')
+assert.match(cobaltSource, /return allocateDividendTax\(entries,CB_FIN_INCOME_THRESHOLD\)/, '화면은 script.js의 공통 배당세 엔진에 위임')
 assert.match(cobaltSource, /const incomeKRW = netBasis \? netKRW : grossKRW/, '표시 기준에 따라 카드·캘린더·표가 같은 값을 사용')
+assert.match(cobaltSource, /지급 이력 기반/, '과거 캘린더는 현재 보유수량 환산임을 오해하지 않게 표시')
 assert.match(cobaltSource, /금융소득종합과세 근접도/, '소유주별 금융소득 게이지 제공')
 assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')

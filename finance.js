@@ -16,6 +16,9 @@ let _finNwTf='6M';
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
 function finNewId(){ return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
+function finLocalDateKey(date=new Date()){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
 
 function finEnsureState(){
   const bs=window._balanceSheet||{};
@@ -106,26 +109,54 @@ function finTargetAnalysis(ownerF){
 // 순현금흐름은 순자산 변화를 설명하기 위한 값이므로 '저축/투자'는 제외한다.
 // 통장에서 증권계좌로 옮긴 돈은 지출이 아니라 자산 이동이라 순자산이 줄지 않는다.
 function finMonthCashflow(sinceDate='',ownerF){
-  const d=new Date(),today=d.toISOString().slice(0,10),prefix=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const d=new Date(),today=finLocalDateKey(d),prefix=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   return (cfData||[])
     .filter(x=>!FIN_SAVING_CATS.includes(x&&x.cat))
     .filter(x=>!ownerF||x.owner===ownerF)
     .filter(x=>{const date=String(x.date||'');return sinceDate?(date>sinceDate&&date<=today):date.startsWith(prefix);})
     .reduce((s,x)=>s+(x.type==='수입'?1:-1)*(Number(x.amt)||0),0);
 }
-// 스냅샷 스키마 v1 은 total 에 투자자산만 담았고 v2 부터 기타자산·부채를 포함한다.
-// 정의가 다른 엔트리를 그대로 빼면 재무상태표를 등록한 날 그 금액이 통째로 잔차에 섞인다.
+// 무버전 스냅샷은 두 종류다.
+// - 초기 형식: total=투자자산
+// - 4b86 이후 형식: nonInvestmentAssets 필드가 있고 total=전체 순자산
+// schemaV만으로 모두 v1 취급하면 호환 가능한 직전 형식까지 잃으므로 구조를 함께 판별한다.
+function finSnapshotKind(entry){
+  if(!entry||typeof entry!=='object') return null;
+  if(entry.schemaV!=null&&entry.schemaV!==''){
+    const v=Number(entry.schemaV);
+    if(v===1) return 'investment';
+    if(Number.isFinite(v)&&v>=2) return 'full';
+    return null;
+  }
+  const own=key=>Object.prototype.hasOwnProperty.call(entry,key);
+  return own('nonInvestmentAssets')||own('netByOwner')?'full':'investment';
+}
+function finSnapshotNumber(value){
+  if(value==null||value===''||typeof value==='boolean') return null;
+  const n=Number(value);
+  return Number.isFinite(n)?n:null;
+}
 function finSnapshotNet(entry,balanceSheetEmpty){
-  if(!entry) return null;
-  const total=Number(entry.total)||0;
-  if((Number(entry.schemaV)||1)>=2) return total;
-  return balanceSheetEmpty?total:null;   // v1 은 재무상태표가 비어 있을 때만 현재 정의와 같다
+  const kind=finSnapshotKind(entry);
+  const total=finSnapshotNumber(entry?.total);
+  if(!kind||total==null) return null;
+  if(kind==='full') return total;
+  return balanceSheetEmpty?total:null;
+}
+function finSnapshotOwnerNet(entry,owner,balanceSheetEmpty){
+  const kind=finSnapshotKind(entry);
+  if(!kind||!owner) return null;
+  if(kind==='full'){
+    return finSnapshotNumber((entry.netByOwner||{})[owner]);
+  }
+  if(!balanceSheetEmpty) return null;
+  return finSnapshotNumber((entry.portfolioByOwner||{})[owner]);
 }
 function finNetWorthBridge(){
   const totals=finBalanceTotals();
   const bsEmpty=totals.otherAssets===0&&totals.liabilities===0;
   const hist=(window._netWorthHistory||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const today=new Date().toISOString().slice(0,10);
+  const today=finLocalDateKey(new Date());
   const candidates=hist.filter(x=>x.date!==today);
   const skipped=candidates.filter(x=>finSnapshotNet(x,bsEmpty)==null).length;
   let prior=null,previous=totals.net;
@@ -199,10 +230,15 @@ function finMobileNote(what){
   return `<div class="fin-mobile-note">모바일에서는 조회만 가능합니다. ${cbEsc(what)} 추가·수정은 PC 화면에서 해주세요.</div>`;
 }
 
-async function finSaveAndRender(renderFn){
-  try{ await saveExtDataToKV(); }catch(e){ console.error('[finance save]',e); }
+async function finSaveAndRender(renderFn,refreshSnapshot=false){
+  // 재무상태표 변경은 오늘의 전체 순자산에도 즉시 반영하고, 확장 데이터는 한 번만 저장한다.
+  const originalsReady=window._kvLoadState?.assets==='ready'&&window._kvLoadState?.ext==='ready';
+  if(refreshSnapshot&&originalsReady&&typeof updateNetWorthSnapshot==='function') updateNetWorthSnapshot();
+  let result={ok:false,error:'저장 함수를 찾을 수 없습니다.'};
+  try{ result=await saveExtDataToKV(); }catch(e){ result={ok:false,error:e?.message||'저장 실패'};console.error('[finance save]',e); }
   if(typeof renderFn==='function') renderFn();
   if(typeof cbRerender==='function'&&!document.getElementById('view-balance2')?.classList.contains('active')&&!document.getElementById('view-plan2')?.classList.contains('active')) cbRerender();
+  return result;
 }
 // 목록이 소유주 필터로 걸러지므로 수정·삭제는 배열 인덱스가 아니라 id 로 찾는다.
 function finBalanceKey(kind){ return kind==='liability'?'liabilities':'assets'; }
@@ -218,7 +254,7 @@ function finBalanceDelete(kind,id){
   const idx=finBalanceFind(kind,id); if(idx<0) return;
   const row=window._balanceSheet[finBalanceKey(kind)][idx];
   if(!confirm(`'${row.name}' 항목을 삭제할까요?`)) return;
-  window._balanceSheet[finBalanceKey(kind)].splice(idx,1); _finBalanceEdit=null; finSaveAndRender(cbRenderBalanceSheet);
+  window._balanceSheet[finBalanceKey(kind)].splice(idx,1); _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
 }
 function finBalanceSubmit(){
   finEnsureState();
@@ -236,7 +272,7 @@ function finBalanceSubmit(){
   // 수정은 제자리에서 교체한다 — splice 후 push 하면 목록 맨 아래로 튀어 어디를 고쳤는지 놓친다.
   if(editIdx>=0) window._balanceSheet[finBalanceKey(_finBalanceEdit.kind)].splice(editIdx,1,row);
   else window._balanceSheet[finBalanceKey(kind)].push(row);
-  _finBalanceEdit=null; finSaveAndRender(cbRenderBalanceSheet);
+  _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
 }
 function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(cbRenderBalanceSheet); }
 function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); }
@@ -251,11 +287,13 @@ function finNwSeries(ownerF){
   const days=FIN_NW_TFS[_finNwTf]!==undefined?FIN_NW_TFS[_finNwTf]:180;
   const cutoff=days?Date.now()-days*86400000:null;
   const picked=hist.filter(h=>!cutoff||new Date(h.date).getTime()>=cutoff);
+  const scopeTotals=finBalanceTotals(ownerF);
+  const balanceSheetEmpty=scopeTotals.otherAssets===0&&scopeTotals.liabilities===0;
   return picked.map(h=>{
     const v=ownerF
-      ? Number((h.netByOwner||{})[ownerF] ?? (h.portfolioByOwner||{})[ownerF])
-      : Number(h.total);
-    return {date:h.date, v:Number.isFinite(v)?v:null};
+      ? finSnapshotOwnerNet(h,ownerF,balanceSheetEmpty)
+      : finSnapshotNet(h,balanceSheetEmpty);
+    return {date:h.date,v};
   }).filter(p=>p.v!=null);
 }
 function finNwStats(series){
@@ -421,20 +459,26 @@ function finAccountDiagnostics(ownerF){
     if(!map[key])map[key]={key,owner:r.i.owner,broker:r.i.broker||'미지정',acc,value:0,dividend:0,count:0};
     map[key].value+=r.val;map[key].dividend+=cbDivIncomeKRW(r.i);map[key].count++;
   });
+  const groups=Object.values(map).sort((a,b)=>b.value-a.value);
+  const taxEngineReady=typeof allocateDividendTax==='function';
+  const allocated=taxEngineReady
+    ? allocateDividendTax(groups.map(x=>({owner:x.owner,acc:x.acc,gross:x.dividend,key:x.key}))).list
+    : [];
+  const taxByKey=new Map(allocated.map(x=>[x.key,x]));
   const taxInfo=acc=>typeof getAccountDivTaxInfo==='function'?getAccountDivTaxInfo(acc):{type:'일반',normalRate:0.154,label:'일반, 15.4%'};
-  return Object.values(map).sort((a,b)=>b.value-a.value).map(x=>{
+  return groups.map(x=>{
     const info=taxInfo(x.acc);
     const gift=/증여/.test(x.acc);
-    const withheld=x.dividend*info.normalRate;
+    const withheld=taxEngineReady?(taxByKey.get(x.key)?.tax??0):null;
     let status=info.type==='일반'?'일반 과세':(info.type==='ISA'?'ISA 절세':'연금 과세이연');
     let finding;
     if(info.type==='연금') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} 전액 과세이연 — 배당 자산을 두기 좋은 계좌입니다.`:'인출 시점까지 과세이연됩니다.';
-    else if(info.type==='ISA') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} · 200만원 공제 후 9.9% 분리과세(예상 ${cbDisp(withheld)})`:'손익통산·분리과세 혜택 계좌입니다.';
+    else if(info.type==='ISA') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} · 소유주별 연 200만원 공제 후 9.9% 분리과세(${withheld==null?'예상세액 계산 불가':'예상 '+cbDisp(withheld)})`:'손익통산·분리과세 혜택 계좌입니다.';
     else if(x.dividend>0){
       // 일반 15.4% → 연금 0% 로 옮겼을 때의 연간 절감액
       const saving=x.dividend*0.154;
       status='배당 과세 점검';
-      finding=`배당 ${cbDisp(x.dividend)} · 원천징수 ${cbDisp(withheld)}(15.4%). 절세계좌로 옮기면 연 최대 ${cbDisp(saving)} 절감`;
+      finding=`배당 ${cbDisp(x.dividend)} · ${withheld==null?'원천징수 계산 불가':`원천징수 ${cbDisp(withheld)}(15.4%)`}. 절세계좌로 옮기면 연 최대 ${cbDisp(saving)} 절감`;
     }
     else finding=gift?'증여 계좌 — 증여 원금·취득가 기록을 함께 확인하세요.':'배당이 없어 계좌 위치에 따른 과세 차이가 작습니다.';
     if(gift&&info.type==='일반') status='증여 계좌';
@@ -467,19 +511,26 @@ function cbRenderPlan(){
 }
 
 function finDataStatusRows(){
-  finEnsureState();const stale=(pfolioData||[]).filter(i=>i&&i._priceStale).length,stock=(pfolioData||[]).filter(i=>i&&i.grp==='주식').length,divCount=Object.keys(window._divDataCache||{}).length;
-  const inferred={
-    assets:{label:'투자자산 원장',source:'Vercel KV',ok:(pfolioData||[]).length>=0,detail:`${(pfolioData||[]).length}개 항목 로드`},
-    ext:{label:'재무계획·현금흐름',source:'Vercel KV',ok:true,detail:`목표 ${goalData.length}개 · 재무상태표 ${window._balanceSheet.assets.length+window._balanceSheet.liabilities.length}개`},
-    prices:{label:'시장 시세',source:'시장별 시세 API',ok:stale===0,detail:stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태'},
-    dividends:{label:'배당 데이터',source:'배당 데이터 API',ok:stock===0||divCount>0,detail:stock?`${divCount}/${stock}개 티커 캐시`:'주식 자산 없음'},
-    rates:{label:'환율·금 시세',source:'Yahoo Finance · COMEX',ok:Number(RATES?.USD)>0,detail:`USD ${Number(RATES?.USD||0).toLocaleString()} · JPY ${Number(RATES?.JPY||0).toLocaleString()}`},
-    benchmark:{label:'성과 벤치마크',source:'시장 지수 데이터',ok:Object.keys(benchData||{}).length>0,detail:Object.keys(benchData||{}).length?'기간별 데이터 로드':'아직 확인되지 않음'}
+  finEnsureState();
+  const stale=(pfolioData||[]).filter(i=>i&&i._priceStale).length;
+  const defaults={
+    assets:{label:'투자자산 원장',source:'Vercel KV'},
+    ext:{label:'재무계획·현금흐름',source:'Vercel KV'},
+    prices:{label:'시장 시세',source:'시장별 시세 API'},
+    dividends:{label:'배당 데이터',source:'배당 데이터 API'},
+    rates:{label:'환율·금 시세',source:'Yahoo Finance · COMEX'},
+    benchmark:{label:'성과 벤치마크',source:'시장 지수 데이터'}
   };
-  return Object.keys(inferred).map(key=>({key,...inferred[key],...(window._dataFreshness[key]||{})}));
+  return Object.entries(defaults).map(([key,meta])=>{
+    const explicit=window._dataFreshness[key];
+    const row={key,...meta,ok:false,detail:'아직 확인하지 않음',...(explicit&&typeof explicit==='object'?explicit:{})};
+    // 과거 성공 기록이 남아 있어도 현재 시세가 누락된 자산이 있으면 정상으로 표시하지 않는다.
+    if(key==='prices'&&stale>0){row.ok=false;row.detail=`${stale}개 최신 시세 확인 필요`;}
+    return row;
+  });
 }
 function cbRenderDataStatus(){
   const el=document.getElementById('cb-data2');if(!el)return;const rows=finDataStatusRows(),ok=rows.filter(x=>x.ok).length;
   cbSetHead('출처 · 최근 확인 시각 · 오류·지연 상태를 한곳에서 확인');
-  el.innerHTML=`<div class="fin-data-hero cb-panel"><div><small>데이터 신뢰 점검</small><strong>${ok}/${rows.length} 정상</strong><span>값이 비어 있거나 오래된 경우 먼저 이 화면에서 상태를 확인하세요.</span></div><button onclick="manualRefresh()">전체 데이터 새로고침</button></div><div class="fin-data-grid">${rows.map(x=>`<div class="cb-panel fin-data-card ${x.ok?'ok':'warn'}"><div><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${x.ok?'정상':'확인 필요'}</em></div><strong>${cbEsc(x.detail||'상태 정보 없음')}</strong><p>출처 · ${cbEsc(x.source||'내부 데이터')}</p><small>최근 확인 · ${finFreshAge(x.updatedAt)}</small><button onclick="manualRefresh()">다시 확인</button></div>`).join('')}</div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 마지막 요청이 성공했거나 현재 메모리의 데이터가 유효하다는 뜻입니다.</p><p><b>확인 필요</b>는 시세 지연, 빈 응답, 아직 실행되지 않은 동기화를 포함합니다.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div>`;
+  el.innerHTML=`<div class="fin-data-hero cb-panel"><div><small>데이터 신뢰 점검</small><strong>${ok}/${rows.length} 정상</strong><span>값이 비어 있거나 오래된 경우 먼저 이 화면에서 상태를 확인하세요.</span></div><button onclick="manualRefresh('all')">전체 데이터 새로고침</button></div><div class="fin-data-grid">${rows.map(x=>`<div class="cb-panel fin-data-card ${x.ok?'ok':'warn'}"><div><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${x.ok?'정상':'확인 필요'}</em></div><strong>${cbEsc(x.detail||'상태 정보 없음')}</strong><p>출처 · ${cbEsc(x.source||'내부 데이터')}</p><small>최근 확인 · ${finFreshAge(x.updatedAt)}</small><button onclick="manualRefresh('${x.key}')">다시 확인</button></div>`).join('')}</div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 시세 지연, 빈 응답, 아직 실행되지 않은 동기화를 포함합니다.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div>`;
 }

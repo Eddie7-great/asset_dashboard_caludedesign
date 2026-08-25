@@ -116,43 +116,10 @@ function cbDivTaxInfo(acc){
     ? getAccountDivTaxInfo(acc)
     : { type:'일반', normalRate:0.154, exempt:0, label:'일반, 15.4%' };
 }
-// entries: [{owner, acc, gross, ref}] → 각 entry 에 tax/net 을 채우고 소유주별 요약을 함께 돌려준다.
+// entries: [{owner, acc, gross, ref}] → script.js의 단일 세금 엔진을 사용한다.
 function cbDivTaxAllocate(entries){
-  const list=(entries||[]).map(e=>({...e, info:cbDivTaxInfo(e.acc), tax:0, net:Number(e.gross)||0}));
-  // 소유주별 ISA 배당 합계 → 공제 후 과세표준 → 세액을 비례 배분
-  const isaByOwner={};
-  list.forEach(e=>{ if(e.info.type==='ISA') isaByOwner[e.owner]=(isaByOwner[e.owner]||0)+e.gross; });
-  const isaTaxByOwner={};
-  Object.keys(isaByOwner).forEach(o=>{
-    const gross=isaByOwner[o];
-    const exempt=Math.min(cbDivTaxInfo('ISA').exempt||0, gross);
-    isaTaxByOwner[o]=Math.max(0, gross-exempt)*(cbDivTaxInfo('ISA').normalRate||0);
-  });
-  list.forEach(e=>{
-    if(e.info.type==='연금'){ e.tax=0; }
-    else if(e.info.type==='ISA'){
-      const ownerGross=isaByOwner[e.owner]||0;
-      e.tax = ownerGross>0 ? (isaTaxByOwner[e.owner]||0)*(e.gross/ownerGross) : 0;
-    } else {
-      e.tax = e.gross*(e.info.normalRate||0);
-    }
-    e.net = e.gross - e.tax;
-  });
-  const owners={};
-  list.forEach(e=>{
-    const o=owners[e.owner]||(owners[e.owner]={owner:e.owner,gross:0,net:0,tax:0,general:0,isa:0,pension:0});
-    o.gross+=e.gross; o.net+=e.net; o.tax+=e.tax;
-    if(e.info.type==='ISA') o.isa+=e.gross;
-    else if(e.info.type==='연금') o.pension+=e.gross;
-    else o.general+=e.gross;
-  });
-  // 금융소득종합과세 판정 대상은 일반계좌 배당만 — ISA 분리과세분과 연금 과세이연분은 제외한다.
-  Object.values(owners).forEach(o=>{
-    o.comprehensiveBase=o.general;
-    o.comprehensivePct=o.general/CB_FIN_INCOME_THRESHOLD*100;
-    o.comprehensiveOver=Math.max(0,o.general-CB_FIN_INCOME_THRESHOLD);
-  });
-  return { list, owners:Object.values(owners).sort((a,b)=>b.gross-a.gross) };
+  if(typeof allocateDividendTax!=='function') throw new Error('배당세 계산 엔진을 불러오지 못했습니다.');
+  return allocateDividendTax(entries,CB_FIN_INCOME_THRESHOLD);
 }
 function cbDivGrowthInfo(i){
   try{
@@ -1485,8 +1452,8 @@ function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
   prev.amount += amount;
   detailMaps[monthIndex].set(key, prev);
 }
-// 배당 이력에서 특정 연도의 실제 지급액을 월별로 집계 (현재 보유수량 기준 환산)
-function cbDivMonthlyForYear(list, year){
+// 배당 이력에서 특정 연도의 지급액을 월별로 집계 (현재 보유수량·계좌별 세제 기준 환산)
+function cbDivMonthlyForYear(list, year, netBasis=false){
   const monthAmt = Array(12).fill(0);
   const detailMaps = Array.from({length:12},()=>new Map());
   const cur = String(new Date().getFullYear());
@@ -1507,24 +1474,44 @@ function cbDivMonthlyForYear(list, year){
       actual:false
     };
   }
-  // 과거 연도 → 실제 지급 이력(주당 배당 × 현재 보유수량)
+  // 과거 연도 → 지급 이력(주당 배당 × 현재 계좌별 보유수량). 세후 선택 시
+  // 모든 종목을 먼저 연간 합산한 뒤 ISA 공제를 소유주별 한 번만 적용한다.
   const raw = window._divHistoryRawCache || {};
+  const taxEntries=[];
+  let covered=0;
   list.forEach(x=>{
     const h = raw[cbStrip(x.i.tkr)];
     if (!h || !Array.isArray(h.events)) return;
-    h.events.forEach(ev=>{
-      if (String(ev.date||'').slice(0,4)!==year) return;
-      const mi = parseInt(String(ev.date).slice(5,7),10)-1;
-      if (mi<0||mi>11) return;
-      const amount = (Number(ev.amount)||0) * (x.qty||0) * cbRate(h.cur || x.i.cur);
-      monthAmt[mi] += amount;
-      cbAddDivMonthDetail(detailMaps,mi,x,amount);
+    const events=h.events.filter(ev=>String(ev.date||'').slice(0,4)===year);
+    if(!events.length) return;
+    covered++;
+    const rate=cbRate(h.cur || x.d?.cur || x.i.cur);
+    const lots=(x.taxLots&&x.taxLots.length)
+      ? x.taxLots
+      : [{owner:x.i.owner,acc:x.i.acc,qty:x.qty||0}];
+    lots.forEach(lot=>{
+      const qty=Number(lot.qty)||0;
+      const gross=events.reduce((sum,ev)=>sum+(Number(ev.amount)||0)*qty*rate,0);
+      if(gross>0) taxEntries.push({owner:lot.owner||x.i.owner,acc:lot.acc,gross,ref:{item:x,events,qty,rate}});
+    });
+  });
+  const allocated=cbDivTaxAllocate(taxEntries).list;
+  allocated.forEach(entry=>{
+    const ref=entry.ref;
+    const ratio=netBasis&&entry.gross>0?entry.net/entry.gross:1;
+    ref.events.forEach(ev=>{
+      const mi=parseInt(String(ev.date).slice(5,7),10)-1;
+      if(mi<0||mi>11) return;
+      const amount=(Number(ev.amount)||0)*ref.qty*ref.rate*ratio;
+      monthAmt[mi]+=amount;
+      cbAddDivMonthDetail(detailMaps,mi,ref.item,amount);
     });
   });
   return {
     monthAmt,
     monthDetails:detailMaps.map(map=>Array.from(map.values()).sort((a,b)=>b.amount-a.amount)),
-    actual:true
+    actual:true,
+    coverage:{covered,total:list.length}
   };
 }
 function cbUpcomingDividendSchedule(list, days=90, asOf=null){
@@ -1655,8 +1642,9 @@ function cbRenderDiv(){
   const merged = new Map();
   rows.forEach(r=>{
     const key = divKeyOf(r);
-    if (merged.has(key)){ const m = merged.get(key); m.qty += (r.i.qty||0); m.cost += r.cost; if(r.i.acc) m.accts.add(r.i.acc); }
-    else merged.set(key, { key, i:r.i, cl:r.cl, cls:r.cls, title:r.title, tkr:r.tkr, chip:r.chip, qty:(r.i.qty||0), cost:r.cost, idx:r.idx, accts:new Set(r.i.acc?[r.i.acc]:[]) });
+    const lot={owner:r.i.owner,acc:r.i.acc,qty:(r.i.qty||0)};
+    if (merged.has(key)){ const m = merged.get(key); m.qty += lot.qty; m.cost += r.cost; m.taxLots.push(lot); if(r.i.acc) m.accts.add(r.i.acc); }
+    else merged.set(key, { key, i:r.i, cl:r.cl, cls:r.cls, title:r.title, tkr:r.tkr, chip:r.chip, qty:lot.qty, cost:r.cost, idx:r.idx, accts:new Set(r.i.acc?[r.i.acc]:[]), taxLots:[lot] });
   });
   const list = cbSortDividendRows(Array.from(merged.values()).map(m=>{
     const d = cbDivOf(m.i);
@@ -1667,10 +1655,13 @@ function cbRenderDiv(){
     const g = growth.value;
     const rate = cbRate(m.i.cur);
     const avgNative = (m.qty>0 && rate>0) ? m.cost/(m.qty*rate) : cbAvgNative(m.i);
+    const accountInfos=Array.from(m.accts.size?m.accts:new Set([m.i.acc])).map(acc=>cbDivTaxInfo(acc));
+    const taxTip=Array.from(new Set(accountInfos.map(info=>info.label))).join(' · ');
+    const taxZeroLabel=Array.from(new Set(accountInfos.map(info=>info.type==='연금'?'과세이연':info.type==='ISA'?'공제 적용':'비과세'))).join('·');
     // incomeKRW 는 현재 표시 기준을 따른다 — 캘린더·TOP3·집중도가 모두 이 값을 쓴다.
     const incomeKRW = netBasis ? netKRW : grossKRW;
     const netRatio = grossKRW>0 ? netKRW/grossKRW : 1;
-    return { ...m, d, incomeKRW, grossKRW, netKRW, taxKRW:tx.tax, netRatio, g, growth, avgNative,
+    return { ...m, d, incomeKRW, grossKRW, netKRW, taxKRW:tx.tax, taxTip, taxZeroLabel, netRatio, g, growth, avgNative,
       yoc: avgNative>0 ? (d.annualDps*(netBasis?netRatio:1))/avgNative*100 : null };
   }));
 
@@ -1707,7 +1698,7 @@ function cbRenderDiv(){
   list.forEach(x=>{ const h=raw[cbStrip(x.i.tkr)]; if(h&&Array.isArray(h.events)) h.events.forEach(ev=>{ const y=String(ev.date||'').slice(0,4); if(/^\d{4}$/.test(y)) yrSet.add(y); }); });
   const years = Array.from(yrSet).sort((a,b)=>b.localeCompare(a));
   const year = (_cbDivYear && years.includes(_cbDivYear)) ? _cbDivYear : nowY;
-  const cal = cbDivMonthlyForYear(list, year);
+  const cal = cbDivMonthlyForYear(list, year, netBasis);
   const calTotal = cal.monthAmt.reduce((s,v)=>s+v,0);
   const upcomingDividends=cbUpcomingDividendSchedule(list,90);
   const upcomingDividendTotal=upcomingDividends.reduce((s,x)=>s+x.amount,0);
@@ -1781,7 +1772,7 @@ function cbRenderDiv(){
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?'<span style="color:var(--up)">· 실제 지급</span>':'<span style="color:var(--dim)">· 예상</span>'}</span>
+        <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
         <span style="margin-left:auto;font-size:11px;color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
       ${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}
@@ -1790,7 +1781,7 @@ function cbRenderDiv(){
     <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
       <div class="cb-div-table-toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span style="font-size:10.5px;letter-spacing:.08em;color:var(--lab)">배당 종목 내역</span>
-        ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbDivMonthFilter+1}월 예상 종목 · 전체 보기 ×</button>`:''}
+        ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:10.5px">${_cbDivMonthFilter+1}월 ${cal.actual?'지급':'예상'} 종목 · 전체 보기 ×</button>`:''}
       </div>
       <div class="cb-thead cb-div-head" style="display:flex;font-size:10.5px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1110px">
         <span style="width:62px">소유주</span><span style="width:38px" aria-label="국가"></span><span style="flex:1">종목명</span><span style="width:96px;text-align:right">연간 수입 · ${basisLabel}</span><span class="cb-mobile-secondary" style="width:92px;text-align:right"><span data-tip="계좌 종류에 따른 배당 원천징수액입니다. 일반 15.4%, ISA는 소유주별 200만원 공제 후 9.9%, 연금·IRP는 인출 시점까지 과세이연이라 0원으로 계산합니다.">배당세</span></span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
@@ -1806,7 +1797,7 @@ function cbRenderDiv(){
             </span>
           </div>
           <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
-          <span class="cb-num cb-mobile-secondary" style="width:92px;text-align:right;font-size:11.5px;${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(cbDivTaxInfo(Array.from(x.accts)[0]||x.i.acc).label)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):'비과세'}</span>
+          <span class="cb-num cb-mobile-secondary" style="width:92px;text-align:right;font-size:11.5px;${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
           <span class="cb-num" style="width:76px;text-align:right;font-size:11.5px;font-weight:600">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
           <span class="cb-num cb-mobile-secondary" style="width:86px;text-align:right;font-size:11.5px">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
           <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
@@ -2981,31 +2972,44 @@ saveAssetsToKV = async function(){
 // 초기 KV 로드 완료 시에도 대시보드 재렌더 (시세 갱신 실패 시에도 보유 자산은 표시)
 const _cbOrigLoadAssets = loadAssetsFromKV;
 loadAssetsFromKV = async function(){
-  const r = await _cbOrigLoadAssets();
-  if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',true,`${(pfolioData||[]).length}개 항목 로드`);
+  let r;
+  try{ r=await _cbOrigLoadAssets(); }
+  catch(e){ r={ok:false,error:e?.message||'투자자산 원장 로드 실패'}; }
+  if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',r?.ok===true,r?.ok?(r.detail||`${(pfolioData||[]).length}개 항목 로드`):(r?.error||'로드 실패'));
   cbRerender();
   return r;
 };
 const _cbOrigLoadExt = loadExtDataFromKV;
 loadExtDataFromKV = async function(){
-  const r = await _cbOrigLoadExt();
-  if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',true,'확장 데이터 로드 완료');
+  let r;
+  try{ r=await _cbOrigLoadExt(); }
+  catch(e){ r={ok:false,error:e?.message||'확장 데이터 로드 실패'}; }
+  if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',r?.ok===true,r?.ok?(r.detail||'확장 데이터 로드 완료'):(r?.error||'로드 실패'));
   cbRerender();
   return r;
 };
 const _cbOrigFetchDivData = fetchDivData;
-fetchDivData = async function(){
-  try{
-    await _cbOrigFetchDivData();
-    if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',true,`${Object.keys(window._divDataCache||{}).length}개 티커 캐시`);
-  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',false,e?.message||'조회 실패'); throw e; }
+fetchDivData = async function(...args){
+  let r;
+  try{ r=await _cbOrigFetchDivData(...args); }
+  catch(e){ r={ok:false,error:e?.message||'배당 데이터 조회 실패'}; }
+  if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',r?.ok===true,r?.ok?(r.detail||`${r?.count??Object.keys(window._divDataCache||{}).length}개 티커 캐시`):(r?.error||'조회 실패'));
   cbRerender();
+  return r;
 };
 const _cbOrigUpdateBenchmark = updateBenchmark;
 updateBenchmark = function(tf, btn){
   _cbOrigUpdateBenchmark(tf, btn);
-  if(typeof finMarkFresh==='function') finMarkFresh('benchmark','성과 벤치마크','시장 지수 데이터',true,`${tf||'기간'} 데이터 표시`);
   if (_cobaltActive === 'perf2') cbRerender();
+};
+const _cbOrigFetchBenchmarkData = fetchBenchmarkData;
+fetchBenchmarkData = async function(...args){
+  let r;
+  try{ r=await _cbOrigFetchBenchmarkData(...args); }
+  catch(e){ r={ok:false,error:e?.message||'벤치마크 조회 실패'}; }
+  if(typeof finMarkFresh==='function') finMarkFresh('benchmark','성과 벤치마크','시장 지수 데이터',r?.ok===true,r?.ok?(r.detail||'기간별 데이터 로드'):(r?.error||'조회 실패'));
+  if(_cobaltActive==='perf2') cbRerender();
+  return r;
 };
 // 테마 전환 시 활성 페이지 재렌더 — 인라인으로 해석된 테마 색(hex)을 새 테마 기준으로 다시 계산
 const _cbOrigSetTheme = setTheme;
@@ -3016,21 +3020,21 @@ setTheme = function(mode){
 
 // 새로고침 결과를 데이터 상태 센터와 연결한다.
 const _cbOrigLiveRefresh = liveRefresh;
-liveRefresh = async function(){
-  try{
-    const r=await _cbOrigLiveRefresh();
-    const stale=(pfolioData||[]).filter(i=>i&&i._priceStale).length;
-    if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',stale===0,stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태');
-    return r;
-  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',false,e?.message||'조회 실패'); throw e; }
+liveRefresh = async function(...args){
+  let r;
+  try{ r=await _cbOrigLiveRefresh(...args); }
+  catch(e){ r={ok:false,error:e?.message||'시세 조회 실패'}; }
+  const stale=Number(r?.stale??(pfolioData||[]).filter(i=>i&&i._priceStale).length);
+  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',r?.ok===true,r?.ok?(r.detail||'등록 자산 최신 상태'):(r?.error||(stale?`${stale}개 최신 확인 필요`:'조회 실패')));
+  return r;
 };
 const _cbOrigRefreshPyData = refreshPyData;
-refreshPyData = async function(){
-  try{
-    const r=await _cbOrigRefreshPyData();
-    if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','Yahoo Finance · COMEX',Number(RATES?.USD)>0,`USD ${Number(RATES?.USD||0).toLocaleString()} · JPY ${Number(RATES?.JPY||0).toLocaleString()}`);
-    return r;
-  }catch(e){ if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','한국수출입은행·금 시세',false,e?.message||'조회 실패'); throw e; }
+refreshPyData = async function(...args){
+  let r;
+  try{ r=await _cbOrigRefreshPyData(...args); }
+  catch(e){ r={ok:false,error:e?.message||'환율·금 시세 조회 실패'}; }
+  if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','Yahoo Finance · COMEX',r?.ok===true,r?.ok?(r.detail||'환율·금 시세 로드'):(r?.error||r?.detail||'조회 실패'));
+  return r;
 };
 
 // 리스크 페이지에 들어갈 때까지 기다리지 않고 앱을 열자마자 최신 ETF 스냅샷을 확인한다.

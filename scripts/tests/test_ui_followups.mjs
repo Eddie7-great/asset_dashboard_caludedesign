@@ -106,7 +106,11 @@ cashContext.rememberCfDeletion({ atId: 7, date: '2026-07-15' })
 assert.deepEqual(Array.from(cashContext.autoTransferData[0].skipMonths), ['2026-07'], '삭제한 자동이체 월을 건너뛰기로 기록')
 assert.match(scriptSource, /cfDeletedKeys\.includes\(`div:\$\{divKey\}`\)/, '페이지 재진입 시 삭제한 자동 배당 재생성 차단')
 assert.match(scriptSource, /rememberCfDeletion\(item\)[\s\S]*await saveExtDataToKV\(\)/, '삭제 상태를 원격 확장 데이터까지 저장')
-assert.match(scriptSource, /if\s*\(Array\.isArray\(data\.cfData\)\)/, '빈 현금 흐름 배열도 원격 저장값으로 복원')
+assert.match(
+  scriptSource,
+  /arrayFields\.forEach\(key=>\{normalized\[key\]=owns\(key\)\?data\[key\]:\[\];\}\)[\s\S]*cfData=normalized\.cfData/,
+  '빈 현금 흐름 배열과 누락 필드를 원격 정본 기준으로 복원',
+)
 
 assert.match(styleSource, /#owner-tabs-container\.holdings-owner-tabs\{margin-left:auto!important;margin-right:0!important/, '자산 내역 소유주 탭 우측 정렬')
 assert.match(styleSource, /\.table-float-tip\{[\s\S]*position:fixed/, '전역 툴팁을 스크롤 컨테이너 밖 고정 레이어로 표시')

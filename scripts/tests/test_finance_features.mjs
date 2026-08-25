@@ -20,7 +20,8 @@ $('[id]').each((_index, element) => {
 assert.deepEqual(Array.from(seenIds.entries()).filter(([, count]) => count > 1), [], 'HTML id 중복 없음')
 
 function extractFunction(source, name) {
-  const start = source.indexOf(`function ${name}(`)
+  const asyncStart = source.indexOf(`async function ${name}(`)
+  const start = asyncStart >= 0 ? asyncStart : source.indexOf(`function ${name}(`)
   assert.notEqual(start, -1, `${name} 함수를 찾을 수 없음`)
   const open = source.indexOf('{', start)
   let depth = 0
@@ -94,7 +95,7 @@ const context = {
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
 vm.runInContext(`const FIN_ASSET_CATS=['부동산','예·적금','기타 자산']; const FIN_LIABILITY_CATS=['주택담보대출','기타 부채']; const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finBalanceEdit=null; let _finGoalEdit=null; let _finBalanceOwner='전체'; let _finPlanOwner='전체'; let _finNwTf='6M';`, context)
-for (const name of ['finNewId', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
+for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 
@@ -141,7 +142,8 @@ Object.assign(context, {
 })
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
-for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotNet', 'finNwSeries', 'finNwStats', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus']) {
+vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
+for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 context.cbRenderBalanceSheet()
@@ -152,6 +154,28 @@ assert.match(elements['cb-balance2'].innerHTML, /fin-mobile-note/, '모바일 �
 assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*목표 비중과 리밸런싱[\s\S]*계좌 배치 진단/, '목표·리밸런싱 빈 상태 렌더')
 assert.match(elements['cb-plan2'].innerHTML, /절세계좌로 옮기면 연 최대/, '일반계좌 배당의 절세 여력을 금액으로 제시')
 assert.match(elements['cb-data2'].innerHTML, /데이터 신뢰 점검[\s\S]*성과 벤치마크/, '데이터 상태 렌더')
+assert.match(elements['cb-data2'].innerHTML, /manualRefresh\('assets'\)[\s\S]*manualRefresh\('benchmark'\)/, '데이터 상태 카드가 해당 소스만 다시 확인')
+
+const untouchedStatus = context.finDataStatusRows()
+assert.equal(untouchedStatus.every(row => row.ok === false), true, '실제 요청 전에는 기본값·빈 배열만으로 정상 판정하지 않음')
+context.window._dataFreshness.assets = { ok:true, detail:'0개 항목 로드', updatedAt:'2026-08-25T00:00:00Z' }
+assert.equal(context.finDataStatusRows().find(row => row.key === 'assets').ok, true, '명시적으로 성공한 요청만 정상 표시')
+context.window._dataFreshness.prices = { ok:true, detail:'조회 성공', updatedAt:'2026-08-25T00:00:00Z' }
+context.pfolioData = [{ grp:'주식', _priceStale:true }]
+const staleStatus = context.finDataStatusRows().find(row => row.key === 'prices')
+assert.equal(staleStatus.ok, false, '과거 성공 기록이 있어도 현재 시세 누락 자산이 있으면 확인 필요')
+assert.match(staleStatus.detail, /1개 최신 시세 확인 필요/, '현재 누락 건수를 상태에 표시')
+context.pfolioData = []
+
+// 계좌 진단도 공통 엔진을 사용해 동일 소유주의 ISA 공제를 계좌마다 반복하지 않는다.
+const originalAllRows = context.cbAllRows
+context.cbAllRows = () => [
+  { cls:'kr', val:300_000_000, i:{ owner:'본인', broker:'A증권', acc:'ISA', div:2_000_000 } },
+  { cls:'kr', val:200_000_000, i:{ owner:'본인', broker:'B증권', acc:'ISA', div:1_000_000 } },
+]
+const isaDiagnostics = context.finAccountDiagnostics()
+assert.equal(Math.round(isaDiagnostics.reduce((sum, row) => sum + row.withheld, 0)), 99_000, '계좌 진단의 ISA 예상세액도 소유주별 200만원 공제를 한 번만 적용')
+context.cbAllRows = originalAllRows
 
 // ── 순자산 변화 분석: 스냅샷 스키마와 저축/투자 제외 ─────────────────
 // v1 스냅샷은 total 에 투자자산만 담았다. 재무상태표(기타자산 3억·부채 1억)가 있는 지금
@@ -181,5 +205,23 @@ context.window._netWorthHistory = [{ date: '2026-08-01', total: 900_000_000 }]
 const legacyBridge = context.finNetWorthBridge()
 assert.equal(legacyBridge.prior.date, '2026-08-01', '재무상태표가 비면 v1 스냅샷도 비교 가능')
 assert.equal(legacyBridge.skipped, 0, '이 경우 제외 건수 없음')
+
+// schemaV가 없더라도 nonInvestmentAssets 필드가 있으면 배포 중간 버전의 전체 순자산 스냅샷이다.
+assert.equal(context.finSnapshotNet({ total:800_000_000, portfolio:800_000_000, nonInvestmentAssets:0, liabilities:0 }, false), 800_000_000, 'schema-less 전체 순자산 스냅샷을 버리지 않음')
+assert.equal(context.finSnapshotNet({ schemaV:1, total:800_000_000 }, false), null, '재무상태표가 있는 범위에서는 명시적 v1 투자자산 스냅샷 제외')
+assert.equal(context.finSnapshotNet({ schemaV:1, total:800_000_000 }, true), 800_000_000, '재무상태표가 빈 범위에서는 명시적 v1도 호환')
+assert.equal(context.finSnapshotOwnerNet({ total:800_000_000, nonInvestmentAssets:0 }, '본인', false), null, '소유주 합계가 없는 전체 스냅샷을 임의 배분하지 않음')
+
+// 재무상태표 변경 저장은 오늘 스냅샷을 먼저 갱신하고 KV는 한 번만 쓴다.
+const saveOrder=[]
+context.window._kvLoadState = { assets:'ready', ext:'ready' }
+Object.assign(context, {
+  updateNetWorthSnapshot: () => { saveOrder.push('snapshot') },
+  saveExtDataToKV: async () => { saveOrder.push('save'); return {ok:true} },
+  cbRerender: undefined,
+})
+const saveResult = await context.finSaveAndRender(() => saveOrder.push('render'), true)
+assert.equal(saveResult.ok, true, '재무상태표 저장 결과 반환')
+assert.deepEqual(saveOrder, ['snapshot','save','render'], '스냅샷 갱신 후 확장 KV를 한 번만 저장하고 렌더')
 
 console.log('finance feature tests passed')

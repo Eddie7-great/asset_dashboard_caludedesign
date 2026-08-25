@@ -26,6 +26,7 @@ const compiledKv = ts.transpileModule(kvSource, {
 }).outputText
 const kvModule = { exports: {} }
 const upstreamCalls = []
+let upstreamResponse = { ok:true, status:200, json:async () => ({ result:null }) }
 const sandboxProcess = {
   env: {
     KV_REST_API_URL: 'https://kv.example.test',
@@ -40,7 +41,7 @@ const kvContext = {
   console,
   fetch: async (url, options) => {
     upstreamCalls.push({ url, options })
-    return { ok: true, json: async () => ({ result: null }) }
+    return upstreamResponse
   },
 }
 vm.createContext(kvContext)
@@ -89,5 +90,26 @@ await kvHandler({
 assert.equal(response.statusCode, 200, '정상 토큰의 KV GET 허용')
 assert.equal(upstreamCalls.length, 1, '정상 토큰 요청만 Upstash에 전달')
 assert.equal(upstreamCalls[0].options.headers.Authorization, 'Bearer upstash-secret', 'Upstash 토큰은 서버에서만 사용')
+
+upstreamResponse = { ok:false, status:503, json:async () => ({error:'upstream down'}) }
+response = responseRecorder()
+await kvHandler({
+  method: 'GET', headers: { authorization:'Bearer browser-secret' }, query:{key:'assets'},
+}, response)
+assert.equal(response.statusCode, 502, 'Upstash GET 비정상 상태를 성공 응답으로 숨기지 않음')
+
+upstreamResponse = { ok:true, status:200, json:async () => ({error:'missing result'}) }
+response = responseRecorder()
+await kvHandler({
+  method: 'GET', headers: { authorization:'Bearer browser-secret' }, query:{key:'assets'},
+}, response)
+assert.equal(response.statusCode, 502, 'Upstash GET result 누락 응답 거부')
+
+upstreamResponse = { ok:true, status:200, json:async () => ({result:'NOT_OK'}) }
+response = responseRecorder()
+await kvHandler({
+  method:'POST', headers:{authorization:'Bearer browser-secret'}, query:{key:'assets'}, body:{value:'[]'},
+}, response)
+assert.equal(response.statusCode, 502, 'Upstash SET 결과가 OK가 아니면 저장 성공으로 처리하지 않음')
 
 console.log('PASS 인증 경계 보호')
