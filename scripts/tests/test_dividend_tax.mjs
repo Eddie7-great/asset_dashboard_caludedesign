@@ -194,9 +194,23 @@ assert.equal(remoteSaveCount, 4, '오래된 자동 배당 제거도 원격 정�
 cashContext.pfolioData[0].qty = 1_000_000
 cashContext.pfolioData[1].qty = 1_000_000
 cashContext.cfDeletedKeys.push('div:div_AAA_본인_2026_03')
+cashContext.cfData.push({
+  date:'2026-03-15', type:'수입', cat:'배당금', desc:'삭제된 기존 ISA 배당', amt:2_901_000,
+  owner:'본인', divKey:'div_AAA_본인_ISA_2026_3',
+})
 await cashContext.autoAddDividendCashFlow(true)
 assert.equal(cashContext.cfData.length, 0, '구형 5-part 삭제 키도 신규 계좌유형 자동 배당 재생성을 차단')
-assert.equal(remoteSaveCount, 4, '삭제된 자동 배당은 새 원격 변경을 만들지 않음')
+assert.equal(remoteSaveCount, 5, '삭제 키와 충돌하는 기존 자동 배당 제거를 원격 정본에 반영')
+
+cashContext.cfDeletedKeys.length = 0
+cashContext.getDivStocks = () => []
+cashContext.cfData.push({
+  date:'2026-03-15', type:'수입', cat:'배당금', desc:'정상 기존 ISA 배당', amt:2_901_000,
+  owner:'본인', divKey:'div_AAA_본인_ISA_2026_3',
+})
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(cashContext.cfData.length, 1, '배당 데이터 조회가 비어도 현재 보유 중인 정상 자동 배당 보존')
+assert.equal(remoteSaveCount, 5, '불완전 배당 데이터를 근거로 삭제·원격 저장하지 않음')
 
 // Python API의 dps는 연간 합계이므로 지급월 수로 나눠 회당 eps를 만든다.
 const normalizeContext = {

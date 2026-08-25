@@ -338,13 +338,13 @@ function getDivStocks() {
       if (cached) {
         const hasDiv = (cached.yld > 0) || (cached.eps > 0) || (cached.months && cached.months.length > 0);
         if (!hasDiv) return null;
-        return { name: i.name, tkr: tkr6, ...cached };
+        return { name: i.name, tkr: tkr6, ...cached, _divSource:'cache' };
       }
       const info = DIV_INFO_DB[tkr6] || DIV_INFO_DB[i.tkr];
       if (!info) return null;
       const hasDiv2 = (info.yld && parseFloat(info.yld) > 0) || (info.eps > 0) || (info.months && info.months.length > 0);
       if (!hasDiv2) return null;
-      return { name: i.name, tkr: tkr6, ...info };
+      return { name: i.name, tkr: tkr6, ...info, _divSource:'db' };
     })
     .filter(Boolean);
 }
@@ -3850,6 +3850,7 @@ async function autoAddDividendCashFlow(silent=false) {
   // ISA 200만원 공제는 월·종목·계좌마다 따로 적용하면 안 된다. 현재 보유 전체의
   // 연간 예상 배당을 한 번에 세금 엔진에 넣고, 계산된 세후 비율을 이번 달 지급액에 적용한다.
   const annualLots=[];
+  const scheduleKnownTickers=new Set();
   divStocks.forEach(s => {
     const eps=Number(s.eps)||0;
     const months=[...new Set((Array.isArray(s.months)?s.months:[])
@@ -3857,6 +3858,9 @@ async function autoAddDividendCashFlow(silent=false) {
     if(eps<=0||months.length===0) return;
     const rate = s.cur === 'USD' ? (RATES.USD||1380) : (s.cur === 'JPY' ? (RATES.JPY||9.2) : 1);
     const tkrNorm = String(s.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
+    // 캐시/API에서 확인한 일정만 파괴적 stale 정리의 근거로 사용한다.
+    // 정적 DB 폴백은 조회 실패 때도 나타날 수 있어 기존 행 삭제 근거로는 부족하다.
+    if(s._divSource==='cache') scheduleKnownTickers.add(tkrNorm);
     const cycleLabel = cycleMap[s.cycle]||s.cycle||'배당';
     const holdings = pfolioData.filter(i => {
       const t6 = String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
@@ -3879,6 +3883,7 @@ async function autoAddDividendCashFlow(silent=false) {
   // divKey는 기존 6-part 형식을 유지하되 같은 소유주·종목·계좌유형의 복수 계좌는
   // 한 항목으로 합산한다. 이 방식은 기존 삭제 키와 호환되면서 두 번째 계좌 누락을 막는다.
   const monthlyGroups=new Map();
+  const deletedManagedKeys=new Set();
   allocateDividendTax(annualLots).list.forEach(entry=>{
     const ref=entry.ref;
     if(!ref.months.includes(mo)) return;
@@ -3893,7 +3898,7 @@ async function autoAddDividendCashFlow(silent=false) {
       if(raw===divKey) return true;
       return raw.split('_').length===5&&_normDivKey(raw)===legacyNorm;
     });
-    if(wasDeleted) return;
+    if(wasDeleted){deletedManagedKeys.add(divKey);return;}
     const netRatio=entry.gross>0?entry.net/entry.gross:1;
     const netPayout=ref.payout*netRatio;
     const existing=monthlyGroups.get(divKey);
@@ -3933,14 +3938,23 @@ async function autoAddDividendCashFlow(silent=false) {
   });
 
   // 현재 연·월에 앱이 만든 6-part 자동 배당 중 더 이상 계산되지 않는 행을 제거한다.
-  // 매도, 배당월 변경, 일반↔ISA 계좌유형 변경 뒤 옛 금액이 남아 이중계상되는 것을 막는다.
+  // 자산 원장에서 보유/계좌유형 소멸이 확정됐거나 해당 종목의 정상 배당 일정이 있을 때만
+  // 제거해, 배당 API 실패·부분 응답을 '배당 없음'으로 오인해 정상 행을 지우지 않게 한다.
   const beforeStaleCleanup=cfData.length;
   cfData=cfData.filter(entry=>{
     if(entry.type!=='수입'||entry.cat!=='배당금'||!entry.divKey) return true;
     const parts=entry.divKey.split('_');
     const isManaged=parts.length===6&&parts[0]==='div'&&['ISA','연금','일반'].includes(parts[3]);
     if(!isManaged||String(parts[4])!==String(yr)||String(parseInt(parts[5],10))!==String(mo+1)) return true;
-    return monthlyGroups.has(entry.divKey);
+    if(monthlyGroups.has(entry.divKey)) return true;
+    if(deletedManagedKeys.has(entry.divKey)) return false;
+    const rowTicker=String(parts[1]||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
+    const stillHeld=pfolioData.some(item=>{
+      const itemTicker=String(item.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
+      return Number(item.qty)>0&&itemTicker===rowTicker&&item.owner===parts[2]
+        &&getAccountDivTaxInfo(item.acc).type===parts[3];
+    });
+    return stillHeld&&!scheduleKnownTickers.has(rowTicker);
   });
   if(cfData.length!==beforeStaleCleanup) changed=true;
   // 레거시 combined entry(div_TKR_OWNER_YR_MO; 5 parts) 정리 — 새 account-aware entry로 대체된 항목 제거
