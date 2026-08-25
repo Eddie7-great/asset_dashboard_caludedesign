@@ -170,10 +170,14 @@ function finNetWorthBridge(){
   return {totals,prior,previous,change,cashflow,residual,skipped};
 }
 
+// _dataFreshness 는 KV 에 저장돼 다른 기기·다른 접속의 기록까지 함께 돌아온다.
+// 이번 접속에서 직접 확인한 건지 구분해야 "3시간 전 확인"이 내 확인인지 알 수 있다.
+const FIN_SESSION_ID=finNewId();
 function finMarkFresh(key,label,source,ok=true,detail=''){
   finEnsureState();
-  window._dataFreshness[key]={label,source,ok:!!ok,detail:String(detail||''),updatedAt:new Date().toISOString()};
+  window._dataFreshness[key]={label,source,ok:!!ok,detail:String(detail||''),updatedAt:new Date().toISOString(),session:FIN_SESSION_ID};
   if(typeof cbRenderDataStatus==='function'&&document.getElementById('view-data2')?.classList.contains('active')) cbRenderDataStatus();
+  if(typeof cbSyncFeedStatus==='function') cbSyncFeedStatus();
 }
 function finFreshAge(iso){
   if(!iso) return '확인 전';
@@ -523,14 +527,34 @@ function finDataStatusRows(){
   };
   return Object.entries(defaults).map(([key,meta])=>{
     const explicit=window._dataFreshness[key];
-    const row={key,...meta,ok:false,detail:'아직 확인하지 않음',...(explicit&&typeof explicit==='object'?explicit:{})};
+    const has=explicit&&typeof explicit==='object';
+    const row={key,...meta,ok:false,detail:'아직 확인하지 않음',...(has?explicit:{})};
     // 과거 성공 기록이 남아 있어도 현재 시세가 누락된 자산이 있으면 정상으로 표시하지 않는다.
-    if(key==='prices'&&stale>0){row.ok=false;row.detail=`${stale}개 최신 시세 확인 필요`;}
+    // 조회 기록이 없더라도 시세가 빈 자산이 실재하면 '확인 전'이 아니라 '확인 필요'다.
+    const staleKnown=key==='prices'&&stale>0;
+    if(staleKnown){row.ok=false;row.detail=`${stale}개 최신 시세 확인 필요`;}
+    // 아직 한 번도 확인하지 않은 것과 확인해서 실패한 것은 다르다.
+    // 부팅 직후 전자를 '오류'로 표시하면 실제 오류가 묻힌다.
+    row.state=row.ok?'ok':((has||staleKnown)?'warn':'pending');
+    row.sameSession=has&&explicit.session===FIN_SESSION_ID;
     return row;
   });
 }
 function cbRenderDataStatus(){
-  const el=document.getElementById('cb-data2');if(!el)return;const rows=finDataStatusRows(),ok=rows.filter(x=>x.ok).length;
+  const el=document.getElementById('cb-data2');if(!el)return;
+  const rows=finDataStatusRows();
+  const ok=rows.filter(x=>x.state==='ok').length;
+  const warn=rows.filter(x=>x.state==='warn').length;
+  const pending=rows.filter(x=>x.state==='pending').length;
+  const STATE={ok:{cls:'ok',label:'정상'},warn:{cls:'warn',label:'확인 필요'},pending:{cls:'pending',label:'확인 전'}};
   cbSetHead('출처 · 최근 확인 시각 · 오류·지연 상태를 한곳에서 확인');
-  el.innerHTML=`<div class="fin-data-hero cb-panel"><div><small>데이터 신뢰 점검</small><strong>${ok}/${rows.length} 정상</strong><span>값이 비어 있거나 오래된 경우 먼저 이 화면에서 상태를 확인하세요.</span></div><button onclick="manualRefresh('all')">전체 데이터 새로고침</button></div><div class="fin-data-grid">${rows.map(x=>`<div class="cb-panel fin-data-card ${x.ok?'ok':'warn'}"><div><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${x.ok?'정상':'확인 필요'}</em></div><strong>${cbEsc(x.detail||'상태 정보 없음')}</strong><p>출처 · ${cbEsc(x.source||'내부 데이터')}</p><small>최근 확인 · ${finFreshAge(x.updatedAt)}</small><button onclick="manualRefresh('${x.key}')">다시 확인</button></div>`).join('')}</div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 시세 지연, 빈 응답, 아직 실행되지 않은 동기화를 포함합니다.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div>`;
+  const heroNote=warn?`${warn}건은 확인이 필요합니다.`:(pending?`${pending}건은 아직 확인하지 않았습니다.`:'모든 데이터가 최근 요청에 성공했습니다.');
+  el.innerHTML=`<div class="fin-data-hero cb-panel"><div><small>데이터 신뢰 점검</small><strong>${ok}/${rows.length} 정상</strong><span>${cbEsc(heroNote)} 값이 비어 있거나 오래된 경우 먼저 이 화면에서 상태를 확인하세요.</span></div><button onclick="manualRefresh('all')">전체 데이터 새로고침</button></div><div class="fin-data-grid">${rows.map(x=>{
+    const st=STATE[x.state]||STATE.pending;
+    const when=x.state==='pending'
+      ? '이번 접속에서 아직 확인하지 않음'
+      : `최근 확인 · ${finFreshAge(x.updatedAt)}${x.sameSession?'':' <span data-tip="다른 기기나 이전 접속에서 확인한 기록입니다. 지금 값이 최신인지 보장하지 않습니다.">· 다른 접속 기록</span>'}`;
+    return `<div class="cb-panel fin-data-card ${st.cls}"><div><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${st.label}</em></div><strong>${cbEsc(x.detail||'상태 정보 없음')}</strong><p>출처 · ${cbEsc(x.source||'내부 데이터')}</p><small>${when}</small><button onclick="manualRefresh('${x.key}')">다시 확인</button></div>`;
+  }).join('')}</div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 요청이 실패했거나 시세가 누락된 자산이 남아 있다는 뜻입니다.</p><p><b>확인 전</b>은 아직 조회를 실행하지 않은 상태로, 오류가 아닙니다.</p><p>최근 확인 시각은 기기별로 공유되므로 <b>다른 접속 기록</b> 표시가 붙은 항목은 다시 확인해 주세요.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div>`;
 }
+

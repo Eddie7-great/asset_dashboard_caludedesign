@@ -29,7 +29,7 @@
 12. **현금 흐름** — 월별 수입·지출 가계부 + 고정비 관리 (여기서 분류한 고정비가 현금 안전판 기준)
 13. **양도소득세** — 월별 실현손익 기록/차트, 해외 250만원 공제 → 22%, ISA 손익통산 9.9%
 
-**데이터 상태**는 사이드바 푸터의 상태 줄에서 엽니다 — 출처·최근 확인 시각·오류 여부를 한곳에서 보여주고, 확인이 필요하면 점이 붉게 바뀝니다.
+**데이터 상태**는 사이드바 푸터의 상태 줄에서 엽니다 — 항목별 출처·최근 확인 시각·상태를 한곳에서 보여주고, 카드마다 해당 소스만 다시 조회할 수 있습니다. 상태는 **정상 / 확인 필요 / 확인 전** 세 가지이며, 아직 조회하지 않은 것은 오류가 아니므로 푸터 점은 실패가 있을 때만 붉어집니다. 최근 확인 시각은 기기 간에 공유되므로 다른 접속에서 확인한 기록에는 표시가 붙습니다.
 
 ## 디자인 시스템
 
@@ -44,9 +44,10 @@
 Vercel 호스팅 SPA입니다 — 빌드 단계 없음.
 
 ```bash
-npm install                      # 서버리스 함수(Node) 의존성
+npm install                      # 서버리스 함수(Node) + 테스트 의존성
 pip install -r requirements.txt  # api/dashboard.py 의존성 (yfinance, pykrx, pandas)
 vercel dev                       # http://localhost:3000
+npm test                         # 문법·타입·회귀 테스트 (CI와 동일)
 ```
 
 ## Vercel 환경변수
@@ -69,7 +70,7 @@ vercel dev                       # http://localhost:3000
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
 - `style.css` — 디자인 토큰(`:root`=라이트, `[data-theme="dark"]`, `[data-theme="navy"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
 - `api/` — Vercel 서버리스 함수 (가격/배당/환율/검색/KV 프록시/인증)
-- `scripts/tests/` — 회귀 테스트. `node scripts/tests/<file>.mjs` 로 개별 실행하며, 렌더 함수를 수정했다면 전부 돌려야 합니다 (마크업 순서를 검증하는 항목이 있습니다)
+- `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 
 > 스크립트 로드 순서는 `script.js` → `finance.js` → `cobalt.js` 로 고정입니다.
 > `cobalt.js`가 `CB_VIEWS`에서 `finance.js`의 렌더 함수를 참조하고, 다른 전역 함수들을 감싸기 때문에 마지막에 와야 합니다.

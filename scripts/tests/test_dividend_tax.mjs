@@ -212,6 +212,65 @@ await cashContext.autoAddDividendCashFlow(true)
 assert.equal(cashContext.cfData.length, 1, '배당 데이터 조회가 비어도 현재 보유 중인 정상 자동 배당 보존')
 assert.equal(remoteSaveCount, 5, '불완전 배당 데이터를 근거로 삭제·원격 저장하지 않음')
 
+// ── 파괴적 정리의 경계 ──────────────────────────────────
+// 이 정리는 사용자의 가계부 기록을 지운다. 어떤 근거로 지우고 어떤 경우엔 지우지 않는지
+// 시나리오별로 고정해 둔다(회귀 시 조용히 데이터가 사라지는 것을 막기 위함).
+
+// (1) 조회 중인 연·월 밖의 행은 건드리지 않는다.
+cashContext.cfData.push(
+  { date:'2026-04-15', type:'수입', cat:'배당금', desc:'4월 자동 배당', amt:100,
+    owner:'본인', divKey:'div_AAA_본인_ISA_2026_4' },
+  { date:'2025-03-15', type:'수입', cat:'배당금', desc:'작년 3월 자동 배당', amt:100,
+    owner:'본인', divKey:'div_AAA_본인_ISA_2025_3' },
+)
+await cashContext.autoAddDividendCashFlow(true)
+assert.deepEqual(
+  cashContext.cfData.map(row => row.divKey).sort(),
+  ['div_AAA_본인_ISA_2025_3', 'div_AAA_본인_ISA_2026_3', 'div_AAA_본인_ISA_2026_4'],
+  '정리는 조회 중인 연·월에만 적용하고 다른 기간 기록은 보존',
+)
+
+// (2) 정적 DB 폴백(_divSource:'db')은 삭제 근거가 되지 못한다.
+//     배당 API 가 실패해도 내장 DB 덕분에 일정이 '있는 것처럼' 보이므로,
+//     이걸 근거로 지우면 조회 실패가 곧 데이터 삭제가 된다.
+cashContext.getDivStocks = () => [{
+  name:'테스트배당주', tkr:'AAA', eps:1.5, months:[5], cycle:'연간', cur:'KRW', payDay:15,
+  _divSource:'db',
+}]
+const beforeDbFallback = remoteSaveCount
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(
+  cashContext.cfData.some(row => row.divKey === 'div_AAA_본인_ISA_2026_3'), true,
+  '정적 DB 폴백만으로는 이번 달 지급이 없다고 단정해 기존 행을 지우지 않음',
+)
+assert.equal(remoteSaveCount, beforeDbFallback, 'DB 폴백 상황에서는 원격 저장도 일으키지 않음')
+
+// (3) 캐시/API 로 확인된 일정에서 이번 달 지급이 사라지면 그때는 지운다.
+cashContext.getDivStocks = () => [{
+  name:'테스트배당주', tkr:'AAA', eps:1.5, months:[5], cycle:'연간', cur:'KRW', payDay:15,
+  _divSource:'cache',
+}]
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(
+  cashContext.cfData.some(row => row.divKey === 'div_AAA_본인_ISA_2026_3'), false,
+  '확인된 일정에서 이번 달 지급이 빠지면 오래된 자동 배당 제거',
+)
+assert.deepEqual(
+  cashContext.cfData.map(row => row.divKey).sort(),
+  ['div_AAA_본인_ISA_2025_3', 'div_AAA_본인_ISA_2026_4'],
+  '삭제는 해당 연·월 행에만 적용',
+)
+
+// (4) 사용자가 직접 만든(divKey 없는) 배당 기록은 자동 정리 대상이 아니다.
+cashContext.cfData.push({
+  date:'2026-03-20', type:'수입', cat:'배당금', desc:'직접 입력한 배당', amt:500_000, owner:'본인',
+})
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(
+  cashContext.cfData.some(row => row.desc === '직접 입력한 배당'), true,
+  '앱이 만들지 않은 수기 배당 기록은 자동 정리에서 제외',
+)
+
 // Python API의 dps는 연간 합계이므로 지급월 수로 나눠 회당 eps를 만든다.
 const normalizeContext = {
   Number, Set,
