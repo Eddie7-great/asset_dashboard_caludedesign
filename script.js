@@ -1378,14 +1378,14 @@ if (sideDate) sideDate.innerText = `${now.getFullYear()}.${String(now.getMonth()
 // =============================================
 // 테마
 // =============================================
-// 3-테마: 'light' | 'dark' | 'navy' (기본: navy)
+// 3-테마: 'light' | 'dark' | 'navy' (기본: light)
 const THEMES = ['light','dark','navy'];
 function isDarkTheme() {
   const t = document.body.getAttribute('data-theme');
   return t === 'dark' || t === 'navy';
 }
 function setTheme(mode) {
-  if (!THEMES.includes(mode)) mode = 'navy';
+  if (!THEMES.includes(mode)) mode = 'light';
   const body = document.body;
   if (mode === 'light') body.removeAttribute('data-theme');
   else body.setAttribute('data-theme', mode);
@@ -1404,12 +1404,12 @@ function setTheme(mode) {
   if (activeView && activeView.id === 'view-cashflow') { try{ renderCashFlow(); }catch(e){} }
 }
 // 하위 호환 (구 다크모드 토글)
-function toggleTheme() { setTheme(isDarkTheme() ? 'light' : 'navy'); }
-// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(기본 네이비) 반영.
+function toggleTheme() { setTheme(isDarkTheme() ? 'light' : 'dark'); }
+// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(기본 라이트) 반영.
 // (이 시점엔 파일 후반부 let 변수들이 TDZ 상태라 setTheme→applyChartTheme 전체 호출은 금지)
 try{
   const _t0=localStorage.getItem('theme');
-  const _m0=THEMES.includes(_t0)?_t0:'navy';
+  const _m0=THEMES.includes(_t0)?_t0:'light';
   if(_m0==='light') document.body.removeAttribute('data-theme');
   else document.body.setAttribute('data-theme',_m0);
   THEMES.forEach(t=>{const b=document.getElementById('theme-seg-'+t); if(b) b.classList.toggle('active',t===_m0);});
@@ -5284,11 +5284,11 @@ function initDashboard(){
     }
   });
 
-  // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 네이비 기본
+  // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 라이트 기본
   try{
     const savedTheme=localStorage.getItem('theme');
-    setTheme(THEMES.includes(savedTheme) ? savedTheme : 'navy');
-  }catch(e){ setTheme('navy'); }
+    setTheme(THEMES.includes(savedTheme) ? savedTheme : 'light');
+  }catch(e){ setTheme('light'); }
 
   // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
   ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
