@@ -11,10 +11,26 @@ const KV_URL = process.env.KV_REST_API_URL || '';
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || '';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  // 자산·현금흐름 데이터가 브라우저나 CDN에 저장되지 않도록 한다.
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'method not allowed' });
+  }
+
+  // KV 프록시는 가족 자산 원문을 읽고 쓸 수 있으므로 반드시 fail-closed로 보호한다.
+  // AUTH_TOKEN이 누락된 배포도 공개 API로 동작하지 않고 설정 오류로 중단한다.
+  const expectedToken = process.env.AUTH_TOKEN;
+  if (!expectedToken) {
+    console.error('[api/kv] AUTH_TOKEN 환경변수가 설정되지 않았습니다');
+    return res.status(500).json({ error: 'Auth not configured' });
+  }
+
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   if (!KV_URL || !KV_TOKEN) {
     console.error('[api/kv] KV_REST_API_URL / KV_REST_API_TOKEN 환경변수가 설정되지 않았습니다');
@@ -27,11 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'invalid key' });
   }
 
-  const auth = { Authorization: `Bearer ${KV_TOKEN}` };
+  const kvAuthHeaders = { Authorization: `Bearer ${KV_TOKEN}` };
 
   try {
     if (req.method === 'GET') {
-      const r = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: auth });
+      const r = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: kvAuthHeaders });
       if (!r.ok) console.warn('[api/kv] GET 비정상 응답', r.status, key);
       const data = await r.json();
       return res.status(200).json(data);
@@ -43,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const bodyValue = typeof body.value === 'undefined' || body.value === null ? '' : String(body.value);
       const r = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}`, {
         method: 'POST',
-        headers: auth,
+        headers: kvAuthHeaders,
         body: bodyValue,
       });
       if (!r.ok) console.warn('[api/kv] SET 비정상 응답', r.status, key);

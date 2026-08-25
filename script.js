@@ -4949,10 +4949,16 @@ const cGC=v=>({type:'doughnut',data:{labels:['Extreme Fear','Fear','Neutral','Gr
 // =============================================
 // 인증 (로그인)
 // =============================================
-function authFetch(url, options = {}) {
+async function authFetch(url, options = {}) {
   const token = sessionStorage.getItem('_dashAuth');
   options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
-  return fetch(url, options);
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    sessionStorage.removeItem('_dashAuth');
+    const overlay = document.getElementById('login-overlay');
+    if (overlay) overlay.style.display = 'flex';
+  }
+  return res;
 }
 
 async function attemptLogin() {
@@ -7874,9 +7880,9 @@ window.handleBubbleSectorClick = function(sector) {
 // Upstash KV
 // =============================================
 // KV 접근은 /api/kv 서버측 프록시를 통해서만 (토큰은 Vercel 환경변수 KV_REST_API_*에 보관)
-async function setKV(key,value){try{const bodyValue=typeof value==='object'?JSON.stringify(value):value;const res=await fetch(`/api/kv?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:bodyValue})});if(!res.ok){console.warn("[KV SET] 비정상 응답 status",res.status,key);return {ok:false,status:res.status};}const data=await res.json();return data;}catch(err){console.error("[KV SET Error]",err);return {ok:false};}}
+async function setKV(key,value){try{const bodyValue=typeof value==='object'?JSON.stringify(value):value;const res=await authFetch(`/api/kv?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:bodyValue})});if(!res.ok){console.warn("[KV SET] 비정상 응답 status",res.status,key);return {ok:false,status:res.status};}const data=await res.json();return data;}catch(err){console.error("[KV SET Error]",err);return {ok:false};}}
 
-async function getKV(key){try{const res=await fetch(`/api/kv?key=${encodeURIComponent(key)}`);if(!res.ok)console.warn("[KV GET] 비정상 응답 status",res.status,key);const data=await res.json();if(data.result&&(data.result.startsWith('{')||data.result.startsWith('['))){try{return JSON.parse(data.result);}catch(e){return data.result;}}return data.result;}catch(err){console.error("[KV GET Error]",err);}}
+async function getKV(key){try{const res=await authFetch(`/api/kv?key=${encodeURIComponent(key)}`);if(!res.ok){console.warn("[KV GET] 비정상 응답 status",res.status,key);return;}const data=await res.json();if(data.result&&(data.result.startsWith('{')||data.result.startsWith('['))){try{return JSON.parse(data.result);}catch(e){return data.result;}}return data.result;}catch(err){console.error("[KV GET Error]",err);}}
 
 // KV 저장 실패 시 사용자에게 보이는 자동 소멸 토스트 (재호출 시 타이머만 리셋 — 중복 방지)
 function showSaveError(msg){
