@@ -13,8 +13,11 @@ const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url)
 const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
-  const start = source.indexOf(`function ${name}(`)
-  assert.notEqual(start, -1, `${name} 함수를 찾을 수 없음`)
+  const functionStart = source.indexOf(`function ${name}(`)
+  assert.notEqual(functionStart, -1, `${name} 함수를 찾을 수 없음`)
+  const start = source.slice(Math.max(0, functionStart - 6), functionStart) === 'async '
+    ? functionStart - 6
+    : functionStart
   const open = source.indexOf('{', start)
   let depth = 0
   for (let i = open; i < source.length; i++) {
@@ -132,6 +135,45 @@ assert.equal(Math.round(historicalNet.monthAmt.reduce((s, value) => s + value, 0
 assert.equal(Math.round(historicalNet.monthAmt[2]), 1_934_000, '연간 ISA 세액을 3월 지급액에 비례 배분')
 assert.equal(Math.round(historicalNet.monthAmt[5]), 967_000, '연간 ISA 세액을 6월 지급액에 비례 배분')
 
+// ── 자동 현금흐름 배당 ──────────────────────────────────
+// 같은 소유주·종목·계좌유형의 복수 계좌를 한 항목에 합산하고, ISA 연 공제를 한 번만 적용한다.
+let localSaveCount = 0
+let remoteSaveCount = 0
+const cashContext = {
+  console, Date, JSON, Math, Number, Set, Map,
+  cfData: [], cfDeletedKeys: [], cfYear: 2026, cfMonth: 3,
+  RATES: { KRW: 1, USD: 1380, JPY: 9.2 },
+  pfolioData: [
+    { grp:'주식', qty:1_000_000, tkr:'AAA', owner:'본인', broker:'A증권', acc:'A ISA' },
+    { grp:'주식', qty:1_000_000, tkr:'AAA', owner:'본인', broker:'B증권', acc:'B ISA' },
+  ],
+  getDivStocks: () => [{ name:'테스트배당주', tkr:'AAA', eps:1.5, months:[2], cycle:'연간', cur:'KRW', payDay:15 }],
+  cleanupDuplicateDivEntries: () => {},
+  saveCfData: () => { localSaveCount++ },
+  saveExtDataToKV: async () => { remoteSaveCount++; return { ok:true } },
+  renderCashFlow: () => {},
+  alert: () => {},
+}
+vm.createContext(cashContext)
+vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), cashContext)
+vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), cashContext)
+vm.runInContext(extractFunction(scriptSource, 'autoAddDividendCashFlow'), cashContext)
+
+const firstCashSync = await cashContext.autoAddDividendCashFlow(true)
+assert.equal(firstCashSync.ok, true, '자동 배당 현금흐름 원격 저장 성공')
+assert.equal(cashContext.cfData.length, 1, '동일 유형 ISA 복수 계좌를 중복 없이 한 항목으로 합산')
+assert.equal(cashContext.cfData[0].amt, 2_901_000, 'ISA 연 300만원에서 200만원 공제 후 세후액 반영')
+assert.equal(localSaveCount, 1, '변경된 자동 배당을 로컬에 한 번 저장')
+assert.equal(remoteSaveCount, 1, '변경된 자동 배당을 원격 정본에도 한 번 저장')
+
+cashContext.pfolioData[1].qty = 2_000_000
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(cashContext.cfData.length, 1, '보유수량 변경 후에도 기존 자동 배당 항목을 재사용')
+assert.equal(cashContext.cfData[0].amt, 4_252_500, '보유수량 변경 시 기존 자동 배당 금액 갱신')
+assert.equal(remoteSaveCount, 2, '금액 갱신도 원격 정본에 저장')
+await cashContext.autoAddDividendCashFlow(true)
+assert.equal(remoteSaveCount, 2, '변경이 없으면 불필요한 원격 저장 생략')
+
 // ── 페이지 배선 ────────────────────────────────────────
 assert.match(cobaltSource, /onclick="cbDivBasis\('gross'\)"[\s\S]*onclick="cbDivBasis\('net'\)"/, '배당 관리에 세전/세후 토글 제공')
 assert.match(cobaltSource, /return allocateDividendTax\(entries,CB_FIN_INCOME_THRESHOLD\)/, '화면은 script.js의 공통 배당세 엔진에 위임')
@@ -140,6 +182,7 @@ assert.match(cobaltSource, /지급 이력 기반/, '과거 캘린더는 현재 �
 assert.match(cobaltSource, /금융소득종합과세 근접도/, '소유주별 금융소득 게이지 제공')
 assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
+assert.match(scriptSource, /async function autoAddDividendCashFlow[\s\S]*allocateDividendTax\(annualLots\)[\s\S]*await saveExtDataToKV\(\)/, '자동 현금흐름도 공통 연간 세금 엔진과 원격 저장 사용')
 assert.doesNotMatch(scriptSource.replace(/^.*예전에는.*$/m, ''), /\['2025','2026'\]/, '연도 하드코딩 제거')
 
 console.log('PASS 배당 세후·금융소득종합과세')

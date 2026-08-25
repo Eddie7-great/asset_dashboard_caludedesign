@@ -1705,7 +1705,7 @@ function switchView(viewId, btn) {
     switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }
   if (viewId==='dividend'){if(window.allOwnersDivChartInst)window.allOwnersDivChartInst.resize();if(window.mainDivChartInst)window.mainDivChartInst.resize();renderDivTable(window.activeMainDivMonth);}
-  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfDonutChartInst)window.cfDonutChartInst.resize();if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
+  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true)).catch(e=>console.warn('[autoAddDividendCashFlow]',e));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfDonutChartInst)window.cfDonutChartInst.resize();if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
   if (viewId==='gift'){if(window.giftChartInst)window.giftChartInst.resize();setTimeout(()=>calcGift(),50);}
   if (viewId==='portfolio'){if(portPerfChartInst)portPerfChartInst.resize();renderPortfolioTop3();if(window.allOwnersDivChartInst)window.allOwnersDivChartInst.resize();if(window.mainDivChartInst)window.mainDivChartInst.resize();renderDivTable(window.activeMainDivMonth);renderFxExposure(currentOwner);renderDcaWidget(currentOwner);}
   if (viewId==='holdings'){
@@ -3835,68 +3835,93 @@ function resolvePendingDivDates() {
   if (changed) { saveCfData(); renderCashFlow(); }
 }
 
-// 10. 배당 수입 자동 등록 (등록된 배당주에서 계좌별 자동 생성, 세금 반영)
-function autoAddDividendCashFlow(silent=false) {
+// 10. 배당 수입 자동 등록 (등록된 배당주에서 계좌 유형별 자동 생성, 연간 세금 반영)
+async function autoAddDividendCashFlow(silent=false) {
+  const beforeCleanup=JSON.stringify(cfData);
   cleanupDuplicateDivEntries();
+  let changed=JSON.stringify(cfData)!==beforeCleanup;
   const divStocks = getDivStocks();
   // 현재 캐시플로우 뷰의 선택 연/월 기준으로 생성 (cfYear/cfMonth가 없으면 오늘 기준)
   const yr = (typeof cfYear !== 'undefined' ? cfYear : new Date().getFullYear());
   const mo = (typeof cfMonth !== 'undefined' ? cfMonth - 1 : new Date().getMonth()); // 0-based
   let added = 0;
   const cycleMap = {'월배당':'월배당','분기':'분기배당','반기':'반기배당','연간':'연간배당'};
+
+  // ISA 200만원 공제는 월·종목·계좌마다 따로 적용하면 안 된다. 현재 보유 전체의
+  // 연간 예상 배당을 한 번에 세금 엔진에 넣고, 계산된 세후 비율을 이번 달 지급액에 적용한다.
+  const annualLots=[];
   divStocks.forEach(s => {
-    if (!s.months || !s.months.includes(mo) || !s.eps) return;
-    const payDay = (typeof s.payDay === 'number' && s.payDay > 0) ? s.payDay : null;
-    let dateStr, dateStatus;
-    if (payDay) {
-      const lastDay = new Date(yr, mo + 1, 0).getDate();
-      dateStr = `${yr}-${String(mo+1).padStart(2,'0')}-${String(Math.min(payDay,lastDay)).padStart(2,'0')}`;
-      dateStatus = undefined;
-    } else {
-      dateStr = '미정';
-      dateStatus = 'pending';
-    }
+    const eps=Number(s.eps)||0;
+    const months=[...new Set((Array.isArray(s.months)?s.months:[])
+      .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12))];
+    if(eps<=0||months.length===0) return;
     const rate = s.cur === 'USD' ? (RATES.USD||1380) : (s.cur === 'JPY' ? (RATES.JPY||9.2) : 1);
     const tkrNorm = String(s.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
     const cycleLabel = cycleMap[s.cycle]||s.cycle||'배당';
-    // 해당 종목 보유 항목을 계좌(item)별로 순회 — 계좌마다 별도 entry 생성, 세금 반영
     const holdings = pfolioData.filter(i => {
-      const t6 = String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/,'');
-      return (t6 === tkrNorm || i.tkr === s.tkr) && i.qty > 0;
+      const t6 = String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
+      return (t6 === tkrNorm || i.tkr === s.tkr) && Number(i.qty)>0;
     });
     holdings.forEach(item => {
-      const owner = item.owner;
-      if (!owner) return;
-      const taxInfo = getAccountDivTaxInfo(item.acc);
-      const accType = taxInfo.type; // 'ISA' / '연금' / '일반'
-      const gross = item.qty * s.eps * rate;
-      const net = Math.round(gross * (1 - taxInfo.normalRate));
-      if (net <= 0) return;
-      const divKey = `div_${tkrNorm}_${owner}_${accType}_${yr}_${mo+1}`;
-      if (cfDeletedKeys.includes(`div:${divKey}`)) return;
-      const desc = `${s.name} ${cycleLabel} 수입 (${taxInfo.label})`;
-      const existingIdx = cfData.findIndex(i => i.divKey === divKey);
-      if (existingIdx >= 0) {
-        let changed = false;
-        // desc가 현재 포맷과 다르면 업데이트 (세금 레이블 포맷 변경 시 마이그레이션)
-        if (cfData[existingIdx].desc !== desc) {
-          cfData[existingIdx].desc = desc;
-          changed = true;
-        }
-        // 미정 → 확정일로 업그레이드
-        if (cfData[existingIdx].dateStatus === 'pending' && payDay) {
-          cfData[existingIdx].date = dateStr;
-          delete cfData[existingIdx].dateStatus;
-          changed = true;
-        }
-        if (changed) added++;
-        return;
-      }
-      const entry = {date:dateStr, type:'수입', cat:'배당금', desc, amt:net, owner, divKey};
-      if (dateStatus) entry.dateStatus = dateStatus;
-      cfData.push(entry);
-      added++;
+      if(!item.owner) return;
+      const payout=Number(item.qty)*eps*rate;
+      if(!(payout>0)) return;
+      const taxInfo=getAccountDivTaxInfo(item.acc);
+      annualLots.push({
+        owner:item.owner,
+        acc:item.acc,
+        gross:payout*months.length,
+        ref:{s,tkrNorm,cycleLabel,months,payout,taxInfo}
+      });
     });
+  });
+
+  // divKey는 기존 6-part 형식을 유지하되 같은 소유주·종목·계좌유형의 복수 계좌는
+  // 한 항목으로 합산한다. 이 방식은 기존 삭제 키와 호환되면서 두 번째 계좌 누락을 막는다.
+  const monthlyGroups=new Map();
+  allocateDividendTax(annualLots).list.forEach(entry=>{
+    const ref=entry.ref;
+    if(!ref.months.includes(mo)) return;
+    const owner=entry.owner;
+    const accType=entry.info.type;
+    const divKey=`div_${ref.tkrNorm}_${owner}_${accType}_${yr}_${mo+1}`;
+    if(cfDeletedKeys.includes(`div:${divKey}`)) return;
+    const netRatio=entry.gross>0?entry.net/entry.gross:1;
+    const netPayout=ref.payout*netRatio;
+    const existing=monthlyGroups.get(divKey);
+    if(existing){ existing.net+=netPayout; return; }
+    const payDay=(typeof ref.s.payDay==='number'&&ref.s.payDay>0)?ref.s.payDay:null;
+    const lastDay=new Date(yr,mo+1,0).getDate();
+    monthlyGroups.set(divKey,{
+      divKey,owner,net:netPayout,payDay,
+      dateStr:payDay?`${yr}-${String(mo+1).padStart(2,'0')}-${String(Math.min(payDay,lastDay)).padStart(2,'0')}`:'미정',
+      desc:`${ref.s.name} ${ref.cycleLabel} 수입 (${ref.taxInfo.label})`
+    });
+  });
+
+  monthlyGroups.forEach(group=>{
+    const net=Math.round(group.net);
+    if(net<=0) return;
+    const existingIdx=cfData.findIndex(i=>i.divKey===group.divKey);
+    if(existingIdx>=0){
+      const current=cfData[existingIdx];
+      let rowChanged=false;
+      if(current.desc!==group.desc){current.desc=group.desc;rowChanged=true;}
+      if(Number(current.amt)!==net){current.amt=net;rowChanged=true;}
+      // 확정 지급일은 변경도 반영하되, 확인된 날짜를 미정으로 되돌리지는 않는다.
+      if(group.payDay&&(current.date!==group.dateStr||current.dateStatus==='pending')){
+        current.date=group.dateStr;
+        delete current.dateStatus;
+        rowChanged=true;
+      }
+      if(rowChanged){changed=true;added++;}
+      return;
+    }
+    const row={date:group.dateStr,type:'수입',cat:'배당금',desc:group.desc,amt:net,owner:group.owner,divKey:group.divKey};
+    if(!group.payDay) row.dateStatus='pending';
+    cfData.push(row);
+    changed=true;
+    added++;
   });
   // 레거시 combined entry(div_TKR_OWNER_YR_MO; 5 parts) 정리 — 새 account-aware entry로 대체된 항목 제거
   const accAwareKeys = new Set();
@@ -3917,7 +3942,7 @@ function autoAddDividendCashFlow(silent=false) {
       }
       return true;
     });
-    if (cfData.length !== before) { saveCfData(); }
+    if (cfData.length !== before) changed=true;
   }
   // 레거시 no-divKey 항목 정리 — divKey 없는 배당금 항목 중 같은 종목명+소유주+년+월에
   // 새 account-aware entry가 있으면 제거 (예: "삼성전자 분기배당 수입" 구 항목)
@@ -3945,7 +3970,7 @@ function autoAddDividendCashFlow(silent=false) {
       }
       return true;
     });
-    if (cfData.length !== noDivKeyBefore) saveCfData();
+    if (cfData.length !== noDivKeyBefore) changed=true;
   }
   // 레거시 배당금 entry desc 보강:
   // divKey 없거나 5-part 인 배당금 항목 중 세금 라벨이 없는 경우, pfolioData 에서
@@ -3978,8 +4003,15 @@ function autoAddDividendCashFlow(silent=false) {
       e.divKey = `div_${tkrNorm}_${e.owner}_${taxInfo.type}_${dt.getFullYear()}_${dt.getMonth()+1}`;
     }
   });
-  if (enriched > 0) saveCfData();
-  if (added > 0 || enriched > 0) { renderCashFlow(); if(added > 0 && !silent) alert(`${added}건의 배당 수입이 자동 등록되었습니다.`); }
+  if (enriched > 0) changed=true;
+  if(changed){
+    saveCfData();
+    renderCashFlow();
+    const saved=typeof saveExtDataToKV==='function'?await saveExtDataToKV():{ok:true,skipped:true};
+    if(added>0&&!silent) alert(`${added}건의 배당 수입이 자동 등록되었습니다.`);
+    return {ok:saved?.ok!==false,changed:true,added,enriched,saved};
+  }
+  return {ok:true,changed:false,added:0,enriched:0};
 }
 
 function addCashFlow() {
@@ -8745,7 +8777,7 @@ async function fetchPyDividends() {
 
   syncDivHistory();
   // 현금흐름: 갱신된 배당 정보로 이번 달 누락 배당수입을 자동 등록
-  try { if (typeof autoAddDividendCashFlow === 'function') autoAddDividendCashFlow(true); } catch(_){}
+  try { if (typeof autoAddDividendCashFlow === 'function') await autoAddDividendCashFlow(true); } catch(_){}
   // 대시보드/포트폴리오/현금흐름/가족 화면 재렌더
   try { if (typeof changeOwner === 'function') changeOwner(currentOwner, null, true); } catch(_){}
   try { if (typeof renderCashFlow === 'function') renderCashFlow(); } catch(_){}
