@@ -10,6 +10,7 @@
 
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { authenticateRequest, sendAuthFailure } = require('./_auth.js');
 
 const NAVER_HEADERS = {
   'User-Agent':
@@ -22,6 +23,36 @@ const NAVER_HEADERS = {
 // 간단한 메모리 캐시 (서버 인스턴스 기준 20초)
 const CACHE = new Map();
 const CACHE_TTL_MS = 20 * 1000;
+const MAX_CACHE_ENTRIES = 200;
+const MAX_TICKERS = 20;
+const MAX_CONCURRENCY = 5;
+
+function cacheSet(ticker, value) {
+  const now = Date.now();
+  for (const [key, entry] of CACHE) {
+    if (!entry || now - entry.ts >= CACHE_TTL_MS) CACHE.delete(key);
+  }
+  CACHE.delete(ticker);
+  CACHE.set(ticker, value);
+  while (CACHE.size > MAX_CACHE_ENTRIES) {
+    const oldest = CACHE.keys().next().value;
+    if (oldest == null) break;
+    CACHE.delete(oldest);
+  }
+}
+
+async function mapWithConcurrency(items, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await worker(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, items.length) }, run));
+  return results;
+}
 
 /**
  * 티커를 6자리 문자열로 정규화.
@@ -131,49 +162,58 @@ async function fetchWithCache(ticker) {
   const now = Date.now();
   const hit = CACHE.get(ticker);
   if (hit && now - hit.ts < CACHE_TTL_MS) return hit.data;
+  if (hit) CACHE.delete(ticker);
 
   try {
     const data = await fetchNaverPrice(ticker);
-    CACHE.set(ticker, { ts: now, data });
+    cacheSet(ticker, { ts: now, data });
     return data;
   } catch (e) {
+    console.error('[stock-price] scrape failed', ticker, e);
     const errData = {
       success: false,
       ticker,
-      error: e && e.message ? e.message : 'scrape_failed',
+      error: 'price_unavailable',
     };
     // 오류는 짧게만 캐시 (5초) — 네트워크 일시 오류 감안
-    CACHE.set(ticker, { ts: now - (CACHE_TTL_MS - 5000), data: errData });
+    cacheSet(ticker, { ts: now - (CACHE_TTL_MS - 5000), data: errData });
     return errData;
   }
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Vary', 'Cookie, Authorization');
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const authHeader = req.headers['authorization'];
-  const expectedToken = process.env.AUTH_TOKEN;
-  if (expectedToken && (!authHeader || authHeader !== `Bearer ${expectedToken}`)) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return sendAuthFailure(res, auth);
 
   try {
     const q = req.query || {};
     // 단일 조회 (ticker=) 또는 복수 조회 (tickers=069500,360750)
     const rawList = [];
-    if (q.tickers) rawList.push(...String(q.tickers).split(','));
-    if (q.ticker) rawList.push(String(q.ticker));
+    const rawTickers = q.tickers ? String(q.tickers) : '';
+    const rawTicker = q.ticker ? String(q.ticker) : '';
+    if (rawTickers.length + rawTicker.length > 600) {
+      return res.status(400).json({ success: false, error: 'Invalid tickers' });
+    }
+    if (rawTickers) rawList.push(...rawTickers.split(','));
+    if (rawTicker) rawList.push(rawTicker);
+    if (rawList.length > MAX_TICKERS) {
+      return res.status(400).json({ success: false, error: 'Too many tickers' });
+    }
 
-    const tickers = Array.from(
-      new Set(rawList.map(normalizeTicker).filter(Boolean))
-    );
+    const normalized = rawList.map(normalizeTicker);
+    if (normalized.some(ticker => !ticker)) {
+      return res.status(400).json({ success: false, error: 'Invalid tickers' });
+    }
+    const tickers = Array.from(new Set(normalized));
 
     if (tickers.length === 0) {
       res.status(400).json({
@@ -181,6 +221,9 @@ module.exports = async function handler(req, res) {
         error: 'ticker(6자리) 또는 tickers 파라미터가 필요합니다.',
       });
       return;
+    }
+    if (tickers.length > MAX_TICKERS) {
+      return res.status(400).json({ success: false, error: 'Too many tickers' });
     }
 
     // 단일 조회 → 평탄한 응답, 복수 조회 → { result: { ticker: data } }
@@ -190,7 +233,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const results = await Promise.all(tickers.map((t) => fetchWithCache(t)));
+    const results = await mapWithConcurrency(tickers, fetchWithCache);
     const result = {};
     results.forEach((r) => {
       if (r && r.ticker) result[r.ticker] = r;
@@ -202,9 +245,10 @@ module.exports = async function handler(req, res) {
       result,
     });
   } catch (e) {
+    console.error('[stock-price] handler failed', e);
     res.status(500).json({
       success: false,
-      error: e && e.message ? e.message : 'internal_error',
+      error: 'Internal server error',
     });
   }
 };

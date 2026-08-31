@@ -5,15 +5,99 @@ Python 하이브리드 백엔드 – Vercel Serverless Function
 모든 조회 실패 시 '미조회' 반환
 """
 from http.server import BaseHTTPRequestHandler
+from http.cookies import SimpleCookie
 from urllib.parse import urlparse, parse_qs
+import base64
+import hashlib
+import hmac
 import json
 import datetime
+import math
 import re
 import traceback
 import os
+import time
 from collections import Counter
 
 UNAVAILABLE = '미조회'
+SESSION_COOKIE = 'asset_dashboard_session'
+SESSION_TTL_SECONDS = 8 * 60 * 60
+MAX_TICKERS = 25
+MAX_QUERY_LENGTH = 2048
+TICKER_PATTERN = re.compile(r'^[A-Z0-9.^=_-]{1,24}$')
+ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'fundamentals', 'resolve'}
+
+
+def _session_secret():
+    return os.environ.get('SESSION_SECRET', '')
+
+
+def _safe_equal(left, right):
+    try:
+        return hmac.compare_digest(str(left).encode('utf-8'), str(right).encode('utf-8'))
+    except Exception:
+        return False
+
+
+def _verify_session_cookie(raw_cookie):
+    secret = _session_secret()
+    if not secret or not raw_cookie:
+        return False
+    try:
+        cookie = SimpleCookie()
+        cookie.load(raw_cookie)
+        morsel = cookie.get(SESSION_COOKIE)
+        if not morsel:
+            return False
+        value = morsel.value
+        encoded, signature = value.split('.', 1)
+        expected = base64.urlsafe_b64encode(
+            hmac.new(secret.encode('utf-8'), encoded.encode('ascii'), hashlib.sha256).digest()
+        ).decode('ascii').rstrip('=')
+        if not _safe_equal(signature, expected):
+            return False
+        padded = encoded + '=' * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode('ascii')).decode('utf-8'))
+        now = int(time.time())
+        return (
+            payload.get('v') == 1
+            and isinstance(payload.get('iat'), int)
+            and isinstance(payload.get('exp'), int)
+            and payload['iat'] <= now + 60
+            and payload['exp'] > now
+            and payload['exp'] - payload['iat'] == SESSION_TTL_SECONDS
+        )
+    except Exception:
+        return False
+
+
+def _valid_bearer(raw_authorization):
+    if not raw_authorization.startswith('Bearer '):
+        return False
+    supplied = raw_authorization[7:]
+    token = os.environ.get('INTERNAL_API_TOKEN', '')
+    return bool(token and _safe_equal(supplied, token))
+
+
+def _auth_configured():
+    return bool(_session_secret() or os.environ.get('INTERNAL_API_TOKEN', ''))
+
+
+def _parse_tickers(raw, limit=MAX_TICKERS):
+    if len(raw or '') > 1000:
+        raise ValueError('invalid_tickers')
+    result = []
+    for item in (raw or '').split(','):
+        ticker = item.strip().upper()
+        if not ticker:
+            continue
+        if not TICKER_PATTERN.fullmatch(ticker):
+            raise ValueError('invalid_ticker')
+        if ticker not in result:
+            result.append(ticker)
+    if len(result) > limit:
+        raise ValueError('too_many_tickers')
+    return result
 
 # ── 라이브러리 임포트 (graceful fallback) ──────────────────────
 # [중요] 로컬 환경에서 아래 라이브러리가 없을 경우 'pip install yfinance pykrx pandas' 실행 필요
@@ -233,7 +317,8 @@ def get_prices(tickers):
                 }
 
         except Exception as e:
-            result[tkr] = {'price': UNAVAILABLE, 'error': str(e)}
+            print('[get_prices] source error:', type(e).__name__)
+            result[tkr] = {'price': UNAVAILABLE, 'error': 'source_unavailable'}
 
     return {'success': True, 'result': result}
 
@@ -355,7 +440,8 @@ def get_dividends(tickers):
                 result[tkr] = {'dps': UNAVAILABLE, 'yld': UNAVAILABLE, 'cycle': '-', 'months': [], 'cur': 'USD'}
 
         except Exception as e:
-            result[tkr] = {'dps': UNAVAILABLE, 'error': str(e)}
+            print('[get_dividends] source error:', type(e).__name__)
+            result[tkr] = {'dps': UNAVAILABLE, 'error': 'source_unavailable'}
 
     return {'success': True, 'result': result}
 
@@ -673,39 +759,75 @@ class handler(BaseHTTPRequestHandler):
         body = json.dumps(data, ensure_ascii=False).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Vary', 'Cookie, Authorization')
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
         auth_header = self.headers.get('Authorization', '')
-        expected_token = os.environ.get('AUTH_TOKEN', '')
-        if expected_token and auth_header != f'Bearer {expected_token}':
+        if not _auth_configured():
+            print('[dashboard.py] authentication environment is not configured')
+            self._send_json({'error': 'Auth not configured'}, 500)
+            return
+        if not (_valid_bearer(auth_header) or _verify_session_cookie(self.headers.get('Cookie', ''))):
             self._send_json({'error': 'Unauthorized'}, 401)
             return
 
         parsed = urlparse(self.path)
+        if len(parsed.query) > MAX_QUERY_LENGTH:
+            self._send_json({'success': False, 'error': 'Query too large'}, 400)
+            return
         params = parse_qs(parsed.query)
         qtype  = params.get('type', [''])[0]
+        if qtype not in ALLOWED_TYPES:
+            self._send_json({'success': False, 'error': 'Invalid type'}, 400)
+            return
         try:
             if qtype == 'rates': data = get_rates()
-            elif qtype == 'gold': data = get_gold(params.get('unit', ['g'])[0])
-            elif qtype == 'price': data = get_prices([t.strip() for t in params.get('tickers', [''])[0].split(',') if t.strip()])
-            elif qtype == 'dividend': data = get_dividends([t.strip() for t in params.get('tickers', [''])[0].split(',') if t.strip()])
+            elif qtype == 'gold':
+                unit = params.get('unit', ['g'])[0]
+                if unit not in {'g', '돈', 'kg'}:
+                    raise ValueError('invalid_unit')
+                data = get_gold(unit)
+            elif qtype == 'price':
+                data = get_prices(_parse_tickers(params.get('tickers', [''])[0]))
+            elif qtype == 'dividend':
+                data = get_dividends(_parse_tickers(params.get('tickers', [''])[0], 20))
             elif qtype == 'health': data = get_health()
-            elif qtype == 'benchmark': data = get_benchmark(params.get('p_tkrs',[''])[0], params.get('p_weights',[''])[0])
+            elif qtype == 'benchmark':
+                benchmark_tickers = _parse_tickers(params.get('p_tkrs', [''])[0], 20)
+                raw_weights = params.get('p_weights', [''])[0]
+                if len(raw_weights) > 1000:
+                    raise ValueError('invalid_weights')
+                weights = [float(item) for item in raw_weights.split(',') if item]
+                if len(benchmark_tickers) != len(weights) or any(
+                    not math.isfinite(weight) or weight < 0 or weight > 1e18 for weight in weights
+                ):
+                    raise ValueError('invalid_weights')
+                data = get_benchmark(
+                    ','.join(benchmark_tickers),
+                    ','.join(str(weight) for weight in weights),
+                )
             elif qtype == 'fundamentals':
                 single = params.get('ticker', [''])[0].strip()
                 batch_raw = params.get('tickers', [''])[0]
-                tlist = [t.strip() for t in batch_raw.split(',') if t.strip()] if batch_raw else ([single] if single else [])
-                tlist = tlist[:8]  # 30s maxDuration 보호 — 최대 8개
+                tlist = _parse_tickers(batch_raw or single, 8)
                 data = get_fundamentals(tlist)
             elif qtype == 'resolve':
-                name = params.get('name', [''])[0]
+                name = params.get('name', [''])[0].strip()
+                if not name or len(name) > 80 or any(ord(char) < 32 for char in name):
+                    raise ValueError('invalid_name')
                 data = {'success': True, 'name': name, 'code': resolve_kr_ticker(name)}
             else: data = {'success': False, 'error': 'Invalid type'}
+        except ValueError:
+            self._send_json({'success': False, 'error': 'Invalid request'}, 400)
+            return
         except Exception as e:
             # 스택트레이스는 서버 로그로만 남기고 클라이언트 응답에는 포함하지 않음(내부 경로/구현 노출 방지)
             print('[dashboard.py] handler error:\n' + traceback.format_exc())
-            data = {'success': False, 'error': str(e)}
+            self._send_json({'success': False, 'error': 'Internal server error'}, 500)
+            return
         self._send_json(data)

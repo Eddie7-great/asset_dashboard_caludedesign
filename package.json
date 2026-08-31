@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "scripts": {
     "test": "node scripts/tests/run_all.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:tax-rules": "node scripts/check-tax-rule-sources.mjs --offline",
+    "check:tax-rules:remote": "node scripts/check-tax-rule-sources.mjs --network"
   },
   "dependencies": {
-    "@vercel/node": "^3.0.0",
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "yahoo-finance2": "^2.13.3"
+    "axios": "^1.20.0",
+    "cheerio": "^1.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }

@@ -14,6 +14,39 @@
       --tipbg:#18213a;--tiptx:#f8fafc;--tipbd:#31405e
     }
 
+/* ── 접근성·입력 장치 보완 ─────────────────────────────── */
+.sr-only{
+  position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;
+  overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important
+}
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:3px solid var(--acc)!important;outline-offset:2px!important
+}
+.menu-btn[aria-current="page"]{background:var(--acc-soft);color:var(--t1);font-weight:700}
+.dash-net-toggle-button{
+  width:100%;padding:0;border:0;background:transparent;font-family:inherit;text-align:left
+}
+#sidebar-backdrop{
+  margin:0;padding:0;border:0;border-radius:0;color:transparent;cursor:pointer
+}
+.modal-header h3{padding-right:8px}
+.modal-close,.cf-modal-close{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.login-btn:disabled{cursor:wait;opacity:.65;transform:none}
+
+@media (pointer:coarse){
+  button,input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),select,textarea{min-height:44px}
+  input[type="checkbox"],input[type="radio"]{min-width:22px;min-height:22px}
+}
+
+@media (max-width:400px){
+  #login-overlay{padding:16px;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));box-sizing:border-box}
+}
+
+@media (prefers-reduced-motion:reduce){
+  html:focus-within{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
 /* ===== 재무계획·그룹 메뉴 (finance.js) ===== */
 /* 항목이 13개라 세로가 짧은 화면에서는 스크롤된다 — .menu-list 가 감춘 스크롤바를
    그룹 메뉴에서는 다시 노출해 아래에 더 있다는 단서를 남긴다. */
@@ -579,7 +612,7 @@
     .login-sub {
       margin: 0 0 24px;
       font-size: 0.88rem;
-      color: var(--t3);
+      color: var(--t2);
     }
     .login-input-wrap {
       margin-bottom: 12px;
@@ -605,7 +638,7 @@
       padding: 12px;
       border: none;
       border-radius: 10px;
-      background: var(--acc);
+      background: #1f5fbf;
       color: #fff;
       font-family: inherit;
       font-size: 1rem;
@@ -1534,3 +1567,60 @@
       #bubble-leaves-panel{display:none!important}
       .bubble-inline-leaves{display:block}
     }
+
+    /* 로그인 카드는 390px급 모바일에서도 화면 가장자리와 안전 여백을 둔다. */
+    @media (max-width:400px){
+      .login-card{max-width:100%;padding:32px 24px}
+    }
+
+/* ── 세금·증여 규칙 버전 및 공식 근거 ───────────────────────── */
+.tax-rule-disclosure{
+  display:block;margin:0 0 12px;border:1px solid var(--bd2,var(--border-dark));
+  border-radius:10px;background:var(--panelSolid,var(--panel));color:var(--tx,var(--t1));
+  box-shadow:0 6px 18px rgba(15,23,42,.05);overflow:hidden
+}
+.tax-rule-disclosure>summary{
+  position:relative;display:flex;align-items:center;gap:8px;min-height:42px;padding:9px 12px;
+  cursor:pointer;list-style:none;background:var(--inner,var(--inner-bg));font-size:11px
+}
+.tax-rule-disclosure>summary::-webkit-details-marker{display:none}
+.tax-rule-disclosure>summary::after{content:'＋';margin-left:auto;color:var(--lab,var(--t3));font-size:13px;font-weight:800}
+.tax-rule-disclosure[open]>summary::after{content:'−'}
+.tax-rule-disclosure>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.tax-rule-badge,.tax-rule-status{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:3px 7px;font-size:9.5px;font-weight:800}
+.tax-rule-badge{color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,transparent)}
+.tax-rule-summary-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750}
+.tax-rule-status{color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent)}
+.tax-rule-status.is-due,.tax-rule-status.is-historical{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
+.tax-rule-status.is-stale,.tax-rule-status.is-unsupported{color:var(--dn);background:color-mix(in srgb,var(--dn) 12%,transparent)}
+.tax-rule-body{padding:13px 14px 12px;border-top:1px solid var(--bd,var(--border-light))}
+.tax-rule-meta{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 10px;border-radius:8px;background:var(--inner,var(--inner-bg));font-size:10px;color:var(--mut,var(--t2))}
+.tax-rule-meta b{color:var(--tx,var(--t1));font-weight:750}
+.tax-rule-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.tax-rule-columns section,.tax-rule-sources{min-width:0}
+.tax-rule-disclosure h4{margin:0 0 6px;font-size:10.5px;letter-spacing:.04em;color:var(--lab,var(--t3))}
+.tax-rule-disclosure ul{margin:0;padding-left:16px}
+.tax-rule-disclosure li{margin:0 0 5px;font-size:10.5px;line-height:1.55;color:var(--mut,var(--t2))}
+.tax-rule-sources{margin-top:9px;padding-top:10px;border-top:1px dashed var(--bd2,var(--border-dark))}
+.tax-rule-sources ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 18px}
+.tax-rule-sources li span{display:block;font-size:9px;color:var(--dim,var(--t3))}
+.tax-rule-sources a{color:var(--acc);text-decoration:none;font-weight:700}
+.tax-rule-sources a:hover{text-decoration:underline}
+.tax-rule-sources a:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:2px}
+.tax-rule-disclaimer{margin:8px 0 0;font-size:9.5px;line-height:1.55;color:var(--dim,var(--t3))}
+.tax-rule-disclosure.is-unsupported{display:flex;gap:8px;align-items:center;padding:10px 12px;border-left:3px solid var(--dn);font-size:10.5px}
+.tax-rule-disclosure.is-unsupported span{color:var(--mut,var(--t2))}
+.legacy-tax-rule-slot{flex:0 0 auto;min-width:0}
+#view-gift.active{display:flex;flex-direction:column;min-height:0}
+#view-gift .legacy-tax-rule-slot+.gift-grid{height:auto;flex:1;min-height:0}
+
+@media (max-width:900px){
+  .tax-rule-columns{grid-template-columns:1fr}
+  .tax-rule-sources ul{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .tax-rule-disclosure>summary{align-items:flex-start;flex-wrap:wrap}
+  .tax-rule-summary-title{order:3;flex-basis:calc(100% - 24px);white-space:normal}
+  .tax-rule-disclosure>summary::after{position:absolute;right:12px}
+  .tax-rule-body{padding:11px}
+}

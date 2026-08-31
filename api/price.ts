@@ -1,4 +1,56 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from './_types';
+
+const { authenticateRequest, sendAuthFailure } = require('./_auth.js');
+
+const MAX_TICKERS = 25;
+const MAX_TICKER_LENGTH = 24;
+const MAX_CONCURRENCY = 5;
+const ALLOWED_TYPES = new Set([
+  'price', 'fng', 'dividend', 'dividend_history', 'sector', 'ohlcv',
+  'search', 'krsearch', 'macro', 'news', 'heatmap',
+]);
+
+function singleQuery(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function parseTickerList(value: string | string[] | undefined): string[] {
+  const raw = singleQuery(value);
+  if (raw.length > 1000) throw new Error('invalid_tickers');
+  const tickers = Array.from(new Set(raw.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)));
+  if (tickers.length > MAX_TICKERS) throw new Error('too_many_tickers');
+  if (tickers.some(t => t.length > MAX_TICKER_LENGTH || !/^[A-Z0-9.^=_-]+$/.test(t))) {
+    throw new Error('invalid_ticker');
+  }
+  return tickers;
+}
+
+async function mapWithConcurrency<T>(items: T[], worker: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENCY, items.length) }, run));
+}
+
+function trustedInternalOrigin(): string | null {
+  const raw = String(
+    process.env.INTERNAL_API_ORIGIN
+    || process.env.VERCEL_URL
+    || process.env.VERCEL_PROJECT_PRODUCTION_URL
+    || '',
+  ).trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return parsed.protocol === 'https:' ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 // 삭제된 API 키: FINNHUB_KEY, KIS_APP_KEY, KIS_APP_SECRET
 // 이제 모든 시세는 Yahoo Finance (무료, 키 불필요)로 조회
@@ -173,19 +225,27 @@ async function getGoldPriceKRW(usdRate: number): Promise<number|null> {
 }
 
 // ── 메인 핸들러 ──────────────────────────────────────────────
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Vary', 'Cookie, Authorization');
 
-  const authHeader = req.headers['authorization'];
-  const expectedToken = process.env.AUTH_TOKEN;
-  if (expectedToken && (!authHeader || authHeader !== `Bearer ${expectedToken}`)) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const type = (req.query.type as string) || 'price';
-  const tickersStr = (req.query.tickers as string) || '';
-  const tickers = tickersStr ? tickersStr.split(',').filter(Boolean) : [];
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return sendAuthFailure(res, auth);
+
+  const type = singleQuery(req.query.type) || 'price';
+  if (!ALLOWED_TYPES.has(type)) return res.status(400).json({ error: 'Invalid type' });
+  let tickers: string[];
+  try {
+    tickers = parseTickerList(req.query.tickers);
+  } catch {
+    return res.status(400).json({ error: 'Invalid tickers' });
+  }
 
   try {
     // ── F&G (공포/탐욕 지수) ──────────────────────────────────
@@ -209,7 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //   - US/기타 티커는 Yahoo 사용
     //   - 응답: { success, result:{ [tkr]: { dps, yld, cycle, months, cur } }, usdRate }
     if (type === 'dividend') {
-      const divTickers = (req.query.tickers as string || '').split(',').filter(Boolean);
+      const divTickers = tickers;
       if (!divTickers.length) return res.status(200).json({ success: true, result: {} });
       const fxRates = await getExchangeRates();
       const usdRate = fxRates?.['KRW'] ?? 1380;
@@ -272,9 +332,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // KR 단축코드 배당은 pykrx 기반 백엔드로 우회 (가능한 경우)
       async function pykrxDiv(rawSym: string) {
         try {
-          const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+          const origin = trustedInternalOrigin();
+          const internalToken = String(process.env.INTERNAL_API_TOKEN || '');
+          if (!origin || !internalToken) {
+            console.error('[price] internal dashboard origin/token is not configured');
+            return null;
+          }
           const r = await fetchWithTimeout(`${origin}/api/dashboard?type=dividend&tickers=${encodeURIComponent(rawSym)}`, {
-            headers: { 'User-Agent': 'asset-dashboard/1.0' }
+            headers: {
+              'User-Agent': 'asset-dashboard/1.0',
+              Authorization: `Bearer ${internalToken}`,
+            }
           });
           if (!r.ok) return null;
           const d = await r.json();
@@ -296,7 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const result: Record<string, any> = {};
-      await Promise.all(divTickers.map(async (raw) => {
+      await mapWithConcurrency(divTickers, async (raw) => {
         const tkr = raw.trim().toUpperCase().replace(/\.(KS|KQ)$/, '');
         if (!tkr) return;
         let info: any = null;
@@ -312,7 +380,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // 유효한 배당/분배 데이터만 반환
         if (info && Number(info.dps) > 0) result[tkr] = info;
-      }));
+      });
 
       return res.status(200).json({ success: true, result, usdRate });
     }
@@ -321,7 +389,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //   Yahoo Finance chart events=div, range=10y 로 종목별 원본 지급 내역 반환
     //   응답: { success, result:{ [tkr]: { events:[{date,amount}], cur } } }
     if (type === 'dividend_history') {
-      const histTickers = (req.query.tickers as string || '').split(',').filter(Boolean);
+      const histTickers = tickers;
       if (!histTickers.length) return res.status(200).json({ success: true, result: {} });
 
       async function yahooHist(rawSym: string) {
@@ -354,19 +422,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const result: Record<string, any> = {};
-      await Promise.all(histTickers.map(async (raw) => {
+      await mapWithConcurrency(histTickers, async (raw) => {
         const requested = raw.trim().toUpperCase();
         const tkr = requested.replace(/\.(KS|KQ)$/, '');
         if (!tkr) return;
         const info = await yahooHist(requested);
         if (info && info.events.length > 0) result[tkr] = info;
-      }));
+      });
       return res.status(200).json({ success: true, result });
     }
 
     // ── 섹터 조회 ───────────────────────────────────────────
     if (type === 'sector') {
-      const t = (req.query.tkr as string) || '';
+      const t = singleQuery(req.query.tkr).trim().toUpperCase();
+      if (!t || t.length > MAX_TICKER_LENGTH || !/^[A-Z0-9.^=_-]+$/.test(t)) {
+        return res.status(400).json({ error: 'Invalid ticker' });
+      }
       return res.status(200).json({ sector: getSectorForTicker(t) });
     }
 
@@ -376,9 +447,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //   - KR 6자 코드는 .KS → .KQ 폴백, JP 4자.T 는 그대로
     //   - 섹터 ETF 심볼도 함께 반환 (클라이언트가 추가 호출하여 상대강도 계산)
     if (type === 'ohlcv') {
-      const rawTkr = String(req.query.tkr || '').trim().toUpperCase();
-      const range = String(req.query.range || '1y');
-      if (!rawTkr) return res.status(400).json({ success: false, error: 'tkr required' });
+      const rawTkr = singleQuery(req.query.tkr).trim().toUpperCase();
+      const range = singleQuery(req.query.range) || '1y';
+      if (!rawTkr || rawTkr.length > MAX_TICKER_LENGTH || !/^[A-Z0-9.^=_-]+$/.test(rawTkr)) {
+        return res.status(400).json({ success: false, error: 'Invalid ticker' });
+      }
+      if (!new Set(['1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max']).has(range)) {
+        return res.status(400).json({ success: false, error: 'Invalid range' });
+      }
 
       const KR_RE = /^[0-9A-Z]{6}$/i;
       // Yahoo 심볼 후보 (KR 단축코드면 .KS 시도, 실패 시 .KQ)
@@ -671,8 +747,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const quoteResults: Record<string,{price:number;prevClose:number}> = {};
 
     // 해외주식 & 가상화폐: Yahoo Finance
-    await Promise.all(
-      foreignTickers.map(async(rawTkr) => {
+    await mapWithConcurrency(foreignTickers, async(rawTkr) => {
         const yahooSym = cryptoYahooMap[rawTkr] ?? rawTkr;
         const q = await yahooScrapePrevClose(yahooSym);
         if (q) {
@@ -681,24 +756,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else {
           console.warn(`[Yahoo] ${rawTkr}: 시세 조회 실패`);
         }
-      })
-    );
+    });
 
     // 국내주식: Yahoo Finance (.KS → .KQ 순서)
     if (krTickers.length > 0) {
-      await Promise.all(
-        krTickers.map(async(tkr6, idx) => {
+      await mapWithConcurrency(krTickers, async(tkr6) => {
           let q = await yahooScrapePrevClose(tkr6 + '.KS');
           if (!q) q = await yahooScrapePrevClose(tkr6 + '.KQ');
           if (q) {
             quoteResults[tkr6] = { price: q.price, prevClose: q.prevClose };
-            if (krRaw[idx] && krRaw[idx] !== tkr6) quoteResults[krRaw[idx]] = { price: q.price, prevClose: q.prevClose };
+            const original = krRaw.find(t => t.replace(/\.(KS|KQ)$/, '') === tkr6);
+            if (original && original !== tkr6) quoteResults[original] = { price: q.price, prevClose: q.prevClose };
             console.log(`[Yahoo KR] ${tkr6}: ₩${q.price}`);
           } else {
             console.warn(`[Yahoo KR] ${tkr6}: 시세 조회 실패`);
           }
-        })
-      );
+      });
     }
 
     return res.status(200).json({
@@ -709,6 +782,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('[price.ts] Global Error:', error);
-    return res.status(500).json({ success: false, error: String(error?.message || error) });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 }

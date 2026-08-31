@@ -11,13 +11,15 @@ on:
       - '.github/workflows/etf-holdings.yml'
       - 'scripts/collect_etf_holdings.py'
       - 'scripts/etf_common.py'
+      - 'pyproject.toml'
       - 'requirements.txt'
+      - 'uv.lock'
   schedule:
     - cron: '30 9 * * 1-5'      # UTC 09:30 = KST 18:30, 평일
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: etf-holdings
@@ -33,12 +35,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: 의존성 설치
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: uv sync --frozen --no-dev
 
       # BROWSER_SOURCES가 비어 있어 현재 브라우저 폴백은 사용하지 않는다.
       # Playwright/Chromium을 매번 설치하면 실제 수집 전에 불필요한 네트워크 장애 지점이 생긴다.
@@ -52,14 +56,14 @@ jobs:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
         run: |
-          python scripts/collect_etf_holdings.py --smoke 069500
-          python scripts/collect_etf_holdings.py --smoke 0117V0
-          python scripts/collect_etf_holdings.py --smoke 0167A0
+          uv run --frozen python scripts/collect_etf_holdings.py --smoke 069500
+          uv run --frozen python scripts/collect_etf_holdings.py --smoke 0117V0
+          uv run --frozen python scripts/collect_etf_holdings.py --smoke 0167A0
 
       - name: 파서 단위 테스트
         run: |
-          python scripts/tests/test_parse_krx_pdf.py
-          python scripts/tests/test_domestic_sources.py
+          uv run --frozen python scripts/tests/test_parse_krx_pdf.py
+          uv run --frozen python scripts/tests/test_domestic_sources.py
           node scripts/tests/test_lookthrough_owner_scope.mjs
           node scripts/tests/test_risk_page.mjs
           node scripts/tests/test_dividend_sort.mjs
@@ -71,7 +75,30 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
-        run: python scripts/collect_etf_holdings.py
+        run: uv run --frozen python scripts/collect_etf_holdings.py
+
+      - name: 수집 결과 전달
+        uses: actions/upload-artifact@v4
+        with:
+          name: etf-holdings-${{ github.run_id }}
+          path: data/etf_holdings.json
+          if-no-files-found: error
+          retention-days: 1
+
+  persist:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 수집 결과 받기
+        uses: actions/download-artifact@v4
+        with:
+          name: etf-holdings-${{ github.run_id }}
+          path: data
 
       - name: 변경분 커밋
         run: |

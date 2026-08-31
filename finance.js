@@ -170,13 +170,83 @@ function finNetWorthBridge(){
   return {totals,prior,previous,change,cashflow,residual,skipped};
 }
 
-// _dataFreshness 는 KV 에 저장돼 다른 기기·다른 접속의 기록까지 함께 돌아온다.
+// 데이터 상태는 ext_data 전체 저장과 분리한다. 상태 변경만으로 현금흐름·목표 같은 큰 객체의
+// revision 충돌을 만들지 않도록 data_freshness 키만 짧게 디바운스해 갱신한다.
 // 이번 접속에서 직접 확인한 건지 구분해야 "3시간 전 확인"이 내 확인인지 알 수 있다.
+const FIN_FRESHNESS_KV_KEY='data_freshness';
+const FIN_FRESHNESS_SAVE_DELAY=500;
 const FIN_SESSION_ID=finNewId();
+function finFreshnessSnapshot(value=window._dataFreshness){
+  const src=value&&typeof value==='object'?value:{};
+  const out={};
+  Object.keys(src).forEach(key=>{
+    const row=src[key]; if(!row||typeof row!=='object') return;
+    out[key]={
+      label:String(row.label||'').slice(0,80),
+      source:String(row.source||'').slice(0,120),
+      ok:row.ok===true,
+      detail:String(row.detail||'').slice(0,240),
+      updatedAt:String(row.updatedAt||''),
+      session:String(row.session||'').slice(0,80)
+    };
+  });
+  return out;
+}
+function finFreshnessTime(row){
+  const n=Date.parse(row?.updatedAt||'');
+  return Number.isFinite(n)?n:0;
+}
+function finMergeFreshness(base,incoming){
+  const merged=finFreshnessSnapshot(base), next=finFreshnessSnapshot(incoming);
+  Object.keys(next).forEach(key=>{
+    if(!merged[key]||finFreshnessTime(next[key])>=finFreshnessTime(merged[key])) merged[key]=next[key];
+  });
+  return merged;
+}
+async function finSaveFreshnessNow(){
+  if(typeof setKV!=='function') return {ok:false,skipped:true,error:'KV 저장 함수 없음'};
+  if(window._finFreshnessSaveTimer){ clearTimeout(window._finFreshnessSaveTimer); window._finFreshnessSaveTimer=null; }
+  let payload=finFreshnessSnapshot();
+  let result=await setKV(FIN_FRESHNESS_KV_KEY,payload);
+  // 상태 표시는 서로 독립적인 키가 대부분이므로 충돌 시 최신 시각 기준으로 한 번 안전하게 병합한다.
+  if(result?.conflict&&typeof getKV==='function'){
+    const remote=await getKV(FIN_FRESHNESS_KV_KEY);
+    payload=finMergeFreshness(remote,payload);
+    window._dataFreshness=payload;
+    result=await setKV(FIN_FRESHNESS_KV_KEY,payload);
+  }
+  const ok=!!(result&&result.result==='OK');
+  window._finFreshnessSaveState={ok,updatedAt:new Date().toISOString(),status:result?.status||null};
+  return {ok,status:result?.status||null};
+}
+function finScheduleFreshnessSave(){
+  if(typeof setKV!=='function') return;
+  if(window._finFreshnessSaveTimer) clearTimeout(window._finFreshnessSaveTimer);
+  window._finFreshnessSaveTimer=setTimeout(()=>{
+    window._finFreshnessSaveTimer=null;
+    finSaveFreshnessNow().catch(e=>{
+      window._finFreshnessSaveState={ok:false,updatedAt:new Date().toISOString(),error:e?.message||'저장 실패'};
+      console.warn('[data freshness save]',e);
+    });
+  },FIN_FRESHNESS_SAVE_DELAY);
+}
+async function finLoadFreshnessFromKV(){
+  if(typeof getKV!=='function') return {ok:false,skipped:true,error:'KV 조회 함수 없음'};
+  let remote;
+  try{ remote=await getKV(FIN_FRESHNESS_KV_KEY); }
+  catch(e){ return {ok:false,error:e?.message||'데이터 상태 로드 실패'}; }
+  finEnsureState();
+  const clean=finFreshnessSnapshot(remote);
+  window._dataFreshness=finMergeFreshness(clean,window._dataFreshness);
+  if(typeof cbRenderDataStatus==='function'&&typeof document!=='undefined'&&document.getElementById('view-data2')?.classList.contains('active')) cbRenderDataStatus();
+  if(typeof cbSyncFeedStatus==='function') cbSyncFeedStatus();
+  return {ok:true,count:Object.keys(clean).length};
+}
 function finMarkFresh(key,label,source,ok=true,detail=''){
   finEnsureState();
   window._dataFreshness[key]={label,source,ok:!!ok,detail:String(detail||''),updatedAt:new Date().toISOString(),session:FIN_SESSION_ID};
-  if(typeof cbRenderDataStatus==='function'&&document.getElementById('view-data2')?.classList.contains('active')) cbRenderDataStatus();
+  finScheduleFreshnessSave();
+  if(typeof cbRenderDataStatus==='function'&&typeof document!=='undefined'&&document.getElementById('view-data2')?.classList.contains('active')) cbRenderDataStatus();
   if(typeof cbSyncFeedStatus==='function') cbSyncFeedStatus();
 }
 function finFreshAge(iso){
@@ -330,13 +400,15 @@ function finNwChartSvg(series,w,h){
   const area=`${line} L${(padL+(series.length-1)*dx).toFixed(1)},${(h-8).toFixed(1)} L${padL.toFixed(1)},${(h-8).toFixed(1)} Z`;
   const every=Math.max(1,Math.ceil(series.length/6));
   const ticks=series.map((p,i)=>({p,i})).filter(x=>x.i%every===0||x.i===series.length-1)
-    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="IBM Plex Mono">${x.p.date.slice(5).replace('-','/')}</text>`).join('');
+    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="IBM Plex Mono">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
   const hit=series.map((p,i)=>{
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
     return `<rect x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair" onmousemove="finNwHover(event,${i})"></rect>`;
   }).join('');
   window._finNwHover=series;
-  return `<svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" onmouseleave="finNwHide()">
+  const chartLabel=`순자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
+  return `<svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
+    <title>${cbEsc(chartLabel)}</title>
     ${grid}
     <path d="${area}" fill="${stroke}" opacity=".10"></path>
     <path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -369,7 +441,7 @@ function cbRenderBalanceSheet(){
   cbSetHead('투자자산 + 기타 자산 − 부채 · 전체 순자산을 투자 성과와 분리해 관리',
     cbOwnerBtns(_finBalanceOwner,'finBalanceOwner'));
   const listOf=kind=>(window._balanceSheet[finBalanceKey(kind)]||[]).filter(x=>!ownerF||x.owner===ownerF);
-  const rows=(kind,list)=>list.map(x=>`<div class="fin-bs-row"><span><b>${cbEsc(x.name)}</b><small>${cbEsc(x.owner)} · ${cbEsc(x.category)}${x.note?' · '+cbEsc(x.note):''}</small></span><strong>${cbDisp(Number(x.amount)||0)}</strong><span class="fin-row-actions"><button onclick="finBalanceEdit('${kind}','${cbEsc(x.id)}')">수정</button><button onclick="finBalanceDelete('${kind}','${cbEsc(x.id)}')">삭제</button></span></div>`).join('')||'<div class="fin-empty">등록된 항목이 없습니다.</div>';
+  const rows=(kind,list)=>list.map(x=>`<div class="fin-bs-row"><span><b>${cbEsc(x.name)}</b><small>${cbEsc(x.owner)} · ${cbEsc(x.category)}${x.note?' · '+cbEsc(x.note):''}</small></span><strong>${cbDisp(Number(x.amount)||0)}</strong><span class="fin-row-actions"><button data-kind="${cbEsc(kind)}" data-id="${cbEsc(String(x.id||''))}" onclick="finBalanceEdit(this.dataset.kind,this.dataset.id)">수정</button><button data-kind="${cbEsc(kind)}" data-id="${cbEsc(String(x.id||''))}" onclick="finBalanceDelete(this.dataset.kind,this.dataset.id)">삭제</button></span></div>`).join('')||'<div class="fin-empty">등록된 항목이 없습니다.</div>';
   const assetList=listOf('asset'), liabList=listOf('liability');
   const edit=_finBalanceEdit;
   const editIdx=edit?finBalanceFind(edit.kind,edit.id):-1;
@@ -420,7 +492,7 @@ function cbRenderBalanceSheet(){
       <label>소유주<select id="fin-bs-owner">${OWNERS.map(o=>`<option ${(old?old.owner===o:ownerF===o)?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
       <label>분류<select id="fin-bs-category">${cats.map(c=>`<option ${old?.category===c?'selected':''}>${cbEsc(c)}</option>`).join('')}</select></label>
       <label>항목명<input id="fin-bs-name" value="${cbEsc(old?.name||'')}" placeholder="예: 거주 아파트"></label>
-      <label>금액(원)<input id="fin-bs-amount" type="number" min="0" step="10000" value="${old?.amount||''}" placeholder="0"></label>
+      <label>금액(원)<input id="fin-bs-amount" type="number" min="0" step="10000" value="${Number.isFinite(Number(old?.amount))?Number(old.amount):''}" placeholder="0"></label>
       <label>메모<input id="fin-bs-note" value="${cbEsc(old?.note||'')}" placeholder="선택 입력"></label>
     </div><div class="fin-form-actions"><button class="primary" onclick="finBalanceSubmit()">${old?'수정 저장':'항목 추가'}</button>${old?'<button onclick="finBalanceCancel()">취소</button>':''}</div></div>`;
 }
@@ -469,7 +541,10 @@ function finAccountDiagnostics(ownerF){
     ? allocateDividendTax(groups.map(x=>({owner:x.owner,acc:x.acc,gross:x.dividend,key:x.key}))).list
     : [];
   const taxByKey=new Map(allocated.map(x=>[x.key,x]));
-  const taxInfo=acc=>typeof getAccountDivTaxInfo==='function'?getAccountDivTaxInfo(acc):{type:'일반',normalRate:0.154,label:'일반, 15.4%'};
+  const generalRate=_taxRuleValue('dividend.generalWithholdingCombinedRate',0.154);
+  const isaRate=_taxRuleValue('isa.separateTaxCombinedRate',0.099);
+  const isaExemption=_taxRuleValue('isa.generalExemptionKrw',2_000_000);
+  const taxInfo=acc=>typeof getAccountDivTaxInfo==='function'?getAccountDivTaxInfo(acc):{type:'일반',normalRate:generalRate,label:`일반, ${(generalRate*100).toFixed(1)}%`};
   return groups.map(x=>{
     const info=taxInfo(x.acc);
     const gift=/증여/.test(x.acc);
@@ -477,12 +552,12 @@ function finAccountDiagnostics(ownerF){
     let status=info.type==='일반'?'일반 과세':(info.type==='ISA'?'ISA 절세':'연금 과세이연');
     let finding;
     if(info.type==='연금') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} 전액 과세이연 — 배당 자산을 두기 좋은 계좌입니다.`:'인출 시점까지 과세이연됩니다.';
-    else if(info.type==='ISA') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} · 소유주별 연 200만원 공제 후 9.9% 분리과세(${withheld==null?'예상세액 계산 불가':'예상 '+cbDisp(withheld)})`:'손익통산·분리과세 혜택 계좌입니다.';
+    else if(info.type==='ISA') finding=x.dividend>0?`배당 ${cbDisp(x.dividend)} · 유지기간 전체 일반형 ${cbDisp(isaExemption)} 비과세 후 ${(isaRate*100).toFixed(1)}% 분리과세. 표시 세액은 ${withheld==null?'계산 불가':'연간 현금흐름 참고 '+cbDisp(withheld)}`:'손익통산·분리과세 혜택 계좌입니다. 실제 세금은 만기·해지 때 정산합니다.';
     else if(x.dividend>0){
-      // 일반 15.4% → 연금 0% 로 옮겼을 때의 연간 절감액
-      const saving=x.dividend*0.154;
+      // 현재 일반계좌 원천징수율 → 연금 과세이연 가정의 연간 이연액
+      const saving=x.dividend*generalRate;
       status='배당 과세 점검';
-      finding=`배당 ${cbDisp(x.dividend)} · ${withheld==null?'원천징수 계산 불가':`원천징수 ${cbDisp(withheld)}(15.4%)`}. 절세계좌로 옮기면 연 최대 ${cbDisp(saving)} 절감`;
+      finding=`배당 ${cbDisp(x.dividend)} · ${withheld==null?'원천징수 계산 불가':`원천징수 ${cbDisp(withheld)}(${(generalRate*100).toFixed(1)}%)`}. 연금 과세이연 계좌로 옮긴 단순 가정상 연 최대 ${cbDisp(saving)} 이연`;
     }
     else finding=gift?'증여 계좌 — 증여 원금·취득가 기록을 함께 확인하세요.':'배당이 없어 계좌 위치에 따른 과세 차이가 작습니다.';
     if(gift&&info.type==='일반') status='증여 계좌';
@@ -500,18 +575,18 @@ function cbRenderPlan(){
   const ge=geIdx>=0?goalData[geIdx]:null;
   // 목표 비중 입력은 모바일에서 저장 버튼이 숨겨지므로 readonly 로 내려 오해를 줄인다.
   const ro=(typeof isMobileLayout==='function'&&isMobileLayout())?' readonly':'';
-  const goalCards=(goalData||[]).map(g=>{const cur=finGoalCurrent(g),pct=Math.max(0,Math.min(100,g.targetAmount?cur/g.targetAmount*100:0)),days=g.targetDate?Math.ceil((new Date(g.targetDate)-Date.now())/86400000):null;return`<div class="cb-panel fin-goal-card"><div><small>${cbEsc(g.targetDate||'목표일 미정')}${days!=null?` · ${days>=0?'D-'+days:'기한 경과'}`:''}</small><strong>${cbEsc(g.name)}</strong><span>${cbDisp(cur)} / ${cbDisp(g.targetAmount)}</span></div><b>${pct.toFixed(1)}%</b><div class="fin-meter"><i style="width:${pct}%"></i></div><div class="fin-row-actions"><button onclick="finGoalEdit('${cbEsc(g.id)}')">수정</button><button onclick="finGoalDelete('${cbEsc(g.id)}')">삭제</button></div></div>`;}).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
+  const goalCards=(goalData||[]).map(g=>{const cur=finGoalCurrent(g),pct=Math.max(0,Math.min(100,g.targetAmount?cur/g.targetAmount*100:0)),days=g.targetDate?Math.ceil((new Date(g.targetDate)-Date.now())/86400000):null,safeId=cbEsc(String(g.id||''));return`<div class="cb-panel fin-goal-card"><div><small>${cbEsc(g.targetDate||'목표일 미정')}${days!=null?` · ${days>=0?'D-'+days:'기한 경과'}`:''}</small><strong>${cbEsc(g.name)}</strong><span>${cbDisp(cur)} / ${cbDisp(g.targetAmount)}</span></div><b>${pct.toFixed(1)}%</b><div class="fin-meter"><i style="width:${pct}%"></i></div><div class="fin-row-actions"><button data-id="${safeId}" onclick="finGoalEdit(this.dataset.id)">수정</button><button data-id="${safeId}" onclick="finGoalDelete(this.dataset.id)">삭제</button></div></div>`;}).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
   el.innerHTML=`
     <div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 목표는 가구 공통입니다</small></div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
     <div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
-      <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="number" min="0" step="10000" value="${ge?.targetAmount||''}"></label><label>목표일<input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"></label>
+      <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="number" min="0" step="10000" value="${Number.isFinite(Number(ge?.targetAmount))?Number(ge.targetAmount):''}"></label><label>목표일<input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"></label>
       <label>현재 금액 연결<select id="fin-goal-link" onchange="finGoalLinkChange()"><option value="investment" ${ge?.linkClass==='investment'?'selected':''}>가족 투자자산</option><option value="net" ${ge?.linkClass==='net'?'selected':''}>전체 순자산</option>${Object.keys(FIN_DEFAULT_TARGET).map(k=>`<option value="${k}" ${ge?.linkClass===k?'selected':''}>${cbEsc(CB_CLS[k].label)}</option>`).join('')}<option value="manual" ${ge?.linkClass==='manual'?'selected':''}>직접 입력</option></select></label>
-      <label id="fin-goal-current-wrap" style="display:${ge?.linkClass==='manual'?'flex':'none'}">현재 금액(원)<input id="fin-goal-current" type="number" min="0" value="${ge?.currentAmount||''}"></label>
+      <label id="fin-goal-current-wrap" style="display:${ge?.linkClass==='manual'?'flex':'none'}">현재 금액(원)<input id="fin-goal-current" type="number" min="0" value="${Number.isFinite(Number(ge?.currentAmount))?Number(ge.currentAmount):''}"></label>
     </div><div class="fin-form-actions"><button class="primary" onclick="finGoalSubmit()">${ge?'수정 저장':'목표 추가'}</button>${ge?'<button onclick="finGoalCancel()">취소</button>':''}</div></div>
     <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div>
       <div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>`<div class="${Math.abs(x.drift)>=ta.threshold?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span class="${x.drift>=0?'up':'down'}">${x.drift>=0?'+':''}${x.drift.toFixed(1)}%p</span><span class="${x.diff>=0?'up':'down'}">${x.diff>=0?'매수 ':'축소 '}${cbDisp(Math.abs(x.diff))}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>
-    <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>배당 원천징수 기준(일반 15.4% · ISA 9.9% · 연금 과세이연) · 실행 전 증권사·세무 확인 필요</small></div><div class="fin-account-table"><div class="head"><span>소유주 · 증권사 · 계좌</span><span>평가액</span><span>비중</span><span>진단</span></div>${accounts.map(x=>`<div><span><b>${cbEsc(x.key)}</b><small>${x.count}개 자산 · ${cbEsc(x.status)} · ${cbEsc(x.taxLabel)}</small></span><span>${cbDisp(x.value)}</span><span>${x.share.toFixed(1)}%</span><span>${cbEsc(x.finding)}</span></div>`).join('')||'<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>'}</div></div>`;
+    <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div><div class="fin-account-table"><div class="head"><span>소유주 · 증권사 · 계좌</span><span>평가액</span><span>비중</span><span>진단</span></div>${accounts.map(x=>`<div><span><b>${cbEsc(x.key)}</b><small>${x.count}개 자산 · ${cbEsc(x.status)} · ${cbEsc(x.taxLabel)}</small></span><span>${cbDisp(x.value)}</span><span>${x.share.toFixed(1)}%</span><span>${cbEsc(x.finding)}</span></div>`).join('')||'<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>'}</div></div>`;
 }
 
 function finDataStatusRows(){

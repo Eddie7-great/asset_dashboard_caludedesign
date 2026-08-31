@@ -47,7 +47,9 @@ assert.match(scriptSource, /if \(!THEMES\.includes\(mode\)\) mode = 'light'[\s\S
 assert.match(cobaltSource, /fam2:'구성원별 보유'[\s\S]*balance2:'가족 재무상태표'[\s\S]*plan2:'목표·리밸런싱'[\s\S]*data2:'데이터 상태'/, '신규 화면 라우팅 제목 등록')
 assert.match(cobaltSource, /가족 투자자산[\s\S]*finDashboardFocus\(ownerF\)[\s\S]*cb-dash-insight-grid/, '첫 화면에서 투자자산·이번 달 할 일·목표 편차·현금 안전판을 분석 카드보다 먼저 배치')
 assert.match(financeSource, /function finDashboardFocus\(owner\)\{[\s\S]*finTargetAnalysis\(ownerF\)[\s\S]*finCashSafety\(ownerF\)/, '대시보드 목표 편차·현금 안전판 카드가 선택한 소유주를 따름')
-assert.match(scriptSource, /balanceSheet:window\._balanceSheet[\s\S]*dataFreshness:window\._dataFreshness/, '재무상태표와 데이터 상태를 확장 KV에 저장')
+assert.match(scriptSource, /balanceSheet:window\._balanceSheet/, '재무상태표를 확장 KV에 저장')
+assert.doesNotMatch(scriptSource, /const ext = \{[^\n]*dataFreshness:/, '데이터 상태는 확장 KV와 중복 저장하지 않음')
+assert.match(financeSource, /FIN_FRESHNESS_KV_KEY='data_freshness'[\s\S]*setKV\(FIN_FRESHNESS_KV_KEY[\s\S]*getKV\(FIN_FRESHNESS_KV_KEY/, '데이터 상태를 전용 KV에 저장·복원')
 assert.match(scriptSource, /nonInvestmentAssets[\s\S]*liabilities[\s\S]*total = portfolio \+ nonInvestmentAssets - liabilities/, '순자산 스냅샷에서 투자자산·기타 자산·부채를 분리')
 assert.match(scriptSource, /schemaV: 2[\s\S]*netByOwner/, '스냅샷에 스키마 버전과 소유주별 순자산을 기록')
 assert.match(financeSource, /function cbRenderBalanceSheet\([\s\S]*순자산 추이[\s\S]*순자산 변화 분석[\s\S]*현금 안전판/, '재무상태표에 순자산 추이·변화 분석·현금 안전판 제공')
@@ -117,6 +119,7 @@ const elements = {
   'cb-data2': { innerHTML: '' },
 }
 Object.assign(context, {
+  _taxRuleValue: (_path, fallback) => fallback,
   OWNERS: ['본인', '아내', '자녀1', '아버지'],
   RATES: { USD: 1350, JPY: 9 },
   benchData: { '1Y': {} },
@@ -152,7 +155,7 @@ context.cbRenderDataStatus()
 assert.match(elements['cb-balance2'].innerHTML, /순자산[\s\S]*순자산 추이[\s\S]*순자산 변화 분석[\s\S]*현금 안전판/, '재무상태표 빈 상태 렌더')
 assert.match(elements['cb-balance2'].innerHTML, /fin-mobile-note/, '모바일 조회 전용 안내 노출')
 assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*목표 비중과 리밸런싱[\s\S]*계좌 배치 진단/, '목표·리밸런싱 빈 상태 렌더')
-assert.match(elements['cb-plan2'].innerHTML, /절세계좌로 옮기면 연 최대/, '일반계좌 배당의 절세 여력을 금액으로 제시')
+assert.match(elements['cb-plan2'].innerHTML, /연금 과세이연 계좌로 옮긴 단순 가정상 연 최대/, '일반계좌 배당의 과세이연 여력을 금액으로 제시')
 assert.match(elements['cb-data2'].innerHTML, /데이터 신뢰 점검[\s\S]*성과 벤치마크/, '데이터 상태 렌더')
 assert.match(elements['cb-data2'].innerHTML, /manualRefresh\('assets'\)[\s\S]*manualRefresh\('benchmark'\)/, '데이터 상태 카드가 해당 소스만 다시 확인')
 

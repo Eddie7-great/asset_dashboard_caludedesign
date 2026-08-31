@@ -2,9 +2,11 @@
 // Vercel Serverless Function: 네이버 증권 HTML 스크래핑 기반 종목 검색
 // axios + cheerio 사용 (외부 API 키 불필요)
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from './_types';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+
+const { authenticateRequest, sendAuthFailure } = require('./_auth.js');
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -297,22 +299,29 @@ async function searchJapanStock(code: string): Promise<StockResult | null> {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Vary', 'Cookie, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  const authHeader = req.headers['authorization'];
-  const expectedToken = process.env.AUTH_TOKEN;
-  if (expectedToken && (!authHeader || authHeader !== `Bearer ${expectedToken}`)) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return sendAuthFailure(res, auth);
+
   // 클라이언트는 query / q 둘 다 사용할 수 있음 (하위 호환)
-  const query = (((req.query.q as string) || (req.query.query as string) || '').trim());
+  const rawQuery = Array.isArray(req.query.q)
+    ? req.query.q[0]
+    : (req.query.q || (Array.isArray(req.query.query) ? req.query.query[0] : req.query.query) || '');
+  const query = String(rawQuery).trim().normalize('NFKC');
   if (!query) {
     return res.status(400).json({ success: false, error: '검색어를 입력하세요.' });
+  }
+  if (query.length > 80 || /[\u0000-\u001F\u007F]/.test(query)) {
+    return res.status(400).json({ success: false, error: '검색어 형식이 올바르지 않습니다.' });
   }
 
   try {
@@ -327,7 +336,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Yahoo 폴백 (일본 회사명 검색)
       const yhResult = await searchYahoo(query);
       if (yhResult && yhResult.price > 0) return res.status(200).json(yhResult);
-      return res.status(404).json({ success: false, error: `일본 종목 ${query}을(를) 찾을 수 없습니다.` });
+      return res.status(404).json({ success: false, error: '일본 종목을 찾을 수 없습니다.' });
     }
 
     // 1. 6자리 국내 종목코드
@@ -337,7 +346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Yahoo 폴백
       const yhResult = await searchYahoo(query);
       if (yhResult && yhResult.price > 0) return res.status(200).json(yhResult);
-      return res.status(404).json({ success: false, error: `종목코드 ${query}을(를) 찾을 수 없습니다.` });
+      return res.status(404).json({ success: false, error: '종목코드를 찾을 수 없습니다.' });
     }
 
     // 2. 한글 종목명 → 네이버 자동완성 API 우선
@@ -350,7 +359,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.status(404).json({
         success: false,
-        error: `"${query}" 검색 결과가 없습니다. 종목코드(6자리)나 영문 티커로 다시 시도해보세요.`,
+        error: '검색 결과가 없습니다. 종목코드(6자리)나 영문 티커로 다시 시도해보세요.',
       });
     }
 
@@ -376,7 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(404).json({
       success: false,
-      error: `"${query}" 검색 결과가 없습니다. 정확한 티커 심볼이나 종목코드로 다시 시도해보세요.`,
+      error: '검색 결과가 없습니다. 정확한 티커 심볼이나 종목코드로 다시 시도해보세요.',
     });
 
   } catch (error: any) {

@@ -1,0 +1,126 @@
+name: 세금·증여 공식 근거 점검
+
+on:
+  schedule:
+    - cron: '17 21 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - tax-rules.js
+      - scripts/check-tax-rule-sources.mjs
+      - .github/workflows/tax-rule-watch.yml
+
+concurrency:
+  group: tax-rule-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      scan_outcome: ${{ steps.scan.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci --ignore-scripts
+
+      - name: 공식 출처와 검토기한 확인
+        id: scan
+        continue-on-error: true
+        run: npm run check:tax-rules:remote -- --report "${{ runner.temp }}/tax-rule-report.json"
+
+      - name: 점검 보고서 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tax-rule-report
+          path: ${{ runner.temp }}/tax-rule-report.json
+          if-no-files-found: error
+          retention-days: 14
+
+  notify:
+    needs: check
+    if: always() && needs.check.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: 점검 보고서 받기
+        uses: actions/download-artifact@v4
+        with:
+          name: tax-rule-report
+          path: tax-rule-report
+
+      - name: 검토 이슈 열기 또는 닫기
+        uses: actions/github-script@v7
+        env:
+          SCAN_OUTCOME: ${{ needs.check.outputs.scan_outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- tax-rule-watch -->';
+            const title = '[Tax Rules] 공식 출처 검토 필요';
+            const report = JSON.parse(fs.readFileSync('tax-rule-report/tax-rule-report.json', 'utf8'));
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const existing = issues.find(issue => !issue.pull_request && issue.title === title && String(issue.body || '').includes(marker));
+            const failed = process.env.SCAN_OUTCOME !== 'success';
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            if (failed) {
+              const affected = (report.sources || []).filter(source => source.state !== 'ok');
+              const lines = affected.length
+                ? affected.map(source => `- \`${source.id}\`: ${source.state}${source.errorCode ? ` (${source.errorCode})` : ''}`)
+                : (report.validation?.errors || []).map(message => `- ${message}`);
+              const body = [
+                marker,
+                '공식 법령·국세청 출처 또는 사람 검토기한 확인이 필요합니다.',
+                '',
+                `- 규칙 버전: \`${report.manifestVersion || 'unknown'}\``,
+                `- 확인 시각: ${report.checkedAt || 'unknown'}`,
+                `- 검토 상태: ${report.reviewState || 'unknown'}`,
+                `- 실행: ${runUrl}`,
+                '',
+                '확인 대상:',
+                ...(lines.length ? lines : ['- 보고서 생성 상태를 확인하세요.']),
+                '',
+                '공식 본문을 검토한 뒤 `tax-rules.js`의 값·가정·제외 항목·검토일을 함께 갱신하세요. 자동으로 세율을 바꾸지 않습니다.',
+              ].join('\n');
+              if (existing) await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              else await github.rest.issues.create({ owner, repo, title, body });
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: `${marker}\n공식 출처 점검이 다시 통과했습니다. 실행: ${runUrl}`,
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            }
+
+  result:
+    needs: [check, notify]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: 점검 결과 반영
+        env:
+          SCAN_OUTCOME: ${{ needs.check.outputs.scan_outcome }}
+          NOTIFY_RESULT: ${{ needs.notify.result }}
+        run: |
+          if [ "$SCAN_OUTCOME" != "success" ] || [ "$NOTIFY_RESULT" != "success" ]; then
+            echo "세금·증여 규칙 점검 또는 알림에 실패했습니다."
+            exit 1
+          fi

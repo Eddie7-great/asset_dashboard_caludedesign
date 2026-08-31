@@ -1,87 +1,132 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from './_types';
 
-// ── Upstash Redis(KV) 프록시 ──────────────────────────────────
-// 토큰을 클라이언트(script.js)에 노출하지 않기 위한 서버측 프록시.
-// 환경변수 필요: KV_REST_API_URL, KV_REST_API_TOKEN (Vercel Settings → Environment Variables)
-//   GET  /api/kv?key=<key>            → Upstash GET /get/<key>   → {result: <string|null>}
-//   POST /api/kv?key=<key> {value}    → Upstash POST /set/<key>  → {result: "OK"}
-// 응답 형태는 Upstash 원형({result:...})을 그대로 전달 → 프론트 파싱 로직 변경 불필요.
+const { authenticateRequest, sendAuthFailure } = require('./_auth.js');
 
-const KV_URL = process.env.KV_REST_API_URL || '';
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || '';
+const KV_URL = String(process.env.KV_REST_API_URL || '').replace(/\/+$/, '');
+const KV_TOKEN = String(process.env.KV_REST_API_TOKEN || '');
+const ALLOWED_KEYS = new Set(['assets', 'ext_data', 'data_freshness']);
+const MAX_VALUE_BYTES = 1_000_000;
+const MAX_REQUEST_BYTES = MAX_VALUE_BYTES + 2048;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 자산·현금흐름 데이터가 브라우저나 CDN에 저장되지 않도록 한다.
+const READ_SCRIPT = [
+  "local value = redis.call('GET', KEYS[1])",
+  "local revision = redis.call('GET', KEYS[2])",
+  "if not revision then revision = '0' end",
+  'if not value then return {false, revision} end',
+  'return {value, revision}',
+].join('\n');
+
+const CAS_SCRIPT = [
+  "local current = redis.call('GET', KEYS[2])",
+  "if not current then current = '0' end",
+  "if current ~= ARGV[1] then return {0, current} end",
+  'local next_revision = tostring(tonumber(current) + 1)',
+  "redis.call('SET', KEYS[1], ARGV[2])",
+  "redis.call('SET', KEYS[2], next_revision)",
+  'return {1, next_revision}',
+].join('\n');
+
+function revisionKey(key: string): string {
+  return `__revision__:${key}`;
+}
+
+function queryValue(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function parseRevision(value: unknown): number | null {
+  const text = typeof value === 'number' ? String(value) : (typeof value === 'string' ? value : '');
+  if (!/^(0|[1-9]\d*)$/.test(text)) return null;
+  const parsed = Number(text);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+async function kvCommand(command: unknown[]): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch(KV_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`kv_upstream_${response.status}`);
+    const data = await response.json();
+    if (!data || !Object.prototype.hasOwnProperty.call(data, 'result')) {
+      throw new Error('kv_upstream_invalid');
+    }
+    return data.result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Vary', 'Cookie, Authorization');
 
   if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'method not allowed' });
+    res.setHeader('Allow', 'GET, POST');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // KV 프록시는 가족 자산 원문을 읽고 쓸 수 있으므로 반드시 fail-closed로 보호한다.
-  // AUTH_TOKEN이 누락된 배포도 공개 API로 동작하지 않고 설정 오류로 중단한다.
-  const expectedToken = process.env.AUTH_TOKEN;
-  if (!expectedToken) {
-    console.error('[api/kv] AUTH_TOKEN 환경변수가 설정되지 않았습니다');
-    return res.status(500).json({ error: 'Auth not configured' });
-  }
-
-  const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${expectedToken}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return sendAuthFailure(res, auth);
 
   if (!KV_URL || !KV_TOKEN) {
-    console.error('[api/kv] KV_REST_API_URL / KV_REST_API_TOKEN 환경변수가 설정되지 않았습니다');
+    console.error('[api/kv] KV environment is not configured');
     return res.status(500).json({ error: 'KV not configured' });
   }
 
-  // 키 화이트리스트(영숫자·_·:·-)로 경로 주입 방지
-  const key = String(req.query.key || '');
-  if (!key || !/^[A-Za-z0-9_:.-]{1,128}$/.test(key)) {
-    return res.status(400).json({ error: 'invalid key' });
-  }
+  const key = queryValue(req.query.key);
+  if (!ALLOWED_KEYS.has(key)) return res.status(400).json({ error: 'Invalid key' });
 
-  const kvAuthHeaders = { Authorization: `Bearer ${KV_TOKEN}` };
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return res.status(413).json({ error: 'Payload too large' });
+  }
 
   try {
     if (req.method === 'GET') {
-      const r = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: kvAuthHeaders });
-      if (!r.ok) {
-        console.warn('[api/kv] GET 비정상 응답', r.status, key);
-        return res.status(502).json({ error: 'KV upstream GET failed' });
-      }
-      const data = await r.json();
-      if (!data || !Object.prototype.hasOwnProperty.call(data, 'result')) {
-        return res.status(502).json({ error: 'KV upstream GET response invalid' });
-      }
-      return res.status(200).json(data);
+      const result = await kvCommand(['EVAL', READ_SCRIPT, '2', key, revisionKey(key)]);
+      if (!Array.isArray(result) || result.length < 2) throw new Error('kv_read_invalid');
+      const revision = parseRevision(result[1]);
+      if (revision === null) throw new Error('kv_revision_invalid');
+      return res.status(200).json({ result: result[0] ?? null, revision });
     }
 
-    if (req.method === 'POST') {
-      // 프론트는 {value:<string>} 형태로 보냄(객체는 미리 JSON.stringify 됨)
-      const body: any = req.body || {};
-      const bodyValue = typeof body.value === 'undefined' || body.value === null ? '' : String(body.value);
-      const r = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}`, {
-        method: 'POST',
-        headers: kvAuthHeaders,
-        body: bodyValue,
-      });
-      if (!r.ok) {
-        console.warn('[api/kv] SET 비정상 응답', r.status, key);
-        return res.status(502).json({ error: 'KV upstream SET failed' });
-      }
-      const data = await r.json();
-      if (!data || data.result !== 'OK') {
-        return res.status(502).json({ error: 'KV upstream SET response invalid' });
-      }
-      return res.status(200).json(data);
+    const contentType = queryValue(req.headers['content-type']);
+    if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+      return res.status(415).json({ error: 'Content-Type must be application/json' });
     }
 
-    return res.status(405).json({ error: 'method not allowed' });
-  } catch (e: any) {
-    console.error('[api/kv]', e);
-    return res.status(500).json({ error: String(e?.message || e) });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (typeof body.value !== 'string') return res.status(400).json({ error: 'Invalid value' });
+    if (Buffer.byteLength(body.value, 'utf8') > MAX_VALUE_BYTES) {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
+    const expectedRevision = parseRevision(body.expectedRevision);
+    if (expectedRevision === null) {
+      return res.status(428).json({ error: 'expectedRevision required' });
+    }
+
+    const result = await kvCommand([
+      'EVAL', CAS_SCRIPT, '2', key, revisionKey(key), String(expectedRevision), body.value,
+    ]);
+    if (!Array.isArray(result) || result.length < 2) throw new Error('kv_write_invalid');
+    const currentRevision = parseRevision(result[1]);
+    if (currentRevision === null) throw new Error('kv_revision_invalid');
+    if (Number(result[0]) !== 1) {
+      return res.status(409).json({ error: 'Conflict', revision: currentRevision });
+    }
+    return res.status(200).json({ result: 'OK', revision: currentRevision });
+  } catch (error) {
+    console.error('[api/kv] upstream operation failed', error);
+    return res.status(502).json({ error: 'Storage unavailable' });
   }
 }

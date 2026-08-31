@@ -30,7 +30,13 @@ jobs:
           python-version: '3.11'
 
       - name: 의존성 설치
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: 문법·타입·회귀 테스트
         run: npm test
+
+      - name: 세금·증여 규칙 구조와 검토기한 확인
+        run: npm run check:tax-rules
+
+      - name: 운영 의존성 보안 감사
+        run: npm audit --omit=dev --audit-level=high

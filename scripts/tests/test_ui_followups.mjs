@@ -108,7 +108,7 @@ assert.match(scriptSource, /cfDeletedKeys\.some\(key=>\{[\s\S]*raw===divKey[\s\S
 assert.match(scriptSource, /rememberCfDeletion\(item\)[\s\S]*await saveExtDataToKV\(\)/, '삭제 상태를 원격 확장 데이터까지 저장')
 assert.match(
   scriptSource,
-  /arrayFields\.forEach\(key=>\{normalized\[key\]=owns\(key\)\?data\[key\]:\[\];\}\)[\s\S]*cfData=normalized\.cfData/,
+  /arrayFields\.forEach\(key=>\{normalized\[key\]=owns\(key\)\?data\[key\]:\[\];\}\)[\s\S]*cfData=_normalizeCfRows\(normalized\.cfData\)/,
   '빈 현금 흐름 배열과 누락 필드를 원격 정본 기준으로 복원',
 )
 
@@ -219,7 +219,7 @@ const upcoming = upcomingContext.cbUpcomingDividendSchedule([
 assert.equal(upcoming[0].dateLabel, '8월 예정', '지급일 미확인 종목은 월 단위 일정으로 표시')
 assert.equal(upcoming.find(x => x.ticker === 'O').dateLabel, '9월 5일', '확인된 지급일은 일자까지 표시')
 assert.equal(upcoming.find(x => x.ticker === 'SCHD').amount, 60_000, '연간 예상 배당을 지급 월수로 나눠 회차 금액 산출')
-assert.match(cobaltSource, /예상 납부세액 합계[\s\S]*일반 · 해외주식[\s\S]*해외 기본공제 사용률[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 납부세액·해외·공제·국내·ISA·연금 순으로 배치')
+assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s\S]*해외 기본공제 사용률[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 참고합계·해외·공제·국내·ISA·연금 순으로 배치')
 assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-no-comma="1"[\s\S]*oninput="handlePLAmtInput\(this\)"/, '양도소득세 수정 금액 입력에도 음수 허용 실시간 쉼표 포맷 적용')
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
@@ -244,14 +244,14 @@ vm.runInContext(extractFunction(scriptSource, '_maskAmountText'), privacyContext
 assert.equal(privacyContext._maskAmountText('평가액 +₩12,345,678원'), '평가액 +₩••••', '원화 금액 마스킹')
 assert.equal(privacyContext._maskAmountText('배당 $123.45 · 환산 ¥9,876'), '배당 $•••• · 환산 ¥••••', '외화 금액 마스킹')
 
-const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'], OWNERS:['본인','아내','자녀1','아버지'] }
+const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'], OWNERS:['본인','아내','자녀1','아버지'], _taxRuleValue:(_path,fallback)=>fallback }
 vm.createContext(taxTreatmentContext)
 for (const name of ['cbTaxAcctOf','cbTaxTreatment','cbSortTaxEntries','cbTaxCumulativeByEntry']) {
   vm.runInContext(extractFunction(cobaltSource, name), taxTreatmentContext)
 }
 assert.equal(taxTreatmentContext.cbTaxTreatment({account:'일반',category:'domestic'}).label, '비과세', '국내 일반계좌 세제 구분')
 assert.equal(taxTreatmentContext.cbTaxTreatment({account:'일반',category:'foreign'}).label, '22% 대상', '해외 일반계좌 세제 구분')
-assert.equal(taxTreatmentContext.cbTaxTreatment({account:'ISA',category:'domestic'}).label, '9.9% 분리', 'ISA 세제 구분')
+assert.equal(taxTreatmentContext.cbTaxTreatment({account:'ISA',category:'domestic'}).label, '9.9% 참고', 'ISA 세제 구분은 연간 참고임을 표시')
 assert.equal(taxTreatmentContext.cbTaxTreatment({account:'연금저축',category:'domestic'}).label, '과세이연', '연금저축 세제 구분')
 assert.match(cobaltSource, /계좌<\/span><span style="width:82px[\s\S]*세제 구분[\s\S]*cb-tax-treatment is-\$\{treatment\.tone\}[\s\S]*t\.memo/, '양도소득세 계좌 다음에 세제 구분, 메모 순으로 배치')
 assert.match(cobaltSource, /cb-tax-memo-head[\s\S]*cb-tax-memo-cell/, '양도소득세 메모 칼럼에 별도 여백 클래스 적용')

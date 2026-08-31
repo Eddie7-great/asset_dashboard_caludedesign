@@ -3,113 +3,109 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
-import ts from 'typescript'
 
 const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
 const kvSource = fs.readFileSync(new URL('../../api/kv.ts', import.meta.url), 'utf8')
 const authSource = fs.readFileSync(new URL('../../api/auth.ts', import.meta.url), 'utf8')
+const authHelperSource = fs.readFileSync(new URL('../../api/_auth.js', import.meta.url), 'utf8')
 
-assert.match(kvSource, /const expectedToken = process\.env\.AUTH_TOKEN/, 'KV 프록시가 서버 인증 토큰을 읽음')
-assert.match(kvSource, /if \(!expectedToken\)[\s\S]*status\(500\)/, 'AUTH_TOKEN 누락 시 공개 동작하지 않음')
-assert.match(kvSource, /authHeader !== `Bearer \$\{expectedToken\}`[\s\S]*status\(401\)/, 'KV 프록시가 Bearer 토큰을 강제')
+assert.match(kvSource, /authenticateRequest\(req\)/, 'KV 프록시는 공통 인증 경계를 강제')
+assert.match(authHelperSource, /HttpOnly/, '세션 쿠키는 JavaScript에서 읽을 수 없음')
+assert.match(authHelperSource, /SameSite=Strict/, '세션 쿠키는 교차 사이트 요청에서 전송하지 않음')
+assert.match(authHelperSource, /SESSION_TTL_SECONDS/, '서명 세션에 고정 만료시간 적용')
+assert.match(kvSource, /ALLOWED_KEYS = new Set\(\['assets', 'ext_data', 'data_freshness'\]\)/, 'KV 키 allow-list 적용')
+assert.match(kvSource, /expectedRevision/, 'KV 쓰기는 revision 기반 CAS 사용')
+assert.match(kvSource, /status\(409\)/, 'KV 충돌은 409로 전달')
 assert.match(kvSource, /Cache-Control', 'no-store'/, '민감한 KV 응답 캐시 금지')
-assert.doesNotMatch(kvSource, /Access-Control-Allow-Origin/, 'KV 프록시의 전체 출처 CORS 제거')
-assert.match(scriptSource, /async function authFetch\([\s\S]*res\.status === 401[\s\S]*sessionStorage\.removeItem\('_dashAuth'\)/, '만료·오류 토큰 제거 후 재로그인 유도')
-assert.match(scriptSource, /async function setKV\([\s\S]*authFetch\(`\/api\/kv/, 'KV 쓰기에 인증 헤더 사용')
-assert.match(scriptSource, /async function getKV\([\s\S]*authFetch\(`\/api\/kv/, 'KV 읽기에 인증 헤더 사용')
-assert.match(authSource, /Cache-Control', 'no-store'/, '로그인 토큰 응답 캐시 금지')
-assert.doesNotMatch(authSource, /Access-Control-Allow-Origin/, '로그인 API의 전체 출처 CORS 제거')
+assert.doesNotMatch(kvSource, /Access-Control-Allow-Origin/, 'KV 프록시에 전체 출처 CORS 없음')
 
-// TypeScript 핸들러를 메모리에서 변환해 인증 경계의 실제 응답을 검증한다.
-const compiledKv = ts.transpileModule(kvSource, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText
-const kvModule = { exports: {} }
-const upstreamCalls = []
-let upstreamResponse = { ok:true, status:200, json:async () => ({ result:null }) }
-const sandboxProcess = {
-  env: {
-    KV_REST_API_URL: 'https://kv.example.test',
-    KV_REST_API_TOKEN: 'upstash-secret',
-  },
-}
-const kvContext = {
-  module: kvModule,
-  exports: kvModule.exports,
-  require: () => ({}),
-  process: sandboxProcess,
-  console,
-  fetch: async (url, options) => {
-    upstreamCalls.push({ url, options })
-    return upstreamResponse
-  },
-}
-vm.createContext(kvContext)
-vm.runInContext(compiledKv, kvContext)
-const kvHandler = kvModule.exports.default
+assert.match(scriptSource, /async function authFetch[\s\S]*credentials = 'same-origin'/, '클라이언트 API 요청은 동일 출처 세션 쿠키 사용')
+assert.match(scriptSource, /async function _setKVOnce[\s\S]*expectedRevision/, '클라이언트 KV 쓰기는 기대 revision 전송')
+assert.match(scriptSource, /async function _setKVOnce[\s\S]*res\.status===409/, '클라이언트 KV 충돌 처리')
+assert.match(scriptSource, /const _kvWriteQueues=new Map\(\)[\s\S]*async function setKV/, '같은 키의 연속 저장은 직렬화')
+assert.match(scriptSource, /async function getKV[\s\S]*_kvRevisions\.set/, '클라이언트 KV 읽기는 revision 보존')
+assert.match(scriptSource, /sessionStorage\.removeItem\('_dashAuth'\)/, '구형 브라우저 bearer 토큰 제거')
+assert.doesNotMatch(scriptSource, /sessionStorage\.setItem\('_dashAuth'/, '새 bearer 토큰을 브라우저 저장소에 기록하지 않음')
 
-function responseRecorder() {
-  return {
-    statusCode: 200,
-    headers: {},
-    body: undefined,
-    setHeader(name, value) { this.headers[name] = value },
-    status(code) { this.statusCode = code; return this },
-    json(body) { this.body = body; return this },
+assert.match(authSource, /Set-Cookie/, '로그인 성공은 서명 세션 쿠키 발급')
+assert.match(authSource, /checkLoginRateLimit/, '로그인 시도 제한 적용')
+assert.match(authSource, /req\.method === 'DELETE'/, '로그아웃으로 세션 쿠키 폐기')
+assert.doesNotMatch(authSource, /token:\s*expected/, '로그인 응답에 서버 비밀을 노출하지 않음')
+assert.doesNotMatch(authSource, /Access-Control-Allow-Origin/, '로그인 API에 전체 출처 CORS 없음')
+
+function extractFunction(name) {
+  const asyncStart = scriptSource.indexOf(`async function ${name}(`)
+  const start = asyncStart >= 0 ? asyncStart : scriptSource.indexOf(`function ${name}(`)
+  assert.notEqual(start, -1, `${name} 함수를 찾을 수 없음`)
+  const open = scriptSource.indexOf('{', start)
+  let depth = 0, quote = null, escaped = false, lineComment = false, blockComment = false
+  for (let index = open; index < scriptSource.length; index += 1) {
+    const ch = scriptSource[index], next = scriptSource[index + 1]
+    if (lineComment) { if (ch === '\n') lineComment = false; continue }
+    if (blockComment) { if (ch === '*' && next === '/') { blockComment = false; index += 1 } continue }
+    if (quote) {
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\') { escaped = true; continue }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '/' && next === '/') { lineComment = true; index += 1; continue }
+    if (ch === '/' && next === '*') { blockComment = true; index += 1; continue }
+    if (ch === '\'' || ch === '"' || ch === '`') { quote = ch; continue }
+    if (ch === '{') depth += 1
+    if (ch === '}' && --depth === 0) return scriptSource.slice(start, index + 1)
   }
+  throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-delete sandboxProcess.env.AUTH_TOKEN
-let response = responseRecorder()
-await kvHandler({ method: 'GET', headers: {}, query: { key: '__auth_probe__' } }, response)
-assert.equal(response.statusCode, 500, 'AUTH_TOKEN 누락 시 500으로 fail-closed')
-assert.equal(upstreamCalls.length, 0, '인증 설정 오류 요청은 Upstash에 전달하지 않음')
+// 같은 탭에서 같은 키를 연속 저장해도 CAS revision을 순서대로 사용해야 한다.
+let activeWrites = 0, maxActiveWrites = 0, fetchCalls = 0
+const expectedRevisions = []
+let releaseFirst
+const firstGate = new Promise(resolve => { releaseFirst = resolve })
+const queueContext = {
+  _kvRevisions: new Map(),
+  _kvWriteQueues: new Map(),
+  window: { _kvLoadState: { assets:'ready', ext:'ready' } },
+  console: { warn:()=>{}, error:()=>{} },
+  clearKvLoadError: () => {},
+  showKvLoadError: () => {},
+  authFetch: async (_url, options) => {
+    const call = ++fetchCalls
+    const body = JSON.parse(options.body)
+    expectedRevisions.push(body.expectedRevision)
+    activeWrites += 1
+    maxActiveWrites = Math.max(maxActiveWrites, activeWrites)
+    if (call === 1) await firstGate
+    activeWrites -= 1
+    return { ok:true, status:200, json:async()=>({ result:'OK', revision:body.expectedRevision + 1 }) }
+  },
+}
+vm.createContext(queueContext)
+vm.runInContext(`${extractFunction('_setKVOnce')}\n${extractFunction('setKV')}`, queueContext)
+const firstWrite = queueContext.setKV('assets', [{id:1}])
+const secondWrite = queueContext.setKV('assets', [{id:2}])
+await new Promise(resolve => setTimeout(resolve, 0))
+assert.equal(fetchCalls, 1, '첫 저장 완료 전 두 번째 네트워크 쓰기를 시작하지 않음')
+releaseFirst()
+await Promise.all([firstWrite, secondWrite])
+assert.equal(maxActiveWrites, 1, '같은 키의 네트워크 쓰기 최대 동시성은 1')
+assert.deepEqual(expectedRevisions, [0, 1], '성공 revision을 다음 대기 저장이 이어받음')
 
-sandboxProcess.env.AUTH_TOKEN = 'browser-secret'
-response = responseRecorder()
-await kvHandler({ method: 'GET', headers: {}, query: { key: '__auth_probe__' } }, response)
-assert.equal(response.statusCode, 401, '무인증 KV GET 차단')
-assert.equal(upstreamCalls.length, 0, '무인증 요청은 Upstash에 전달하지 않음')
+// 첫 저장이 원격 충돌이면 이미 대기하던 쓰기도 최신 원장 재조회 전에는 보내지 않는다.
+queueContext._kvRevisions.clear()
+queueContext._kvWriteQueues.clear()
+fetchCalls = 0
+queueContext.authFetch = async () => {
+  fetchCalls += 1
+  return { ok:false, status:409, json:async()=>({ error:'Conflict', revision:7 }) }
+}
+const conflictResults = await Promise.all([
+  queueContext.setKV('assets', [{id:3}]),
+  queueContext.setKV('assets', [{id:4}]),
+])
+assert.equal(fetchCalls, 1, '충돌 뒤 대기 저장은 서버로 전송하지 않음')
+assert.equal(conflictResults[0].conflict, true)
+assert.equal(conflictResults[1].blocked, true)
 
-response = responseRecorder()
-await kvHandler({
-  method: 'POST',
-  headers: { authorization: 'Bearer wrong-secret' },
-  query: { key: '__auth_probe__' },
-  body: { value: 'test' },
-}, response)
-assert.equal(response.statusCode, 401, '잘못된 토큰의 KV POST 차단')
-assert.equal(upstreamCalls.length, 0, '잘못된 토큰 요청은 Upstash에 전달하지 않음')
-
-response = responseRecorder()
-await kvHandler({
-  method: 'GET',
-  headers: { authorization: 'Bearer browser-secret' },
-  query: { key: '__auth_probe__' },
-}, response)
-assert.equal(response.statusCode, 200, '정상 토큰의 KV GET 허용')
-assert.equal(upstreamCalls.length, 1, '정상 토큰 요청만 Upstash에 전달')
-assert.equal(upstreamCalls[0].options.headers.Authorization, 'Bearer upstash-secret', 'Upstash 토큰은 서버에서만 사용')
-
-upstreamResponse = { ok:false, status:503, json:async () => ({error:'upstream down'}) }
-response = responseRecorder()
-await kvHandler({
-  method: 'GET', headers: { authorization:'Bearer browser-secret' }, query:{key:'assets'},
-}, response)
-assert.equal(response.statusCode, 502, 'Upstash GET 비정상 상태를 성공 응답으로 숨기지 않음')
-
-upstreamResponse = { ok:true, status:200, json:async () => ({error:'missing result'}) }
-response = responseRecorder()
-await kvHandler({
-  method: 'GET', headers: { authorization:'Bearer browser-secret' }, query:{key:'assets'},
-}, response)
-assert.equal(response.statusCode, 502, 'Upstash GET result 누락 응답 거부')
-
-upstreamResponse = { ok:true, status:200, json:async () => ({result:'NOT_OK'}) }
-response = responseRecorder()
-await kvHandler({
-  method:'POST', headers:{authorization:'Bearer browser-secret'}, query:{key:'assets'}, body:{value:'[]'},
-}, response)
-assert.equal(response.statusCode, 502, 'Upstash SET 결과가 OK가 아니면 저장 성공으로 처리하지 않음')
-
-console.log('PASS 인증 경계 보호')
+console.log('PASS 인증·KV 클라이언트 경계')

@@ -30,7 +30,7 @@ function extractFunction(source, name) {
   throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-const context = { console, Date }
+const context = { console, Date, _taxRuleValue: (_path, fallback) => fallback }
 vm.createContext(context)
 // 세율 규칙은 실제 script.js 구현을 그대로 가져와 중복 정의를 만들지 않는다
 vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), context)
@@ -142,6 +142,7 @@ let remoteSaveCount = 0
 let remoteSaveOk = true
 const cashContext = {
   console, Date, JSON, Math, Number, Set, Map,
+  _taxRuleValue: (_path, fallback) => fallback,
   cfData: [{
     date:'2026-03-15', type:'수입', cat:'배당금', desc:'예전 일반계좌 자동 배당', amt:1,
     owner:'본인', divKey:'div_AAA_본인_일반_2026_3',
@@ -294,7 +295,7 @@ assert.match(cobaltSource, /onclick="cbDivBasis\('gross'\)"[\s\S]*onclick="cbDiv
 assert.match(cobaltSource, /return allocateDividendTax\(entries,CB_FIN_INCOME_THRESHOLD\)/, '화면은 script.js의 공통 배당세 엔진에 위임')
 assert.match(cobaltSource, /const incomeKRW = netBasis \? netKRW : grossKRW/, '표시 기준에 따라 카드·캘린더·표가 같은 값을 사용')
 assert.match(cobaltSource, /지급 이력 기반/, '과거 캘린더는 현재 보유수량 환산임을 오해하지 않게 표시')
-assert.match(cobaltSource, /금융소득종합과세 근접도/, '소유주별 금융소득 게이지 제공')
+assert.match(cobaltSource, /입력된 일반계좌 배당 기준 금융소득 근접도/, '소유주별 부분 금융소득 게이지 제공')
 assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
 assert.match(scriptSource, /async function autoAddDividendCashFlow[\s\S]*allocateDividendTax\(annualLots\)[\s\S]*await saveExtDataToKV\(\)/, '자동 현금흐름도 공통 연간 세금 엔진과 원격 저장 사용')
