@@ -29,7 +29,8 @@ ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'f
 
 
 def _session_secret():
-    return os.environ.get('SESSION_SECRET', '')
+    # 기존 AUTH_TOKEN은 bearer 인증에 재사용하지 않고 세션 서명 호환 키로만 쓴다.
+    return os.environ.get('SESSION_SECRET') or os.environ.get('AUTH_TOKEN', '')
 
 
 def _safe_equal(left, right):

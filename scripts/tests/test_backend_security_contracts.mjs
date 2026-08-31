@@ -68,6 +68,15 @@ try {
   assert.match(authHelper.sessionCookie(signed.value), /Secure/)
   assert.match(authHelper.sessionCookie(signed.value), /SameSite=Strict/)
 
+  // 기존 배포는 AUTH_TOKEN을 서버 내부 세션 서명 키로만 이어받는다. 과거처럼
+  // 브라우저 bearer로 제출해도 인증되어서는 안 된다.
+  delete process.env.SESSION_SECRET
+  process.env.AUTH_TOKEN = 'legacy-server-only-migration-secret'
+  const migrated = authHelper.createSessionValue(2_000)
+  assert.equal(authHelper.verifySessionValue(migrated.value, 2_001), true, '기존 배포 환경 무중단 세션 마이그레이션')
+  assert.equal(authHelper.authenticateRequest({ headers: { authorization: `Bearer ${process.env.AUTH_TOKEN}` } }).status, 401, '과거 AUTH_TOKEN bearer 재허용 금지')
+  process.env.SESSION_SECRET = 'test-session-secret-that-is-long-enough'
+
   // Login returns a cookie (never a browser-readable bearer) and is rate limited.
   process.env.DASHBOARD_PASSWORD = 'correct horse battery staple'
   const { handler: authHandler, source: authSource } = compileTs('api/auth.ts')
@@ -114,6 +123,7 @@ try {
   delete process.env.SESSION_SECRET
   delete process.env.AUTH_TOKEN
   const { handler: priceHandler, source: priceSource } = compileTs('api/price.ts')
+  assert.match(priceSource, /internalHeaders\.Cookie = requestCookie/, '내부 Python 호출은 사용자의 HttpOnly 세션을 전달')
   response = responseRecorder()
   await priceHandler({ method: 'GET', headers: {}, query: {} }, response)
   assert.equal(response.statusCode, 500)

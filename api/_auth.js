@@ -20,7 +20,9 @@ function safeEqual(left, right) {
 }
 
 function sessionSecret() {
-  return String(process.env.SESSION_SECRET || '');
+  // 무중단 마이그레이션: 기존 배포의 AUTH_TOKEN은 브라우저 bearer로는 절대
+  // 허용하지 않고, SESSION_SECRET이 아직 없을 때 서버 내부 HMAC 키로만 쓴다.
+  return String(process.env.SESSION_SECRET || process.env.AUTH_TOKEN || '');
 }
 
 function configured() {

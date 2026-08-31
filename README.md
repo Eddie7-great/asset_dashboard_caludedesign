@@ -73,8 +73,9 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 | `GNEWS_API_KEY` | (선택) 뉴스 헤드라인 |
 
 기존 배포와 같은 Upstash 인스턴스를 연결하면 기존 자산 데이터가 그대로 표시됩니다.
-과거 `AUTH_TOKEN` bearer는 더 이상 허용하지 않으므로 배포 환경에서 제거하고, `SESSION_SECRET`과
-`INTERNAL_API_TOKEN`은 서로 다른 값으로 새로 발급해 주세요.
+과거 `AUTH_TOKEN` bearer는 더 이상 허용하지 않습니다. 무중단 업그레이드를 위해 `SESSION_SECRET`이
+없는 기존 배포에서는 `AUTH_TOKEN`을 서버 내부 세션 서명 키로만 임시 사용합니다. 로그인 복구 후
+`SESSION_SECRET`과 `INTERNAL_API_TOKEN`을 서로 다른 값으로 발급하고 `AUTH_TOKEN`을 제거해 주세요.
 
 ## 구조
 

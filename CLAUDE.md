@@ -31,7 +31,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - `api/get-stock.ts` — search route. Tries Naver scraping (`searchNaver`, `searchByNaverAC`, `fetchNaverFinance`), then **Yahoo Finance search API** (`searchYahoo`) as the broad-coverage fallback for US tickers Naver doesn't index. Accepts both `?q=` and `?query=` (frontend uses `?query=`).
 - `api/stock-price.js` — additional price helper (Node); 네이버 금융 스크래핑으로 국내 주식/ETF 실시간 가격을 반환 (`liveRefreshDomesticEtfs`가 호출).
 - `api/kv.ts` — Upstash Redis(KV) 프록시. GET `/api/kv?key=` → Upstash GET, POST `{value}` → Upstash SET. 응답은 Upstash 원형(`{result:...}`) 그대로 전달. 키는 영숫자·`_:.-` 화이트리스트로 검증.
-- `api/auth.ts` — 비밀번호 인증 라우트. POST `{password}`가 `DASHBOARD_PASSWORD`와 일치하면 `SESSION_SECRET`으로 서명한 HttpOnly 세션 쿠키를 발급한다. 브라우저에 bearer 비밀을 반환하지 않는다. 서버 내부 `/api/dashboard` 호출에는 별도 `INTERNAL_API_TOKEN`을 사용한다. 필수 환경변수 미설정 시 fail-closed(500).
+- `api/auth.ts` — 비밀번호 인증 라우트. POST `{password}`가 `DASHBOARD_PASSWORD`와 일치하면 `SESSION_SECRET`으로 서명한 HttpOnly 세션 쿠키를 발급한다. 기존 배포는 `SESSION_SECRET`이 없을 때 `AUTH_TOKEN`을 서버 내부 서명 키로만 임시 사용하며 bearer로는 허용하지 않는다. 서버 내부 `/api/dashboard` 호출은 별도 `INTERNAL_API_TOKEN` 또는 사용자의 세션 쿠키를 사용한다. 필수 환경변수 미설정 시 fail-closed(500).
 - `api/price.ts?type=ohlcv&tkr=...&range=1y` — OHLCV+벤치마크 시계열 엔드포인트(`price.ts`에 존재). KR 6자 코드는 `.KS → .KQ` 폴백, 응답에 타깃 bars + `^GSPC` / `^KS11` / 섹터 ETF 종가 동봉. (현재 프론트엔드에서 직접 호출하지 않는 독립 엔드포인트.)
 
 ### ETF 구성종목 수집 — GitHub Actions 배치

@@ -334,15 +334,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         try {
           const origin = trustedInternalOrigin();
           const internalToken = String(process.env.INTERNAL_API_TOKEN || '');
-          if (!origin || !internalToken) {
-            console.error('[price] internal dashboard origin/token is not configured');
+          const requestCookie = Array.isArray(req.headers.cookie)
+            ? String(req.headers.cookie[0] || '')
+            : String(req.headers.cookie || '');
+          if (!origin || (!internalToken && !requestCookie)) {
+            console.error('[price] internal dashboard origin/auth is not configured');
             return null;
           }
+          const internalHeaders: Record<string, string> = { 'User-Agent': 'asset-dashboard/1.0' };
+          if (internalToken) internalHeaders.Authorization = `Bearer ${internalToken}`;
+          else internalHeaders.Cookie = requestCookie;
           const r = await fetchWithTimeout(`${origin}/api/dashboard?type=dividend&tickers=${encodeURIComponent(rawSym)}`, {
-            headers: {
-              'User-Agent': 'asset-dashboard/1.0',
-              Authorization: `Bearer ${internalToken}`,
-            }
+            headers: internalHeaders
           });
           if (!r.ok) return null;
           const d = await r.json();
