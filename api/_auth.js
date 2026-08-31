@@ -43,15 +43,20 @@ function createSessionValue(nowSeconds = Math.floor(Date.now() / 1000)) {
   return { value: `${payload}.${sign(payload)}`, expiresAt: (nowSeconds + SESSION_TTL_SECONDS) * 1000 };
 }
 
-function sessionCookie(value, maxAge = SESSION_TTL_SECONDS) {
-  return [
+// Max-Age 를 붙이지 않아 브라우저를 닫으면 쿠키도 사라지는 '세션 쿠키'로 발급한다.
+// 유효기간이 없어지는 것은 아니다 — 서명 payload 의 exp(SESSION_TTL_SECONDS)를
+// verifySessionValue 가 그대로 강제하므로 서버 측 만료는 유지된다.
+// maxAge 를 명시하면(로그아웃의 0) 그 값을 그대로 사용한다.
+function sessionCookie(value, maxAge = null) {
+  const parts = [
     `${SESSION_COOKIE}=${value}`,
     'Path=/',
     'HttpOnly',
     'Secure',
     'SameSite=Strict',
-    `Max-Age=${maxAge}`,
-  ].join('; ');
+  ];
+  if (maxAge !== null && maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
+  return parts.join('; ');
 }
 
 function clearSessionCookie() {

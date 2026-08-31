@@ -108,4 +108,28 @@ assert.equal(fetchCalls, 1, '충돌 뒤 대기 저장은 서버로 전송하지 
 assert.equal(conflictResults[0].conflict, true)
 assert.equal(conflictResults[1].blocked, true)
 
+
+// ── 매 페이지 오픈 시 재인증 ──
+// 페이지를 열 때마다(새로고침 포함) 비밀번호를 다시 받는다. 화면만 가리는 게 아니라
+// 남은 세션 쿠키를 서버에서 먼저 폐기해야 API 호출까지 실제로 막힌다.
+const onloadStart = scriptSource.indexOf('window.onload = async function()')
+assert.notEqual(onloadStart, -1, 'window.onload 진입점을 찾을 수 없음')
+const onloadBody = scriptSource.slice(onloadStart, onloadStart + 1200)
+assert.match(onloadBody, /fetch\('\/api\/auth',\s*\{\s*method:\s*'DELETE'/,
+  '부팅 시 기존 세션 쿠키를 서버에서 폐기')
+assert.match(onloadBody, /_setAuthenticatedUi\(false\)/, '부팅 시 항상 로그인 게이트를 띄움')
+assert.doesNotMatch(onloadBody, /_startDashboardAfterAuth\(\)/,
+  '기존 세션을 이유로 로그인을 건너뛰지 않음')
+assert.doesNotMatch(scriptSource, /async function checkAuthSession\(/,
+  '부팅 게이트에서 쓰지 않는 세션 확인 함수는 남기지 않음')
+
+// 세션 쿠키: Max-Age 를 붙이지 않아 브라우저 종료 시 사라진다.
+// 다만 서명 payload 의 exp 로 서버 측 만료는 그대로 강제한다.
+assert.doesNotMatch(authHelperSource, /`Max-Age=\$\{maxAge\}`,\n\s*\]\.join/,
+  '세션 쿠키에 무조건적인 Max-Age 를 붙이지 않음')
+assert.match(authHelperSource, /if \(maxAge !== null && maxAge !== undefined\) parts\.push\(`Max-Age=\$\{maxAge\}`\)/,
+  'maxAge 를 명시한 경우(로그아웃 0)에만 Max-Age 를 붙임')
+assert.match(authHelperSource, /function clearSessionCookie\(\)\s*\{\s*return sessionCookie\('', 0\);/,
+  '로그아웃은 Max-Age=0 으로 쿠키를 즉시 폐기')
+
 console.log('PASS 인증·KV 클라이언트 경계')

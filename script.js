@@ -613,13 +613,29 @@ async function fetchDivData(force=false) {
   }
 
   try {
-    const _divFetch = fetchTimeout(20000);
-    const resp = await authFetch('/api/price?type=dividend&tickers='+tickers.join(','), { signal: _divFetch.signal });
-    _divFetch.done();
-    if (!resp.ok) return {ok:false,error:`배당 데이터 HTTP ${resp.status}`};
-    const data = await resp.json();
-    if (!data.success || !data.result) return {ok:false,error:data?.error||'배당 데이터 응답이 비어 있습니다.'};
-    for (const [tkr, d] of Object.entries(data.result)) {
+    // 서버 티커 상한(MAX_TICKERS)을 넘으면 요청 전체가 거부되므로 청크로 나눠 병합한다.
+    const chunks = _chunkTickers(tickers);
+    const mergedResult = {};
+    const verifiedTickers = [];   // 실제로 응답을 받은 티커만 기록 (아래 캐시 갱신에 사용)
+    let failedChunks = 0, lastChunkError = null;
+    for (const chunk of chunks) {
+      const _divFetch = fetchTimeout(20000);
+      try {
+        const resp = await authFetch('/api/price?type=dividend&tickers='+chunk.join(','), { signal: _divFetch.signal });
+        if (!resp.ok) throw new Error(`배당 데이터 HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (!data.success || !data.result) throw new Error(data?.error||'배당 데이터 응답이 비어 있습니다.');
+        Object.assign(mergedResult, data.result);
+        verifiedTickers.push(...chunk);
+      } catch(err) {
+        failedChunks++; lastChunkError = err;
+        console.error('[fetchDivData chunk]', chunk.length+'개', err?.message);
+      } finally { _divFetch.done(); }
+    }
+    if (failedChunks === chunks.length) {
+      return {ok:false,error:lastChunkError?.message||'배당 데이터 조회 실패'};
+    }
+    for (const [tkr, d] of Object.entries(mergedResult)) {
       const cacheTkr = String(tkr).toUpperCase().replace(/\.(KS|KQ|T)$/,'');
       const existing = DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
       if (!d || typeof d !== 'object') continue;
@@ -647,10 +663,16 @@ async function fetchDivData(force=false) {
       }
     }
     localStorage.setItem(cacheKey, JSON.stringify(window._divDataCache));
-    localStorage.setItem(verifiedKey, JSON.stringify(tickers));
+    // 실패한 청크의 티커를 verified 로 적으면 다음 접속에서 조회 없이 넘어가 배당이 영영 비게 된다.
+    localStorage.setItem(verifiedKey, JSON.stringify(verifiedTickers));
     syncDivHistory();
     resolvePendingDivDates();
-    return {ok:true,count:Object.keys(window._divDataCache).length};
+    const count = Object.keys(window._divDataCache).length;
+    if (failedChunks) {
+      return {ok:false,count,failedChunks,
+        error:`요청 ${chunks.length}건 중 ${failedChunks}건 실패 (${lastChunkError?.message||'원인 미상'})`};
+    }
+    return {ok:true,count};
   } catch(e) {
     console.error('[fetchDivData]', e);
     return {ok:false,error:e?.message||'배당 데이터 조회 실패'};
@@ -4921,15 +4943,40 @@ async function manualRefresh(source='all') {
   }
 }
 
+// 서버(api/price.ts·api/dashboard.py)는 요청당 티커 개수를 제한한다(MAX_TICKERS=25,
+// 벤치마크 포트폴리오는 20). 보유 종목이 상한을 넘으면 서버가 요청 '전체'를
+// too_many_tickers 로 거부해 시세·배당이 통째로 비고, 데이터 상태가 영구히 '확인 필요'가 된다.
+// 상한은 입력 검증(보안 통제)이라 올리지 않고, 클라이언트가 상한에 맞춰 나눠 보낸다.
+const API_TICKER_CHUNK = 25;
+const BENCH_TICKER_LIMIT = 20;
+function _chunkTickers(list, size = API_TICKER_CHUNK) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
 async function liveRefresh() {
   const tickers=new Set();
   pfolioData.forEach(i=>{if(i.grp==='주식'||i.grp==='가상화폐')tickers.add(i.tkr);});
   if(!tickers.size)return {ok:true,skipped:true,stale:0,detail:'조회할 시세 자산 없음'};
   try {
-    const resp=await authFetch(`/api/price?tickers=${Array.from(tickers).join(',')}`);
-    if(!resp.ok) throw new Error(`시세 HTTP ${resp.status}`);
-    const data=await resp.json();
-    if(!data.success)throw new Error(data.error);
+    // 청크별로 요청하고 병합한다. 일부 청크가 실패해도 성공한 청크의 시세는 반영하고,
+    // 실패분은 _priceStale 로 남아 최종 stale 집계에 정직하게 드러난다.
+    const chunks=_chunkTickers(Array.from(tickers));
+    const quotes={};
+    let mergedRates=null,failedChunks=0,lastChunkError=null;
+    for(const chunk of chunks){
+      try{
+        const resp=await authFetch(`/api/price?tickers=${chunk.join(',')}`);
+        if(!resp.ok) throw new Error(`시세 HTTP ${resp.status}`);
+        const d=await resp.json();
+        if(!d.success) throw new Error(d.error||'시세 응답 오류');
+        Object.assign(quotes,d.quotes||{});
+        if(!mergedRates&&d.rates) mergedRates=d.rates;
+      }catch(e){ failedChunks++; lastChunkError=e; console.error('[EOD Price Chunk]',chunk.length+'개',e?.message); }
+    }
+    if(failedChunks===chunks.length) throw (lastChunkError||new Error('시세 조회 실패'));
+    const data={success:true,quotes,rates:mergedRates};
 
     const nowD=new Date();
     const dt=document.getElementById('side-date-display');
@@ -4974,7 +5021,9 @@ async function liveRefresh() {
     syncDivHistory();changeOwner(currentOwner,null,true);
     renderPortFxPanel();
     const stale=pfolioData.filter(i=>i&&i._priceStale).length;
-    return {ok:stale===0,stale,detail:stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태'};
+    const partial=failedChunks>0?` · 요청 ${chunks.length}건 중 ${failedChunks}건 실패`:'';
+    return {ok:stale===0&&failedChunks===0,stale,failedChunks,
+      detail:(stale?`${stale}개 최신 확인 필요`:'등록 자산 최신 상태')+partial};
   } catch(err){
     console.error('[EOD Price Fetch Error]',err);
     return {ok:false,error:err?.message||'시세 조회 실패'};
@@ -5703,13 +5752,6 @@ function _startDashboardAfterAuth(){
   setTimeout(_fitActiveCharts, 2500);
 }
 
-async function checkAuthSession(){
-  try{
-    const res=await fetch('/api/auth',{method:'GET',credentials:'same-origin',cache:'no-store'});
-    return res.ok;
-  }catch(e){ return false; }
-}
-
 async function attemptLogin() {
   const pwEl = document.getElementById('login-pw');
   const errEl = document.getElementById('login-error');
@@ -6090,8 +6132,11 @@ window.onload = async function() {
   initMenuGroups();
   refreshYearSelects();
   try { sessionStorage.removeItem('_dashAuth'); } catch(e) {}
-  const authenticated=await checkAuthSession();
-  if(authenticated){ _startDashboardAfterAuth(); return; }
+  // 페이지를 열 때마다(새로고침 포함) 비밀번호를 다시 받는다.
+  // 남아 있는 세션 쿠키를 먼저 서버에서 폐기해, 게이트가 화면 장식에 그치지 않고
+  // 실제로 API 호출까지 막히도록 한다. 폐기 요청이 실패해도 게이트는 그대로 띄운다(fail-closed).
+  try { await fetch('/api/auth',{method:'DELETE',credentials:'same-origin',cache:'no-store'}); }
+  catch(e) { console.warn('[auth] 기존 세션 폐기 실패 — 로그인 화면은 그대로 표시합니다.', e); }
   _setAuthenticatedUi(false);
   document.getElementById('login-pw')?.focus();
 };
@@ -9303,9 +9348,15 @@ function changeGoldUnit(unit) {
  */
 async function fetchPyPrices(tickers) {
   if (!tickers || !tickers.length) return;
-  const d = await _pyFetch({type:'price', tickers: tickers.join(',')});
-  if (!d || !d.success || !d.result) return;
-  const qmap = d.result;
+  // api/dashboard.py 도 MAX_TICKERS=25 로 제한한다 — 넘기면 요청 전체가 거부된다.
+  const qmap = {};
+  for (const chunk of _chunkTickers(tickers)) {
+    try {
+      const d = await _pyFetch({type:'price', tickers: chunk.join(',')});
+      if (d && d.success && d.result) Object.assign(qmap, d.result);
+    } catch(e) { console.warn('[fetchPyPrices chunk]', chunk.length+'개', e?.message); }
+  }
+  if (!Object.keys(qmap).length) return;
   let updated = false;
   pfolioData.forEach(i => {
     if (i.grp !== '주식' && i.grp !== '가상화폐') return;
@@ -9391,9 +9442,11 @@ async function fetchPyDividends() {
   // 국내 종목 배당 (pykrx 기반)
   if (krTickers.length) {
     try {
-      const d = await _pyFetch({type:'dividend', tickers: krTickers.join(',')});
-      if (d && d.success && d.result) {
-        Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
+      for (const chunk of _chunkTickers(krTickers)) {
+        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
+        if (d && d.success && d.result) {
+          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
+        }
       }
     } catch(e) { console.warn('[fetchPyDividends KR]', e); }
   }
@@ -9401,9 +9454,11 @@ async function fetchPyDividends() {
   // 해외 종목 배당 (yfinance 기반)
   if (foreignTickers.length) {
     try {
-      const d = await _pyFetch({type:'dividend', tickers: foreignTickers.join(',')});
-      if (d && d.success && d.result) {
-        Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
+      for (const chunk of _chunkTickers(foreignTickers)) {
+        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
+        if (d && d.success && d.result) {
+          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
+        }
       }
     } catch(e) { console.warn('[fetchPyDividends US]', e); }
   }
@@ -9570,13 +9625,19 @@ async function fetchBenchmarkData(ownerOverride) {
     if (!RATES || RATES.USD == null) { try { await fetchPyRates(); } catch(e){} }
 
     // ownerOverride 가 있으면 해당 한 명만, 없으면 자산이 있는 모든 소유주
+    // 대상 판정은 '보유 여부'만 본다. 예전에는 a.curP 까지 요구해서, 시세가 비면 해당 소유주가
+    // 조용히 대상에서 빠졌다 — 라인이 없는데도 loaded===targets.length 가 성립해 초록불이 됐다.
+    // cobalt.js 의 재조회 경로(cbVerifyPerfOwnersOnOpen)도 qty 기준이라 이제 두 경로가 일치한다.
     const targets = ownerOverride
       ? [ownerOverride]
-      : OWNERS.filter(o => getFilteredAssets(o).some(a=>(a.grp==='주식'||a.grp==='가상화폐'||a.grp==='금')&&a.qty&&a.curP));
+      : OWNERS.filter(o => getFilteredAssets(o).some(a=>(a.grp==='주식'||a.grp==='가상화폐'||a.grp==='금')&&a.qty));
     if (!targets.length) {
       // 개별 보유자가 없으면 벤치마크(SPY/KOSPI)만 가져오기 위해 가짜 호출
       targets.push('본인');
     }
+
+    // 서버 상한 때문에 상위 N개만 보낸 소유주를 기록해 데이터 상태에 드러낸다.
+    const truncatedOwners = [];
 
     // 소유주별 로더 (각자의 Top-N 포트폴리오 시뮬레이션) — 아래에서 병렬 실행
     const loadOwner = async (owner) => {
@@ -9602,8 +9663,17 @@ async function fetchBenchmarkData(ownerOverride) {
           : (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
         tkrWeightMap[tkr] = (tkrWeightMap[tkr]||0) + val;
       });
-      const tkrs = Object.keys(tkrWeightMap).join(',');
-      const weights = Object.values(tkrWeightMap).map(v=>v.toFixed(0)).join(',');
+      // 서버(api/dashboard.py)는 p_tkrs 를 20개로 제한한다. 넘기면 too_many_tickers 로
+      // 요청 전체가 거부돼 해당 소유주 라인이 통째로 사라진다(보유 종목이 가장 많은 본인이 대표 사례).
+      // 위 주석의 'Top-N 시뮬레이션' 의도대로 평가액 상위 N개만 보낸다.
+      const rankedTkrs = Object.entries(tkrWeightMap).sort((a,b)=>b[1]-a[1]);
+      const sentTkrs = rankedTkrs.slice(0, BENCH_TICKER_LIMIT);
+      if (rankedTkrs.length > sentTkrs.length) {
+        truncatedOwners.push(`${owner} ${sentTkrs.length}/${rankedTkrs.length}`);
+        console.warn(`[Benchmark] ${owner} 보유 ${rankedTkrs.length}종목 중 평가액 상위 ${sentTkrs.length}종목으로 계산 (서버 상한 ${BENCH_TICKER_LIMIT})`);
+      }
+      const tkrs = sentTkrs.map(([t])=>t).join(',');
+      const weights = sentTkrs.map(([,v])=>v.toFixed(0)).join(',');
 
       let url = '/api/dashboard?type=benchmark';
       if(tkrs && weights) url += `&p_tkrs=${encodeURIComponent(tkrs)}&p_weights=${encodeURIComponent(weights)}`;
@@ -9650,7 +9720,12 @@ async function fetchBenchmarkData(ownerOverride) {
 
       const bm = data.benchmark;
       let hasBenchmarkSeries=false;
-      let hasPortfolioSeries=allAssets.length===0;
+      // allAssets 는 curP 가 있는 자산만 담는다. 시세가 비면 보유 종목이 있어도 빈 배열이 되는데,
+      // 이때 '자산 없음'으로 보고 성공 처리하면 라인이 없는 소유주가 초록불로 잡힌다.
+      // 보유 자체가 없을 때만 포트폴리오 시리즈를 면제한다.
+      const ownerHasHoldings = getFilteredAssets(owner)
+        .some(a=>(a.grp==='주식'||a.grp==='가상화폐'||a.grp==='금')&&a.qty);
+      let hasPortfolioSeries=!ownerHasHoldings;
       Object.keys(bm).forEach(tf => {
         const bd = bm[tf];
         if (!bd || !bd.labels) return;
@@ -9706,7 +9781,9 @@ async function fetchBenchmarkData(ownerOverride) {
     // 최종 차트 갱신 ('전체' 합산 라인 포함)
     rerenderBenchmark();
     const loaded=results.filter(Boolean).length;
-    return {ok:loaded===targets.length,loaded,attempted:targets.length,detail:`${loaded}/${targets.length}개 범위 로드`};
+    const topNote=truncatedOwners.length?` · 상위 ${BENCH_TICKER_LIMIT}종목 기준(${truncatedOwners.join(', ')})`:'';
+    return {ok:loaded===targets.length,loaded,attempted:targets.length,truncatedOwners,
+      detail:`${loaded}/${targets.length}명 로드${topNote}`};
   } catch(e) {
     console.error('[Benchmark]', e);
     return {ok:false,error:e?.message||'벤치마크 조회 실패'};
