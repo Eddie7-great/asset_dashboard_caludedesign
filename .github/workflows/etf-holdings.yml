@@ -30,13 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -78,7 +78,7 @@ jobs:
         run: uv run --frozen python scripts/collect_etf_holdings.py
 
       - name: 수집 결과 전달
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: etf-holdings-${{ github.run_id }}
           path: data/etf_holdings.json
@@ -92,10 +92,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 수집 결과 받기
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: etf-holdings-${{ github.run_id }}
           path: data
