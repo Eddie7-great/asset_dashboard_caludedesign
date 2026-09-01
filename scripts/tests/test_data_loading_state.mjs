@@ -182,7 +182,7 @@ Object.assign(context, {
   refreshPyData: async () => { calls.rates++; return {ok:true} },
   fetchBenchmarkData: async () => { calls.benchmark++; return {ok:true} },
   saveNetWorthSnapshot: async () => { calls.snapshot++; return {ok:true} },
-  applyAutoTransfers: () => {}, liveRefreshDomesticEtfs: async () => {}, refreshFNG: () => {},
+  applyAutoTransfers: () => {}, liveRefreshDomesticEtfs: async () => {},
   renderBubbleChart: () => {}, cbRerender: () => {}, finMarkFresh: () => {},
 })
 vm.runInContext('let _manualRefreshRunning=false;', context)

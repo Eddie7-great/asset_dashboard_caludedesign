@@ -37,7 +37,6 @@ const _amountPrivacyTextOriginal = new WeakMap();
 const _amountPrivacyAttrOriginal = new WeakMap();
 const _amountPrivacyChartState = new WeakMap();
 
-function isAmountHidden(){ return _amountPrivacyEnabled; }
 function _maskAmountText(value){
   let out = String(value == null ? '' : value);
   out = out.replace(/([+\-−]?\s*[₩$¥]\s*)\d[\d,]*(?:\.\d+)?(?:\s*(?:억원|천만원|백만원|만원|원|억|천만|백만|만))?/g, (match, lead) => {
@@ -470,12 +469,6 @@ function allocateDividendTax(entries, comprehensiveThreshold=_taxRuleValue('divi
     row.comprehensiveOver=Math.max(0,row.general-comprehensiveThreshold);
   });
   return {list,owners:Object.values(owners).sort((a,b)=>b.gross-a.gross)};
-}
-
-// 배당 원천징수 세율 (세전→세후)
-// 단, ISA 200만원 공제는 owner·연도·계좌 집계가 필요하므로 syncDivHistory에서 처리
-function getDivWithholdingRate(acc) {
-  return getAccountDivTaxInfo(acc).normalRate;
 }
 
 // 배당 주기명 → 기본 지급월 배열 (0-based month index)
@@ -1017,19 +1010,6 @@ const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff
 let autoTransferData = [];
 try { const s=localStorage.getItem('autoTransferData'); if(s) autoTransferData=_normalizeAutoTransfers(JSON.parse(s)); } catch(e){}
 
-// 은행 영업일 계산용 국내 공휴일. 2026년 월력요항과 이후 확정된
-// 노동절·제헌절 공휴일, 전국동시지방선거일을 반영한다.
-const _KR_BANK_HOLIDAYS = new Set([
-  '2026-01-01',
-  '2026-02-16','2026-02-17','2026-02-18',
-  '2026-03-01','2026-03-02',
-  '2026-05-01','2026-05-05','2026-05-24','2026-05-25',
-  '2026-06-03','2026-06-06','2026-07-17',
-  '2026-08-15','2026-08-17',
-  '2026-09-24','2026-09-25','2026-09-26',
-  '2026-10-03','2026-10-05','2026-10-09','2026-12-25',
-]);
-
 function _cfLocalDateKey(date){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
@@ -1039,10 +1019,12 @@ function _localDateFromKey(value){
   return new Date(Number(match[1]),Number(match[2])-1,Number(match[3]),12,0,0,0);
 }
 
+// 공휴일은 _krHolidaySet(연도) 하나로만 판정한다. 예전에는 2026년 목록을 따로
+// 하드코딩했지만 계산기가 그 22일을 모두 산출했고, 오히려 하드코딩 쪽이 추석
+// 대체공휴일(2026-09-28)을 빠뜨리고 있었다. 연도가 바뀌어도 손댈 필요가 없다.
 function _isKrBankBusinessDay(date){
   const dow=date.getDay();
-  return dow!==0 && dow!==6 && !_KR_BANK_HOLIDAYS.has(_cfLocalDateKey(date))
-    && (typeof _isKrPublicHoliday!=='function'||!_isKrPublicHoliday(date));
+  return dow!==0 && dow!==6 && !_isKrPublicHoliday(date);
 }
 
 function _nextKrBankBusinessDay(date){
@@ -1218,19 +1200,6 @@ function deleteAutoTransfer(id) {
 }
 
 /** 자동이체 취소 (현재 달까지는 유지, 다음 달부터 중단) */
-function cancelAutoTransfer(id) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  if (!confirm('이 자동이체를 이번 달까지만 유지하고 다음 달부터 취소하시겠습니까?')) return;
-  const at = autoTransferData.find(x => x.id === id);
-  if (at) {
-    const ym = cfYear + '-' + String(cfMonth).padStart(2,'0');
-    at.endMonth = ym;
-    saveAutoTransfers();
-    renderCashFlow();
-    alert('취소되었습니다. 다음 달부터는 내역에 나타나지 않습니다.');
-  }
-}
 
 /** 특정 달의 자동이체 예상 행을 실체화하여 수정 폼 열기 (해당 월만) */
 function editAutoTransferMonth(atId, y, m) {
@@ -1774,8 +1743,6 @@ function setTheme(mode) {
   // 현금 흐름 차트는 렌더 시점에 CSS 토큰을 hex로 해석해 쓰므로 테마 변경 시 재렌더
   if (activeView && activeView.id === 'view-cashflow') { try{ renderCashFlow(); }catch(e){} }
 }
-// 하위 호환 (구 다크모드 토글)
-function toggleTheme() { setTheme(isDarkTheme() ? 'light' : 'dark'); }
 // 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(기본 라이트) 반영.
 // (이 시점엔 파일 후반부 let 변수들이 TDZ 상태라 setTheme→applyChartTheme 전체 호출은 금지)
 try{
@@ -2589,20 +2556,6 @@ function toggleDcaDay() {
   if (mo) mo.style.display = cycle === '매월' ? 'block' : 'none';
 }
 
-function showToast(msg, duration=3000) {
-  let el = document.getElementById('dca-toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'dca-toast';
-    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:10px 20px;border-radius:20px;font-size:.85rem;font-weight:600;z-index:9999;pointer-events:none;transition:opacity .3s';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.style.opacity = '1';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.opacity = '0'; }, duration);
-}
-
 // ── 시장 휴장일 (NYSE / KRX / JPX) ───────────────────────────────
 // 연도별 하드코딩 대신 규칙으로 생성하고, 선거일처럼 규칙화할 수 없는 날짜만 명시한다.
 const _MARKET_HOLIDAY_CACHE=new Map();
@@ -2872,93 +2825,12 @@ function portfolioSortHeader(group,field,label){
   return `<th class="sortable" aria-sort="none"><button type="button" class="table-sort-btn" onclick="sortPortfolioTable('${safeGroup}','${safeField}',this)">${holdingsEsc(label)}</button></th>`;
 }
 
-// 다음 체결 예정일 계산 (시장 휴장일·주말 자동 스킵)
-function getDcaNextDateStr(item) {
-  const market = _getDcaMarket(item);
-  const todayStr = _cfLocalDateKey(new Date());
-  const ref = item.dcaLastExec && item.dcaLastExec >= todayStr ? item.dcaLastExec : todayStr;
-  const start = _localDateFromKey(ref);
-  if(!Number.isFinite(start.getTime()))return '';
-  if (item.dcaLastExec && item.dcaLastExec < todayStr) {
-    start.setDate(start.getDate() + 1);
-  }
-
-  // 매일: 첫 번째 비휴장일
-  if (item.dcaCycle === '매일') {
-    for (let i = 0; i < 30; i++) {
-      if (!_isDcaHoliday(start, market)) return _cfLocalDateKey(start);
-      start.setDate(start.getDate() + 1);
-    }
-    return _cfLocalDateKey(start);
-  }
-
-  // 매주: 지정 요일 중 비휴장일인 날
-  if (item.dcaCycle === '매주') {
-    const days = Array.isArray(item.dcaDays) ? item.dcaDays : (item.dcaDay !== undefined ? [item.dcaDay] : [1]);
-    for (let i = 0; i < 30; i++) {
-      if (days.includes(start.getDay()) && !_isDcaHoliday(start, market)) return _cfLocalDateKey(start);
-      start.setDate(start.getDate() + 1);
-    }
-  }
-
-  // 매월: 지정일(또는 그 다음 비휴장일)
-  const day = item.dcaDay || 1;
-  for (let i = 0; i < 40; i++) {
-    if (start.getDate() === day) {
-      // 해당 날짜가 휴장일이면 다음 영업일로 밀기
-      let exec = new Date(start);
-      for (let j = 0; j < 7; j++) {
-        if (!_isDcaHoliday(exec, market)) return _cfLocalDateKey(exec);
-        exec.setDate(exec.getDate() + 1);
-      }
-      return _cfLocalDateKey(exec);
-    }
-    start.setDate(start.getDate() + 1);
-  }
-  return '';
-}
-
-function countWeekdaysBetween(lastExecStr, todayStr, days) {
-  let count = 0;
-  const start = _localDateFromKey(lastExecStr);
-  start.setDate(start.getDate() + 1);
-  const end = _localDateFromKey(todayStr);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (days.includes(d.getDay())) count++;
-  }
-  return count;
-}
-
-function countMonthDaysBetween(lastExecStr, todayStr, day) {
-  let count = 0;
-  const start = _localDateFromKey(lastExecStr);
-  start.setDate(start.getDate() + 1);
-  const end = _localDateFromKey(todayStr);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (d.getDate() === day) count++;
-  }
-  return count;
-}
 
 async function applyPendingDCA() {
   // DCA는 각 증권사에 등록된 외부 자동주문 규칙이다.
   // 실제 주문/체결 내역을 수신하지 않는 대시보드가 보유수량·평균단가·체결일을
   // 임의로 변경하지 않도록 과거 자동 반영 엔진을 무변경 호환 함수로 남긴다.
   return { applied: 0, mode: 'schedule-only' };
-}
-
-function stopDca(owner, tkr, idx = -1) {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  // 인덱스 기반 조회 우선 (중복 티커·다계좌 지원)
-  const item = (idx >= 0 && pfolioData[idx]) ? pfolioData[idx]
-             : pfolioData.find(i => i.tkr === tkr && i.owner === owner);
-  if (!item) return;
-  if (!confirm(`${item.name} DCA 자동매수를 중단하시겠습니까?`)) return;
-  item.dca = false;
-  syncDivHistory();
-  changeOwner(currentOwner, null, true);
-  saveAssetsToKV();
 }
 
 function toggleCostUnknown() {
@@ -3022,15 +2894,6 @@ function toggleModalFields() {
     if(cRow)cRow.style.display='flex';
     onMarketChange();
   }
-}
-
-// =============================================
-// 자산 내역 - 단일 페이지 렌더 (탭 제거, 수직 나열)
-// =============================================
-function switchHoldingsTab(tab, btn) {
-  // 레거시 탭 전환 API - 단일 페이지에서는 스크롤 이동으로 대체
-  const el = document.getElementById('htab-'+tab);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function applyHoldingsOwnerFilter() {
@@ -3098,21 +2961,6 @@ function renderTreemap(market) {
   };
   if (market==='us'){if(usTreemap)usTreemap.destroy();usTreemap=Highcharts.chart(containerId,opts);}
   else{if(krTreemap)krTreemap.destroy();krTreemap=Highcharts.chart(containerId,opts);}
-}
-
-function changeHmPeriod(market, period, btnElem) {
-  currentHmPeriod[market]=period;
-  const btnParent=document.getElementById('hm-period-'+market);
-  if (btnParent) btnParent.querySelectorAll('.hm-btn').forEach(b=>b.classList.remove('active'));
-  btnElem.classList.add('active');
-  // 1D만 실시간, 나머지는 안내 표시
-  if (period!=='1D') {
-    const containerId='heatmap-'+market;
-    const el=document.getElementById(containerId);
-    if(el) el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:.8rem;">'+period+' 데이터는 Finnhub 유료 플랜에서 지원됩니다.<br>1D 버튼으로 실시간 데이터를 확인하세요.</div>';
-    return;
-  }
-  renderTreemap(market);
 }
 
 // =============================================
@@ -4693,20 +4541,6 @@ function prevCfMonth(){cfMonth--;if(cfMonth<1){cfMonth=12;cfYear--;}renderCashFl
 function nextCfMonth(){cfMonth++;if(cfMonth>12){cfMonth=1;cfYear++;}renderCashFlow();}
 
 let _cfDetailReturnFocus = null;
-function showCfDetails(cat) {
-  const parent=document.getElementById('cfDetailModal'),header=document.getElementById('cf-details-header'),list=document.getElementById('cf-details-list');
-  if(!parent||!header||!list)return;
-  _cfDetailReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
-  const items=cfData.filter(i=>{const d=new Date(i.date);return d.getFullYear()===cfYear&&(d.getMonth()+1)===cfMonth&&i.cat===cat&&i.type==='지출';}).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  header.innerText=`[${cat}] 지출 상세 내역 (${cfMonth}월)`;
-  let html='';
-  if(items.length===0)html='<div style="color:var(--t3);text-align:center;padding:20px 0;font-size:0.85rem">내역이 없습니다.</div>';
-  else items.forEach(i=>{const shortDate=i.date==='미정'?'미정':String(i.date).substring(5).replace('-','/');html+=`<div class="f-between" style="font-size:0.9rem;padding:10px 0;border-bottom:1px dashed var(--border-light);"><span style="color:var(--t3);width:45px;">${_cfEsc(shortDate)}</span><span style="flex:1;margin:0 12px;font-weight:500;">${_cfEsc(i.desc)}</span><span style="color:var(--dn);font-weight:700;">₩${Number(i.amt||0).toLocaleString()}</span></div>`;});
-  list.innerHTML=html;
-  parent.classList.add('active');
-  parent.setAttribute('aria-hidden','false');
-  setTimeout(()=>parent.querySelector('.cf-modal-content')?.focus(),0);
-}
 function closeCfDetails(){
   const parent=document.getElementById('cfDetailModal');
   if(!parent)return;
@@ -4881,8 +4715,6 @@ function updateAvgpDecimalMode() {
 }
 
 function flash(el,dir){if(!el)return;el.classList.remove('flash-up','flash-down','flash-neutral');void el.offsetWidth;el.classList.add(dir==='up'?'flash-up':dir==='down'?'flash-down':'flash-neutral');setTimeout(()=>el.classList.remove('flash-up','flash-down','flash-neutral'),1400);}
-function getFGLabel(v){if(v<=20)return'EXTREME FEAR';if(v<=40)return'FEAR';if(v<=60)return'NEUTRAL';if(v<=80)return'GREED';return'EXTREME GREED';}
-function getFGColor(v){if(v<=20)return'#EF4444';if(v<=40)return'#F97316';if(v<=60)return'#FCD34D';if(v<=80)return'#84CC16';return'#10B981';}
 
 // =============================================
 // 실시간 시세 갱신 (30초)
@@ -4924,7 +4756,6 @@ async function manualRefresh(source='all') {
       if(assetsReady) results.benchmark=await fetchBenchmarkData();
       else markAssetBlocked('benchmark','성과 벤치마크','시장 지수 데이터');
     }
-    if(source==='all') refreshFNG();
 
     // 전체 새로고침에서 두 KV 원본이 모두 정상일 때만 오늘 스냅샷을 다시 저장한다.
     if(source==='all'&&assetsResult?.ok&&extResult?.ok) results.snapshot=await saveNetWorthSnapshot();
@@ -5030,37 +4861,6 @@ async function liveRefresh() {
   }
 }
 
-// [수정7] 공포/탐욕: 하루 1번만 업데이트 (DAILY)
-async function refreshFNG() {
-  const today=_cfLocalDateKey(new Date());
-  if(localStorage.getItem('fng_date')===today&&localStorage.getItem('fng_us')) {
-    // 캐시된 값 사용
-    const sfg=parseInt(localStorage.getItem('fng_us')||'50');
-    const cfg=parseInt(localStorage.getItem('fng_crypto')||'50');
-    applyFNG(sfg,cfg);return;
-  }
-  try{
-    const resp=await authFetch('/api/price?type=fng');
-    if(resp.ok){
-      const d=await resp.json();
-      if(d.success){
-        localStorage.setItem('fng_date',today);
-        localStorage.setItem('fng_us',String(d.us||50));
-        localStorage.setItem('fng_crypto',String(d.crypto||50));
-        applyFNG(d.us||50,d.crypto||50);
-      }
-    }
-  }catch(_){}
-}
-
-function applyFNG(sfg,cfg) {
-  const guEl=document.getElementById('gauge-us-val'),gcEl=document.getElementById('gauge-crypto-val');
-  if(guEl)guEl.innerHTML=`<strong style="color:${getFGColor(sfg)};font-size:1.1rem">${sfg}</strong><br><span style="font-size:.55rem;color:var(--t3)">${getFGLabel(sfg)}</span>`;
-  if(gcEl)gcEl.innerHTML=`<strong style="color:${getFGColor(cfg)};font-size:1.1rem">${cfg}</strong><br><span style="font-size:.55rem;color:var(--t3);letter-spacing:-.5px">${getFGLabel(cfg)}</span>`;
-  if(window._gaugeUs){window._gaugeUs.data.datasets[0].needleValue=sfg;window._gaugeUs.update();}
-  if(window._gaugeCrypto){window._gaugeCrypto.data.datasets[0].needleValue=cfg;window._gaugeCrypto.update();}
-}
-
 // DCA는 증권사 외부 서비스이므로 이 앱에서 체결을 생성하지 않는다.
 // applyPendingDCA()는 과거 호출과의 호환을 위한 무변경 함수이며,
 // 일정 표시는 cobalt.js의 시장·증권사별 계산만 사용한다.
@@ -5090,27 +4890,6 @@ function getOwnerPortfolioAssets(owner) {
     else total += i.qty * i.curP * (RATES[i.cur] || 1);
   });
   return total;
-}
-
-// 도넛 클릭 시 카테고리별 상세 종목 반환
-function getItemsByDonutCategory(label, owner) {
-  const all = getFilteredAssets(owner);
-  let items;
-  switch (label) {
-    case '한국주식': items = all.filter(i => i.grp === '주식' && i.cur === 'KRW' && !(i.acc || '').match(/연금|IRP/)); break;
-    case '해외주식': items = all.filter(i => i.grp === '주식' && i.cur !== 'KRW' && !(i.acc || '').match(/연금|IRP/)); break;
-    case '연금': items = all.filter(i => i.grp === '주식' && (i.acc || '').match(/연금|IRP/)); break;
-    case '가상화폐': items = all.filter(i => i.grp === '가상화폐'); break;
-    case '금': items = all.filter(i => i.grp === '금'); break;
-    case '현금': items = all.filter(i => i.grp === '현금'); break;
-    default: items = all.filter(i => i.grp === label);
-  }
-  return items.map(i => ({
-    name: i.name,
-    value: Math.round(i.grp === '금'
-      ? i.qty * (i.unit === '돈' ? 3.75 : i.unit === 'kg' ? 1000 : 1) * (window._GOLD_G_KRW || i.curP)
-      : i.qty * i.curP * (RATES[i.cur] || 1))
-  })).sort((a, b) => b.value - a.value);
 }
 
 // =============================================
@@ -5158,40 +4937,6 @@ function updateNetAssetDisplay() {
 }
 
 
-// =============================================
-// 자산 이력 스냅샷
-// =============================================
-function saveSnapshot() {
-  const now = new Date();
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const totalAssets = getTotalPortfolioAssets();
-  const entry = { date: monthStr, totalAssets: Math.round(totalAssets), totalLiab: 0, netAssets: Math.round(totalAssets) };
-  const existing = assetHistory.findIndex(h => h.date === monthStr);
-  if (existing > -1) assetHistory[existing] = entry;
-  else {
-    assetHistory.push(entry);
-    assetHistory.sort((a, b) => a.date.localeCompare(b.date));
-    if (assetHistory.length > 24) assetHistory.splice(0, assetHistory.length - 24);
-  }
-  renderHistoryChart();
-  saveExtDataToKV();
-  alert(monthStr + ' 자산 스냅샷이 저장되었습니다.\n총자산: ₩' + Math.round(totalAssets).toLocaleString());
-}
-
-function renderHistoryChart() {
-  if (!window.historyChartInst) return;
-  if (assetHistory.length === 0) {
-    window.historyChartInst.data.labels = [];
-    window.historyChartInst.data.datasets[0].data = [];
-    window.historyChartInst.data.datasets[1].data = [];
-    window.historyChartInst.update();
-    return;
-  }
-  window.historyChartInst.data.labels = assetHistory.map(h => h.date.replace('-', '년 ') + '월');
-  window.historyChartInst.data.datasets[0].data = assetHistory.map(h => h.totalAssets);
-  window.historyChartInst.data.datasets[1].data = assetHistory.map(h => h.netAssets);
-  window.historyChartInst.update();
-}
 
 // =============================================
 // 가족 현황 비교
@@ -5647,7 +5392,6 @@ async function loadExtDataFromKV() {
       renderFixedCostView();
       renderCashFlow();
     }
-    renderHistoryChart();
     updateNetAssetDisplay();
     changeOwner(currentOwner, null, true);
     window._kvLoadState.ext='ready';
@@ -5662,16 +5406,23 @@ async function loadExtDataFromKV() {
 // =============================================
 // Chart.js 플러그인 등록
 // =============================================
-Chart.register(
-  {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
-  {id:'gaugeNeedle',afterDatasetDraw(c){if(c.config.data.datasets[0].needleValue===undefined)return;const{ctx,data}=c,m=c.getDatasetMeta(0);if(!m.data.length)return;const cx=m.data[0].x,cy=m.data[0].y,or=m.data[0].outerRadius,ang=Math.PI+(data.datasets[0].needleValue/100*Math.PI);ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(or-6,0);ctx.lineTo(0,2);ctx.fillStyle=_chartNeedleColor;ctx.fill();ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fillStyle=_chartHubColor;ctx.fill();ctx.restore();}}
-);
-// 버블 차트 관련 Highcharts 설정 삭제됨
-Chart.defaults.responsive=true;
-Chart.defaults.maintainAspectRatio=false;
-Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 10;
+// Chart.js CDN 로드가 실패하면 여기서 ReferenceError가 나고, 최상위 실행이 중단되어
+// 이 아래에서 선언되는 let/const(monthlyPLData·_bubbleOwner·KR_CODE_RE 등)가 영구 TDZ에
+// 갇힌다 — 차트뿐 아니라 양도소득세·비중 차트 페이지가 통째로 죽는다. 차트만 포기하고
+// 나머지 앱은 계속 뜨도록 가드한다.
+if (typeof Chart === "undefined") {
+  console.error('[Chart.js] 라이브러리 로드 실패 — 차트 없이 계속합니다.');
+} else {
+  Chart.register(
+    {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
+  );
+  // 버블 차트 관련 Highcharts 설정 삭제됨
+  Chart.defaults.responsive=true;
+  Chart.defaults.maintainAspectRatio=false;
+  Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
+  Chart.defaults.plugins.tooltip.padding = 12;
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+}
 
 // ── 차트 테마: CSS 토큰을 단일 소스로 (라이트/다크 자동 일치) ──
 function cssVar(name, fallback){
@@ -5710,7 +5461,6 @@ const getBConf=()=>{
     ...ownerDatasets
   ]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw!=null?(c.raw>0?'+':'')+c.raw+'%':'N/A'}`}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)'},ticks:{callback:v=>v+'%'}}}}};
 };
-const cGC=v=>({type:'doughnut',data:{labels:['Extreme Fear','Fear','Neutral','Greed','Extreme Greed'],datasets:[{data:[20,20,20,20,20],backgroundColor:['#EF4444','#F97316','#FCD34D','#84CC16','#10B981'],borderWidth:0,needleValue:v}]},options:{rotation:270,circumference:180,cutout:'70%',layout:{padding:{bottom:0}},plugins:{legend:{display:false},tooltip:{enabled:false},gaugeNeedle:{}}}});
 
 // =============================================
 // 인증 (로그인)
@@ -6051,25 +5801,7 @@ function initDashboard(){
     }
   });
 
-  window._gaugeUs=new Chart(document.getElementById('gaugeUs'),cGC(50));
-  window._gaugeCrypto=new Chart(document.getElementById('gaugeCrypto'),cGC(50));
 
-  // 자산 추이 이력 차트
-  window.historyChartInst=new Chart(document.getElementById('historyChart').getContext('2d'),{
-    type:'line',
-    data:{labels:[],datasets:[
-      {label:'총자산',data:[],borderColor:'#5b9bff',tension:.4,pointRadius:3,fill:false,borderWidth:2},
-      {label:'순자산',data:[],borderColor:'#10B981',tension:.4,pointRadius:3,fill:false,borderWidth:2,borderDash:[5,5]}
-    ]},
-    options:{
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ₩${Math.round(c.raw).toLocaleString()}`}}},
-      scales:{
-        x:{grid:{display:false},ticks:{font:{size:9}}},
-        y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:KRW_TICK}}
-      }
-    }
-  });
 
   // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 라이트 기본
   try{
@@ -6121,7 +5853,6 @@ function initDashboard(){
       (document.querySelector('.nwh-tf-btn.active') || document.querySelector('.nwh-tf-btn'))?.click();
     }
     // 국내 시세 보완은 refreshMarketPrices에서 주 시세 API와 함께 최종 판정한다.
-    refreshFNG();
     fetchHeatmapData();
     if(assetsResult?.ok) fetchDivData();
   })();
@@ -6196,12 +5927,6 @@ function _divpApplyTabs() {
     if (body) body.style.display = open ? '' : 'none';
     if (head) head.classList.toggle('open', open);
   });
-}
-function _divpSwitchTab(key) {
-  window._divpOpenTab = (window._divpOpenTab === key) ? null : key;
-  _divpApplyTabs();
-  // 숨김 상태로 생성된 차트는 크기가 0 → 표시 시 재렌더로 크기 보정
-  if (window._divpOpenTab === 'drip') renderDripSimulator();
 }
 
 function _divpHeldStocks(owner) {
@@ -6576,15 +6301,6 @@ function renderDripSimulator() {
   chart.update();
 }
 
-function setDivPlusOwner(owner, btn) {
-  window._divPlusOwner = owner;
-  document.querySelectorAll('#divp-owner-pills .rsk-owner-pill').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  _divpRenderYocTable(owner);
-  _divpRenderCagrTable(owner);
-  _divpFillDripDropdown(owner);
-  renderDripSimulator();
-}
 
 async function reloadDivPlusHistory(btn) {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 조회 중...'; }
@@ -6802,10 +6518,6 @@ function _advisorInferMarket(ticker, currency) {
   return 'US';
 }
 
-// 보유 자산에서 시장 추정 (cur 우선)
-function _advisorInferMarketFromItem(item) {
-  return _advisorInferMarket(item.tkr, item.cur);
-}
 
 async function _advisorLoadPeers() {
   if (window._advisorPeerDB) return window._advisorPeerDB;
@@ -7375,15 +7087,6 @@ function updatePLBarChart(){
   ];
   window.plBarChartInst.update();
 }
-function syncPLToTax(){
-  loadMonthlyPL();
-  const curYear=new Date().getFullYear();
-  const ytd=monthlyPLData.filter(r=>r.month&&r.month.startsWith(String(curYear))).reduce((s,r)=>s+r.amt,0);
-  const inp=document.getElementById('tax-gain-input');if(!inp)return;
-  inp.value=Math.round(ytd).toLocaleString();
-  calcCapGainTax();
-  alert(`올해(${curYear}) 누적 차익 ₩${Math.round(ytd).toLocaleString()}이 양도소득세 시뮬레이터에 입력되었습니다.`);
-}
 
 // ── 해외주식 양도소득세 (적용 연도 규칙 매니페스트 사용) ──────────────
 function calcCapGainTax() {
@@ -7411,38 +7114,6 @@ function calcCapGainTax() {
     <div class="f-between"><span style="color:var(--t3)">실효세율</span><span style="font-weight:600">${effectiveRate}%</span></div>
     <div class="f-between"><span style="color:var(--t3)">세후 실수익</span><span style="font-weight:700;color:var(--up)">₩${Math.round(netAfterTax).toLocaleString()}</span></div>
     ${tax===0?'<div style="margin-top:6px;padding:6px 8px;background:rgba(16,185,129,.12);border-radius:6px;font-size:.72rem;color:var(--up)">✓ 기본공제 범위 이내 — 양도소득세 없음</div>':''}
-  `;
-}
-
-// ── 금융소득종합과세 시뮬레이터 ──────────────────────────
-function calcFinIncomeTax() {
-  const interest = parseFloat((document.getElementById('fin-interest-input')?.value||'').replace(/,/g,''))||0;
-  const divInc   = parseFloat((document.getElementById('fin-div-input')?.value||'').replace(/,/g,''))||0;
-  const baseRate = parseFloat(document.getElementById('fin-rate-input')?.value||'38.5')||38.5;
-  const el = document.getElementById('fin-tax-result'); if(!el) return;
-  if(interest+divInc<=0){ el.innerHTML='<div style="color:var(--t3);text-align:center">소득을 입력하면 과세 여부를 알려드립니다.</div>'; return; }
-
-  const THRESHOLD=_taxRuleValue('dividend.comprehensiveIncomeThresholdKrw',20_000_000);
-  const WITHHOLDING_RATE=_taxRuleValue('dividend.generalWithholdingCombinedRate',0.154);
-  const total = interest + divInc;
-  const taxWithheld = Math.round(total * WITHHOLDING_RATE);
-  const isOver = total > THRESHOLD;
-  const overAmt = Math.max(0, total - THRESHOLD);
-  const additionalTax = isOver ? Math.round(overAmt * (baseRate / 100) - overAmt * WITHHOLDING_RATE) : 0;
-  const color = isOver ? 'var(--dn)' : 'var(--up)';
-  el.innerHTML = `
-    <div class="f-between"><span style="color:var(--t3)">이자소득</span><span style="font-weight:600">₩${interest.toLocaleString()}</span></div>
-    <div class="f-between"><span style="color:var(--t3)">배당소득</span><span style="font-weight:600">₩${divInc.toLocaleString()}</span></div>
-    <div class="f-between"><span style="color:var(--t3)">합계</span><span style="font-weight:700">₩${total.toLocaleString()}</span></div>
-    <div style="height:1px;background:var(--border-dark);margin:4px 0"></div>
-    <div class="f-between"><span style="color:var(--t3)">원천징수 (${(WITHHOLDING_RATE*100).toFixed(1)}%)</span><span style="color:var(--dn)">₩${taxWithheld.toLocaleString()}</span></div>
-    <div style="height:1px;background:var(--border-dark);margin:4px 0"></div>
-    <div style="padding:8px 10px;border-radius:8px;background:${isOver?'rgba(239,68,68,.1)':'rgba(16,185,129,.1)'};border:1px solid ${isOver?'rgba(239,68,68,.3)':'rgba(16,185,129,.3)'}">
-      <div style="font-weight:700;color:${color};margin-bottom:4px">${isOver?'⚠️ 종합과세 대상':'✅ 분리과세 (2,000만원 이하)'}</div>
-      ${isOver?`<div style="font-size:.72rem;color:var(--t2)">초과금액 ₩${overAmt.toLocaleString()}에 대해 ${baseRate}% 종합과세 적용 시 예상 추가세액: <strong style="color:var(--dn)">₩${Math.max(0,additionalTax).toLocaleString()}</strong></div>`
-      :`<div style="font-size:.72rem;color:var(--t3)">기준 ₩${THRESHOLD.toLocaleString()} 이내 — 원천징수로 분리과세 종결</div>`}
-    </div>
-    ${isOver?`<div style="margin-top:6px;font-size:.68rem;color:var(--dn)">💡 절세 팁: ISA 계좌 활용, 가족 분산 증여, 연금저축 배당 우선 활용 권고</div>`:''}
   `;
 }
 
@@ -7598,47 +7269,6 @@ let _bubbleMode = 'weight'; // 항상 비중 기준
 let _bubbleOwner = '전체';
 let _bubbleChart = null;
 
-function setBubbleOwner(owner, btn) {
-  _bubbleOwner = owner;
-  document.querySelectorAll('[id^="bubble-owner-"]').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  renderBubbleChart('weight');
-}
-
-// Glassmorphism + 네온 스펙트럼 팔레트 — 고정 카테고리-색 매핑 없이 동적 생성
-// 매 렌더마다 데이터 인덱스에 맞춰 스펙트럼을 분배해 다양한 네온 그라디언트를 구성한다.
-const BUBBLE_SECTOR_COLORS = {}; // 레거시 호환용
-
-// HSL 기반 네온 팔레트 생성 — 채도/밝기는 네온 느낌을 위해 높게 고정, Hue만 균등 분포 + 약간의 시드 오프셋
-function _neonPalette(n, seed){
-  if (n <= 0) return [];
-  const base = (typeof seed === 'number' ? seed : 210) % 360;
-  const step = 360 / Math.max(n, 1);
-  const pal = [];
-  for (let i = 0; i < n; i++){
-    // golden-angle-ish skew로 인접 섹터 간 색 유사성 회피
-    const h = (base + i * step + (i % 2 ? 18 : 0)) % 360;
-    // 레이어별 saturation/lightness 약간 변주 (홀수/짝수)
-    const s = 92 - (i % 3) * 4;        // 84~92
-    const l = 60 + ((i * 7) % 11) - 5; // 55~66
-    pal.push(`hsl(${h.toFixed(1)},${s}%,${l}%)`);
-  }
-  return pal;
-}
-// HSL → RGBA (alpha 조정용)
-function _hslToRgba(hsl, alpha){
-  const m = /hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i.exec(hsl);
-  if(!m) return hsl;
-  const h = +m[1]/360, s = +m[2]/100, l = +m[3]/100;
-  const a = s * Math.min(l, 1-l);
-  const f = (n)=>{
-    const k = (n + h*12) % 12;
-    const v = l - a * Math.max(-1, Math.min(k-3, 9-k, 1));
-    return Math.round(255 * v);
-  };
-  return `rgba(${f(0)},${f(8)},${f(4)},${alpha!=null?alpha:1})`;
-}
-
 // ── view-bubble 용 Owner 스위처 ──
 function setBubbleOwnerX(owner, btn) {
   _bubbleOwner = owner;
@@ -7659,14 +7289,6 @@ function _bubbleItemValueKRW(i, usdRate) {
   }
   const rate = i.cur === 'USD' ? usdRate : (i.cur === 'JPY' ? (RATES.JPY || 9.2) : 1);
   return (i.qty || 0) * (i.curP || 0) * rate;
-}
-
-// 소유주/자산군을 키로 쓰는 안정적 HSL 해시 → 같은 owner/grp 은 렌더마다 비슷한 hue 유지
-function _neonHash(key) {
-  let h = 0;
-  const s = String(key || '');
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return ((h % 360) + 360) % 360;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -9081,15 +8703,6 @@ function resolveKrTickerByName(name) {
 }
 
 /** 주어진 문자열을 정규화된 6자리 KRX 단축코드로 변환. 불가능하면 null. */
-function toKrCode6(raw) {
-  if (raw == null) return null;
-  let s = String(raw).trim().toUpperCase().replace(/\.(KS|KQ)$/i, '');
-  if (KR_CODE_RE.test(s)) return s;                           // 이미 6자리 알파뉴메릭
-  if (/^\d+$/.test(s) && s.length > 0 && s.length < 6) {      // 숫자 1~5자리 → zero-pad
-    return s.padStart(6, '0');
-  }
-  return null;
-}
 
 /** pfolioData 항목이 국내(KRW) 주식/ETF인지 판단 */
 function _isDomesticEquity(item) {
@@ -9505,7 +9118,6 @@ async function refreshPyData(options={}) {
   };
 }
 
-
 // =============================================
 // 벤치마크 실제 데이터 로딩 (Python backend)
 // – 모든 활성 소유주(본인/아내/자녀1/아버지)의 포트폴리오 성과를 개별 조회하여
@@ -9790,7 +9402,6 @@ async function fetchBenchmarkData(ownerOverride) {
   }
 }
 
-
 // 페이지 초기 로드 시 Python 데이터 자동 수집 (환율/금/배당 보완)
 //   벤치마크는 initDashboard 의 IIFE가 자산 로드 완료 후 호출하므로 여기선 다루지 않는다.
 window.addEventListener('load', () => {
@@ -9808,7 +9419,6 @@ window.addEventListener('load', () => {
     }
   },0);
 });
-
 
 // =============================================
 // 전역 리사이즈 핸들러 (모바일 회전/드로어 대응 차트 재맞춤)

@@ -84,7 +84,6 @@ function cbDisp(vKrw){
 }
 function cbSignDisp(vKrw){ return (vKrw>=0?'+':'') + cbDisp(vKrw); }
 function cbKrw(n){ return (n<0?'-':'') + '₩' + Math.abs(Math.round(n)).toLocaleString('ko-KR'); }
-function cbManwon(n){ return Math.round(n/10000).toLocaleString('ko-KR') + '만원'; }
 function cbPct(r){ return (r>=0?'+':'') + (r*100).toFixed(Math.abs(r)<0.1?2:1) + '%'; }
 function cbFmtNative(n, cur){
   if (cur==='USD') return '$' + Number(n).toLocaleString('en-US',{maximumFractionDigits:2});
@@ -1900,7 +1899,6 @@ function cbGiftSpouseAmt(k){
 function cbGiftSetBirth(v){ if(!/^\d{4}-\d{2}$/.test(v||'')) return; cbGiftCfg().birth=v; cbGiftSave(); }
 function cbGiftSetMarriage(v){ if(!/^\d{4}-\d{2}-\d{2}$/.test(v||'')) return; cbGiftCfg().marriage=v; cbGiftSave(); }
 function cbGiftSetYears(v){ const n=parseInt(v,10); if(!isFinite(n)) return; cbGiftCfg().years=Math.max(5,Math.min(60,n)); cbGiftSave(); }
-function cbGiftSetRate(v){ const r=parseFloat(v); if(!isFinite(r)) return; cbGiftCfg().rate=Math.max(0,Math.min(20,r)); cbGiftSave(); }
 function cbGiftSetChild(k, raw){
   const c=cbGiftCfg(); if(!Array.isArray(c.child)) c.child=CB_GIFT_CHILD_DEFAULT.slice();
   const v=parseFloat(String(raw||'').replace(/[^\d]/g,''));
