@@ -535,9 +535,19 @@ def get_benchmark(p_tkrs=None, p_weights=None):
             close_df = close_df[close_df[idx_present].notna().any(axis=1)]
 
         close_df.ffill(inplace=True)
+        idx_syms = ['^GSPC', '^KS11']
+        # 시장 달력이 다른 종목은 구간 선두가 NaN 으로 남고, ffill 은 선행 NaN 을 채우지 못한다.
+        # (1년 구간 첫 날이 미국 휴장일이면 그 행은 KOSPI 때문에 살아남고 US 종목은 전부 NaN)
+        # 아래 drop_cols 가 '한 칸이라도 NaN 이면 폐기'였던 탓에 그런 날 하나 때문에 US 종목이
+        # 통째로 버려졌고, 미국 종목만 보유한 소유주는 resolved 가 비어 포트폴리오 라인이
+        # 아예 사라졌다(혼합 보유자는 국내 종목이 남아 라인이 보이므로 증상이 한 명에게만 나타났다).
+        # 선행 구멍만 뒤에서 메워 달력 차이를 흡수한다. 지수는 건드리지 않으므로 아래 dropna 가
+        # 여전히 선두 행을 정리하고, 구간별 base 는 '첫 유효값' 기준이라 안전하다.
+        _data_cols = [c for c in close_df.columns if c not in idx_syms]
+        if _data_cols:
+            close_df[_data_cols] = close_df[_data_cols].bfill()
         # 다운로드 실패·이력 부족 종목 컬럼 제거 — 한 종목의 NaN이 dropna로
         # 전체 행을 삭제하는 것을 방지 (지수 ^GSPC/^KS11 은 유지)
-        idx_syms = ['^GSPC', '^KS11']
         drop_cols = [c for c in close_df.columns
                      if c not in idx_syms and close_df[c].isna().any()]
         if drop_cols:
