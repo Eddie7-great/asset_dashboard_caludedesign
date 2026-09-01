@@ -56,7 +56,10 @@ assert.match(giftHtml, /혼인 신고일 전후 2년[\s\S]*출생·입양일 이
 
 assert.ok(indexSource.indexOf('tax-rules.js') < indexSource.indexOf('script.js'), '규칙을 계산 엔진보다 먼저 로드')
 assert.equal((cobaltSource.match(/assetTaxRuleDisclosureHtml\('/g) || []).length >= 3, true, '배당·양도소득·증여 화면에 규칙 패널 연결')
-assert.match(scriptSource, /ruleSetId=typeof assetTaxRulesFor/, '실현손익 기록에 적용 규칙 버전 저장')
+// 실현손익 기록 경로는 Cobalt 양도소득세 화면(cbTaxAdd)이다. 레거시 view-analysis 의
+// addMonthlyPL/editMonthlyPL 사본이 사라졌으므로 살아있는 기록 경로를 직접 못박는다.
+assert.match(cobaltSource, /ruleSetId=typeof assetTaxRulesFor/, '실현손익 기록에 적용 규칙 버전 저장')
+assert.match(cobaltSource, /ruleSetId/, '기록 엔트리에 ruleSetId 포함')
 assert.doesNotMatch(cobaltSource, /매도액 0\.15%/, '2026 거래세 구버전 문구 제거')
 assert.match(cobaltSource, /ISA 계좌[\s\S]*만기 정산 전 연간 참고/, 'ISA 카드 자체에도 연간 참고임을 표시')
 assert.match(cobaltSource, /법정 할인율\(%\)[\s\S]*readonly aria-readonly="true"/, '법정 정기금 할인율 임의 변경 방지')

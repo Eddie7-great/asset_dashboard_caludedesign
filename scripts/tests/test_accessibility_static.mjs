@@ -21,20 +21,14 @@ assert.match(html, /class="cf-modal-close"[^>]*aria-label="[^"]+"/);
 
 assert.match(html, /<nav\b[^>]*id="sidebar-menu"[^>]*aria-label="[^"]+"/);
 assert.match(html, /id="menu-dashboard"[^>]*aria-current="page"/);
-assert.match(html, /id="dash-net-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="dash-net-summary-body"/);
 
 const canvases = [...html.matchAll(/<canvas\b([^>]*)>([\s\S]*?)<\/canvas>/g)];
-// 하한은 캔버스가 실수로 사라지는 걸 잡는 트립와이어다. 20 → 17 로 내린 것은
-// 아무도 볼 수 없던 display:none 캔버스 3개(gaugeUs·gaugeCrypto·historyChart)를
-// 걷어냈기 때문이다.
-assert.ok(canvases.length >= 17, `expected at least 17 canvases, found ${canvases.length}`);
-// 걷어낸 세 캔버스가 되돌아오지 않는지만 못박는다. 아무도 볼 수 없는 캔버스에
-// Chart 인스턴스를 만들어 갱신하던 자리다. gaugeUs·gaugeCrypto 는 공포·탐욕 지수용이었고
-// 그 기능 자체를 제거했다. (miniDivChart·familyBarChart 는 아직 레거시 뷰가 실제로
-// 갱신하고 있어 여기서 막지 않는다.)
-for (const gone of ['gaugeUs', 'gaugeCrypto', 'historyChart']) {
-  assert.doesNotMatch(html, new RegExp(`<canvas\\b[^>]*id="${gone}"`), `${gone} 캔버스는 제거된 상태여야 한다`);
-}
+// 레거시 뷰 7개를 걷어내면서 캔버스는 현금 흐름의 둘만 남았다. Cobalt 페이지는
+// Chart.js 대신 인라인 SVG 를 쓰므로 앞으로도 캔버스가 크게 늘 이유가 없다.
+assert.ok(canvases.length >= 2, `expected at least 2 canvases, found ${canvases.length}`);
+// 보이지 않는 캔버스에 Chart 인스턴스를 만들어 갱신하는 패턴을 다시 들이지 않는다
+// (예전 gaugeUs·gaugeCrypto·historyChart·miniDivChart·familyBarChart 가 그랬다).
+assert.doesNotMatch(html, /<canvas\b[^>]*style="[^"]*display:\s*none/, '숨겨진 캔버스 금지');
 for (const [, attrs, fallback] of canvases) {
   const id = attrs.match(/\bid="([^"]+)"/)?.[1] ?? '(unknown)';
   assert.match(attrs, /\brole="img"/, `${id} must expose an image role`);
@@ -43,22 +37,19 @@ for (const [, attrs, fallback] of canvases) {
 }
 
 const sourcedScripts = [...html.matchAll(/<script\b([^>]*)\bsrc="([^"]+)"([^>]*)><\/script>/g)];
-assert.ok(sourcedScripts.length >= 8);
+// 레거시 뷰를 걷어내며 유일한 Highcharts 사용처(히트맵 트리맵)가 사라져 CDN 3개를 제거했다.
+// 남은 외부 스크립트는 Chart.js(현금 흐름 차트)와 Plotly(비중 차트) 둘뿐이다.
+assert.ok(sourcedScripts.length >= 2, `expected at least 2 sourced scripts, found ${sourcedScripts.length}`);
 for (const [, before, src, after] of sourcedScripts) {
   assert.match(`${before} ${after}`, /\bdefer\b/, `${src} must be deferred`);
 }
-assert.doesNotMatch(html, /code\.highcharts\.com\/(?:stock\/highstock|highcharts-more|modules\/treemap)\.js/);
-assert.match(html, /code\.highcharts\.com\/stock\/13\.0\.1\/highstock\.js/);
-for (const src of [
-  'code.highcharts.com/stock/13.0.1/highstock.js',
-  'code.highcharts.com/13.0.1/highcharts-more.js',
-  'code.highcharts.com/13.0.1/modules/treemap.js',
-]) {
-  const escaped=src.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  assert.match(html,new RegExp(`${escaped}[^>]+integrity="sha384-[^"]+"[^>]+crossorigin="anonymous"`),`${src} must use SRI`);
+assert.doesNotMatch(html, /code\.highcharts\.com/, 'Highcharts 는 더 이상 로드하지 않는다');
+// 남은 CDN 스크립트는 모두 SRI + crossorigin 을 갖춰야 한다.
+for (const [, before, src, after] of sourcedScripts) {
+  if (!/^https?:/.test(src)) continue;
+  assert.match(`${before} ${after}`, /integrity="sha384-[^"]+"/, `${src} must use SRI`);
+  assert.match(`${before} ${after}`, /crossorigin="anonymous"/, `${src} must set crossorigin`);
 }
-assert.match(html, /cdnjs\.cloudflare\.com[^>]+integrity="sha384-[^"]+"[^>]+crossorigin="anonymous"/);
-assert.match(html, /cdn\.plot\.ly[^>]+integrity="sha384-[^"]+"[^>]+crossorigin="anonymous"/);
 
 assert.doesNotMatch(html, /<(?:div|span|th|tr|li|a)\b[^>]*\bonclick=/i);
 assert.match(css, /:focus-visible/);
