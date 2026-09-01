@@ -384,4 +384,22 @@ assert.match(styleSource, /\.cb-risk-primary-message\{[^}]*word-break:keep-all;o
 assert.match(styleSource, /\.cb-div-tip-owner\{[^}]*var\(--tiptx\)/, '라이트 테마의 어두운 배당 툴팁에서도 소유주명이 밝게 표시')
 assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-dash-table-panel \.cb-dash-head,[\s\S]*\.cb-div-history-panel \.cb-div-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산·배당 관리 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
 
+// ── PC 입력란 폭 상한 · 페이지 컴팩트화 ───────────────────────────
+assert.match(styleSource, /\.fin-form-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(148px,208px\)\);gap:10px;justify-content:start\}/, '재무상태표·목표 폼 입력란 폭 상한(208px)')
+assert.match(styleSource, /\.cf-fixed-form\{[^}]*minmax\(160px,300px\)[^}]*justify-content:start\}/, '고정비 항목 입력란이 남은 폭을 전부 흡수하지 않게 상한')
+assert.match(styleSource, /#cf-input-panel \.form-row\{max-width:1020px\}/, '현금 흐름 수입·지출 입력 줄 폭 상한')
+assert.match(styleSource, /#cb-tax-pl\{max-width:170px\}/, '실현손익 입력란 폭 상한')
+assert.match(styleSource, /#cb-tax-memo\{max-width:260px\}/, '실현손익 메모 입력란 폭 상한')
+assert.match(styleSource, /\.cb-gift-field\{max-width:216px\}/, '증여 페이지 입력 라벨 폭 상한')
+assert.match(styleSource, /@media \(max-width: 768px\) \{[\s\S]*\.cb-gift-field\{max-width:none\}/, '모바일에서는 증여 입력 라벨 폭 상한 해제')
+assert.match(cobaltSource, /const field = \(label, input\) => `<label class="cb-gift-field"/, '증여 입력 라벨이 폭 상한 클래스를 단다')
+assert.match(styleSource, /\.cb-scroll\{[^}]*padding:0 6px 24px 0\}/, '본문 하단 데드 스페이스 축소')
+assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '재무 카드 내부·바깥 여백 압축')
+// 고정비 등록 줄의 세로 정렬 — 세 값은 항상 같아야 한다
+{
+  const h = [...styleSource.matchAll(/(?:\.btn-submit\{[^}]*|\.cf-fixed-form \.form-input\{[^}]*|\.cf-fixed-check\{[^}]*)height:(\d+)px/g)].map(m => m[1])
+  assert.strictEqual(h.length, 3, '높이를 고정하는 세 규칙이 모두 존재')
+  assert.strictEqual(new Set(h).size, 1, `고정비 등록 줄 컨트롤 높이 불일치: ${h.join('/')}`)
+}
+
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
