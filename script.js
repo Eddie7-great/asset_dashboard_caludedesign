@@ -5662,16 +5662,24 @@ async function loadExtDataFromKV() {
 // =============================================
 // Chart.js 플러그인 등록
 // =============================================
-Chart.register(
-  {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
-  {id:'gaugeNeedle',afterDatasetDraw(c){if(c.config.data.datasets[0].needleValue===undefined)return;const{ctx,data}=c,m=c.getDatasetMeta(0);if(!m.data.length)return;const cx=m.data[0].x,cy=m.data[0].y,or=m.data[0].outerRadius,ang=Math.PI+(data.datasets[0].needleValue/100*Math.PI);ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(or-6,0);ctx.lineTo(0,2);ctx.fillStyle=_chartNeedleColor;ctx.fill();ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fillStyle=_chartHubColor;ctx.fill();ctx.restore();}}
-);
-// 버블 차트 관련 Highcharts 설정 삭제됨
-Chart.defaults.responsive=true;
-Chart.defaults.maintainAspectRatio=false;
-Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 10;
+// Chart.js CDN 로드가 실패하면 여기서 ReferenceError가 나고, 최상위 실행이 중단되어
+// 이 아래에서 선언되는 let/const(monthlyPLData·_bubbleOwner·KR_CODE_RE 등)가 영구 TDZ에
+// 갇힌다 — 차트뿐 아니라 양도소득세·비중 차트 페이지가 통째로 죽는다. 차트만 포기하고
+// 나머지 앱은 계속 뜨도록 가드한다.
+if (typeof Chart === "undefined") {
+  console.error('[Chart.js] 라이브러리 로드 실패 — 차트 없이 계속합니다.');
+} else {
+  Chart.register(
+    {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
+    {id:'gaugeNeedle',afterDatasetDraw(c){if(c.config.data.datasets[0].needleValue===undefined)return;const{ctx,data}=c,m=c.getDatasetMeta(0);if(!m.data.length)return;const cx=m.data[0].x,cy=m.data[0].y,or=m.data[0].outerRadius,ang=Math.PI+(data.datasets[0].needleValue/100*Math.PI);ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(or-6,0);ctx.lineTo(0,2);ctx.fillStyle=_chartNeedleColor;ctx.fill();ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fillStyle=_chartHubColor;ctx.fill();ctx.restore();}}
+  );
+  // 버블 차트 관련 Highcharts 설정 삭제됨
+  Chart.defaults.responsive=true;
+  Chart.defaults.maintainAspectRatio=false;
+  Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
+  Chart.defaults.plugins.tooltip.padding = 12;
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+}
 
 // ── 차트 테마: CSS 토큰을 단일 소스로 (라이트/다크 자동 일치) ──
 function cssVar(name, fallback){
