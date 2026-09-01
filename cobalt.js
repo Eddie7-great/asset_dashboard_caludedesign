@@ -2109,7 +2109,7 @@ function cbRenderGift(){
   cbSetHead('자녀 정기증여와 부부 증여 계획');
 
   // 입력 필드 (라벨 + 인풋)
-  const field = (label, input) => `<label style="flex:1;min-width:132px;display:flex;flex-direction:column;gap:5px">
+  const field = (label, input) => `<label class="cb-gift-field" style="flex:1;min-width:132px;display:flex;flex-direction:column;gap:5px">
       <span style="font-size:10.5px;color:var(--lab);font-weight:600">${label}</span>${input}</label>`;
   const moneyInput = (val, onch) => `<input class="cb-input cb-num" value="${val?Number(val).toLocaleString('ko-KR'):''}" placeholder="0"
       inputmode="numeric" oninput="cbGiftFmtInput(this)" onchange="${onch}" style="padding:7px 9px;width:100%;box-sizing:border-box;text-align:right" />`;
