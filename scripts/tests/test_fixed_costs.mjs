@@ -24,19 +24,34 @@ function extractFunction(name) {
   throw new Error(`${name} 함수 닫는 괄호를 찾을 수 없음`)
 }
 
+// 한 줄짜리 const 선언을 소스에서 그대로 가져온다 (테스트 사본이 원본과 어긋나지 않도록)
+function extractConstLine(name) {
+  const re = new RegExp(`^const ${name}\\s*=.*$`, 'm')
+  const m = source.match(re)
+  assert.notEqual(m, null, `${name} 선언을 찾을 수 없음`)
+  return m[0]
+}
+
 const context = {
   DOW_LABELS: ['일','월','화','수','목','금','토'],
   _cfOwner: '전체',
   _effectiveAutoTransferAmt: at => at.amt,
   autoTransferData: [],
-  _KR_BANK_HOLIDAYS: new Set([
-    '2026-05-01','2026-05-05','2026-05-24','2026-05-25','2026-07-17',
-    '2026-08-15','2026-08-17','2026-10-03','2026-10-05','2026-10-09',
-  ]),
+  Intl,
 }
 vm.createContext(context)
+// 은행 영업일 판정은 _krHolidaySet(연도) 계산기 하나에만 의존한다.
+// 예전에는 테스트가 2026년 공휴일을 손으로 넣었지만, 그러면 실제 판정 로직을 건너뛴다.
+for (const line of ['_MARKET_HOLIDAY_CACHE', '_KR_ONE_OFF_HOLIDAYS']) {
+  vm.runInContext(extractConstLine(line), context)
+}
 for (const name of [
   '_cfLocalDateKey',
+  '_dateAtNoon',
+  '_addDateKey',
+  '_krLunarParts',
+  '_krHolidaySet',
+  '_isKrPublicHoliday',
   '_isKrBankBusinessDay',
   '_nextKrBankBusinessDay',
   '_normalizeAutoTransferSchedules',
@@ -70,7 +85,10 @@ assert.equal(context._autoTransferMonthlyOccurrences({...wooriMortgage,cycle:'mo
 assert.equal(context._autoTransferActiveInMonth({...monthly,endMonth:'2026-07'},2026,8),false,'종료 월 이후 제외')
 assert.equal(context._autoTransferActiveInMonth({...monthly,skipMonths:['2026-08']},2026,8),false,'건너뛴 달 제외')
 const nextDate=context._nextFixedCostDate(monthly,new Date(2026,7,26))
-assert.deepEqual([nextDate.getFullYear(),nextDate.getMonth()+1,nextDate.getDate()],[2026,9,25],'결제일이 지난 경우 다음 달 예정일')
+// 9/25는 추석이고 9/26~27 주말, 9/28은 추석 대체공휴일이라 다음 영업일은 9/29다.
+// (예전 기대값 9/25는 테스트가 손으로 넣은 공휴일 집합에 추석이 빠져 있어서 나온 값이고,
+//  실제 앱은 그때도 9/29를 돌려주고 있었다.)
+assert.deepEqual([nextDate.getFullYear(),nextDate.getMonth()+1,nextDate.getDate()],[2026,9,29],'결제일이 지난 경우 다음 달 예정일 — 추석 연휴를 건너뛴다')
 context._cfOwner='본인'
 assert.equal(context._fixedCostOwnerMatches(monthly),true,'선택 소유주 고정비 포함')
 assert.equal(context._fixedCostOwnerMatches(weekly),false,'다른 소유주 고정비 제외')
@@ -80,7 +98,9 @@ assert.match(html,/월 고정비[\s\S]*연간 환산액[\s\S]*수입 대비 고�
 assert.doesNotMatch(html,/<option value="month-start">매월초<\/option>/,'매월초 선택지 제거')
 assert.match(html,/<option value="month-end">매월말<\/option>/,'월마다 다른 마지막 날짜를 위한 매월말 선택지 유지')
 assert.match(source,/owner:at\.owner\|\|'미지정'[\s\S]*autoTransferData: autoTransferData/,'자동이체 실체화 소유주와 원격 동기화')
-assert.match(source,/_KR_BANK_HOLIDAYS[\s\S]*_nextKrBankBusinessDay[\s\S]*scheduledKey/, '은행 휴일 다음 영업일 계산')
+assert.match(source,/_isKrPublicHoliday[\s\S]*_nextKrBankBusinessDay[\s\S]*scheduledKey/, '은행 휴일 다음 영업일 계산')
+// 공휴일 표는 _krHolidaySet 하나뿐이어야 한다 — 연도별 목록을 다시 하드코딩하면 갱신을 잊는다.
+assert.doesNotMatch(source,/_KR_BANK_HOLIDAYS/, '연도별 공휴일 하드코딩 금지')
 assert.match(source,/businessDayRule:'next'[\s\S]*scheduleMonth:ym/, '자동이체 실제 예정일과 약정 월 저장')
 assert.match(source,/at\.isFixedCost===true[\s\S]*at\.isFixedCost==null[\s\S]*at\.isFixedCost===false/,'합산·검토·제외 상태 분리')
 assert.match(css,/@media \(max-width: 768px\)[\s\S]*cf-fixed-summary-grid[\s\S]*cf-fixed-secondary/,'모바일 고정비 핵심 칼럼 구성')

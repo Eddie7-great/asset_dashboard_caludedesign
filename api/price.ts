@@ -6,7 +6,7 @@ const MAX_TICKERS = 25;
 const MAX_TICKER_LENGTH = 24;
 const MAX_CONCURRENCY = 5;
 const ALLOWED_TYPES = new Set([
-  'price', 'fng', 'dividend', 'dividend_history', 'sector', 'ohlcv',
+  'price', 'dividend', 'dividend_history', 'sector', 'ohlcv',
   'search', 'krsearch', 'macro', 'news', 'heatmap',
 ]);
 
@@ -248,22 +248,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    // ── F&G (공포/탐욕 지수) ──────────────────────────────────
-    if (type === 'fng') {
-      let fngUS = 50, fngCrypto = 50;
-      // VIX → Yahoo Finance (키 불필요)
-      try {
-        const vix = await yahooScrapePrevClose('^VIX');
-        if (vix) fngUS = Math.round(Math.max(5, Math.min(95, 100 - ((vix.price - 10) / 30) * 85)));
-      } catch(e) { console.warn('[fng] VIX 조회 실패, 기본값 50 사용:', e); }
-      // 크립토 FNG → alternative.me (키 불필요)
-      try {
-        const r = await fetchWithTimeout('https://api.alternative.me/fng/', { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) { const d = await r.json(); if (d?.data?.[0]?.value) fngCrypto = parseInt(d.data[0].value); }
-      } catch(e) { console.warn('[fng] 크립토 F&G 조회 실패, 기본값 50 사용:', e); }
-      return res.status(200).json({ success: true, us: fngUS, crypto: fngCrypto });
-    }
-
     // ── 배당 정보 (Yahoo Finance chart events=div) ─────────────
     //   - KR 단축코드(6자리 알파뉴메릭)는 Python `api/dashboard?type=dividend` (pykrx)로 우회
     //   - US/기타 티커는 Yahoo 사용

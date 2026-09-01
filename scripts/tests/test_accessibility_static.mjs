@@ -24,7 +24,17 @@ assert.match(html, /id="menu-dashboard"[^>]*aria-current="page"/);
 assert.match(html, /id="dash-net-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="dash-net-summary-body"/);
 
 const canvases = [...html.matchAll(/<canvas\b([^>]*)>([\s\S]*?)<\/canvas>/g)];
-assert.ok(canvases.length >= 20, `expected at least 20 canvases, found ${canvases.length}`);
+// 하한은 캔버스가 실수로 사라지는 걸 잡는 트립와이어다. 20 → 17 로 내린 것은
+// 아무도 볼 수 없던 display:none 캔버스 3개(gaugeUs·gaugeCrypto·historyChart)를
+// 걷어냈기 때문이다.
+assert.ok(canvases.length >= 17, `expected at least 17 canvases, found ${canvases.length}`);
+// 걷어낸 세 캔버스가 되돌아오지 않는지만 못박는다. 아무도 볼 수 없는 캔버스에
+// Chart 인스턴스를 만들어 갱신하던 자리다. gaugeUs·gaugeCrypto 는 공포·탐욕 지수용이었고
+// 그 기능 자체를 제거했다. (miniDivChart·familyBarChart 는 아직 레거시 뷰가 실제로
+// 갱신하고 있어 여기서 막지 않는다.)
+for (const gone of ['gaugeUs', 'gaugeCrypto', 'historyChart']) {
+  assert.doesNotMatch(html, new RegExp(`<canvas\\b[^>]*id="${gone}"`), `${gone} 캔버스는 제거된 상태여야 한다`);
+}
 for (const [, attrs, fallback] of canvases) {
   const id = attrs.match(/\bid="([^"]+)"/)?.[1] ?? '(unknown)';
   assert.match(attrs, /\brole="img"/, `${id} must expose an image role`);
