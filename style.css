@@ -23,9 +23,7 @@
   outline:3px solid var(--acc)!important;outline-offset:2px!important
 }
 .menu-btn[aria-current="page"]{background:var(--acc-soft);color:var(--t1);font-weight:700}
-.dash-net-toggle-button{
-  width:100%;padding:0;border:0;background:transparent;font-family:inherit;text-align:left
-}
+
 #sidebar-backdrop{
   margin:0;padding:0;border:0;border-radius:0;color:transparent;cursor:pointer
 }
@@ -249,9 +247,7 @@
     #sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1290}
     .menu-col{padding:12px 10px;display:flex;flex-direction:column;height:100%}
     .logo{display:flex;align-items:center;gap:9px;padding:0 8px 14px;flex-shrink:0}
-    .logo-badge{width:29px;height:29px;border-radius:8px;background:linear-gradient(140deg,var(--acc),#2c4a86);display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
-    .logo-text{font-family:'Manrope',sans-serif;font-weight:800;font-size:14px;color:var(--t1);line-height:1.15}
-    .logo-sub{font-size:9px;color:var(--t3);letter-spacing:.12em}
+
     /* 세로 스크롤은 허용하되 스크롤바는 표시하지 않음 (사이드메뉴 요구사항) */
     .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0;scrollbar-width:none}
     .menu-list::-webkit-scrollbar{display:none;width:0;height:0}
@@ -295,7 +291,7 @@
     .side-seg-btn.active{background:var(--acc-soft2);color:var(--t1)}
     .content-area{position:relative;overflow-y:auto;overflow-x:auto;padding-right:5px;height:100%;min-width:0}
     .content-area::-webkit-scrollbar{width:6px}.content-area::-webkit-scrollbar-thumb{background:rgba(120,140,190,.32);border-radius:3px}
-    .inner-scroll::-webkit-scrollbar{width:4px}.inner-scroll::-webkit-scrollbar-thumb{background:rgba(100,100,100,.18);border-radius:3px}.inner-scroll{scrollbar-width:thin;scrollbar-color:rgba(100,100,100,.18) transparent}
+
     .view-section{display:none;animation:fadeIn .3s ease;gap:12px;height:100%;flex:1;min-height:0}
     .view-section.active{display:flex;flex-direction:column}
     @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
@@ -304,12 +300,7 @@
     .api-btn{background:var(--acc-soft2);color:var(--t1)!important;border:1px solid var(--border-dark);padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:.76rem;transition:background .15s,color .15s;font-family:inherit}
     .api-btn:hover{background:var(--hover-bg)}
     .owner-tabs{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
-    .dash-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);gap:12px;flex:1;min-height:550px}
-    .dash-main{gap:12px;min-width:0;min-height:0}
-    .dash-side{gap:12px;min-width:0;min-height:0}
-    .top-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:12px;flex:1.4;min-height:300px;min-width:0}
-    .mid-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;flex:1;min-height:0;min-width:0}
-    .val-lg{font-size:clamp(1.2rem,2vw,1.6rem);font-weight:700;font-family:'IBM Plex Mono',monospace}
+
     .gain-row{margin-top:6px;font-size:.8rem}
     /* 공통 결과/정보 패널 (인라인 스타일 통합) */
     .result-panel{background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px}
@@ -319,11 +310,9 @@
     .chart-container{position:relative;width:100%;flex:1;display:flex;justify-content:center;align-items:center;min-height:0;min-width:0}
     .c-up{color:var(--up);font-weight:600}.c-dn{color:var(--dn);font-weight:600}
     .card-title{font-size:.85rem;font-weight:700;color:var(--t2);margin-bottom:8px;flex-shrink:0}
-    .item-row{margin-bottom:6px;font-size:.75rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .hm-period-toggle{display:flex;gap:4px;background:var(--inner-bg);padding:3px;border-radius:8px;border:1px solid var(--border-light)}
-    .hm-btn{border:none;background:transparent;color:var(--t3);font-size:.65rem;font-weight:700;padding:4px 8px;border-radius:6px;cursor:pointer;transition:.2s}
+
     .hm-btn.active{background:var(--modal-bg);color:var(--acc);box-shadow:0 2px 4px rgba(0,0,0,.05)}
-    .heatmap-container{padding:5px;flex:1;min-height:0}
+
     .pt-group{margin-bottom:12px;border:1px solid var(--border-dark);border-radius:10px;background:var(--glass);box-shadow:0 2px 8px rgba(0,0,0,.02);flex-shrink:0}
     .pt-group-header{padding:12px 16px;background:var(--header-bg);cursor:pointer;transition:.2s;border-bottom:1px solid var(--border-light);border-radius:10px 10px 0 0;overflow:hidden}
     .pt-group-header:hover{background:var(--hover-bg)}
@@ -383,14 +372,13 @@
     #view-holdings .holdings-broker-filter-inline{max-width:100%;flex-wrap:wrap}
     #view-holdings .holdings-broker-filter-inline select{max-width:230px}
     #owner-tabs-container.holdings-owner-tabs{margin-left:auto!important;margin-right:0!important;padding-left:12px}
-    #div-table-body td:first-child{white-space:normal}
+
     /* 현금 흐름 상세 내역 표 — 소유주 모드 전환 시 컬럼 폭이 흔들리지 않도록 고정 */
     #cf-detail-table{table-layout:fixed}
     #cf-detail-table th,
     #cf-detail-table td{overflow:hidden;text-overflow:ellipsis}
     #cf-detail-table td:nth-child(5){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
-    .div-compact td,.div-compact th{padding:3px 6px;font-size:.7rem}
-    .div-compact thead th{padding:4px 6px}
+
     /* [5] 정렬 가능한 테이블 헤더 */
     /* 정렬 헤더: 우측 패딩을 본문 td(12px)와 동일하게 맞춰 헤더 텍스트와 숫자열 정렬선 일치 */
     .pt-table th.sortable{cursor:pointer;user-select:none;position:relative;padding-right:12px}
@@ -539,28 +527,9 @@
     }
 
     /* ── 미조회 뱃지 ──────────────────────────────────────────── */
-    .unavailable-badge {
-      font-size: .65rem;
-      color: var(--t3);
-      background: var(--inner-bg);
-      border: 1px solid var(--border-dark);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-family: 'IBM Plex Mono', monospace;
-    }
 
     /* ── 대시보드 차트 탭 ──────────────────────────────────────── */
-    .dash-chart-tab {
-      flex: 1;
-      padding: 5px 0;
-      font-size: .75rem;
-      font-weight: 600;
-      background: var(--inner-bg);
-      color: var(--t3);
-      border: none;
-      cursor: pointer;
-      transition: background .2s, color .2s;
-    }
+
     .dash-chart-tab.active {
       background: var(--acc);
       color: #fff;
@@ -583,8 +552,7 @@
     }
 
     /* ── 반응형: 창 폭이 좁아질 때 레이아웃 보호 ── */
-    .port-grid-top { min-width: 680px; }
-    .port-grid-mid { min-width: 680px; }
+
     @media (max-width: 1100px) {
       .layout { grid-template-columns: 180px 1fr; gap: 10px; padding: 10px; }
     }
@@ -616,10 +584,7 @@
       gap: 0;
       animation: fadeIn .4s ease;
     }
-    .login-logo {
-      font-size: 2.4rem;
-      margin-bottom: 12px;
-    }
+
     .login-title {
       margin: 0 0 6px;
       font-size: 1.25rem;
@@ -674,155 +639,19 @@
     }
 
     /* === 배당 심화 / 공용 작은 버튼 (구 분석+ 페이지에서 분리된 잔여 스타일) === */
-    .rsk-tf-btn {
-      background: transparent; border: 1px solid var(--border-dark);
-      color: var(--t3); padding: 4px 10px; border-radius: 6px;
-      font-size: .75rem; cursor: pointer; font-weight: 600;
-      font-family: inherit; transition: all .15s;
-    }
-    .rsk-tf-btn:hover { color: var(--acc); border-color: var(--acc); }
+
     .rsk-tf-btn.active { background: var(--acc); color: #fff; border-color: var(--acc); }
-    .rsk-owner-pill {
-      background: transparent; border: 1px solid var(--border-dark);
-      color: var(--t3); padding: 3px 9px; border-radius: 6px;
-      font-size: .72rem; cursor: pointer; font-weight: 600;
-      font-family: inherit; transition: all .15s;
-    }
-    .rsk-owner-pill:hover { color: var(--acc); border-color: var(--acc); }
+
     .rsk-owner-pill.active { background: var(--acc); color: #fff; border-color: var(--acc); }
 
     /* 목표 & 리밸런싱 view: 패널 헤더의 info-tip 은 외부 overflow-y:auto 래퍼에
        의해 위쪽이 잘리므로 아래쪽으로 펼치도록 override. */
-    #view-target_rebal .info-tip:hover::after,
-    #view-target_rebal .info-tip:focus::after {
-      bottom: auto; top: calc(100% + 8px);
-    }
 
     /* === 목표 & 리밸런싱 View === */
-    .tgt-top5-row {
-      display: grid;
-      grid-template-columns: 1fr 100px 50px;
-      gap: 8px; align-items: center;
-      padding: 6px 8px; background: var(--inner-bg);
-      border-radius: 6px;
-    }
-    .tgt-top5-name {
-      font-size: .82rem; color: var(--t1); font-weight: 600;
-      display: flex; align-items: center; min-width: 0;
-    }
-    .tgt-top5-bar {
-      height: 8px; background: var(--border-light); border-radius: 4px;
-      overflow: hidden;
-    }
-    .tgt-top5-bar > div {
-      height: 100%; border-radius: 4px; transition: width .3s;
-    }
-    .tgt-top5-pct {
-      font-family: 'IBM Plex Mono', monospace; font-size: .8rem;
-      font-weight: 700; color: var(--t1); text-align: right;
-    }
 
     /* === 포트폴리오 어드바이저 === */
     /* view-target_rebal 내부 panel 들은 flex shrink 비활성화 — 합산 컨텐츠가
        뷰포트보다 클 때 panel 압축이 아니라 wrapper 스크롤이 동작하도록. */
-    #view-target_rebal > .f-col > * { flex-shrink: 0; }
-    .advisor-results {
-      display: none;
-      position: absolute; left: 0; right: 0; top: 100%;
-      margin-top: 4px; z-index: 30;
-      background: var(--inner-bg);
-      border: 1px solid var(--border-light); border-radius: 10px;
-      max-height: 280px; overflow-y: auto;
-      box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    }
-    .advisor-result-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 10px; align-items: center;
-      padding: 8px 12px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border-light);
-      font-size: .85rem;
-    }
-    .advisor-result-row:last-child { border-bottom: none; }
-    .advisor-result-row:hover { background: var(--border-light); }
-    .advisor-result-name { color: var(--t1); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .advisor-result-tkr { color: var(--t3); font-family: 'IBM Plex Mono', monospace; font-size: .78rem; }
-    .advisor-result-mkt { color: var(--t3); font-size: .72rem; }
-    .advisor-target-card {
-      background: var(--inner-bg);
-      border: 1px solid var(--border-light);
-      border-radius: 12px;
-      padding: 16px 18px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .advisor-target-head {
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-    }
-    .advisor-target-name { font-size: 1.05rem; font-weight: 700; color: var(--t1); }
-    .advisor-target-tkr { font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--t3); margin-left: 6px; font-weight: 500; }
-    .advisor-target-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
-    .advisor-sector-tag {
-      display: inline-block; padding: 2px 10px; border-radius: 10px;
-      background: var(--acc); color: #fff; font-size: .72rem; font-weight: 700;
-    }
-    .advisor-owner-meta { font-size: .72rem; color: var(--t3); }
-    .advisor-score-wrap { text-align: right; min-width: 80px; }
-    .advisor-score-label { font-size: .7rem; color: var(--t3); font-weight: 600; }
-    .advisor-score-value { font-size: 1.7rem; font-weight: 800; font-family: 'IBM Plex Mono', monospace; line-height: 1.1; }
-    .advisor-oneliner { font-size: .9rem; color: var(--t1); font-weight: 600; line-height: 1.4; }
-    .advisor-score-bar {
-      height: 6px; background: var(--border-light); border-radius: 3px; overflow: hidden;
-    }
-    .advisor-score-bar > div { height: 100%; transition: width .3s; }
-    .advisor-metrics-table {
-      width: 100%; border-collapse: collapse; font-size: .82rem;
-    }
-    .advisor-metrics-table th {
-      text-align: left; color: var(--t3); font-weight: 600; padding: 4px 6px; width: 40%;
-    }
-    .advisor-metrics-table td {
-      text-align: right; color: var(--t1); font-family: 'IBM Plex Mono', monospace; padding: 4px 6px;
-    }
-    .advisor-empty {
-      color: var(--t3); font-size: .85rem; padding: 14px; text-align: center;
-      background: var(--inner-bg); border: 1px dashed var(--border-light); border-radius: 10px;
-    }
-    .advisor-peers-head {
-      font-size: .85rem; font-weight: 700; color: var(--t1);
-      margin-top: 6px; padding-top: 6px;
-    }
-    .advisor-peers-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 6px;
-    }
-    .advisor-peer-card {
-      background: var(--inner-bg);
-      border: 1px solid var(--border-light);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .advisor-peer-head { display: flex; gap: 10px; align-items: center; }
-    .advisor-peer-rank {
-      font-size: 1rem; font-weight: 800; color: var(--acc);
-      background: var(--border-light); border-radius: 8px; padding: 2px 8px;
-      font-family: 'IBM Plex Mono', monospace;
-    }
-    .advisor-peer-name { font-size: .9rem; font-weight: 700; color: var(--t1); }
-    .advisor-peer-tkr { font-family: 'IBM Plex Mono', monospace; font-size: .75rem; color: var(--t3); }
-    .advisor-peer-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    .advisor-peer-table thead th {
-      text-align: right; color: var(--t3); font-weight: 600; padding: 4px 6px;
-      border-bottom: 1px solid var(--border-light);
-    }
-    .advisor-peer-table thead th:first-child { text-align: left; }
-    .advisor-peer-table tbody th {
-      text-align: left; color: var(--t3); font-weight: 500; padding: 4px 6px;
-    }
-    .advisor-peer-table tbody td {
-      text-align: right; color: var(--t1); font-family: 'IBM Plex Mono', monospace; padding: 4px 6px;
-    }
-    .advisor-peer-table .advisor-diff { width: 30px; font-weight: 700; }
 
     /* =================================================== */
     /* === 반응형 위생 (모든 view 공통) ================== */
@@ -832,31 +661,13 @@
     .f-col, .f-row, .f-between { min-width: 0; }
 
     /* 종목명 셀 공통 — 동적 렌더 td/span에 .name-cell 부여 */
-    .name-cell {
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    @media (max-width: 1100px) { .name-cell { max-width: 160px; } }
-    @media (max-width: 900px)  { .name-cell { max-width: 120px; } }
 
     /* inner-scroll 안 테이블 가로 스크롤 허용 */
-    .inner-scroll { overflow-x: auto; }
 
     /* 큰 KRW 값 안전장치 — 좁은 화면에서 카드 안에 들어가도록 */
-    .val-lg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* Group 2: 고정 비율 그리드 클래스 — 인라인 style 대체 */
-    .port-grid-top {
-      display: grid;
-      grid-template-columns: 1.5fr 0.85fr 0.85fr;
-      grid-template-rows: 1.4fr 1fr;
-      gap: 10px;
-      flex: 2.4;
-      min-height: 0;
-      min-width: 0;
-    }
+
     .cf-grid {
       display: grid;
       grid-template-columns: 1fr 400px;
@@ -912,32 +723,9 @@
     .cf-fixed-actions .btn-action{margin:0 1px}
     .cf-fixed-empty{text-align:center!important;padding:32px 12px!important;color:var(--t3)}
     /* 증여 좌측 패널: 폼그룹 grow 방지 — 콘텐츠를 상단으로 정렬(빈 여백 제거) */
-    #view-gift .form-group{flex:0 0 auto;min-width:0}
+
     /* 2x2 납입액 입력칸이 셀 폭에 맞게 축소되도록(min-width:auto면 안 줄어 겹침) */
-    #view-gift .gift-amt-input{min-width:0;box-sizing:border-box}
-    .gift-grid {
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 20px;
-      height: 100%;
-      overflow: hidden;
-      min-width: 0;
-    }
-    .family-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      height: 100%;
-      min-height: 0;
-      min-width: 0;
-    }
-    .analysis-grid-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      flex-shrink: 0;
-      min-width: 0;
-    }
+
     .bubble-body-flex {
       display: flex;
       flex: 1;
@@ -959,21 +747,16 @@
 
     /* port-grid-top: 기존 min-width:680px 강제 → 좁은 폭에서 해제 */
     @media (max-width: 1100px) {
-      .port-grid-top { min-width: 0; grid-template-columns: 1fr; grid-template-rows: auto; }
+
       /* 자식의 인라인 grid-row/column 배치 해제 — 1열 축소 시 암시적 컬럼(빈 슬리버) 생성 방지 */
-      .port-grid-top > * { grid-row: auto !important; grid-column: 1 !important; }
-      .port-grid-mid { min-width: 0; }
+
       .cf-grid { grid-template-columns: 1fr; height: auto; }
       .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .cf-fixed-form{grid-template-columns:repeat(4,minmax(0,1fr))}
       .cf-fixed-desc-field{grid-column:span 2}
     }
     @media (max-width: 900px) {
-      .gift-grid, .family-grid, .analysis-grid-2col {
-        grid-template-columns: 1fr;
-        overflow: visible;
-        height: auto;
-      }
+
       .bubble-body-flex { flex-direction: column; }
       .bubble-sector-panel {
         flex: 0 0 auto;
@@ -981,23 +764,16 @@
         max-width: 100%;
         width: 100%;
       }
-      .dash-layout { grid-template-columns: 1fr; min-height: 0; }
+
     }
 
     /* Group 3: 신규 view 마이크로 조정 */
     /* target_rebal: top5-row — 좁으면 종목명에 더 양보 */
-    @media (max-width: 900px) {
-      .tgt-top5-row { grid-template-columns: 1fr 70px 44px; }
-    }
-    .tgt-top5-name { min-width: 0; }
-
 
     /* DRIP 입력/카드 그리드 — 768px에서 1열 */
     @media (max-width: 768px) {
       html,body{width:100%;max-width:100vw;overflow-x:hidden}
-      #tgt-concentration-cards {
-        grid-template-columns: 1fr !important;
-      }
+
     }
 
     /* Group 4: 페이지 헤더 줄바꿈 안정화 */
@@ -1059,57 +835,6 @@
       white-space: normal;
     }
     /* === 전문 용어 도움말 (HHI, 샤프 비율 등) === */
-    .info-tip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--inner-bg);
-      border: 1px solid var(--border-light);
-      color: var(--t3);
-      font-size: 10px;
-      font-weight: 700;
-      margin-left: 5px;
-      cursor: help;
-      position: relative;
-      vertical-align: middle;
-      user-select: none;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-    .info-tip::before { content: '?'; }
-    .info-tip:hover,
-    .info-tip:focus { background: var(--acc); color: #fff; border-color: var(--acc); }
-    .info-tip:hover::after,
-    .info-tip:focus::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--tipbg);
-      color: var(--tiptx);
-      border: 1px solid var(--border-dark);
-      padding: 9px 12px;
-      border-radius: 8px;
-      font-size: .72rem;
-      font-weight: 500;
-      white-space: normal;
-      width: max-content;
-      max-width: 280px;
-      text-align: left;
-      z-index: 100;
-      line-height: 1.5;
-      box-shadow: 0 6px 18px rgba(0,0,0,.32);
-      pointer-events: none;
-    }
-    .info-tip:hover::before,
-    .info-tip:focus::before {
-      /* keep the ? showing on hover too */
-    }
-
 
     /* ── 메인 페이지 공통 컴포넌트 ─────────────────────── */
     /* padding-top 을 0 으로 두는 것이 중요하다 — 오버플로 클립은 패딩 박스 상단에서 일어나는데
@@ -1149,9 +874,7 @@
     .cb-tax-treatment.is-separate{color:var(--purple,#a855f7)}
     .cb-tax-treatment.is-deferred{color:var(--up)}
     .cb-tax-memo-head,.cb-tax-memo-cell{box-sizing:border-box;padding-left:18px}
-    .cb-del{color:var(--dim);cursor:pointer;font-size:11px}
-    .cb-del:hover{color:var(--dn)}
-    .cb-menu-sep{height:1px;background:var(--border-light);margin:6px 4px;flex-shrink:0}
+
     .cb-num{font-family:'IBM Plex Mono',monospace}
     /* 표 래퍼 + 고정 칼럼 헤더 — overflow-x:auto 는 세로 스크롤 컨텍스트도 만들어
        내부 position:sticky 를 무력화하므로, 표가 잘리지 않는 넓은 폭에서는 overflow 를 풀고
@@ -1324,7 +1047,7 @@
       .cb-dca-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-risk-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
-    .cb-title{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800}
+
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
     /* 대시보드: 보유 자산 내역(좌) + 종목 상세(우, sticky) 2열 — 좁은 폭에서는 상세를 아래로 접음 */
@@ -1388,7 +1111,7 @@
       .view-section.active > .f-col,
       .view-section.active > .glass-panel{height:auto!important;min-height:0;max-width:100%}
       /* 표·기간 성과는 패널 안에서 손가락으로 좌우 이동한다. 페이지 자체는 가로로 흔들리지 않는다. */
-      .cb-table-panel,.cb-tblwrap,.pt-table-wrap,#pl-table-container,
+      .cb-table-panel,.cb-tblwrap,.pt-table-wrap,
       #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{
         max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;
         touch-action:pan-x pan-y;overscroll-behavior-inline:contain
@@ -1425,43 +1148,32 @@
       #div-detail .chart-container{position:relative;top:auto;left:auto;right:auto;bottom:auto}
 
       /* ── dashboard ── */
-      .dash-layout{min-height:0;height:auto}
-      .dash-main,.dash-side,.top-grid,.mid-grid{height:auto!important;min-height:0}
+
       /* 베이스 flex:1.4(basis 0)가 auto 높이 컬럼에서 min-content로 붕괴 → 패널이 콘텐츠보다 작아져
          캔버스가 패널 밖으로 넘치던 원인. 콘텐츠 크기 기준으로 고정 */
-      .dash-layout,.top-grid,.mid-grid{flex:0 0 auto!important}
+
       /* 차트 고정 240px + 패널 overflow:hidden — 캔버스가 패널 밖(다음 카드 위)으로 그려져
          자산 배분 카드와 중첩되던 문제 차단. 1열 스택은 ≤900px .dash-layout{grid-template-columns:1fr}가 보장 */
-      #view-dashboard .chart-container{height:240px!important;min-height:240px!important;flex:0 0 auto!important;overflow:hidden}
-      #wrap-mini-value-chart{height:240px!important;min-height:240px!important;flex:0 0 auto!important;overflow:hidden}
-      #wrap-networth-chart{height:auto!important;min-height:0!important;flex:0 0 auto!important;overflow:hidden}
-      #view-dashboard .glass-panel{flex:0 0 auto!important;overflow:hidden}
+
       /* NET 요약: 모바일 기본 접힘, 토글 헤더 표시 */
-      #dash-net-toggle{display:flex!important}
-      #dash-net-summary:not(.expanded) #dash-net-summary-body{display:none}
-      #dash-net-summary.expanded #dash-net-arrow{transform:rotate(180deg)}
 
       /* ── portfolio: Row2/Row3 가로 flex → 세로 스택, 내부 래퍼 자연 높이 ── */
-      .port-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
-      #view-portfolio .glass-panel{overflow:visible}
+
       /* 우측 잘림 수정: flex/grid 아이템 기본 min-width:auto가 nowrap 콘텐츠(기간 버튼 6개·TOP3 행)의
          min-content 폭으로 패널을 뷰포트보다 넓혀 content-area overflow-x:hidden에 잘리던 문제 */
-      .port-grid-top > *,.port-row2-flex > *,.port-bottom-flex > *{min-width:0;max-width:100%}
-      #view-portfolio .card-title.f-between{flex-wrap:wrap;row-gap:6px}
-      #view-portfolio .tf-btns{flex-wrap:wrap;justify-content:flex-end}
+
       /* 패널 min-height 강제 없음 — 차트는 .chart-container 고정 240px가 높이를 보장하고,
          차트 없는 패널(환율 노출도 등)은 콘텐츠 높이로 줄여 하단 여백 제거.
          인라인 flex:N(basis 0)이 세로 스택에서 grow 분배로 패널을 늘리므로 콘텐츠 크기로 고정 */
-      .port-row2-flex{flex-direction:column}
-      .port-bottom-flex{flex-direction:column}
+
       /* 래퍼 자신도 베이스 flex:2.4/인라인 flex:1(basis 0)이 min-content로 붕괴해
          TOP3 위젯이 다음 카드에 가려지던 문제 — 콘텐츠 크기로 고정 */
-      .port-grid-top,.port-bottom-flex{flex:0 0 auto!important}
+
       .port-grid-top .glass-panel,
       .port-row2-flex > .glass-panel,
       .port-bottom-flex > .glass-panel{flex:0 0 auto!important}
-      #port-fx-column > div{height:auto!important}
-      #port-best-widget,#port-worst-widget,#port-dca-widget{min-height:140px!important} /* 인라인 min-height:0 덮어쓰기 */
+
+       /* 인라인 min-height:0 덮어쓰기 */
 
       /* ── holdings: 내부 스크롤 제거 — 페이지 스크롤로 일원화 ── */
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
@@ -1525,50 +1237,25 @@
 
       /* ── family: 비교 표 세로 전부 노출(페이지 스크롤). 셀은 축약 포맷(JS)+컴팩트로 5컬럼 수납,
          그래도 넘치면 패널 내 가로 스크롤 폴백 ── */
-      #view-family .family-grid .glass-panel{height:auto!important;overflow-y:visible!important}
-      #family-compare-table{width:100%}
-      #family-compare-table th,#family-compare-table td{padding:6px 4px;font-size:.7rem;white-space:nowrap}
-      #family-compare-table th:first-child,#family-compare-table td:first-child{min-width:0}
-      #family-compare-table th[style*="min-width"]{min-width:56px!important}
 
       /* ── portfolio 배당 종목 리스트: 종목명/티커 · 보유수량 · 예상배당금만 노출 ── */
-      #view-portfolio .div-compact :is(th,td):not([colspan]):is(:nth-child(2),:nth-child(3)){display:none}
-      #view-portfolio .div-compact{width:100%;table-layout:auto}
-      #view-portfolio .inner-scroll{overflow-x:hidden!important;overflow-y:visible!important;max-height:none!important;padding-right:0!important;padding-bottom:18px}
-      #view-portfolio .div-compact tfoot td{padding-bottom:14px}
-      #view-portfolio .div-compact,
-      #view-portfolio .div-compact tbody,
-      #view-portfolio .div-compact tfoot{overflow:visible}
-      #view-portfolio .div-compact tfoot td{padding:8px 6px 14px!important}
-      #view-portfolio .div-compact tfoot td.div-total-label{text-align:right!important;font-size:.72rem!important;white-space:nowrap}
-      #view-portfolio .div-compact tfoot td.div-total-value{text-align:right!important;font-size:.78rem!important;white-space:nowrap}
+      td):not([colspan]):is(:nth-child(2),:nth-child(3)){display:none}
 
       /* ── gift: 안내 그리드 1열 (인라인 1fr 1fr 덮어쓰기) ── */
-      .gift-info-grid{grid-template-columns:1fr!important}
+
       /* grid 행 높이가 좌측 패널을 콘텐츠보다 작게 잡아(overflow:hidden 시 잘림, visible 시 차트 위로 넘침)
          → flex 세로 스택으로 전환해 각 패널을 콘텐츠 높이로. 내부 스크롤 제거(페이지 스크롤 일원화) */
-      #view-gift .gift-grid{display:flex!important;flex-direction:column!important;height:auto!important}
-      #view-gift .gift-grid > .glass-panel,
-      #view-gift .gift-grid > .f-col{flex:0 0 auto!important;height:auto!important;overflow:visible!important}
-      #view-gift .gift-grid > .f-col > .glass-panel{height:auto!important;overflow:visible!important}
-      #gift-progress-container{flex:0 0 auto!important;overflow-y:visible!important;min-height:0}
 
       /* ── analysis: 손익 표 가로 스크롤 + 인라인 min-height:360px/flex:1 해제(빈 표일 때 카드 늘어짐) ── */
-      #pl-table-container{overflow-x:auto;overflow-y:visible!important;min-height:0!important;flex:0 0 auto!important}
 
       /* ── 모바일 = 조회 전용: 추가/수정/삭제 UI 전부 숨김 (JS 가드와 이중 방어) ── */
       #cf-input-panel{display:none!important}        /* 수입/지출 입력 패널 (날짜/유형/카테고리 중첩도 함께 해소) */
       #view-holdings .api-btn{display:none!important} /* ➕ 추가 버튼들 */
       .btn-action{display:none!important}             /* ✏️🗑️ 행 단위 수정/삭제 */
       .editable-val{pointer-events:none}              /* 클릭 인라인 편집 */
-      #pl-input-row{display:none!important}           /* 분석 뷰 월별손익 입력 행 */
+                 /* 분석 뷰 월별손익 입력 행 */
 
       /* ── target_rebal: concentration cards compact grid ── */
-      #tgt-concentration-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
-      #tgt-concentration-cards > div{padding:8px 9px!important;border-radius:8px!important;min-width:0}
-      #tgt-concentration-cards > div > div:first-child{font-size:.64rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      #tgt-concentration-cards > div > div:nth-child(2){font-size:.98rem!important;line-height:1.18!important}
-      #tgt-concentration-cards > div > div:nth-child(3){font-size:.6rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
       /* ── bubble: 인라인 height:100%/overflow:hidden 해제, 모바일은 HTML 비중 리스트 폴백 ── */
       #view-bubble{height:auto!important;overflow:visible!important}
@@ -1591,53 +1278,4 @@
     }
 
 /* ── 세금·증여 규칙 버전 및 공식 근거 ───────────────────────── */
-.tax-rule-disclosure{
-  display:block;margin:0 0 12px;border:1px solid var(--bd2,var(--border-dark));
-  border-radius:10px;background:var(--panelSolid,var(--panel));color:var(--tx,var(--t1));
-  box-shadow:0 6px 18px rgba(15,23,42,.05);overflow:hidden
-}
-.tax-rule-disclosure>summary{
-  position:relative;display:flex;align-items:center;gap:8px;min-height:42px;padding:9px 12px;
-  cursor:pointer;list-style:none;background:var(--inner,var(--inner-bg));font-size:11px
-}
-.tax-rule-disclosure>summary::-webkit-details-marker{display:none}
-.tax-rule-disclosure>summary::after{content:'＋';margin-left:auto;color:var(--lab,var(--t3));font-size:13px;font-weight:800}
-.tax-rule-disclosure[open]>summary::after{content:'−'}
-.tax-rule-disclosure>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
-.tax-rule-badge,.tax-rule-status{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:3px 7px;font-size:9.5px;font-weight:800}
-.tax-rule-badge{color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,transparent)}
-.tax-rule-summary-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:750}
-.tax-rule-status{color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent)}
-.tax-rule-status.is-due,.tax-rule-status.is-historical{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
-.tax-rule-status.is-stale,.tax-rule-status.is-unsupported{color:var(--dn);background:color-mix(in srgb,var(--dn) 12%,transparent)}
-.tax-rule-body{padding:13px 14px 12px;border-top:1px solid var(--bd,var(--border-light))}
-.tax-rule-meta{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 10px;border-radius:8px;background:var(--inner,var(--inner-bg));font-size:10px;color:var(--mut,var(--t2))}
-.tax-rule-meta b{color:var(--tx,var(--t1));font-weight:750}
-.tax-rule-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
-.tax-rule-columns section,.tax-rule-sources{min-width:0}
-.tax-rule-disclosure h4{margin:0 0 6px;font-size:10.5px;letter-spacing:.04em;color:var(--lab,var(--t3))}
-.tax-rule-disclosure ul{margin:0;padding-left:16px}
-.tax-rule-disclosure li{margin:0 0 5px;font-size:10.5px;line-height:1.55;color:var(--mut,var(--t2))}
-.tax-rule-sources{margin-top:9px;padding-top:10px;border-top:1px dashed var(--bd2,var(--border-dark))}
-.tax-rule-sources ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 18px}
-.tax-rule-sources li span{display:block;font-size:9px;color:var(--dim,var(--t3))}
-.tax-rule-sources a{color:var(--acc);text-decoration:none;font-weight:700}
-.tax-rule-sources a:hover{text-decoration:underline}
-.tax-rule-sources a:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:2px}
-.tax-rule-disclaimer{margin:8px 0 0;font-size:9.5px;line-height:1.55;color:var(--dim,var(--t3))}
-.tax-rule-disclosure.is-unsupported{display:flex;gap:8px;align-items:center;padding:10px 12px;border-left:3px solid var(--dn);font-size:10.5px}
-.tax-rule-disclosure.is-unsupported span{color:var(--mut,var(--t2))}
-.legacy-tax-rule-slot{flex:0 0 auto;min-width:0}
-#view-gift.active{display:flex;flex-direction:column;min-height:0}
-#view-gift .legacy-tax-rule-slot+.gift-grid{height:auto;flex:1;min-height:0}
 
-@media (max-width:900px){
-  .tax-rule-columns{grid-template-columns:1fr}
-  .tax-rule-sources ul{grid-template-columns:1fr}
-}
-@media (max-width:600px){
-  .tax-rule-disclosure>summary{align-items:flex-start;flex-wrap:wrap}
-  .tax-rule-summary-title{order:3;flex-basis:calc(100% - 24px);white-space:normal}
-  .tax-rule-disclosure>summary::after{position:absolute;right:12px}
-  .tax-rule-body{padding:11px}
-}

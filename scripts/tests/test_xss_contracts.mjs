@@ -59,21 +59,27 @@ assert.match(financeSource, /data-id="\$\{safeId\}" onclick="finGoalDelete\(this
 
 // 원격/로컬 저장소에서 들어오는 문자열을 사용하는 주요 innerHTML 렌더러의 방어 계약.
 for (const [pattern, message] of [
-  [/_cfEsc\(i\.owner\)/, 'DCA 소유주'],
-  [/_cfEsc\(getDcaCycleLabel\(i\)\)/, 'DCA 주기'],
-  [/_cfEsc\(x\.owner\)/, '집중도 소유주'],
-  [/_cfEsc\(x\.name\)/, '집중도 종목명'],
-  [/_cfEsc\(acc\)/, '계좌명'],
   [/_cfEsc\(x\.raw\.owner\s*\|\|\s*['"]-['"]\)/, '모바일 버블 소유주'],
   [/_cfEsc\(x\.raw\.name\s*\|\|\s*x\.raw\.tkr/, '모바일 버블 종목명'],
   [/data-bubble-sector="\$\{_cfEsc\(sector\)\}"/, '버블 섹터 data 속성'],
   [/handleBubbleSectorClick\(this\.dataset\.bubbleSector\)/, '버블 섹터 클릭 전달'],
   [/_cfEsc\(_bubbleLeafLabel\(i\)\)/, '버블 종목명'],
   [/_cfEsc\(d\.tkr\)/, 'Plotly 티커'],
-  [/_cfEsc\(s\.name\)/, '배당 종목명'],
-  [/_cfEsc\(s\.tkr\)/, '배당 티커'],
-  [/_cfEsc\(displayCycle\)/, '배당 주기'],
 ]) assert.match(scriptSource, pattern, `${message}은 HTML 삽입 전에 이스케이프`)
+
+// DCA·배당·계좌·집중도 렌더러는 레거시 뷰(view-dashboard/analysis/target_rebal)에서
+// Cobalt 페이지로 옮겨갔다. 방어 계약도 살아있는 렌더러 쪽에서 지킨다.
+for (const [pattern, message] of [
+  [/cbEsc\([^)]*owner/, 'Cobalt 소유주'],
+  [/cbEsc\([^)]*\.name/, 'Cobalt 종목명'],
+  [/cbEsc\([^)]*tkr/, 'Cobalt 티커'],
+  [/cbEsc\([^)]*acc/, 'Cobalt 계좌명'],
+  [/cbEsc\([^)]*[Cc]ycle/, 'Cobalt 주기'],
+  [/cbEsc\([^)]*memo/, 'Cobalt 메모'],
+]) assert.match(cobaltSource, pattern, `${message}은 HTML 삽입 전에 이스케이프`)
+// 사용자 문자열을 이스케이프 없이 템플릿에 그대로 넣지 않는다.
+assert.doesNotMatch(cobaltSource, /\$\{(?!cb|_)[a-zA-Z_][\w.]*\.(?:name|tkr|memo)\}/,
+  'Cobalt 템플릿에 저장소 문자열 원문 삽입 금지')
 
 assert.match(scriptSource, /document\.createElement\(['"]option['"]\)[\s\S]*option\.textContent=[\s\S]*replaceChildren\(\.\.\.options\)/, 'DRIP 종목 옵션은 DOM textContent로 생성')
 assert.match(scriptSource, /safeId=Number\.isSafeInteger\(Number\(at\.id\)\)/, '자동이체 ID는 인라인 핸들러 삽입 전 안전한 숫자로 제한')

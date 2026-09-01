@@ -70,7 +70,7 @@ CSS와 어긋나면 CSS가 맞습니다.
 - 사이드바 4그룹 중 하나에 `<button id="menu-X">`
 - `cobalt.js`의 `CB_VIEWS` + `CB_TITLES`에 등록
 
-레거시 페이지(자산 내역·현금 흐름·가족 증여 등 `script.js` 초기 구현)는 `<div id="view-X">` 안에 마크업이 이미 다 들어있는 구조로, `CB_LEGACY_SUB`에 헤더 소제목만 등록합니다.
+`script.js`가 직접 렌더하는 화면(자산 내역·현금 흐름·비중 차트)은 `<div id="view-X">` 안에 마크업이 이미 들어있는 구조로, `CB_LEGACY_SUB`에 헤더 소제목만 등록합니다. 메뉴에서 도달할 수 없던 레거시 뷰 7개(`dashboard`·`portfolio`·`dividend`·`gift`·`family`·`analysis`·`target_rebal`)는 제거됐고, 현재 DOM에 있는 14개 뷰는 모두 사이드바나 푸터에서 열립니다.
 
 ---
 
