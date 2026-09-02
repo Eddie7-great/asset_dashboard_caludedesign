@@ -53,6 +53,7 @@
         <button class="menu-group-title" type="button" onclick="toggleMenuGroup('summary',this)" aria-expanded="true" aria-controls="menu-items-summary"><span>요약</span><span class="menu-group-chevron" aria-hidden="true">⌄</span></button>
         <div class="menu-group-items" id="menu-items-summary">
           <button class="menu-btn active" id="menu-dashboard" onclick="switchView('cdash',this)" aria-current="page"><span class="menu-ico" aria-hidden="true">◧</span>대시보드</button>
+          <button class="menu-btn" id="menu-snap" onclick="switchView('snap',this)"><span class="menu-ico" aria-hidden="true">▦</span>한눈에 보기</button>
           <button class="menu-btn" id="menu-fam2" onclick="switchView('fam2',this)"><span class="menu-ico" aria-hidden="true">◔</span>구성원별 보유</button>
           <button class="menu-btn" id="menu-balance2" onclick="switchView('balance2',this)"><span class="menu-ico" aria-hidden="true">▤</span>가족 재무상태표</button>
         </div>
@@ -142,6 +143,7 @@
 
     <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
+    <div id="view-snap" class="view-section"><div class="cb-scroll" id="cb-snap"></div></div>
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
     <div id="view-fam2" class="view-section"><div class="cb-scroll" id="cb-fam2"></div></div>
     <div id="view-risk2" class="view-section"><div class="cb-scroll" id="cb-risk2"></div></div>

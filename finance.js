@@ -356,9 +356,12 @@ function finNwTf(tf){ _finNwTf=tf; cbRenderBalanceSheet(); }
 // _netWorthHistory 는 앱을 열 때마다 하루 1건씩 쌓이고 있었지만 그리는 화면이 없었다.
 // 소유주 필터는 netByOwner(스키마 v2) → portfolioByOwner(v1 폴백) 순으로 읽는다.
 const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null};
-function finNwSeries(ownerF){
+// tf 를 넘기면 그 기간으로, 넘기지 않으면 재무상태표가 고른 기간(_finNwTf)으로 자른다.
+// (한눈에 보기 페이지는 자기 기간을 따로 기억하므로 재무상태표 선택을 건드리지 않는다)
+function finNwSeries(ownerF,tf){
   const hist=(window._netWorthHistory||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const days=FIN_NW_TFS[_finNwTf]!==undefined?FIN_NW_TFS[_finNwTf]:180;
+  const tfKey=tf===undefined?_finNwTf:tf;
+  const days=FIN_NW_TFS[tfKey]!==undefined?FIN_NW_TFS[tfKey]:180;
   const cutoff=days?Date.now()-days*86400000:null;
   const picked=hist.filter(h=>!cutoff||new Date(h.date).getTime()>=cutoff);
   const scopeTotals=finBalanceTotals(ownerF);

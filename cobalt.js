@@ -1,7 +1,7 @@
 // =====================================================================
-// cobalt.js — 메인 8페이지 렌더러
+// cobalt.js — 메인 페이지 렌더러
 // script.js(데이터 엔진)를 그대로 사용하고, 시안 레이아웃으로 렌더링한다.
-// 페이지: 대시보드 / 성과 비교 / 가족 자산 / 리스크 진단 / 배당 관리
+// 페이지: 대시보드 / 한눈에 보기 / 성과 비교 / 가족 자산 / 리스크 진단 / 배당 관리
 //        / 가족 증여 / 양도소득세 / DCA 자동매수
 // =====================================================================
 
@@ -21,6 +21,8 @@ let _cdashOwner = '전체';      // 대시보드 소유주 필터 ('전체' 또�
 let _cdashAllocOpen = null;   // 자산 배분 펼침 자산군 키 (재클릭 시 닫힘)
 let _cdashSecOpen = null;     // 섹터 집중도 펼침 섹터 라벨 (재클릭 시 닫힘)
 let _cdashSecList = [];       // 렌더 시점 섹터 라벨 목록 (onclick 인덱스 → 라벨 해석용)
+let _cbSnapOwner = '전체';     // 한눈에 보기 소유주 필터
+let _cbSnapTf = '3M';         // 한눈에 보기 순자산 추이 기간 (재무상태표의 _finNwTf 와 별개)
 let _famKey = 'all', _famQ = '';
 let _cbDivHistRequested = false;
 let _cbDivVerifyPromise = null;
@@ -47,8 +49,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
-const CB_TITLES = { cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수', data2:'데이터 상태' };
+const CB_VIEWS  = { cdash:cbRenderDash, snap:cbRenderSnap, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
+const CB_TITLES = { cdash:'대시보드', snap:'한눈에 보기', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'DCA 자동매수', data2:'데이터 상태' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '투자자산 추가·수정·삭제와 DCA 규칙 등록 · 여기서 저장한 값이 모든 화면의 원본입니다',
@@ -1027,6 +1029,163 @@ function cbDashSecToggle(n){
   const label = _cdashSecList[n]; if (label==null) return;
   _cdashSecOpen = (_cdashSecOpen===label ? null : label);
   cbRenderDash();
+}
+
+// ───────────────────────── 페이지: 한눈에 보기 ─────────────────────────
+// 대시보드가 '따져보는 화면'이라면 이 페이지는 '보여주는 화면'이다.
+// 자산 구성 · 순자산 추이 · 배당을 큰 숫자와 색 블록으로 요약하고, 상세는 각 페이지로 넘긴다.
+// 수치는 전부 기존 엔진(cbAllRows / finNwSeries / cbDivMonthlyForYear)을 그대로 쓴다 — 여기서 새로 만드는 계산은 없다.
+// 자산군 아이콘 — 글꼴에 없을 수 있는 기호(₿ 등) 대신 어느 환경에서나 그려지는 2글자로 쓴다.
+const CB_SNAP_ICON = { us:'US', kr:'KR', jp:'JP', crypto:'코인', gold:'금', cash:'현금' };
+function cbSnapOwner(o){ _cbSnapOwner=o; cbRenderSnap(); }
+function cbSnapTf(tf){ if(FIN_NW_TFS[tf]===undefined) return; _cbSnapTf=tf; cbRenderSnap(); }
+
+// 배당 요약용 목록 — 소유주+티커로 합쳐 계좌 수에 종목 수가 흔들리지 않게 한다.
+// 세전(gross) 기준만 다룬다. 세후는 계좌별 세제가 필요해 배당 관리 페이지의 세금 엔진 하나만 쓴다.
+function cbSnapDivList(rows){
+  const merged = new Map();
+  rows.forEach(r=>{
+    const d = cbDivOf(r.i); if(!d) return;
+    const key = r.i.owner + '::' + cbStrip(r.i.tkr);
+    const prev = merged.get(key);
+    if (prev){ prev.qty += (r.i.qty||0); prev.incomeKRW += cbDivIncomeKRW(r.i); return; }
+    merged.set(key, { i:r.i, d, tkr:r.tkr, title:r.title, qty:(r.i.qty||0), incomeKRW:cbDivIncomeKRW(r.i) });
+  });
+  return Array.from(merged.values()).sort((a,b)=>b.incomeKRW-a.incomeKRW);
+}
+// 월별 배당 막대 — 요약 화면이라 읽기 전용이다.
+// (배당 관리의 cbDivCalendarSvg 는 월 선택 상태·hover 전역과 얽혀 있어 여기서 재사용하지 않는다)
+function cbSnapMonthBars(monthAmt){
+  const max = Math.max(...monthAmt, 1);
+  const total = monthAmt.reduce((s,v)=>s+v,0);
+  const peak = total>0 ? monthAmt.indexOf(Math.max(...monthAmt)) : -1;
+  const nowM = new Date().getMonth();
+  const label = `월별 예상 배당. 연간 합계 ${cbDisp(total)}` + (peak>=0 ? `, 가장 많은 달은 ${peak+1}월 ${cbDisp(monthAmt[peak])}.` : '.');
+  return `<div class="cb-snap-months" role="img" aria-label="${cbEsc(label)}">
+    ${monthAmt.map((v,m)=>`
+      <div class="cb-snap-month${m===nowM?' is-now':''}" data-tip="${m+1}월 예상 배당 ${cbEsc(cbDisp(v))}">
+        <span class="cb-snap-month-val">${m===peak?cbDisp(v):''}</span>
+        <span class="cb-snap-month-track"><i style="height:${v>0?Math.max(3,v/max*100).toFixed(1):0}%"></i></span>
+        <span class="cb-snap-month-lab">${m+1}</span>
+      </div>`).join('')}
+  </div>`;
+}
+function cbRenderSnap(){
+  cbEnsureDivHist();
+  const el = document.getElementById('cb-snap'); if(!el) return;
+  const ownerF = (_cbSnapOwner && _cbSnapOwner!=='전체') ? _cbSnapOwner : null;
+  const scope = ownerF ? cbEsc(ownerF) : '가족 전체';
+  const rows = ownerF ? cbAllRows().filter(r=>r.i.owner===ownerF) : cbAllRows();
+  const total = rows.reduce((s,r)=>s+r.val,0);
+  const gainAbs = rows.reduce((s,r)=>s+r.gain,0);
+  const costTot = rows.reduce((s,r)=>s+r.cost,0) || 1;
+
+  // 1) 자산 구성 — 대시보드 자산 배분과 같은 분류(cbCls)를 쓴다.
+  const byCls = {}; rows.forEach(r=>{ byCls[r.cls]=(byCls[r.cls]||0)+r.val; });
+  const alloc = Object.keys(CB_CLS).filter(k=>byCls[k]).map(k=>({
+    key:k, label:CB_CLS[k].label, color:CB_CLS[k].color, v:byCls[k],
+    pct: total ? byCls[k]/total*100 : 0 })).sort((a,b)=>b.v-a.v);
+  const byOwner = (typeof OWNERS!=='undefined' ? OWNERS : [])
+    .map(o=>({ owner:o, v: rows.filter(r=>r.i.owner===o).reduce((s,r)=>s+r.val,0) }))
+    .filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+
+  // 2) 순자산 추이 — 재무상태표와 같은 스냅샷 시리즈. 기간만 이 페이지가 따로 기억한다.
+  const series = finNwSeries(ownerF, _cbSnapTf);
+  const st = finNwStats(series);
+  const tfBtns = Object.keys(FIN_NW_TFS).map(tf=>
+    `<button class="owner-btn${tf===_cbSnapTf?' active':''}" onclick="cbSnapTf('${tf}')" aria-pressed="${tf===_cbSnapTf}">${tf}</button>`).join('');
+
+  // 3) 배당 — 세전 연 배당과 올해 예상 월별 분포
+  const nowY = String(new Date().getFullYear());
+  const divList = cbSnapDivList(rows);
+  const divAnnual = divList.reduce((s,x)=>s+x.incomeKRW,0);
+  const cal = cbDivMonthlyForYear(divList, nowY, false);
+  const topDiv = divList.slice(0,3);
+  const topDivMax = topDiv.length ? topDiv[0].incomeKRW : 0;
+
+  cbSetHead(
+    `${scope} · 자산 구성 · 순자산 추이 · 배당을 한 장으로 요약합니다 · <span data-tip="시세는 전일 종가 기준입니다. 종목별 상세와 실시간 갱신은 대시보드에서 확인하세요.">전일 종가 기준</span>`,
+    cbOwnerBtns(_cbSnapOwner,'cbSnapOwner')
+  );
+
+  const goTo = (view, menu, label) =>
+    `<button class="cb-snap-go" onclick="switchView('${view}',document.getElementById('menu-${menu}'))">${label} ›</button>`;
+
+  el.innerHTML = `
+    <div class="cb-panel cb-snap-hero">
+      <div class="cb-snap-hero-main">
+        <span class="cb-snap-hero-label">${scope} 투자자산</span>
+        <strong class="cb-snap-hero-value">${cbDisp(total)}</strong>
+        <span class="cb-snap-hero-note">주식 · 가상화폐 · 금 · 현금 평가액 합계입니다. 부동산·부채까지 포함한 순자산은 아래 추이와 가족 재무상태표에서 봅니다.</span>
+      </div>
+      <div class="cb-snap-hero-stats">
+        <div class="cb-snap-stat"><small>평가손익</small><b style="${cbUpDn(gainAbs)}">${cbSignDisp(gainAbs)}</b><span style="${cbUpDn(gainAbs)}">${cbPct(gainAbs/costTot)}</span></div>
+        <div class="cb-snap-stat"><small>연 배당 · 세전</small><b style="color:var(--up)">${cbDisp(divAnnual)}</b><span>월평균 ${cbDisp(divAnnual/12)}</span></div>
+        <div class="cb-snap-stat"><small>순자산 ${cbEsc(_cbSnapTf)} 변화</small><b style="${st?cbUpDn(st.change):''}">${st?cbSignDisp(st.change):'—'}</b><span>${st&&st.pct!=null?(st.pct>=0?'+':'')+st.pct.toFixed(1)+'%':'스냅샷 2일치부터'}</span></div>
+      </div>
+    </div>
+
+    <div class="cb-panel fin-section" style="margin-top:12px">
+      <div class="fin-section-head"><span>자산 구성 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span>${goTo('cdash','dashboard','대시보드에서 종목별로 보기')}</div>
+      ${alloc.length ? `
+      <div class="cb-snap-stack" role="img" aria-label="자산군 비중. ${cbEsc(alloc.map(a=>`${a.label} ${a.pct.toFixed(1)}%`).join(', '))}">
+        ${alloc.map(a=>`<span data-tip="${cbEsc(a.label)} ${cbEsc(cbDisp(a.v))} · ${a.pct.toFixed(1)}%" style="width:${a.pct.toFixed(2)}%;background:${a.color}"></span>`).join('')}
+      </div>
+      <div class="cb-snap-cls-grid">
+        ${alloc.map(a=>`
+        <div class="cb-snap-cls" style="--seg:${a.color}">
+          <span class="cb-snap-cls-ico">${cbEsc(CB_SNAP_ICON[a.key]||'●')}</span>
+          <span class="cb-snap-cls-body"><b>${cbEsc(a.label)}</b><span>${cbDisp(a.v)}</span></span>
+          <span class="cb-snap-cls-pct">${a.pct.toFixed(1)}<i>%</i></span>
+        </div>`).join('')}
+      </div>
+      ${!ownerF && byOwner.length>1 ? `
+      <div class="cb-snap-owner-strip">
+        <span class="cb-snap-sub">소유주별 비중</span>
+        ${byOwner.map(x=>`<span class="cb-snap-owner" data-tip="${cbEsc(x.owner)} ${cbEsc(cbDisp(x.v))}"><i style="background:${cbOwnerColor(x.owner)}"></i>${cbEsc(x.owner)} <b>${(x.v/total*100).toFixed(1)}%</b></span>`).join('')}
+      </div>` : ''}` : '<div class="fin-empty">표시할 투자자산이 없습니다. 자산 내역에서 보유 종목을 등록하면 여기에 나타납니다.</div>'}
+    </div>
+
+    <div class="cb-panel fin-section" style="margin-top:12px">
+      <div class="fin-section-head">
+        <span>순자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span>
+        <div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">${tfBtns}</div>
+      </div>
+      ${st?`<div class="fin-nw-stats">
+        <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
+        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 실제로 기록된 순자산 스냅샷으로 계산합니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd<0?'down':''}">${st.mdd.toFixed(1)}%</b></div>
+        <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
+        <div><small>스냅샷</small><b>${series.length}일</b></div>
+      </div>`:''}
+      ${finNwChartSvg(series,1100,210)}
+      <div class="cb-snap-foot">
+        <span>투자자산 + 기타 자산 − 부채 · 앱을 열 때마다 하루 1건씩 쌓인 스냅샷입니다</span>
+        ${goTo('balance2','balance2','가족 재무상태표')}
+      </div>
+    </div>
+
+    <div class="cb-panel fin-section" style="margin-top:12px">
+      <div class="fin-section-head"><span>배당 요약 <span style="color:var(--dim);font-weight:500">· ${scope} · ${nowY}년 예상 · 세전</span></span>${goTo('divm','divm','배당 관리에서 세후·캘린더 보기')}</div>
+      ${divList.length ? `
+      <div class="cb-snap-div-grid">
+        <div class="cb-snap-div-kpis">
+          <div class="cb-snap-stat"><small>연 배당 · 세전</small><b style="color:var(--up)">${cbDisp(divAnnual)}</b><span>배당 지급 ${divList.length}종목</span></div>
+          <div class="cb-snap-stat"><small>월평균</small><b>${cbDisp(divAnnual/12)}</b><span>실제로는 지급월에 몰립니다</span></div>
+          <div class="cb-snap-stat"><small><span data-tip="연 배당 ÷ 전체 투자자산 평가액입니다. 분모에 배당이 없는 현금·금·무배당 종목까지 포함하므로 개별 종목 배당수익률보다 낮게 나옵니다.">자산 대비</span></small><b>${total>0?(divAnnual/total*100).toFixed(2):'0.00'}%</b><span>전체 투자자산 기준</span></div>
+        </div>
+        <div class="cb-snap-div-months">${cbSnapMonthBars(cal.monthAmt)}</div>
+      </div>
+      <div class="cb-snap-top">
+        <span class="cb-snap-sub">배당 상위 ${topDiv.length}종목</span>
+        ${topDiv.map((x,n)=>`
+        <div class="cb-snap-top-row">
+          <span class="cb-snap-top-rank">${n+1}</span>
+          <span class="cb-snap-top-name">${cbEsc(x.title)}${!ownerF?` <small>· ${cbEsc(x.i.owner)}</small>`:''}</span>
+          <span class="cb-snap-top-track"><i style="width:${topDivMax>0?Math.max(3,x.incomeKRW/topDivMax*100).toFixed(1):0}%"></i></span>
+          <b>${cbDisp(x.incomeKRW)}</b>
+        </div>`).join('')}
+      </div>` : '<div class="fin-empty">배당 정보를 불러온 종목이 없습니다. 배당 관리 페이지를 한 번 열면 조회 후 여기에도 반영됩니다.</div>'}
+    </div>`;
 }
 
 // ───────────────────────── 페이지: 성과 비교 ─────────────────────────
