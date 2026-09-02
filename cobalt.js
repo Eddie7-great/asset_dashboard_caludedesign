@@ -1164,6 +1164,7 @@ function cbRenderSnap(){
   // 2) 순자산 추이 — 재무상태표와 같은 스냅샷 시리즈. 기간만 이 페이지가 따로 기억한다.
   const series = finNwSeries(ownerF, _cbSnapTf);
   const st = finNwStats(series);
+  const cov = finNwCoverage(series, _cbSnapTf);
   const tfBtns = Object.keys(FIN_NW_TFS).map(tf=>
     `<button class="owner-btn${tf===_cbSnapTf?' active':''}" data-snap-tf="${tf}" onclick="cbSnapTf('${tf}')" aria-pressed="${tf===_cbSnapTf}">${tf}</button>`).join('');
 
@@ -1243,9 +1244,10 @@ function cbRenderSnap(){
         <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
         <div><small>스냅샷</small><b>${series.length}일</b></div>
       </div>`:''}
+      ${finNwCoverageNote(cov)}
       ${finNwChartSvg(series,1100,210)}
       <div class="cb-snap-foot">
-        <span>투자자산 + 기타 자산 − 부채 · 앱을 열 때마다 하루 1건씩 쌓인 스냅샷입니다</span>
+        <span>투자자산 + 기타 자산 − 부채 · 하루 1건씩 자동으로 쌓이는 스냅샷입니다</span>
         ${goTo('balance2','balance2','가족 재무상태표')}
       </div>
     </div>

@@ -100,6 +100,7 @@ for (const name of [
 for (const name of [
   'finRows', 'finSum', 'finBalanceTotals', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet',
   'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwChartSvg',
+  'finNwCoverage', 'finNwCoverageNote',
 ]) vm.runInContext(extractFunction(financeSource, name), ctx)
 // 상수는 소스에서 그대로 가져온다 — 테스트에 복사해 두면 팔레트·아이콘이 바뀌어도 눈치채지 못한다.
 function extractConst(source, name) {
@@ -138,6 +139,9 @@ assert.ok(all.includes('<b>3일</b>'), '선택 기간 스냅샷 건수')
 assert.ok(all.includes('+₩20,000,000'), '기간 증감 = 마지막 − 처음')
 assert.ok(all.includes('>-10.0%<'), 'MDD: 고점 100,000,000 → 90,000,000 = −10%')
 assert.ok(all.includes('class="fin-nw-chart-scroll"'), '모바일에서 순자산 차트를 가로 스크롤할 수 있는 래퍼')
+// 픽스처의 기록은 20일치뿐이라 1M(30일)을 채우지 못한다 — 그 사실을 화면이 밝혀야 한다.
+// (이걸 숨기면 기간 버튼을 눌러도 MDD가 안 변하는 게 고장으로 보인다)
+assert.match(all, /선택한 기간\(30일\)보다 기록이 짧습니다[\s\S]*?\(20일\)/, '기록 부족 안내')
 
 // 배당: SCHD 100주 × $1 × 1,000원 = 100,000 / 삼성전자 100주 × 1,000원 = 100,000
 assert.ok(all.includes('₩200,000'), '연 배당(세전) 합계')

@@ -373,6 +373,26 @@ function finNwSeries(ownerF,tf){
     return {date:h.date,v};
   }).filter(p=>p.v!=null);
 }
+// 선택한 기간과 실제로 그려진 구간은 다를 수 있다 — 스냅샷은 앱을 연 날과
+// 자동 기록 배치가 도는 날에만 쌓이므로, 기록이 기간을 못 채우면 1M 이든 1Y 든
+// 같은 구간을 그리게 된다. 그때 MDD·기간증감이 버튼을 눌러도 안 변하는 것처럼 보이므로
+// 화면이 그 사실을 밝혀야 한다.
+function finNwCoverage(series,tfKey){
+  const requested=FIN_NW_TFS[tfKey];
+  const requestedDays=requested===undefined?null:requested;
+  if(!Array.isArray(series)||series.length<2) return {requestedDays,actualDays:0,from:null,to:null,short:false};
+  const from=series[0].date, to=series[series.length-1].date;
+  // 로컬 시간으로 파싱한다 — 'YYYY-MM-DD' 만 넘기면 UTC 로 읽혀 KST 에서 하루 밀린다.
+  const ms=new Date(String(to)+'T00:00:00').getTime()-new Date(String(from)+'T00:00:00').getTime();
+  const actualDays=Number.isFinite(ms)?Math.round(ms/86400000)+1:0;
+  return {requestedDays,actualDays,from,to,short:requestedDays!=null&&actualDays<requestedDays};
+}
+// 기록이 기간을 못 채울 때만 한 줄 띄운다 — 정상일 때는 아무것도 렌더하지 않는다.
+function finNwCoverageNote(cov){
+  if(!cov||!cov.short) return '';
+  const range=`${String(cov.from).slice(5).replace('-','/')}~${String(cov.to).slice(5).replace('-','/')}`;
+  return `<small class="fin-callout">선택한 기간(${cov.requestedDays}일)보다 기록이 짧습니다 · 실제 표시 구간 ${cbEsc(range)} (${cov.actualDays}일) · 더 긴 기간을 눌러도 같은 구간이 보입니다</small>`;
+}
 function finNwStats(series){
   if(series.length<2) return null;
   const values=series.map(p=>Number(p.v));
@@ -463,6 +483,7 @@ function cbRenderBalanceSheet(){
 
   // 순자산 추이
   const series=finNwSeries(ownerF); const st=finNwStats(series);
+  const cov=finNwCoverage(series,_finNwTf);
   const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${tf}" onclick="finNwTf('${tf}')" aria-pressed="${tf===_finNwTf}">${tf}</button>`).join('');
 
   // 브리지는 가구 전체 스냅샷만 있으므로 소유주 필터와 무관하게 가구 기준임을 밝힌다.
@@ -486,6 +507,7 @@ function cbRenderBalanceSheet(){
         <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
         <div><small>스냅샷</small><b>${series.length}일</b></div>
       </div>`:''}
+      ${finNwCoverageNote(cov)}
       ${finNwChartSvg(series,1100,230)}
     </div>
 
