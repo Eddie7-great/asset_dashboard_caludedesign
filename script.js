@@ -2837,6 +2837,18 @@ if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
     else if (kind==='perf' && typeof cbPerfHover==='function') cbPerfHover(e, i);
   }, true);
 
+  // role="button" tabindex="0" 로 표시한 요소는 Enter·Space 로도 눌려야 한다. 요소마다
+  // 인라인 onkeydown 을 복사해 붙이는 대신(같은 스니펫이 네 벌까지 늘어났었다) 여기서 한 번에
+  // 처리한다 — 마크업은 role 과 tabindex 만 달면 되고 활성화는 자동으로 따라온다.
+  document.addEventListener('keydown', e=>{
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest?.('[role="button"][tabindex="0"]');
+    // 진짜 button·a·input 은 브라우저가 이미 Enter/Space 를 처리한다 — 여기서 또 하면 두 번 실행된다.
+    if (!el || el.matches('button,a,input,select,textarea')) return;
+    e.preventDefault();
+    el.click();
+  }, true);
+
   document.addEventListener('scroll', ()=>{
     const tip = document.getElementById('table-float-tip');
     if (tip && tip.style.display!=='none' && tip._anchor) positionTableFloatTip(tip, tip._anchor);
@@ -3323,7 +3335,7 @@ function renderPortfolio(owner) {
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
     const grpProfitText=grpItems.length===0||grpName==='현금'?'-':(grpKnownCount===0?'산정 제외':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)');
-    html+=`<div class="pt-group"><div class="pt-group-header f-between" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const f=this.querySelector('.holdings-broker-filter-inline');if(f)f.style.display=isHidden?'inline-flex':'none';const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span>${inlineBrokerFilter}</div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpProfitText}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
+    html+=`<div class="pt-group"><div class="pt-group-header f-between" role="button" tabindex="0" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const f=this.querySelector('.holdings-broker-filter-inline');if(f)f.style.display=isHidden?'inline-flex':'none';const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span>${inlineBrokerFilter}</div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpProfitText}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
   });
   document.getElementById('portfolio-tables').innerHTML=html;
 }
@@ -5367,6 +5379,9 @@ function renderDripSimulator() {
 
   const canvas = document.getElementById('divpDripChart');
   if (!canvas) return;
+  // Chart.js 는 CDN 에서 온다 — 로드 실패 시 여기서 던지면 이 함수의 나머지가 통째로 멈춘다.
+  // 위쪽 카드(숫자 요약)는 이미 그려졌으므로 차트만 포기하고 조용히 빠진다.
+  if (typeof Chart === 'undefined') return;
   if (!window._divpDripChart) {
     window._divpDripChart = new Chart(canvas.getContext('2d'), {
       type: 'line',

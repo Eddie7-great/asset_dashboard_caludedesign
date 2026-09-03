@@ -6,6 +6,7 @@ import vm from 'node:vm'
 
 const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
 const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
+const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
   const asyncStart = source.indexOf(`async function ${name}(`)
@@ -143,8 +144,12 @@ assert.match(financeSource, /function finMarkFresh[\s\S]*finScheduleFreshnessSav
 assert.doesNotMatch(extractFunction(financeSource, 'finMarkFresh'), /saveExtDataToKV/, '상태 갱신이 ext_data 전체 저장을 재귀 호출하지 않음')
 
 // ── SVG: 차트 의미와 키보드 조작 경로 제공 ─────────────────────────
-assert.match(cobaltSource, /월별 배당 캘린더[\s\S]*tabindex="0"[\s\S]*role="button"[\s\S]*event\.key==='Enter'/, '배당 월 막대를 키보드로 선택 가능')
-assert.match(cobaltSource, /cb-tax-month-hit[\s\S]*aria-label=[\s\S]*event\.key==='Enter'/, '양도세 월 영역을 키보드로 선택 가능')
+// 키보드 활성화는 요소마다 인라인 onkeydown 을 붙이던 것에서 script.js 의 문서 위임으로
+// 옮겼다(같은 스니펫이 네 벌까지 늘었고, 위임과 함께 두면 이중 실행된다).
+// 마크업 쪽 계약은 role="button" + tabindex="0" 이고, 활성화 자체는 아래 위임이 보장한다.
+assert.match(cobaltSource, /월별 배당 캘린더[\s\S]*tabindex="0"[\s\S]*role="button"/, '배당 월 막대를 키보드로 선택 가능')
+assert.match(cobaltSource, /cb-tax-month-hit[^`]*tabindex="0"[^`]*role="button"[^`]*aria-label=/, '양도세 월 영역을 키보드로 선택 가능')
+assert.match(scriptSource, /addEventListener\('keydown'[\s\S]{0,400}\[role="button"\]\[tabindex="0"\][\s\S]{0,300}\.click\(\)/, 'Enter·Space 활성화를 문서 위임 한 곳에서 처리')
 assert.match(financeSource, /순자산 추이[\s\S]*role="img"[\s\S]*<title>/, '순자산 SVG에 텍스트 대체 설명 제공')
 
 console.log('PASS: 소유주별 세액·증여 10년 전제·상태 분리 저장·SVG 접근성 회귀 테스트')
