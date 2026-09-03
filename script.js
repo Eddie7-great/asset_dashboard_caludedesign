@@ -556,7 +556,26 @@ function _setDivFetchCoverage(tickers, verified, status, error='') {
   };
   return window._divFetchCoverage;
 }
-async function fetchDivData(force=false) {
+// 한눈에 보기(cbVerifySnapshotDividendData)와 배당 관리(cbVerifyDividendDataOnOpen)가
+// 각자 페이지 진입 때 이 조회를 부른다. 두 화면을 빠르게 오가면 같은 요청이 중복으로 나가고,
+// 나중 호출이 맨 앞에서 찍는 'pending' 이 먼저 끝난 호출의 완료 상태를 덮어써 화면의
+// "배당 데이터 확인 중" 배너가 깜빡인다. → 진행 중인 조회를 재사용한다.
+let _divFetchInFlight = null;
+function fetchDivData(force=false) {
+  // 강제 갱신(수동 새로고침)은 실제로 네트워크를 다시 타야 하므로 재사용하지 않고
+  // 진행 중인 조회가 끝난 뒤에 이어 붙인다 — 같은 캐시 키를 두 흐름이 동시에 쓰지 않게.
+  if (_divFetchInFlight && !force) return _divFetchInFlight;
+  const prev = _divFetchInFlight;
+  // 정리(finally)는 반드시 반환하는 프라미스 체인 '안'에 있어야 한다. 밖에서 정리하면
+  // 호출자가 await 에서 깨어나는 시점에 아직 in-flight 로 남아, 바로 뒤에 종목을 추가하고
+  // 다시 부른 조회가 지난 결과를 그대로 돌려받아 신규 종목이 영영 조회되지 않는다.
+  const task = (prev ? prev.catch(()=>null) : Promise.resolve())
+    .then(()=>_fetchDivDataOnce(force))
+    .finally(()=>{ if (_divFetchInFlight===task) _divFetchInFlight = null; });
+  _divFetchInFlight = task;
+  return task;
+}
+async function _fetchDivDataOnce(force=false) {
   const today = _cfLocalDateKey(new Date());
   const cacheKey = 'divCache_' + today;
   const verifiedKey = 'divCacheTickers_' + today;
@@ -2732,6 +2751,8 @@ function showTableFloatTip(anchor){
   tip.textContent = formatTableFloatTipText(text);
   tip.style.display = 'block';
   tip._anchor = anchor;
+  // 터치 토글은 '이번 탭에서 열린 것'과 '이전 탭에서 이미 열려 있던 것'을 구분해야 한다.
+  tip._shownAt = Date.now();
   positionTableFloatTip(tip, anchor);
 }
 function hideTableFloatTip(anchor){
@@ -2742,27 +2763,80 @@ function hideTableFloatTip(anchor){
 }
 if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
   window._tableFloatTipEventsBound = true;
+  // 터치로 탭하면 브라우저가 곧바로 mouseover→mousedown→click→mouseout 을 흉내 낸다.
+  // 그 흉내 mouseout 이 방금 연 설명을 즉시 닫아버리므로, 터치 직후 짧은 창 동안은
+  // 마우스 경로를 통째로 무시한다. (마우스만 쓰는 환경에서는 이 창이 열리지 않는다)
+  const TOUCH_MOUSE_GRACE = 900;
+  let _tipTouchAt = 0, _tipTouchPointer = false, _tipGestureAt = 0;
+  const mouseFromTouch = () => Date.now() - _tipTouchAt < TOUCH_MOUSE_GRACE;
+
   document.addEventListener('mouseover', e=>{
+    if (mouseFromTouch()) return;
     const el = e.target.closest?.('[data-tip]');
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     showTableFloatTip(el);
   }, true);
   document.addEventListener('mouseout', e=>{
+    if (mouseFromTouch()) return;
     // 오버플로 툴팁은 앞선 mouseout 핸들러가 data-tip을 먼저 제거하므로
     // 원본 data-overflow-tip까지 대상으로 잡아 body 포털이 남지 않게 한다.
     const el = e.target.closest?.('[data-tip],[data-overflow-tip]');
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     hideTableFloatTip(el);
   }, true);
-  // 키보드와 터치에서도 tabindex가 있는 설명 요소의 같은 툴팁을 볼 수 있게 한다.
+  // 키보드에서도 tabindex가 있는 설명 요소의 같은 툴팁을 볼 수 있게 한다.
   document.addEventListener('focusin', e=>{
     const el = e.target.closest?.('[data-tip]');
     if (el) showTableFloatTip(el);
   }, true);
   document.addEventListener('focusout', e=>{
+    if (mouseFromTouch()) return;   // 터치는 아래 click 토글이 닫기를 맡는다
     const el = e.target.closest?.('[data-tip]');
     if (el) hideTableFloatTip(el);
   }, true);
+
+  // 터치 기기에는 hover 가 없어 설명(data-tip)을 읽을 방법이 아예 없었다.
+  // 탭으로 열고, 같은 곳을 다시 탭하거나 바깥을 누르면 닫는다.
+  document.addEventListener('pointerdown', e=>{
+    _tipTouchPointer = !!e.pointerType && e.pointerType!=='mouse';
+    _tipGestureAt = Date.now();
+    if (_tipTouchPointer) _tipTouchAt = _tipGestureAt;
+  }, true);
+  document.addEventListener('click', e=>{
+    const touch = _tipTouchPointer; _tipTouchPointer = false;
+    if (!touch) return;
+    const el = e.target.closest?.('[data-tip]');
+    const tip = document.getElementById('table-float-tip');
+    const open = (tip && tip.style.display!=='none') ? tip._anchor : null;
+    // 그 자체가 동작하는 요소는 탭이 곧 실행이라 설명을 띄우지 않는다 — 재렌더로 즉시 사라진다.
+    if (!el || el.closest('button,a,select,input,textarea,[role="button"]')){
+      if (open) hideTableFloatTip(open);
+      return;
+    }
+    // tabindex 가 있는 요소는 탭과 동시에 focusin 이 먼저 툴팁을 연다. 그것까지 '이미 열려
+    // 있었다'로 보면 이번 탭이 곧바로 닫아버려 터치에서는 설명이 끝내 안 보인다.
+    const openedBefore = open && (tip._shownAt||0) < _tipGestureAt;
+    if (open===el && openedBefore) hideTableFloatTip(el); else showTableFloatTip(el);
+  }, true);
+
+  // 차트 툴팁: 마우스는 히트 영역의 onmousemove 로, 터치는 여기서 위임 처리한다.
+  // SVG <rect> 의 인라인 onpointerdown 은 브라우저가 이벤트 핸들러 속성으로 받아주지
+  // 않으므로(onmousemove 와 달리) 인라인이 아니라 문서 위임으로 붙여야 실제로 동작한다.
+  document.addEventListener('pointerdown', e=>{
+    if (e.pointerType==='mouse') return;
+    const hit = e.target.closest?.('[data-chart-hit]');
+    if (!hit){
+      const t = document.getElementById('cb-perf-tip'); if (t) t.style.display='none';
+      const g = document.getElementById('cb-perf-guide'); if (g) g.style.display='none';
+      return;
+    }
+    const [kind, idx] = String(hit.getAttribute('data-chart-hit')||'').split(':');
+    const i = Number(idx);
+    if (!Number.isFinite(i)) return;
+    if (kind==='finNw' && typeof finNwHover==='function') finNwHover(e, i);
+    else if (kind==='perf' && typeof cbPerfHover==='function') cbPerfHover(e, i);
+  }, true);
+
   document.addEventListener('scroll', ()=>{
     const tip = document.getElementById('table-float-tip');
     if (tip && tip.style.display!=='none' && tip._anchor) positionTableFloatTip(tip, tip._anchor);
@@ -4841,9 +4915,16 @@ function initDashboard(){
 
 
 
-  window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:9},callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  // Chart.js 는 CDN 에서 온다. 로드에 실패했는데 여기서 그대로 new Chart 를 하면
+  // initDashboard 가 통째로 중단되고, 그 아래의 KV 로드(loadAssetsFromKV)까지 실행되지 않아
+  // 차트뿐 아니라 자산·순자산·배당이 전부 빈 화면이 된다. 차트만 포기하고 나머지는 띄운다.
+  if (typeof Chart === 'undefined') {
+    window.cfDonutChartInst = null; window.cfTrendChartInst = null;
+  } else {
+    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:9},callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
 
-  window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
+    window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
+  }
 
 
   // 정밀 분석 - 월별 매도차익/손실 막대 차트

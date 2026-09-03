@@ -17,7 +17,12 @@ try:
     import numpy as np
     import pandas as pd
 except ImportError:
-    print('SKIP 벤치마크 컬럼 정리 (pandas/numpy 미설치)')
+    # CI 에서는 의존성이 반드시 설치돼 있어야 한다. 조용히 SKIP 하면 이 회귀 테스트가
+    # 실행되지 않는 채로 오래 방치된다 (실제로 그랬다 — 워크플로에 설치 스텝이 없었음).
+    if os.environ.get('CI'):
+        print('FAIL 벤치마크 컬럼 정리 — CI 에서 pandas/numpy 가 설치되지 않았다')
+        sys.exit(1)
+    print('SKIP 벤치마크 컬럼 정리 (pandas/numpy 미설치 — 로컬 전용)')
     sys.exit(0)
 
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -71,7 +71,7 @@ const dividendContext = {
   _cbDivMonthFilter: null,
 }
 vm.createContext(dividendContext)
-for (const name of ['cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
+for (const name of ['cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), dividendContext)
 }
 const dividendList = [
@@ -200,6 +200,21 @@ assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'READY'}).status,'ready','완
 assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'SHORT'}).status,'insufficient','원본 이력은 있으나 완결연도가 짧으면 이력 부족으로 구분')
 assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'MISSING'}).status,'missing','원본 배당 이력 조회 실패를 별도 구분')
 assert.match(cobaltSource, /소유주별 자산군 구성[\s\S]*cb-family-mix-track/, '가족 자산 내역 옆에 소유주별 자산군 구성 위젯 추가')
+// 구성원 카드: 인라인 5열 그리드는 CSS 미디어쿼리로 덮을 수 없어 좁은 화면에서 금액이 잘렸다.
+assert.match(cobaltSource, /<div class="cb-fam-card-grid">/, '구성원 카드 그리드를 클래스로 노출')
+assert.doesNotMatch(cobaltSource, /style="display:grid;grid-template-columns:repeat\(\d,1fr\)/, '반응형이 필요한 다중 컬럼 그리드를 인라인 스타일로 두지 않는다')
+assert.match(styleSource, /\.cb-fam-card-grid\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/, '넓은 화면은 구성원 5장 한 줄')
+assert.match(styleSource, /@media \(max-width: 1080px\)\{\s*\.cb-fam-card-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}/, '중간 폭에서는 3열')
+assert.match(styleSource, /@media \(max-width: 720px\)\{\s*\.cb-fam-card-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/, '좁은 화면에서는 2열로 내려 금액 잘림 방지')
+// 대시보드 아코디언은 아래 표와 같은 병합 목록을 써야 종목 수가 어긋나지 않는다.
+assert.match(cobaltSource, /mergedByVal\.filter\(r=>r\.cls===c\.key\)/, '자산 배분 펼침 목록도 다계좌 병합 후 목록 사용')
+assert.match(cobaltSource, /const items = open \? mergedByVal\.filter/, '섹터 펼침 목록도 다계좌 병합 후 목록 사용')
+// 모바일에서 화면 밖으로 밀려 잘리던 레이아웃 — 인라인 폭 제약을 클래스로 빼 미디어쿼리가 닿게 한다.
+assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel">/, '증여 패널의 min-width 를 CSS 로 이관')
+assert.match(styleSource, /@media \(max-width:768px\)[\s\S]*\.cb-gift-panel\{min-width:0;flex-basis:100%\}/, '모바일에서 증여 패널을 한 줄에 하나씩 (금액 잘림 방지)')
+assert.match(styleSource, /\.cb-dash-split\{flex-direction:column!important;align-items:stretch!important\}/, '세로 스택에서 대시보드 표 패널이 max-content 로 부풀지 않게 stretch')
+assert.match(cobaltSource, /<div class="cb-lt-row">[\s\S]*class="cb-lt-name"[\s\S]*class="cb-lt-bar"/, '종목 집중도 행을 클래스로 노출')
+assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{display:none\}/, '좁은 화면에서는 룩스루 직접/ETF 칸을 숨겨 잘림 방지')
 assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*지급일이 확인되지 않은 종목은 ‘월 예정’/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
@@ -211,6 +226,8 @@ assert.match(styleSource, /\.cb-family-table-toolbar,\.cb-div-table-toolbar\{pos
 assert.match(styleSource, /\.cb-family-mix-card\{position:sticky;top:0\}[\s\S]*\.cb-div-upcoming-card\{position:sticky;top:0\}/, '가족 자산·배당 우측 보조 위젯을 스크롤 중 고정')
 const upcomingContext = { cbStrip: ticker => String(ticker || '').toUpperCase() }
 vm.createContext(upcomingContext)
+vm.runInContext(extractFunction(scriptSource, '_defaultMonthsForCycle'), upcomingContext)
+vm.runInContext(extractFunction(cobaltSource, 'cbDefaultDivMonths'), upcomingContext)
 vm.runInContext(extractFunction(cobaltSource, 'cbUpcomingDividendSchedule'), upcomingContext)
 const upcoming = upcomingContext.cbUpcomingDividendSchedule([
   { i:{owner:'본인'}, tkr:'SCHD', title:'Schwab Dividend ETF', incomeKRW:120_000, d:{months:[7,8],payDay:null} },
@@ -219,6 +236,14 @@ const upcoming = upcomingContext.cbUpcomingDividendSchedule([
 assert.equal(upcoming[0].dateLabel, '8월 예정', '지급일 미확인 종목은 월 단위 일정으로 표시')
 assert.equal(upcoming.find(x => x.ticker === 'O').dateLabel, '9월 5일', '확인된 지급일은 일자까지 표시')
 assert.equal(upcoming.find(x => x.ticker === 'SCHD').amount, 60_000, '연간 예상 배당을 지급 월수로 나눠 회차 금액 산출')
+// 지급월이 응답에 없으면 주기 기반 폴백을 써야 한다 — 월별 막대(cbDivMonthlyForYear)와
+// 같은 cbDefaultDivMonths 를 통과하지 않으면 같은 화면에서 두 위젯이 다른 일정을 그린다.
+const upcomingAnnual = upcomingContext.cbUpcomingDividendSchedule([
+  { i:{owner:'본인'}, tkr:'YEARLY', title:'연배당주', incomeKRW:120_000, d:{cycle:'연간',months:[],payDay:null} },
+], 200, '2026-10-01T00:00:00')
+assert.equal(upcomingAnnual.length, 1, '연 1회 배당은 예정 일정에도 1건만 잡힌다')
+assert.equal(upcomingAnnual[0].dateLabel, '12월 예정', '연간 주기의 기본 지급월은 12월')
+assert.equal(upcomingAnnual[0].amount, 120_000, '연 1회 지급은 회차 금액을 분기로 쪼개지 않는다')
 assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s\S]*해외 기본공제 사용률[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 참고합계·해외·공제·국내·ISA·연금 순으로 배치')
 assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-no-comma="1"[\s\S]*oninput="handlePLAmtInput\(this\)"/, '양도소득세 수정 금액 입력에도 음수 허용 실시간 쉼표 포맷 적용')
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')

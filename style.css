@@ -245,6 +245,11 @@
     .layout{display:grid;grid-template-columns:210px 1fr;gap:15px;padding:15px;height:100vh;height:100dvh;box-sizing:border-box}
     /* 모바일 햄버거/백드롭 — 데스크톱에서는 비활성 (모바일 규칙은 파일 말미 @media 블록) */
     .hamburger-btn{display:none}
+    /* 데스크톱은 소제목이 헤더에 그대로 보이므로 토글이 필요 없다 (모바일 미디어쿼리에서 켠다) */
+    .page-sub-toggle{display:none;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0;
+      border:1px solid var(--border-dark);background:var(--inner-bg);color:var(--t1);border-radius:10px;
+      font-size:1rem;line-height:1;cursor:pointer}
+    .page-sub-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     #sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1290}
     .menu-col{padding:12px 10px;display:flex;flex-direction:column;height:100%}
     .logo{display:flex;align-items:center;gap:9px;padding:0 8px 14px;flex-shrink:0}
@@ -854,6 +859,9 @@
     #cb-tax-pl{max-width:170px}
     #cb-tax-memo{max-width:260px}
     /* 증여 페이지 입력 라벨 — 한 줄에 2칸만 남을 때 폭이 벌어지지 않게 상한을 둔다(모바일에선 해제) */
+    /* 증여 패널의 min-width 를 인라인으로 두면 미디어쿼리가 못 덮어, 390px 화면에서 패널이
+       뷰포트를 넘고 .content-area 의 overflow-x:hidden 에 잘려 금액이 '200,000'→'200' 으로 보였다 */
+    .cb-gift-panel{flex:1;min-width:430px;padding:16px 18px}
     .cb-gift-field{max-width:216px}
     select.cb-input option{background:var(--panelSolid);color:var(--tx)}
     .cb-hrow{border-radius:9px;transition:background .12s}
@@ -930,6 +938,18 @@
     .cb-insight-empty{padding:18px 4px;text-align:center;color:var(--dim);font-size:11px;line-height:1.6}
     .cb-insight-more{margin-top:8px;text-align:right;color:var(--dim);font-size:10px}
     .cb-family-detail-grid,.cb-dca-detail-grid,.cb-div-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;align-items:start}
+    /* 구성원 카드 5장 — 인라인 그리드로 두면 미디어쿼리가 못 덮어 좁은 화면에서 금액이 잘린다 */
+    .cb-fam-card-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+    .cb-fam-card{min-width:0;padding:12px;cursor:pointer}
+    .cb-fam-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+    .cb-fam-card-head{display:flex;align-items:center;gap:7px;min-width:0}
+    .cb-fam-card-ico{width:23px;height:23px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+    .cb-fam-card-name{min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-fam-card-val{margin-top:8px;font:800 17px 'Manrope','Noto Sans KR',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-fam-card-gain{margin-top:1px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-fam-card-track{height:4px;border-radius:2px;background:var(--inner);margin-top:8px;overflow:hidden}
+    .cb-fam-card-track>i{display:block;height:100%}
+    .cb-fam-card-foot{margin-top:4px;font-size:10px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-family-table-toolbar,.cb-div-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}
     .cb-dca-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px}
@@ -995,6 +1015,13 @@
     .cb-risk-insight-value{margin-top:7px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:7px;color:var(--dim);font-size:10px;line-height:1.4}
     .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* 종목 집중도(ETF 룩스루) 행 — 고정 폭 합계가 542px 라 인라인으로 두면 좁은 화면에서
+       마지막 '직접/ETF' 칸이 화면 밖으로 밀려 잘린다. 클래스로 빼서 폭을 조절한다. */
+    .cb-lt-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px}
+    .cb-lt-name{width:148px;flex-shrink:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-lt-bar{flex:1;min-width:120px;height:14px;border-radius:4px;background:var(--inner)}
+    .cb-lt-pct{width:54px;flex-shrink:0;text-align:right;font-weight:800}
+    .cb-lt-detail{width:190px;flex-shrink:0;font-size:10.5px;color:var(--lab);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(240px,1.12fr) minmax(240px,1.12fr) minmax(205px,.74fr) minmax(235px,.88fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-sector-card{display:flex;flex-direction:column}
     .cb-dash-sector-note{font-size:10.5px;color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
@@ -1027,13 +1054,16 @@
     .cb-snap-stat span{display:block;margin-top:2px;font-size:10px;color:var(--mut);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-snap-stack{display:flex;gap:3px;height:28px;margin:6px 0 14px}
     .cb-snap-stack>span{min-width:3px;border-radius:5px;opacity:.9}
-    .cb-snap-cls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:9px}
-    .cb-snap-cls{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;background:var(--inner);border:1px solid var(--bd);border-left:3px solid var(--seg);min-width:0}
-    .cb-snap-cls-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--inner);background:color-mix(in srgb,var(--seg) 24%,var(--inner));border:1px solid color-mix(in srgb,var(--seg) 56%,var(--bd));color:var(--tx);font:800 10.5px 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em}
+    .cb-snap-cls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:9px}
+    .cb-snap-cls{display:flex;align-items:center;gap:9px;padding:11px 11px;border-radius:10px;background:var(--inner);border:1px solid var(--bd);border-left:3px solid var(--seg);min-width:0}
+    .cb-snap-cls-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--inner);background:color-mix(in srgb,var(--seg) 38%,var(--inner));border:1px solid var(--bd);border-color:color-mix(in srgb,var(--seg) 60%,var(--bd));color:var(--tx);font:800 10.5px 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em}
     .cb-snap-cls-body{min-width:0;flex:1}
     .cb-snap-cls-body b{display:block;font-size:11.5px;font-weight:700;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-snap-cls-body span{display:block;margin-top:2px;font:800 13px 'Manrope','Noto Sans KR',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb-snap-cls-pct{flex-shrink:0;font:800 17px 'Manrope','Noto Sans KR',sans-serif;color:var(--tx)}
+    /* 흰 글씨를 자산군 색 위에 올리면 대비가 1.6:1까지 떨어져 못 쓴다. 전경색은 테마 토큰으로
+       두되, 자산군을 색으로 알아보던 단서는 퍼센트 앞 점으로 남긴다 (--seg 는 .cb-snap-cls 상속). */
+    .cb-snap-cls-pct{flex-shrink:0;display:flex;align-items:center;gap:5px;font:800 16px 'Manrope','Noto Sans KR',sans-serif;color:var(--tx)}
+    .cb-snap-cls-pct::before{content:'';width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--seg)}
     .cb-snap-cls-pct i{font-style:normal;font-size:10px;margin-left:1px}
     .cb-snap-owner-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--bd)}
     .cb-snap-owner{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;background:var(--inner);font-size:11px;color:var(--mut);font-weight:700}
@@ -1115,13 +1145,22 @@
     .cb-label{font-size:10.5px;letter-spacing:.08em;color:var(--lab);font-weight:600}
     /* 대시보드: 보유 자산 내역(좌) + 종목 상세(우, sticky) 2열 — 좁은 폭에서는 상세를 아래로 접음 */
     @media (max-width: 1080px){
-      .cb-dash-split{flex-direction:column!important}
+      .cb-fam-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      /* 세로로 쌓을 때 인라인 align-items:flex-start 가 남아 있으면 자식이 max-content 폭
+         (표의 min-width:640px)까지 부풀어 패널이 화면 밖으로 나가고, .cb-tblwrap 도 같이
+         넓어져 표를 가로로 넘길 수조차 없게 된다. 세로 스택에서는 폭을 채우게 한다. */
+      .cb-dash-split{flex-direction:column!important;align-items:stretch!important}
       .cb-dash-split > .cb-dash-detail{width:100%!important;position:static!important}
       .cb-tax-bottom-grid{grid-template-columns:1fr}
       .cb-risk-overview{grid-template-columns:1fr}
       .cb-risk-score-card{width:100%;box-sizing:border-box}
     }
     @media (max-width: 720px){
+      .cb-fam-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      /* 좁은 화면에서는 막대와 비중만 남긴다 — 직접/ETF 내역은 막대 색과 툴팁으로 읽는다 */
+      .cb-lt-name{width:96px}
+      .cb-lt-bar{min-width:56px}
+      .cb-lt-detail{display:none}
       .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
       .cb-dash-movers-grid{grid-column:auto}
       .cb-mover-row{gap:4px;font-size:10.5px}
@@ -1171,6 +1210,9 @@
       .page-title{grid-row:1;grid-column:2;text-align:center;font-size:1.05rem!important}
       /* 헤더 소제목은 모바일에서 숨김, 페이지 컨트롤(기간 버튼 등)은 둘째 줄 중앙 */
       #main-title-sub{display:none}
+      /* 'ⓘ' 를 누르면 제목 아래 한 줄로 펼친다 — 기준·면책 문구가 폰에서 아예 안 보이던 문제 */
+      body.head-sub-open #main-title-sub{display:block;grid-row:3;grid-column:1/-1;line-height:1.6;padding-bottom:2px}
+      .page-sub-toggle{display:flex;grid-row:1;grid-column:3}
       #cb-head-widgets{grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center;flex-wrap:wrap}
       #owner-tabs-container,#cf-owner-bar,#bubble-owner-bar,#analysis-owner-bar{
         grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center}
@@ -1307,6 +1349,8 @@
       #cf-fixed-table th:last-child,#cf-fixed-table td:last-child{display:none}
       #cf-fixed-table th,#cf-fixed-table td{padding:8px 7px}
       .cf-fixed-item-name{max-width:100%}
+      /* 모바일은 두 패널을 나란히 두기엔 너무 좁다 — 한 줄에 하나씩 쌓는다 */
+      .cb-gift-panel{min-width:0;flex-basis:100%}
       .cb-gift-field{max-width:none}
       .cf-fixed-state{display:none}
       .cf-fixed-inline-owner{pointer-events:none;appearance:none;border:0;background:transparent;padding:0}
