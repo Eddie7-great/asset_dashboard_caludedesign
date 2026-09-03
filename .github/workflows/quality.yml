@@ -33,7 +33,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Python 회귀 테스트 의존성 설치
-        run: python -m pip install --disable-pip-version-check --only-binary=:all: numpy pandas
+        run: python -m pip install --disable-pip-version-check --only-binary=:all: numpy "pandas>=2.0.0,<3.0.0"
 
       - name: 문법·타입·회귀 테스트
         run: npm test

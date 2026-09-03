@@ -121,7 +121,7 @@ Object.assign(context, {
   },
   cbRate: () => 1,
 })
-for (const name of ['cbStrip', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear']) {
+for (const name of ['cbStrip', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear']) {
   vm.runInContext(extractFunction(cobaltSource, name), context)
 }
 const historicalList = [

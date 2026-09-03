@@ -156,7 +156,9 @@ function makeDivCtx(responder) {
   ctx.window._divDataCache = {}
   ctx.window._divFetchCoverage = { date: '', total: 0, verified: [], missing: [], status: 'idle', error: '' }
   vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext('let _divFetchInFlight = null', ctx)
   vm.runInContext(extractFunction('_setDivFetchCoverage'), ctx)
+  vm.runInContext(extractFunction('_fetchDivDataOnce'), ctx)
   vm.runInContext(extractFunction('fetchDivData'), ctx)
   return { ctx, calls, store, pfolioData }
 }
@@ -214,6 +216,23 @@ const divOk = (list) => ({
   assert.equal(result.ok, false, '배당 전 청크 실패는 오류')
   assert.equal(ctx.window._divFetchCoverage.status, 'error', '화면에 전부 실패 상태를 전달')
   assert.equal(ctx.window._divFetchCoverage.missing.length, 30, '전부 실패하면 모든 보유 티커가 미확인')
+}
+
+{
+  // 한눈에 보기와 배당 관리가 각자 페이지 진입 때 조회를 부른다. 두 화면을 빠르게 오갈 때
+  // 같은 요청이 두 번 나가고 나중 호출의 'pending' 이 먼저 끝난 완료 상태를 덮어쓰면 안 된다.
+  const { calls, ctx } = makeDivCtx(divOk)
+  const both = await vm.runInContext('Promise.all([fetchDivData(), fetchDivData()])', ctx)
+  assert.equal(calls.length, 2, '동시 호출은 청크 2건만 나가고 요청이 중복되지 않는다')
+  assert.equal(both[0], both[1], '진행 중인 조회를 재사용해 같은 결과를 돌려준다')
+  assert.equal(ctx.window._divFetchCoverage.status, 'complete', '완료 상태가 나중 호출에 덮이지 않는다')
+}
+
+{
+  // 강제 갱신은 재사용하지 않고 앞선 조회가 끝난 뒤 실제로 다시 조회해야 한다.
+  const { calls, ctx } = makeDivCtx(divOk)
+  await vm.runInContext('Promise.all([fetchDivData(), fetchDivData(true)])', ctx)
+  assert.equal(calls.length, 4, '강제 갱신은 진행 중인 조회 뒤에 이어 붙어 네트워크를 다시 탄다')
 }
 
 // ────────────────── fetchBenchmarkData: 소유주별 상위 20종목 절단 ──────────────────

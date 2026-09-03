@@ -349,8 +349,8 @@ function finBalanceSubmit(){
   _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
 }
 function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(cbRenderBalanceSheet); }
-function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); }
-function finNwTf(tf){ _finNwTf=tf; cbRenderBalanceSheet(); }
+function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
+function finNwTf(tf){ _finNwTf=tf; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-balance2','data-nw-tf',tf); }
 
 // ── 순자산 추이 ─────────────────────────────────────────
 // _netWorthHistory 는 앱을 열 때마다 하루 1건씩 쌓이고 있었지만 그리는 화면이 없었다.
@@ -415,7 +415,7 @@ function finNwChartSvg(series,w,h){
     .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="IBM Plex Mono">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
   const hit=series.map((p,i)=>{
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
-    return `<rect x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair" onmousemove="finNwHover(event,${i})"></rect>`;
+    return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
   }).join('');
   window._finNwHover=series;
   const chartLabel=`순자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
@@ -463,7 +463,7 @@ function cbRenderBalanceSheet(){
 
   // 순자산 추이
   const series=finNwSeries(ownerF); const st=finNwStats(series);
-  const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" onclick="finNwTf('${tf}')">${tf}</button>`).join('');
+  const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${tf}" onclick="finNwTf('${tf}')" aria-pressed="${tf===_finNwTf}">${tf}</button>`).join('');
 
   // 브리지는 가구 전체 스냅샷만 있으므로 소유주 필터와 무관하게 가구 기준임을 밝힌다.
   const bridgeNote=bridge.prior
@@ -535,7 +535,7 @@ function finSaveTarget(){
   const sum=Object.values(groups).reduce((s,x)=>s+x,0); if(Math.abs(sum-100)>.01){alert(`목표 비중 합계를 100%로 맞춰 주세요. 현재 ${sum.toFixed(1)}%입니다.`);return;}
   window._targetAlloc={...(window._targetAlloc||{}),groups,threshold:Math.max(1,Math.min(20,Number(document.getElementById('fin-target-threshold')?.value)||5))};finSaveAndRender(cbRenderPlan);
 }
-function finPlanOwner(o){ _finPlanOwner=o; _finGoalEdit=null; cbRenderPlan(); }
+function finPlanOwner(o){ _finPlanOwner=o; _finGoalEdit=null; cbRenderPlan(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
 
 // 계좌 배치 진단은 script.js 의 실제 배당 원천징수 규칙(getAccountDivTaxInfo)을 그대로 쓴다.
 // 일반계좌에 있는 배당을 절세계좌로 옮겼을 때 아낄 수 있는 세금을 금액으로 제시한다.

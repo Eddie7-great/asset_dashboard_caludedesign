@@ -93,8 +93,8 @@ vm.createContext(ctx)
 for (const name of [
   'cbStrip', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW', 'cbGainKRW', 'cbDisp', 'cbSignDisp',
   'cbKrw', 'cbPct', 'cbEsc', 'cbUpDn', 'cbOwnerColor', 'cbCls', 'cbRow', 'cbAllRows', 'cbOwnerBtns',
-  'cbDivOf', 'cbDivIncomeKRW', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbSmoothPath',
-  'cbNiceStep', 'cbTaxAxisLab', 'cbSnapDivList', 'cbSnapDivCoverage', 'cbSnapMonthBars', 'cbSnapRestoreFocus',
+  'cbDivOf', 'cbDivIncomeKRW', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbSmoothPath',
+  'cbNiceStep', 'cbTaxAxisLab', 'cbSnapDivList', 'cbSnapDivCoverage', 'cbSnapMonthBars', 'cbRestoreFilterFocus',
   'cbSnapOwner', 'cbSnapTf', 'cbRenderSnap',
 ]) vm.runInContext(extractFunction(cobaltSource, name), ctx)
 for (const name of [
@@ -170,6 +170,15 @@ assert.ok(container.innerHTML.includes('배당 데이터 일부만 반영 · 1/2
 assert.ok(container.innerHTML.includes('₩200,000'), '부분 실패 때도 이미 확보한 배당 정보는 보존')
 ctx.window._divFetchCoverage = { status: 'complete', verified: ['SCHD', '005930'], missing: [], error: '' }
 
+// 조회 범위가 화면의 티커를 못 따라잡은 순간(방금 종목을 추가한 직후)에는 완결성을 알 수 없다.
+// 이때 _divDataCache 키를 verified 대용으로 쓰면 무배당 종목이 전부 '미확인'으로 잡혀
+// 실제로는 멀쩡한 데이터에 주황 경고가 뜬다 — '확인 중'으로만 표시해야 한다.
+ctx.pfolioData.push({ owner: '본인', grp: '주식', tkr: 'NODIV', name: '무배당주', cur: 'USD', qty: 5, curP: 10, avgP: 8, acc: '일반' })
+ctx.cbRenderSnap()
+assert.ok(!container.innerHTML.includes('배당 데이터 일부만 반영'), '조회 범위 밖 종목이 있다고 미확인 경고를 띄우지 않는다')
+assert.ok(container.innerHTML.includes('배당 데이터 확인 중 · 0/3종목'), '판정 근거가 없으면 확인 중으로 표시')
+ctx.pfolioData.pop()
+
 // months가 빠진 API 응답은 실제 주기에 맞는 기본 지급월을 써야 한다.
 const annualFallback = ctx.cbDivMonthlyForYear([
   { i: { owner: '본인', name: '연배당주' }, d: { cycle: '연간' }, tkr: 'YEAR', title: '연배당주', incomeKRW: 120_000 },
@@ -188,7 +197,8 @@ assert.ok(wife.includes('₩14,000,000'), '아내 자산 = 가상화폐 9,000,00
 assert.ok(!wife.includes('₩29,000,000'), '소유주 탭에서 가구 합계가 남아 있으면 안 된다')
 assert.ok(!wife.includes('소유주별 비중'), '소유주 탭에서는 소유주 분해를 숨긴다')
 assert.ok(wife.includes('+₩10,000,000'), '아내 순자산 40,000,000 → 50,000,000')
-assert.ok(wife.includes('현재 확인된 보유 종목에는 배당 정보가 없습니다'), '아내는 배당 종목이 없다')
+assert.ok(wife.includes('이 범위에는 보유 중인 주식이 없습니다'), '아내는 주식 자체가 없다 — 조회 실패로 읽히면 안 된다')
+assert.ok(!wife.includes('배당 데이터 일부만 반영'), '주식이 없는 소유주에게 미확인 경고를 띄우지 않는다')
 assert.ok(/한눈에 보기[\s\S]*/.test(String(head.sub || '')) || String(head.sub).includes('아내'), '헤더 소제목에 현재 범위를 표시')
 assert.ok(String(head.widgets).includes("cbSnapOwner('아내')"), '소유주 버튼은 페이지 전용 핸들러를 쓴다')
 assert.ok(String(head.widgets).includes('aria-pressed="true"'), '현재 소유주 버튼 상태를 보조기기에 노출')
@@ -214,14 +224,29 @@ for (const line of snapCss) {
   assert.deepEqual(hex, [], `테마 밖 하드코딩 색: ${line.trim()}`)
 }
 assert.ok(styleSource.includes('.cb-snap-hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))'), '좁은 화면 히어로 지표 재배치')
+assert.match(styleSource, /\.cb-snap-cls-pct::before\{[^}]*background:var\(--seg\)/, '자산군 색 구분을 퍼센트 앞 점으로 유지')
+assert.match(styleSource, /\.cb-snap-cls-ico\{[^}]*border:1px solid var\(--bd\);border-color:color-mix/, 'color-mix 미지원 브라우저에서도 아이콘 테두리가 남는다')
 assert.ok(styleSource.includes('@media (max-width: 360px)'), '초소형 화면에서는 KPI를 한 열로 내려 잘림 방지')
 assert.match(styleSource, /\.fin-nw-chart-canvas\{min-width:680px\}/, '모바일 차트의 최소 가독 폭 보장')
 assert.match(styleSource, /\.fin-nw-stats>div:nth-child\(3\)\{grid-column:1\/-1\}/, '모바일 최고·최저 금액 카드는 전체 폭 사용')
 
 // 페이지 진입·재렌더 배선: 요약만 열어도 신규 종목을 검증하고 필터 변경 뒤 포커스를 복원한다.
 assert.match(cobaltSource, /if \(id==='snap'\) cbVerifySnapshotDividendData\(\)/, '한눈에 보기 진입 시 배당 범위 검증')
-assert.match(cobaltSource, /function cbSnapOwner\([^}]+cbSnapRestoreFocus\('owner'/, '소유주 필터 재렌더 후 포커스 복원')
-assert.match(cobaltSource, /function cbSnapTf\([^}]+cbSnapRestoreFocus\('tf'/, '기간 필터 재렌더 후 포커스 복원')
+assert.match(cobaltSource, /function cbSnapOwner\([^}]+cbRestoreFilterFocus\('cb-head-widgets','data-owner'/, '소유주 필터 재렌더 후 포커스 복원')
+assert.match(cobaltSource, /function cbSnapTf\([^}]+cbRestoreFilterFocus\('cb-snap','data-snap-tf'/, '기간 필터 재렌더 후 포커스 복원')
+// 포커스 복원·aria-pressed 는 한 페이지 전용이 아니다 — 필터가 있는 화면 전부가 같은 헬퍼를 쓴다.
+for (const snippet of [
+  "cbRenderDash(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o)",
+  "cbRenderRisk(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o)",
+  "cbRenderDiv(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o)",
+  "cbRenderDiv(); cbRestoreFilterFocus('cb-head-widgets','data-div-basis',_cbDivBasis)",
+  "cbRenderPerf(); cbRestoreFilterFocus('cb-head-widgets','data-perf-tf',t)",
+  "cbRenderFam(); cbRestoreFilterFocus('cb-fam2','data-fam-key',k)",
+]) assert.ok(cobaltSource.includes(snippet), `재렌더 후 포커스 복원 누락: ${snippet}`)
+assert.match(financeSource, /function finNwTf\([^}]+cbRestoreFilterFocus\('cb-balance2','data-nw-tf'/, '재무상태표 기간 버튼도 포커스 복원')
+assert.match(cobaltSource, /data-perf-tf="\$\{t\}"[^`]*aria-pressed=/, '성과 비교 기간 버튼에 선택 상태 노출')
+assert.match(financeSource, /data-nw-tf="\$\{tf\}"[^`]*aria-pressed=/, '재무상태표 기간 버튼에 선택 상태 노출')
+assert.match(cobaltSource, /data-div-basis="gross"[^`]*aria-pressed=/, '배당 세전·세후 버튼에 선택 상태 노출')
 assert.match(cobaltSource, /r\?\.ok[\s\S]*updateNetWorthSnapshot\(\)/, '자산 저장 직후 오늘 순자산 스냅샷 갱신')
 
 console.log('PASS: 한눈에 보기 페이지 (배선·수치·소유주 필터·XSS·테마)')
