@@ -154,9 +154,11 @@ function makeDivCtx(responder) {
     resolvePendingDivDates: noop,
   })
   ctx.window._divDataCache = {}
+  ctx.window._divFetchCoverage = { date: '', total: 0, verified: [], missing: [], status: 'idle', error: '' }
   vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext(extractFunction('_setDivFetchCoverage'), ctx)
   vm.runInContext(extractFunction('fetchDivData'), ctx)
-  return { ctx, calls, store }
+  return { ctx, calls, store, pfolioData }
 }
 
 const divOk = (list) => ({
@@ -174,6 +176,20 @@ const divOk = (list) => ({
   assert.ok(calls.every(c => c.length <= 25), '각 배당 요청은 서버 상한 이내')
   assert.equal(result.ok, true, '모든 청크 성공 시 정상')
   assert.equal(JSON.parse(store['divCacheTickers_2026-08-31']).length, 30, '전부 성공하면 30개 모두 verified')
+  assert.equal(ctx.window._divFetchCoverage.status, 'complete', '화면에 완전 조회 상태를 제공')
+  assert.equal(ctx.window._divFetchCoverage.missing.length, 0, '완전 조회에는 누락 티커가 없음')
+}
+
+{
+  // 오늘 캐시가 있어도 이후 추가한 종목은 verified 목록에 없으므로 다시 확인해야 한다.
+  const { calls, ctx, pfolioData } = makeDivCtx(divOk)
+  await vm.runInContext('fetchDivData(true)', ctx)
+  calls.length = 0
+  pfolioData.push({ tkr: 'D30', grp: '주식', qty: 1 })
+  const result = await vm.runInContext('fetchDivData(false)', ctx)
+  assert.equal(result.ok, true, '신규 종목 추가 후 재조회 성공')
+  assert.ok(calls.flat().includes('D30'), '당일 캐시 뒤에 추가한 종목도 실제 요청에 포함')
+  assert.equal(ctx.window._divFetchCoverage.total, 31, '화면 조회 범위도 신규 종목까지 갱신')
 }
 
 {
@@ -187,6 +203,17 @@ const divOk = (list) => ({
   assert.equal(verified.length, 25, '성공한 청크의 티커만 verified 로 기록한다')
   assert.ok(!verified.includes('D29'), '실패한 청크의 티커는 verified 에 들어가지 않는다')
   assert.ok(Object.keys(ctx.window._divDataCache).length > 0, '성공분 배당 데이터는 보존한다')
+  assert.equal(ctx.window._divFetchCoverage.status, 'partial', '부분 실패 상태를 화면에 전달')
+  assert.equal(ctx.window._divFetchCoverage.verified.length, 25, '화면의 확인 종목 수도 성공 청크만 포함')
+  assert.equal(ctx.window._divFetchCoverage.missing.length, 5, '실패 청크 5종목을 누락 목록으로 전달')
+}
+
+{
+  const { ctx } = makeDivCtx(() => ({ ok: false, status: 500, json: async () => ({}) }))
+  const result = await vm.runInContext('fetchDivData(true)', ctx)
+  assert.equal(result.ok, false, '배당 전 청크 실패는 오류')
+  assert.equal(ctx.window._divFetchCoverage.status, 'error', '화면에 전부 실패 상태를 전달')
+  assert.equal(ctx.window._divFetchCoverage.missing.length, 30, '전부 실패하면 모든 보유 티커가 미확인')
 }
 
 // ────────────────── fetchBenchmarkData: 소유주별 상위 20종목 절단 ──────────────────

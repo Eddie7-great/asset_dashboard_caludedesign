@@ -316,6 +316,11 @@ const DIV_INFO_DB = {
 
 // 실시간 배당 데이터 캐시 (API에서 가져온 값)
 window._divDataCache = window._divDataCache || {};
+// 보유 주식 중 이번 조회에서 실제 응답을 받은 티커 범위. 무배당 종목은
+// _divDataCache에 행이 생기지 않으므로 데이터 키 수만으로 조회 완결성을 판단하면 안 된다.
+window._divFetchCoverage = window._divFetchCoverage || {
+  date:'', total:0, verified:[], missing:[], status:'idle', error:''
+};
 
 // pfolioData에서 배당 정보가 있는 보유 종목 동적 조회
 // DIV_INFO_DB 또는 API 캐시 사용
@@ -538,15 +543,30 @@ syncDivHistory();
 //   - API 결과에 dps/yld/cycle/months 가 포함되어 반환되므로 연간 eps 를
 //     cycle 에 맞게 분할해 저장한다.
 //   - eps 가 누락되었어도 yld 만으로 연 배당금 추정이 가능하면 보조로 저장.
+function _setDivFetchCoverage(tickers, verified, status, error='') {
+  const all = [...new Set((tickers||[]).map(t=>String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,'')).filter(Boolean))];
+  const done = new Set((verified||[]).map(t=>String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,'')).filter(Boolean));
+  window._divFetchCoverage = {
+    date:_cfLocalDateKey(new Date()),
+    total:all.length,
+    verified:all.filter(t=>done.has(t)),
+    missing:all.filter(t=>!done.has(t)),
+    status,
+    error:String(error||''),
+  };
+  return window._divFetchCoverage;
+}
 async function fetchDivData(force=false) {
   const today = _cfLocalDateKey(new Date());
   const cacheKey = 'divCache_' + today;
   const verifiedKey = 'divCacheTickers_' + today;
   const tickers = [...new Set(
     pfolioData.filter(i=>i.grp==='주식'&&i.qty>0)
-      .map(i=>(i.tkr||'').replace(/\.(KS|KQ)$/,''))
+      // 국내 suffix는 서버가 자동 보정하고, 일본 .T는 Yahoo 조회에 필요하므로 유지한다.
+      .map(i=>String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/,''))
       .filter(Boolean)
   )];
+  _setDivFetchCoverage(tickers, [], tickers.length?'pending':'complete');
   if (!tickers.length) return {ok:true,skipped:true,detail:'조회할 주식 자산 없음'};
   const cached = localStorage.getItem(cacheKey);
   if (cached&&!force) {
@@ -560,6 +580,7 @@ async function fetchDivData(force=false) {
         window._divDataCache = Object.fromEntries(Object.entries(parsed||{}).map(
           ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
         ));
+        _setDivFetchCoverage(tickers, verified, 'complete');
         syncDivHistory();
         return {ok:true,cached:true,count:Object.keys(window._divDataCache).length};
       }
@@ -587,7 +608,9 @@ async function fetchDivData(force=false) {
       } finally { _divFetch.done(); }
     }
     if (failedChunks === chunks.length) {
-      return {ok:false,error:lastChunkError?.message||'배당 데이터 조회 실패'};
+      const error=lastChunkError?.message||'배당 데이터 조회 실패';
+      _setDivFetchCoverage(tickers, verifiedTickers, 'error', error);
+      return {ok:false,error};
     }
     for (const [tkr, d] of Object.entries(mergedResult)) {
       const cacheTkr = String(tkr).toUpperCase().replace(/\.(KS|KQ|T)$/,'');
@@ -623,13 +646,17 @@ async function fetchDivData(force=false) {
     resolvePendingDivDates();
     const count = Object.keys(window._divDataCache).length;
     if (failedChunks) {
-      return {ok:false,count,failedChunks,
-        error:`요청 ${chunks.length}건 중 ${failedChunks}건 실패 (${lastChunkError?.message||'원인 미상'})`};
+      const error=`요청 ${chunks.length}건 중 ${failedChunks}건 실패 (${lastChunkError?.message||'원인 미상'})`;
+      _setDivFetchCoverage(tickers, verifiedTickers, 'partial', error);
+      return {ok:false,count,failedChunks,error};
     }
+    _setDivFetchCoverage(tickers, verifiedTickers, 'complete');
     return {ok:true,count};
   } catch(e) {
     console.error('[fetchDivData]', e);
-    return {ok:false,error:e?.message||'배당 데이터 조회 실패'};
+    const error=e?.message||'배당 데이터 조회 실패';
+    _setDivFetchCoverage(tickers, [], 'error', error);
+    return {ok:false,error};
   }
 }
 
@@ -2726,6 +2753,15 @@ if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
     const el = e.target.closest?.('[data-tip],[data-overflow-tip]');
     if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
     hideTableFloatTip(el);
+  }, true);
+  // 키보드와 터치에서도 tabindex가 있는 설명 요소의 같은 툴팁을 볼 수 있게 한다.
+  document.addEventListener('focusin', e=>{
+    const el = e.target.closest?.('[data-tip]');
+    if (el) showTableFloatTip(el);
+  }, true);
+  document.addEventListener('focusout', e=>{
+    const el = e.target.closest?.('[data-tip]');
+    if (el) hideTableFloatTip(el);
   }, true);
   document.addEventListener('scroll', ()=>{
     const tip = document.getElementById('table-float-tip');

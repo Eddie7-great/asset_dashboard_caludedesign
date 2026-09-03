@@ -26,6 +26,7 @@ let _cbSnapTf = '3M';         // 한눈에 보기 순자산 추이 기간 (재�
 let _famKey = 'all', _famQ = '';
 let _cbDivHistRequested = false;
 let _cbDivVerifyPromise = null;
+let _cbSnapDivVerifyPromise = null;
 let _cbDivOwner = '전체';      // 배당 관리 소유주 필터
 let _cbDivYear = null;         // 배당 캘린더 조회 연도 (null=올해)
 let _cbDivMonthFilter = null;  // 캘린더 클릭으로 하단 내역을 거르는 월(0~11)
@@ -224,6 +225,20 @@ function cbVerifyDividendDataOnOpen(){
   });
   return _cbDivVerifyPromise;
 }
+// 한눈에 보기에는 현재 연 배당 데이터만 필요하다. 무거운 10년 raw 이력은 배당
+// 관리에서만 조회하되, 요약 화면도 신규 보유 종목과 당일 캐시 범위를 매번 검증한다.
+function cbVerifySnapshotDividendData(){
+  if (_cbSnapDivVerifyPromise) return _cbSnapDivVerifyPromise;
+  const hasStock = (pfolioData||[]).some(i=>i.grp==='주식' && (i.qty||0)>0);
+  if (!hasStock || typeof fetchDivData!=='function') return Promise.resolve();
+  let task;
+  try{ task=fetchDivData(); }catch(e){ task=Promise.reject(e); }
+  _cbSnapDivVerifyPromise = Promise.resolve(task).catch(()=>null).finally(()=>{
+    _cbSnapDivVerifyPromise = null;
+    if (_cobaltActive==='snap') cbRenderSnap();
+  });
+  return _cbSnapDivVerifyPromise;
+}
 function cbFlagSvg(r, h){
   h = h || 16;
   const mkt = cbFlagMarket(r.cls);
@@ -319,7 +334,7 @@ function cbSetHead(sub, widgets){
 // 소유주 필터 버튼 행 (전체 + 소유주 4인). onclick 은 소유주명을 인자로 받는 전역 함수명.
 function cbOwnerBtns(current, fnName){
   return `<div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">
-    ${['전체', ...OWNERS].map(o=>`<button class="owner-btn${String(current)===o?' active':''}" onclick="${fnName}('${cbEsc(o)}')">${cbEsc(o)}</button>`).join('')}
+    ${['전체', ...OWNERS].map(o=>`<button class="owner-btn${String(current)===o?' active':''}" data-owner="${cbEsc(o)}" onclick="${fnName}('${cbEsc(o)}')" aria-pressed="${String(current)===o}">${cbEsc(o)}</button>`).join('')}
   </div>`;
 }
 
@@ -1037,8 +1052,18 @@ function cbDashSecToggle(n){
 // 수치는 전부 기존 엔진(cbAllRows / finNwSeries / cbDivMonthlyForYear)을 그대로 쓴다 — 여기서 새로 만드는 계산은 없다.
 // 자산군 아이콘 — 글꼴에 없을 수 있는 기호(₿ 등) 대신 어느 환경에서나 그려지는 2글자로 쓴다.
 const CB_SNAP_ICON = { us:'US', kr:'KR', jp:'JP', crypto:'코인', gold:'금', cash:'현금' };
-function cbSnapOwner(o){ _cbSnapOwner=o; cbRenderSnap(); }
-function cbSnapTf(tf){ if(FIN_NW_TFS[tf]===undefined) return; _cbSnapTf=tf; cbRenderSnap(); }
+function cbSnapRestoreFocus(kind, value){
+  const run=()=>{
+    const root=document.getElementById(kind==='owner'?'cb-head-widgets':'cb-snap');
+    if(!root || typeof root.querySelectorAll!=='function') return;
+    const attr=kind==='owner'?'data-owner':'data-snap-tf';
+    const hit=Array.from(root.querySelectorAll(`[${attr}]`)).find(b=>b.getAttribute(attr)===String(value));
+    if(hit && typeof hit.focus==='function') hit.focus();
+  };
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(run); else run();
+}
+function cbSnapOwner(o){ _cbSnapOwner=o; cbRenderSnap(); cbSnapRestoreFocus('owner',o); }
+function cbSnapTf(tf){ if(FIN_NW_TFS[tf]===undefined) return; _cbSnapTf=tf; cbRenderSnap(); cbSnapRestoreFocus('tf',tf); }
 
 // 배당 요약용 목록 — 소유주+티커로 합쳐 계좌 수에 종목 수가 흔들리지 않게 한다.
 // 세전(gross) 기준만 다룬다. 세후는 계좌별 세제가 필요해 배당 관리 페이지의 세금 엔진 하나만 쓴다.
@@ -1053,6 +1078,27 @@ function cbSnapDivList(rows){
   });
   return Array.from(merged.values()).sort((a,b)=>b.incomeKRW-a.incomeKRW);
 }
+// API가 무배당 종목도 "조회 완료"로 기록하므로 데이터 행 수가 아니라 verified 목록으로
+// 현재 소유주 범위의 배당 요약이 완전한지 판정한다.
+function cbSnapDivCoverage(rows){
+  const tickers=[...new Set((rows||[])
+    .filter(r=>r.i?.grp==='주식' && (r.i.qty||0)>0)
+    .map(r=>cbStrip(r.i.tkr)).filter(Boolean))];
+  const live=window._divFetchCoverage||{};
+  const announced=new Set([...(live.verified||[]),...(live.missing||[])].map(cbStrip));
+  const liveApplies=live.status && live.status!=='idle' && tickers.every(t=>announced.has(t));
+  const verified=new Set(liveApplies
+    ? (live.verified||[]).map(cbStrip)
+    : Object.keys(window._divDataCache||{}).map(cbStrip));
+  const missing=tickers.filter(t=>!verified.has(t));
+  return {
+    total:tickers.length,
+    covered:tickers.length-missing.length,
+    missing,
+    status:liveApplies?live.status:(tickers.length?'idle':'complete'),
+    error:liveApplies?String(live.error||''):'',
+  };
+}
 // 월별 배당 막대 — 요약 화면이라 읽기 전용이다.
 // (배당 관리의 cbDivCalendarSvg 는 월 선택 상태·hover 전역과 얽혀 있어 여기서 재사용하지 않는다)
 function cbSnapMonthBars(monthAmt){
@@ -1061,9 +1107,9 @@ function cbSnapMonthBars(monthAmt){
   const peak = total>0 ? monthAmt.indexOf(Math.max(...monthAmt)) : -1;
   const nowM = new Date().getMonth();
   const label = `월별 예상 배당. 연간 합계 ${cbDisp(total)}` + (peak>=0 ? `, 가장 많은 달은 ${peak+1}월 ${cbDisp(monthAmt[peak])}.` : '.');
-  return `<div class="cb-snap-months" role="img" aria-label="${cbEsc(label)}">
+  return `<div class="cb-snap-months" role="group" aria-label="${cbEsc(label)}">
     ${monthAmt.map((v,m)=>`
-      <div class="cb-snap-month${m===nowM?' is-now':''}" data-tip="${m+1}월 예상 배당 ${cbEsc(cbDisp(v))}">
+      <div class="cb-snap-month${m===nowM?' is-now':''} cb-tip-block" tabindex="0" role="img" aria-label="${m+1}월 예상 배당 ${cbEsc(cbDisp(v))}${m===nowM?' · 현재 월':''}" data-tip="${m+1}월 예상 배당 ${cbEsc(cbDisp(v))}">
         <span class="cb-snap-month-val">${m===peak?cbDisp(v):''}</span>
         <span class="cb-snap-month-track"><i style="height:${v>0?Math.max(3,v/max*100).toFixed(1):0}%"></i></span>
         <span class="cb-snap-month-lab">${m+1}</span>
@@ -1071,7 +1117,6 @@ function cbSnapMonthBars(monthAmt){
   </div>`;
 }
 function cbRenderSnap(){
-  cbEnsureDivHist();
   const el = document.getElementById('cb-snap'); if(!el) return;
   const ownerF = (_cbSnapOwner && _cbSnapOwner!=='전체') ? _cbSnapOwner : null;
   const scope = ownerF ? cbEsc(ownerF) : '가족 전체';
@@ -1093,15 +1138,27 @@ function cbRenderSnap(){
   const series = finNwSeries(ownerF, _cbSnapTf);
   const st = finNwStats(series);
   const tfBtns = Object.keys(FIN_NW_TFS).map(tf=>
-    `<button class="owner-btn${tf===_cbSnapTf?' active':''}" onclick="cbSnapTf('${tf}')" aria-pressed="${tf===_cbSnapTf}">${tf}</button>`).join('');
+    `<button class="owner-btn${tf===_cbSnapTf?' active':''}" data-snap-tf="${tf}" onclick="cbSnapTf('${tf}')" aria-pressed="${tf===_cbSnapTf}">${tf}</button>`).join('');
 
   // 3) 배당 — 세전 연 배당과 올해 예상 월별 분포
   const nowY = String(new Date().getFullYear());
   const divList = cbSnapDivList(rows);
+  const divCoverage = cbSnapDivCoverage(rows);
   const divAnnual = divList.reduce((s,x)=>s+x.incomeKRW,0);
   const cal = cbDivMonthlyForYear(divList, nowY, false);
   const topDiv = divList.slice(0,3);
   const topDivMax = topDiv.length ? topDiv[0].incomeKRW : 0;
+  const coverageTip = divCoverage.error || (divCoverage.missing.length ? `미확인: ${divCoverage.missing.join(', ')}` : '');
+  const divCoverageNote = divCoverage.total>0 && divCoverage.status==='pending'
+    ? `<div class="cb-snap-data-note is-loading" role="status" aria-live="polite">배당 데이터 확인 중 · ${divCoverage.covered}/${divCoverage.total}종목</div>`
+    : divCoverage.missing.length
+      ? `<div class="cb-snap-data-note is-warn cb-tip-block" role="status"${coverageTip?` data-tip="${cbEsc(coverageTip)}"`:''}>배당 데이터 일부만 반영 · ${divCoverage.covered}/${divCoverage.total}종목 확인 · 누락 종목은 다음 조회에서 자동 재시도합니다.</div>`
+      : '';
+  const divEmpty = divCoverage.status==='pending'
+    ? '배당 데이터를 확인하고 있습니다.'
+    : divCoverage.missing.length
+      ? '현재 확인된 범위에는 배당 정보가 없습니다.'
+      : '현재 확인된 보유 종목에는 배당 정보가 없습니다.';
 
   cbSetHead(
     `${scope} · 자산 구성 · 순자산 추이 · 배당을 한 장으로 요약합니다 · <span data-tip="시세는 전일 종가 기준입니다. 종목별 상세와 실시간 갱신은 대시보드에서 확인하세요.">전일 종가 기준</span>`,
@@ -1153,7 +1210,7 @@ function cbRenderSnap(){
       </div>
       ${st?`<div class="fin-nw-stats">
         <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
-        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 실제로 기록된 순자산 스냅샷으로 계산합니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd<0?'down':''}">${st.mdd.toFixed(1)}%</b></div>
+        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 순자산이 0원 이하인 구간이 있으면 비율을 산정하지 않습니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd!=null&&st.mdd<0?'down':''}">${st.mdd==null?'—':st.mdd.toFixed(1)+'%'}</b></div>
         <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
         <div><small>스냅샷</small><b>${series.length}일</b></div>
       </div>`:''}
@@ -1166,6 +1223,7 @@ function cbRenderSnap(){
 
     <div class="cb-panel fin-section" style="margin-top:12px">
       <div class="fin-section-head"><span>배당 요약 <span style="color:var(--dim);font-weight:500">· ${scope} · ${nowY}년 예상 · 세전</span></span>${goTo('divm','divm','배당 관리에서 세후·캘린더 보기')}</div>
+      ${divCoverageNote}
       ${divList.length ? `
       <div class="cb-snap-div-grid">
         <div class="cb-snap-div-kpis">
@@ -1184,7 +1242,7 @@ function cbRenderSnap(){
           <span class="cb-snap-top-track"><i style="width:${topDivMax>0?Math.max(3,x.incomeKRW/topDivMax*100).toFixed(1):0}%"></i></span>
           <b>${cbDisp(x.incomeKRW)}</b>
         </div>`).join('')}
-      </div>` : '<div class="fin-empty">배당 정보를 불러온 종목이 없습니다. 배당 관리 페이지를 한 번 열면 조회 후 여기에도 반영됩니다.</div>'}
+      </div>` : `<div class="fin-empty">${divEmpty}</div>`}
     </div>`;
 }
 
@@ -1618,7 +1676,9 @@ function cbDivMonthlyForYear(list, year, netBasis=false){
   if (year===cur){
     // 올해 이후 → 예상: 연 배당을 지급 주기 월에 균등 배분
     list.forEach(x=>{
-      const ms = (x.d.months && x.d.months.length) ? x.d.months : [2,5,8,11];
+      const byCycle = typeof _defaultMonthsForCycle==='function' ? _defaultMonthsForCycle(x.d.cycle) : null;
+      const ms = (x.d.months && x.d.months.length) ? x.d.months
+        : (byCycle && byCycle.length ? byCycle : [2,5,8,11]);
       const per = x.incomeKRW / ms.length;
       ms.forEach(m=>{
         const mi=((m%12)+12)%12;
@@ -3239,9 +3299,12 @@ switchView = function(id, btn){
   _cobaltActive = id;
   try{ if (typeof closeSidebar==='function') closeSidebar(); }catch(e){}
   // 데이터 상태는 사이드바 푸터 버튼에서 열리므로 활성 표시 초기화 대상에 함께 넣는다.
-  document.querySelectorAll('.menu-btn,.footer-status-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.menu-btn,.footer-status-btn').forEach(b=>{
+    b.classList.remove('active');
+    b.removeAttribute('aria-current');
+  });
   const mbtn = btn || document.getElementById('menu-' + (id==='cdash' ? 'dashboard' : id));
-  if (mbtn && mbtn.classList) mbtn.classList.add('active');
+  if (mbtn && mbtn.classList){ mbtn.classList.add('active'); mbtn.setAttribute('aria-current','page'); }
   if(typeof expandActiveMenuGroup==='function') expandActiveMenuGroup(mbtn);
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active'));
   const v = document.getElementById('view-'+id); if(v) v.classList.add('active');
@@ -3250,6 +3313,7 @@ switchView = function(id, btn){
     const e=document.getElementById(x); if(e) e.style.display='none';
   });
   if (id==='divm') cbVerifyDividendDataOnOpen();
+  if (id==='snap') cbVerifySnapshotDividendData();
   if (id==='perf2') cbVerifyPerfOwnersOnOpen();
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
   if(typeof _recordViewHistory==='function') _recordViewHistory(id);
@@ -3265,6 +3329,11 @@ changeOwner = function(owner, btn, isRefresh){
 const _cbOrigSaveAssets = saveAssetsToKV;
 saveAssetsToKV = async function(){
   const r = await _cbOrigSaveAssets();
+  // 자산 원장 저장 직후 오늘 스냅샷도 메모리에서 다시 계산해 요약 KPI와
+  // 순자산 차트의 마지막 점이 서로 다른 금액을 가리키지 않게 한다.
+  if(r?.ok && window._kvLoadState?.ext==='ready' && typeof updateNetWorthSnapshot==='function'){
+    updateNetWorthSnapshot();
+  }
   cbRerender();
   return r;
 };

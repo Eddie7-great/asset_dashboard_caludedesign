@@ -7,6 +7,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..', '..');
 const html = readFileSync(resolve(root, 'index.html'), 'utf8');
 const css = readFileSync(resolve(root, 'style.css'), 'utf8');
+const cobalt = readFileSync(resolve(root, 'cobalt.js'), 'utf8');
+const script = readFileSync(resolve(root, 'script.js'), 'utf8');
 
 assert.match(html, /<form\b[^>]*id="login-form"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="login-title"[^>]*aria-busy="false"[^>]*onsubmit=/);
 assert.match(html, /<label\b[^>]*for="login-pw"[^>]*>비밀번호<\/label>/);
@@ -21,6 +23,11 @@ assert.match(html, /class="cf-modal-close"[^>]*aria-label="[^"]+"/);
 
 assert.match(html, /<nav\b[^>]*id="sidebar-menu"[^>]*aria-label="[^"]+"/);
 assert.match(html, /id="menu-dashboard"[^>]*aria-current="page"/);
+assert.match(cobalt, /removeAttribute\('aria-current'\)/, '화면 전환 시 이전 메뉴의 현재 페이지 상태 제거');
+assert.match(cobalt, /setAttribute\('aria-current','page'\)/, '화면 전환 시 새 메뉴에 현재 페이지 상태 설정');
+assert.match(cobalt, /cb-snap-month[^`]+tabindex="0"[^`]+role="img"[^`]+aria-label=/, '월별 배당 막대 키보드·스크린리더 지원');
+assert.match(script, /addEventListener\('focusin',[\s\S]*showTableFloatTip/, '키보드 포커스에서도 설명 툴팁 표시');
+assert.match(script, /addEventListener\('focusout',[\s\S]*hideTableFloatTip/, '키보드 포커스 이탈 시 설명 툴팁 닫기');
 
 const canvases = [...html.matchAll(/<canvas\b([^>]*)>([\s\S]*?)<\/canvas>/g)];
 // 레거시 뷰 7개를 걷어내면서 캔버스는 현금 흐름의 둘만 남았다. Cobalt 페이지는

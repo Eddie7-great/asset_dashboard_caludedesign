@@ -42,10 +42,14 @@ const dayKey = offset => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const container = { innerHTML: '' }
+const focused = []
+const ownerFocusButton = { getAttribute: name => name === 'data-owner' ? '아내' : null, focus: () => focused.push('owner:아내') }
+const tfFocusButton = { getAttribute: name => name === 'data-snap-tf' ? '6M' : null, focus: () => focused.push('tf:6M') }
+const container = { innerHTML: '', querySelectorAll: selector => selector === '[data-snap-tf]' ? [tfFocusButton] : [] }
+const headWidgetsRoot = { querySelectorAll: selector => selector === '[data-owner]' ? [ownerFocusButton] : [] }
 const head = { sub: null, widgets: null }
 const ctx = {
-  document: { getElementById: id => (id === 'cb-snap' ? container : null) },
+  document: { getElementById: id => (id === 'cb-snap' ? container : id === 'cb-head-widgets' ? headWidgetsRoot : null) },
   window: {
     _divDataCache: {
       // 분기 배당(3·6·9·12월) 미국 주식
@@ -53,6 +57,7 @@ const ctx = {
       // 연 1회(12월) 국내 주식
       '005930': { annualDps: 1000, yldNum: 2.1, cycle: '연간', months: [11], cur: 'KRW' },
     },
+    _divFetchCoverage: { status: 'complete', verified: ['SCHD', '005930'], missing: [], error: '' },
     _netWorthHistory: [
       { date: dayKey(20), schemaV: 2, total: 100_000_000, netByOwner: { 본인: 60_000_000, 아내: 40_000_000 } },
       { date: dayKey(10), schemaV: 2, total: 90_000_000, netByOwner: { 본인: 50_000_000, 아내: 40_000_000 } },
@@ -79,6 +84,8 @@ const ctx = {
   cbSetHead: (sub, widgets) => { head.sub = sub; head.widgets = widgets },
   cbDivGrowthInfo: () => ({ value: null, status: 'missing', years: 0, events: 0 }),
   cbDivTaxAllocate: () => { throw new Error('요약 페이지는 세전만 다루므로 세금 엔진을 호출하면 안 된다') },
+  _defaultMonthsForCycle: cycle => cycle === '월배당' ? Array.from({ length: 12 }, (_, i) => i)
+    : cycle === '반기' ? [5, 11] : cycle === '연간' ? [11] : cycle === '분기' ? [2, 5, 8, 11] : null,
 }
 ctx.window.OWNERS = ctx.OWNERS
 vm.createContext(ctx)
@@ -87,7 +94,8 @@ for (const name of [
   'cbStrip', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW', 'cbGainKRW', 'cbDisp', 'cbSignDisp',
   'cbKrw', 'cbPct', 'cbEsc', 'cbUpDn', 'cbOwnerColor', 'cbCls', 'cbRow', 'cbAllRows', 'cbOwnerBtns',
   'cbDivOf', 'cbDivIncomeKRW', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbSmoothPath',
-  'cbNiceStep', 'cbTaxAxisLab', 'cbSnapDivList', 'cbSnapMonthBars', 'cbRenderSnap',
+  'cbNiceStep', 'cbTaxAxisLab', 'cbSnapDivList', 'cbSnapDivCoverage', 'cbSnapMonthBars', 'cbSnapRestoreFocus',
+  'cbSnapOwner', 'cbSnapTf', 'cbRenderSnap',
 ]) vm.runInContext(extractFunction(cobaltSource, name), ctx)
 for (const name of [
   'finRows', 'finSum', 'finBalanceTotals', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet',
@@ -129,6 +137,7 @@ assert.ok(all.includes('소유주별 비중'), '전체 보기에서는 소유주
 assert.ok(all.includes('<b>3일</b>'), '선택 기간 스냅샷 건수')
 assert.ok(all.includes('+₩20,000,000'), '기간 증감 = 마지막 − 처음')
 assert.ok(all.includes('>-10.0%<'), 'MDD: 고점 100,000,000 → 90,000,000 = −10%')
+assert.ok(all.includes('class="fin-nw-chart-scroll"'), '모바일에서 순자산 차트를 가로 스크롤할 수 있는 래퍼')
 
 // 배당: SCHD 100주 × $1 × 1,000원 = 100,000 / 삼성전자 100주 × 1,000원 = 100,000
 assert.ok(all.includes('₩200,000'), '연 배당(세전) 합계')
@@ -141,19 +150,51 @@ assert.equal(monthBars.length, 12, '월별 막대는 12개')
 assert.equal(monthBars[11], 100, '최대 지급월(12월)이 100%')
 assert.equal(monthBars[2], 20, '3월 25,000 / 125,000')
 assert.equal(monthBars[0], 0, '지급월이 아닌 달은 막대 없음')
+assert.equal(
+  [...all.matchAll(/class="cb-snap-month(?: is-now)? cb-tip-block" tabindex="0" role="img" aria-label="/g)].length,
+  12,
+  '12개월 모두 키보드 포커스와 접근 가능한 금액 설명을 제공',
+)
+
+// 같은 소유주·티커가 여러 계좌에 있어도 종목 수는 늘지 않고 수량과 배당만 합쳐진다.
+ctx.pfolioData.push({ owner: '본인', grp: '주식', tkr: 'SCHD', name: 'Schwab US Dividend', cur: 'USD', qty: 10, curP: 80, avgP: 60, acc: 'ISA' })
+ctx.cbRenderSnap()
+assert.ok(container.innerHTML.includes('배당 지급 2종목'), '계좌가 달라도 같은 소유주·티커는 한 배당원')
+assert.ok(container.innerHTML.includes('₩210,000'), '중복 계좌의 보유수량과 배당은 합산')
+ctx.pfolioData.pop()
+
+// API 청크 일부가 실패하면 성공분 수치는 보존하되 완전한 합계처럼 보이면 안 된다.
+ctx.window._divFetchCoverage = { status: 'partial', verified: ['SCHD'], missing: ['005930'], error: '두 번째 요청 실패' }
+ctx.cbRenderSnap()
+assert.ok(container.innerHTML.includes('배당 데이터 일부만 반영 · 1/2종목 확인'), '부분 조회 범위를 화면에 명시')
+assert.ok(container.innerHTML.includes('₩200,000'), '부분 실패 때도 이미 확보한 배당 정보는 보존')
+ctx.window._divFetchCoverage = { status: 'complete', verified: ['SCHD', '005930'], missing: [], error: '' }
+
+// months가 빠진 API 응답은 실제 주기에 맞는 기본 지급월을 써야 한다.
+const annualFallback = ctx.cbDivMonthlyForYear([
+  { i: { owner: '본인', name: '연배당주' }, d: { cycle: '연간' }, tkr: 'YEAR', title: '연배당주', incomeKRW: 120_000 },
+], String(new Date().getFullYear()), false)
+assert.equal(annualFallback.monthAmt[11], 120_000, '연간 배당의 기본 지급월은 12월')
+assert.equal(annualFallback.monthAmt.slice(0, 11).reduce((s, v) => s + v, 0), 0, '연간 배당을 분기로 잘못 나누지 않음')
+
+const nonPositiveStats = ctx.finNwStats([{ v: 10 }, { v: 0 }, { v: -5 }])
+assert.equal(nonPositiveStats.mdd, null, '0원 이하 순자산 구간의 MDD는 산정 불가')
 
 // ── 소유주 필터 ──────────────────────────────────────────────────────
 // 페이지가 보여주는 모든 수치는 소유주 탭을 따라야 한다 (가구 합계가 새어 나오면 안 된다).
-ctx._cbSnapOwner = '아내'
-ctx.cbRenderSnap()
+ctx.cbSnapOwner('아내')
 const wife = container.innerHTML
 assert.ok(wife.includes('₩14,000,000'), '아내 자산 = 가상화폐 9,000,000 + 현금 5,000,000')
 assert.ok(!wife.includes('₩29,000,000'), '소유주 탭에서 가구 합계가 남아 있으면 안 된다')
 assert.ok(!wife.includes('소유주별 비중'), '소유주 탭에서는 소유주 분해를 숨긴다')
 assert.ok(wife.includes('+₩10,000,000'), '아내 순자산 40,000,000 → 50,000,000')
-assert.ok(wife.includes('배당 정보를 불러온 종목이 없습니다'), '아내는 배당 종목이 없다')
+assert.ok(wife.includes('현재 확인된 보유 종목에는 배당 정보가 없습니다'), '아내는 배당 종목이 없다')
 assert.ok(/한눈에 보기[\s\S]*/.test(String(head.sub || '')) || String(head.sub).includes('아내'), '헤더 소제목에 현재 범위를 표시')
 assert.ok(String(head.widgets).includes("cbSnapOwner('아내')"), '소유주 버튼은 페이지 전용 핸들러를 쓴다')
+assert.ok(String(head.widgets).includes('aria-pressed="true"'), '현재 소유주 버튼 상태를 보조기기에 노출')
+assert.ok(focused.includes('owner:아내'), '소유주 필터 재렌더 후 선택 버튼에 포커스를 복원')
+ctx.cbSnapTf('6M')
+assert.ok(focused.includes('tf:6M'), '기간 필터 재렌더 후 선택 버튼에 포커스를 복원')
 
 // ── XSS ──────────────────────────────────────────────────────────────
 ctx._cbSnapOwner = '전체'
@@ -169,9 +210,18 @@ const snapCss = styleSource.split('\n').filter(line => line.includes('.cb-snap')
 assert.ok(snapCss.length > 20, '한눈에 보기 스타일이 style.css 에 있어야 한다')
 for (const line of snapCss) {
   const hex = line.match(/#[0-9a-fA-F]{3,8}\b/g) || []
-  // 자산군 색은 인라인 --seg 로 주입되고, 아이콘 글자색만 흰색 고정이다.
-  assert.deepEqual(hex.filter(h => h.toLowerCase() !== '#fff'), [], `테마 밖 하드코딩 색: ${line.trim()}`)
+  // 자산군 색은 인라인 --seg 로 주입하고 전경색은 테마 토큰으로 계산한다.
+  assert.deepEqual(hex, [], `테마 밖 하드코딩 색: ${line.trim()}`)
 }
 assert.ok(styleSource.includes('.cb-snap-hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))'), '좁은 화면 히어로 지표 재배치')
+assert.ok(styleSource.includes('@media (max-width: 360px)'), '초소형 화면에서는 KPI를 한 열로 내려 잘림 방지')
+assert.match(styleSource, /\.fin-nw-chart-canvas\{min-width:680px\}/, '모바일 차트의 최소 가독 폭 보장')
+assert.match(styleSource, /\.fin-nw-stats>div:nth-child\(3\)\{grid-column:1\/-1\}/, '모바일 최고·최저 금액 카드는 전체 폭 사용')
+
+// 페이지 진입·재렌더 배선: 요약만 열어도 신규 종목을 검증하고 필터 변경 뒤 포커스를 복원한다.
+assert.match(cobaltSource, /if \(id==='snap'\) cbVerifySnapshotDividendData\(\)/, '한눈에 보기 진입 시 배당 범위 검증')
+assert.match(cobaltSource, /function cbSnapOwner\([^}]+cbSnapRestoreFocus\('owner'/, '소유주 필터 재렌더 후 포커스 복원')
+assert.match(cobaltSource, /function cbSnapTf\([^}]+cbSnapRestoreFocus\('tf'/, '기간 필터 재렌더 후 포커스 복원')
+assert.match(cobaltSource, /r\?\.ok[\s\S]*updateNetWorthSnapshot\(\)/, '자산 저장 직후 오늘 순자산 스냅샷 갱신')
 
 console.log('PASS: 한눈에 보기 페이지 (배선·수치·소유주 필터·XSS·테마)')

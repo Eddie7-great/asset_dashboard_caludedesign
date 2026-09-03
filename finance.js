@@ -375,18 +375,27 @@ function finNwSeries(ownerF,tf){
 }
 function finNwStats(series){
   if(series.length<2) return null;
-  const first=series[0].v, last=series[series.length-1].v;
-  let peak=-Infinity, mdd=0;
-  series.forEach(p=>{ if(p.v>peak) peak=p.v; if(peak>0){ const dd=p.v/peak-1; if(dd<mdd) mdd=dd; } });
-  return {first,last,change:last-first,pct:first>0?(last/first-1)*100:null,mdd:mdd*100,
-    min:Math.min(...series.map(p=>p.v)), max:Math.max(...series.map(p=>p.v))};
+  const values=series.map(p=>Number(p.v));
+  if(values.some(v=>!Number.isFinite(v))) return null;
+  const first=values[0], last=values[values.length-1];
+  // MDD는 양수 자산의 고점 대비 비율이다. 0원 이하 구간을 0%로 보이는 것은
+  // 실제 하락이 없었다는 뜻으로 오해되므로 해당 시리즈에서는 산정 불가로 둔다.
+  let mdd=null;
+  if(values.every(v=>v>0)){
+    let peak=-Infinity, worst=0;
+    values.forEach(v=>{ if(v>peak) peak=v; const dd=v/peak-1; if(dd<worst) worst=dd; });
+    mdd=worst*100;
+  }
+  return {first,last,change:last-first,pct:first>0?(last/first-1)*100:null,mdd,
+    min:Math.min(...values), max:Math.max(...values)};
 }
 function finNwChartSvg(series,w,h){
   if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때마다 하루 1건씩 자동으로 쌓입니다. (현재 ${series.length}건)</div>`;
   const vals=series.map(p=>p.v);
   const mn=Math.min(...vals), mx=Math.max(...vals), span=(mx-mn)||Math.abs(mx)||1;
   const step=cbNiceStep(span*1.2/4);
-  const lo=Math.max(0,Math.floor((mn-span*0.1)/step)*step), hi=Math.ceil((mx+span*0.1)/step)*step;
+  const rawLo=Math.floor((mn-span*0.1)/step)*step;
+  const lo=mn>=0?Math.max(0,rawLo):rawLo, hi=Math.ceil((mx+span*0.1)/step)*step;
   const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
   const y=v=>h-8-((v-lo)/((hi-lo)||1))*(h-16);
   const dx=plotW/(series.length-1);
@@ -410,14 +419,14 @@ function finNwChartSvg(series,w,h){
   }).join('');
   window._finNwHover=series;
   const chartLabel=`순자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
-  return `<svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
+  return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
     ${grid}
     <path d="${area}" fill="${stroke}" opacity=".10"></path>
     <path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     <circle cx="${pts[pts.length-1].x.toFixed(1)}" cy="${pts[pts.length-1].y.toFixed(1)}" r="3.4" fill="${stroke}"></circle>
     ${ticks}${hit}
-  </svg>`;
+  </svg></div></div>`;
 }
 function finNwHover(ev,idx){
   const series=window._finNwHover; if(!series||!series[idx]) return;
@@ -473,7 +482,7 @@ function cbRenderBalanceSheet(){
       </div>
       ${st?`<div class="fin-nw-stats">
         <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
-        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 실제로 기록된 순자산 스냅샷으로 계산합니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd<0?'down':''}">${st.mdd.toFixed(1)}%</b></div>
+        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 순자산이 0원 이하인 구간이 있으면 비율을 산정하지 않습니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd!=null&&st.mdd<0?'down':''}">${st.mdd==null?'—':st.mdd.toFixed(1)+'%'}</b></div>
         <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
         <div><small>스냅샷</small><b>${series.length}일</b></div>
       </div>`:''}

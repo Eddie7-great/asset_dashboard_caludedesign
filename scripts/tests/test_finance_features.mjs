@@ -149,6 +149,14 @@ vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
 for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
+assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
+assert.equal(context.finNwStats([{ v: 100 }, { v: 0 }]).mdd, null, '0원 구간이 있으면 MDD 산정 불가')
+assert.equal(context.finNwStats([{ v: -100 }, { v: -80 }]).mdd, null, '음수 순자산을 0% MDD로 오인하지 않음')
+const negativeChart = context.finNwChartSvg([
+  { date: '2026-08-01', v: -100 }, { date: '2026-08-02', v: -80 },
+], 1100, 210)
+assert.match(negativeChart, /class="fin-nw-chart-scroll"/, '모바일 차트 가독성을 위한 스크롤 래퍼')
+assert.doesNotMatch(negativeChart, /NaN|Infinity/, '음수 순자산 차트 좌표도 유효')
 context.cbRenderBalanceSheet()
 context.cbRenderPlan()
 context.cbRenderDataStatus()
