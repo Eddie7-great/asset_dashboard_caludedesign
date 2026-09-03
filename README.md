@@ -86,9 +86,10 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
 - `style.css` — 디자인 토큰(`:root`=라이트, `[data-theme="dark"]`, `[data-theme="navy"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
 - `api/` — Vercel 서버리스 함수 (가격/배당/환율/검색/KV 프록시/인증)
+- `docs/invariants.md` — **건드리면 안 되는 것.** 실제로 사고가 났던 자리와 그 증상, `npm test` 로는 확인되지 않는 영역(워크플로·모바일 레이아웃·CDN 실패·터치)을 정리했습니다. 수정 작업을 맡기기 전에 이 문서를 먼저 읽게 하세요
 - `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 
 > 스크립트 로드 순서는 `tax-rules.js` → `script.js` → `finance.js` → `cobalt.js` 로 고정입니다.
 > `cobalt.js`가 `CB_VIEWS`에서 `finance.js`의 렌더 함수를 참조하고, 다른 전역 함수들을 감싸기 때문에 마지막에 와야 합니다.
 
-자세한 개발 규칙은 `CLAUDE.md`를 참고하세요.
+자세한 개발 규칙은 `CLAUDE.md`(기계가 읽는 판본)와 `docs/invariants.md`(사람이 읽는 판본)를 참고하세요.
