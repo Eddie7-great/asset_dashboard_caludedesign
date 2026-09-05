@@ -62,6 +62,21 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   전체 보기에서도 서로 다른 소유주의 직접 종목과 ETF를 교차 합산하지 않는다.
   각주에는 구성종목을 못 받은 ETF 이름만 한 줄로 나열하고, 전부 성공이면 각주를 렌더하지 않는다(실패 사유는 비노출).
 
+### 순자산 스냅샷 기록 — GitHub Actions 배치
+
+앱은 브라우저를 열어야만 그날 스냅샷을 남긴다. 며칠 안 들어가면 그 날짜가 영구히 비고,
+순자산 추이의 기간 버튼(1M/3M/6M/1Y/전체)이 전부 같은 구간을 그린다.
+
+- `.github/workflows/net-worth-snapshot.yml` — 매일 KST 18:40(cron `40 9 * * *` UTC) + 수동 실행(dry-run 옵션).
+  **기록 전에 계산 대조 테스트를 먼저 통과시킨다.** 리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요.
+  ETF 배치와 달리 리포에 커밋하지 않는다 — **운영 KV 의 `ext_data` 를 직접 쓴다**(`permissions: contents: read`).
+- `scripts/net_worth_snapshot.py` — KV `assets`·`ext_data` 를 읽어 시세를 갱신하고 오늘자 항목을 기록한다.
+  - 시세 조회는 `api/dashboard.py` 를 import 해 그대로 쓴다(중복 구현 금지). 다만 **시장 판정은 저장된 `grp`/`cur`** 로 한다
+    — `get_prices` 의 `isdigit()` 규칙은 KRX 영숫자 코드(`0117V0`)를 미국 주식으로 오인한다.
+  - 쓰기는 `api/kv.ts` 와 **같은 CAS 프로토콜**(개정번호)로 하고 충돌 시 최대 3회 재시도한다 — 사용자가 앱에서 저장 중인 내용을 덮어쓰지 않는다.
+  - 시세를 못 받은 종목은 **0 이 아니라 저장된 직전 값을 유지한다**(가짜 급락 방지). USD 환율 조회에 실패하면 아예 기록하지 않는다.
+  - 날짜는 **KST 기준**이다 — 러너는 UTC라 그대로 쓰면 하루 밀려 같은 날이 두 건이 된다.
+
 ### Cross-cutting domain rules baked into the code
 
 - **Owners** are a fixed enum: `본인 / 아내 / 자녀1 / 아버지`, plus `전체` for the aggregate view. Owner-keyed objects (`benchData[tf].data`, `divHistory[year]`, `ownerColors`) all assume this list.
@@ -81,6 +96,8 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - **"월 필수지출" has exactly one definition**: `finMonthlyFixedCost(ownerF)` in `finance.js` — 지출 autoTransfers with `isFixedCost === true`, excluding `FIN_SAVING_CATS` ('저축/투자', an asset transfer that doesn't reduce net worth), sized by `_autoTransferMonthlyEquivalent`. Unclassified (`isFixedCost == null`) rows are **not** summed; they come back as `pendingCount`/`pendingMonthly` so the UI can nag. The 리스크 진단 liquidity card delegates to `finCashSafety` so both pages show the same number — don't re-derive it.
 - **Net worth history**: `updateNetWorthSnapshot()` rewrites today's entry in `window._netWorthHistory` (max 365 days) **in memory only** — the caller decides whether to persist, so 재무상태표 CRUD can refresh the KPI without an extra KV write. `saveNetWorthSnapshot()` does update + save. Persisted in KV `ext_data`.
   Entries come in three shapes and `finSnapshotKind(entry)` is the only thing that may classify them: `schemaV >= 2` → `full`; `schemaV === 1` → `investment`; **no `schemaV` at all → look at the structure** (`nonInvestmentAssets` or `netByOwner` present ⇒ `full`, else `investment`), because an intermediate build wrote full net worth without stamping a version. Treating every unversioned entry as v1 throws away comparable history. `finSnapshotNet` / `finSnapshotOwnerNet` build on it; comparing shapes blindly makes the day a user registers real estate look like a market move. The chart lives in 가족 재무상태표 (`finNwSeries` / `finNwChartSvg`).
+  **순자산 계산은 이제 두 곳에 있다** — 앱의 `updateNetWorthSnapshot`(브라우저를 열 때)과 배치의 `scripts/net_worth_snapshot.py` `build_entry`(매일 KST 18:40, 아래 참조). 둘은 같은 `netWorthHistory` 배열에 번갈아 `schemaV: 2` 항목을 쓰므로 **한쪽만 고치면 같은 그래프에 기준이 다른 점이 섞이고** 브리지의 '설명되지 않는 차이'가 통째로 왜곡된다. 한쪽을 고치면 반드시 다른 쪽도 고치고, `scripts/tests/test_net_worth_snapshot.py`가 같은 입력을 양쪽에 넣어 결과를 대조한다(node 를 못 돌리면 로컬에서만 SKIP, **CI 에서는 실패**).
+  기록이 선택 기간을 못 채우면 `finNwCoverage` / `finNwCoverageNote`가 실제 표시 구간을 한 줄로 밝힌다 — 이걸 숨기면 기간 버튼을 눌러도 MDD 가 안 변하는 것이 고장으로 보인다. 재무상태표와 한눈에 보기가 같은 함수를 쓴다.
 - **Dates use local time, never `toISOString()`**: `finLocalDateKey(date)` in `finance.js`. `toISOString().slice(0,10)` is UTC, so in KST it returns *yesterday* before 09:00 — snapshot keys, the bridge's "exclude today", and cashflow ranges all silently shift by a day.
 - **KV load state gates writes**: `window._kvLoadState = {assets, ext}` (`'pending' | 'ready'`). `saveAssetsToKV` / `saveExtDataToKV` refuse to write while the matching source is not `ready`, so a failed load never overwrites real KV data with empty defaults. `api/kv.ts` returns 502 on an upstream failure or malformed body rather than passing it through as success.
 - **Refresh is per-source**: `manualRefresh(source)` where source is `'all'` or a `finDataStatusRows` key (`assets`/`ext`/`prices`/`dividends`/`rates`/`benchmark`). It skips work that depends on an unloaded ledger and returns `{ok, results}`. Data-status cards call it with their own key.

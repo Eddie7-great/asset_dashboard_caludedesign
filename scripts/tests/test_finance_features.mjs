@@ -146,7 +146,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -259,5 +259,19 @@ Object.assign(context, {
 const saveResult = await context.finSaveAndRender(() => saveOrder.push('render'), true)
 assert.equal(saveResult.ok, true, '재무상태표 저장 결과 반환')
 assert.deepEqual(saveOrder, ['snapshot','save','render'], '스냅샷 갱신 후 확장 KV를 한 번만 저장하고 렌더')
+
+// 순자산 추이 커버리지 — 기록이 선택 기간을 못 채우면 어떤 버튼을 눌러도 같은 구간이 나온다.
+// 그 사실을 화면이 밝히지 않으면 MDD가 안 변하는 게 고장으로 보인다.
+const shortCov = context.finNwCoverage([{ date:'2026-08-25', v:1 }, { date:'2026-09-02', v:2 }], '1M')
+assert.equal(shortCov.actualDays, 9, '구간 일수는 양 끝을 포함한다')
+assert.equal(shortCov.requestedDays, 30, '1M 은 30일 요청')
+assert.equal(shortCov.short, true, '9일 기록으로 1M 을 채울 수 없다')
+const longCov = context.finNwCoverage([{ date:'2026-01-01', v:1 }, { date:'2026-09-02', v:2 }], '1M')
+assert.equal(longCov.short, false, '기록이 기간보다 길면 안내하지 않는다')
+assert.equal(context.finNwCoverage([{ date:'2026-08-25', v:1 }, { date:'2026-09-02', v:2 }], '전체').short, false, "'전체'는 요청 기간이 없어 항상 충족")
+assert.equal(context.finNwCoverage([{ date:'2026-09-02', v:1 }], '1M').short, false, '점이 1개면 차트가 이미 안내하므로 중복 표시하지 않는다')
+assert.equal(context.finNwCoverage(null, '1M').short, false, '시리즈가 없어도 터지지 않는다')
+assert.equal(context.finNwCoverageNote(longCov), '', '충족 상태에서는 아무것도 렌더하지 않는다')
+assert.match(context.finNwCoverageNote(shortCov), /선택한 기간\(30일\)보다 기록이 짧습니다[\s\S]*08\/25~09\/02 \(9일\)/, '부족할 때만 실제 구간을 밝힌다')
 
 console.log('finance feature tests passed')
