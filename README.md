@@ -86,6 +86,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
 - `style.css` — 디자인 토큰(`:root`=라이트, `[data-theme="dark"]`, `[data-theme="navy"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
 - `api/` — Vercel 서버리스 함수 (가격/배당/환율/검색/KV 프록시/인증)
+- `.github/workflows/` — 자동 배치. `품질 검사`(push·PR), `ETF 구성종목 수집`(평일 KST 18:30, 리포에 커밋), `순자산 스냅샷 기록`(매일 KST 18:40, KV에 직접 기록), `세금·증여 공식 근거 점검`(매일, 알림만)
 - `docs/invariants.md` — **건드리면 안 되는 것.** 실제로 사고가 났던 자리와 그 증상, `npm test` 로는 확인되지 않는 영역(워크플로·모바일 레이아웃·CDN 실패·터치)을 정리했습니다. 수정 작업을 맡기기 전에 이 문서를 먼저 읽게 하세요
 - `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 

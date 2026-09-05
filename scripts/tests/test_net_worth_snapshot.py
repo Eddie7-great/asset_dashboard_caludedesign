@@ -105,7 +105,14 @@ py = batch.build_entry(ASSETS, BALANCE_SHEET, RATES, DATE)
 try:
     js = js_entry()
 except (FileNotFoundError, subprocess.CalledProcessError) as e:
-    print('  SKIP  node 실행 불가 (%s) — 파이썬 단위 검증만 수행' % type(e).__name__)
+    # CI 에는 node 가 반드시 있다. 거기서까지 조용히 넘어가면 이 파일의 존재 이유인
+    # JS↔Python 대조가 사라진 채로 초록이 되어, 정의가 갈린 것을 아무도 모르게 된다
+    # (test_benchmark_columns.py 가 같은 이유로 CI 하드페일로 바뀌었다).
+    if os.environ.get('CI'):
+        print('  FAIL  script.js 대조 불가 — CI 에서 node 실행이 실패했다 (%s)' % type(e).__name__)
+        FAIL.append('script.js 대조 실행')
+    else:
+        print('  SKIP  node 실행 불가 (%s) — 파이썬 단위 검증만 수행' % type(e).__name__)
     js = None
 if js is not None:
     check('전체 항목이 script.js updateNetWorthSnapshot 과 동일', py, js)
