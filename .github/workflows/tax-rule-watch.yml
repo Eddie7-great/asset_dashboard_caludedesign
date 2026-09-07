@@ -18,11 +18,12 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
       scan_outcome: ${{ steps.scan.outcome }}
+      scan_code: ${{ steps.scan.outputs.code }}
     steps:
       - uses: actions/checkout@v7
 
@@ -34,10 +35,17 @@ jobs:
       - name: 의존성 설치
         run: npm ci --ignore-scripts
 
+      # 종료 코드를 그대로 남긴다 — 1(진짜 신호)과 2(전부 접속 실패)를 뒤 단계가 구분해야 한다.
+      # outcome 만으로는 둘 다 'failure' 라 구분되지 않는다.
       - name: 공식 출처와 검토기한 확인
         id: scan
         continue-on-error: true
-        run: npm run check:tax-rules:remote -- --report "${{ runner.temp }}/tax-rule-report.json"
+        run: |
+          set +e
+          npm run check:tax-rules:remote -- --report "${{ runner.temp }}/tax-rule-report.json"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
 
       - name: 점검 보고서 보관
         if: always()
@@ -67,6 +75,7 @@ jobs:
         uses: actions/github-script@v9
         env:
           SCAN_OUTCOME: ${{ needs.check.outputs.scan_outcome }}
+          SCAN_CODE: ${{ needs.check.outputs.scan_code }}
         with:
           script: |
             const fs = require('fs');
@@ -79,6 +88,9 @@ jobs:
             });
             const existing = issues.find(issue => !issue.pull_request && issue.title === title && String(issue.body || '').includes(marker));
             const failed = process.env.SCAN_OUTCOME !== 'success';
+            // 종료 코드 2 = 한 곳도 못 읽음. 규칙이 바뀐 게 아니라 사이트에 닿지 못한 것이므로
+            // 이슈 첫 줄에서 그 사실을 분명히 밝힌다 — 둘을 섞어 쓰면 진짜 변경을 놓친다.
+            const outage = process.env.SCAN_CODE === '2';
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             if (failed) {
               const affected = (report.sources || []).filter(source => source.state !== 'ok');
@@ -87,7 +99,9 @@ jobs:
                 : (report.validation?.errors || []).map(message => `- ${message}`);
               const body = [
                 marker,
-                '공식 법령·국세청 출처 또는 사람 검토기한 확인이 필요합니다.',
+                outage
+                  ? '**공식 출처에 한 곳도 접속하지 못했습니다.** 세금 규칙이 바뀐 신호가 아니라, law.go.kr 에 닿지 못해 *확인을 못 한* 상태입니다. 접속이 회복되면 이 이슈는 자동으로 닫힙니다. 며칠 이상 이어지면 출처 URL이 살아 있는지 직접 확인하세요.'
+                  : '공식 법령·국세청 출처 또는 사람 검토기한 확인이 필요합니다.',
                 '',
                 `- 규칙 버전: \`${report.manifestVersion || 'unknown'}\``,
                 `- 확인 시각: ${report.checkedAt || 'unknown'}`,
@@ -115,12 +129,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
+      # 실행을 빨갛게 만드는 기준은 '확인해야 할 것이 생겼는가' 하나다.
+      # law.go.kr 접속 장애(코드 2)까지 빨갛게 만들면 장애가 이어지는 동안 매일 같은 빨간 X 가
+      # 쌓이고, 그 사이에 낀 진짜 규칙 변경을 지나치게 된다. 그래서 경고로 낮춘다 —
+      # 검토 이슈는 notify 가 이미 열어 두므로 사실이 묻히지는 않는다.
       - name: 점검 결과 반영
         env:
-          SCAN_OUTCOME: ${{ needs.check.outputs.scan_outcome }}
+          SCAN_CODE: ${{ needs.check.outputs.scan_code }}
           NOTIFY_RESULT: ${{ needs.notify.result }}
         run: |
-          if [ "$SCAN_OUTCOME" != "success" ] || [ "$NOTIFY_RESULT" != "success" ]; then
-            echo "세금·증여 규칙 점검 또는 알림에 실패했습니다."
+          if [ "$NOTIFY_RESULT" != "success" ]; then
+            echo "검토 이슈 알림 단계가 실패했습니다."
             exit 1
           fi
+          case "$SCAN_CODE" in
+            0)
+              echo "공식 출처 점검 통과."
+              ;;
+            2)
+              echo "::warning title=공식 출처 접속 실패::law.go.kr 에 한 곳도 접속하지 못했습니다. 세금 규칙이 바뀐 것이 아니라 확인을 못 한 상태입니다. 자세한 내용은 열린 검토 이슈를 보세요."
+              ;;
+            *)
+              echo "세금·증여 규칙 점검에서 확인할 항목이 나왔습니다 (종료 코드 ${SCAN_CODE:-없음})."
+              exit 1
+              ;;
+          esac

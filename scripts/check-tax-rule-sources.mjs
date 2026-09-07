@@ -13,9 +13,15 @@ const MANIFEST_FILE = path.join(ROOT, 'tax-rules.js')
 const ALLOWED_HOSTS = new Set(['law.go.kr', 'www.law.go.kr', 'nts.go.kr', 'www.nts.go.kr'])
 const MAX_BYTES = 2 * 1024 * 1024
 const MAX_REDIRECTS = 5
-const REQUEST_TIMEOUT_MS = 10_000
+// law.go.kr 은 해외(깃허브 러너)에서 느리다. 10초로는 17개 출처가 전부 timeout 났다.
+// 상한을 올리되 잡 제한시간(15분) 안에 끝나도록 동시 요청도 함께 올린다:
+// 최악 = ceil(17/4) × (3회 시도 × 20초 + 백오프) ≈ 5분.
+const REQUEST_TIMEOUT_MS = 20_000
 const RETRIES = 2
-const CONCURRENCY = 3
+const CONCURRENCY = 4
+
+// 한 곳도 못 읽은 경우의 종료 코드. 1(진짜 신호)과 구분한다 — 아래 EXIT 주석 참조.
+const EXIT_ALL_UNAVAILABLE = 2
 
 const args = process.argv.slice(2)
 const network = args.includes('--network')
@@ -170,7 +176,13 @@ async function fetchOfficial(rawUrl) {
     try {
       response = await fetch(current, {
         redirect: 'manual', signal: controller.signal,
-        headers: { 'user-agent': 'asset-dashboard-tax-rule-watch/1.0 (+https://github.com/Eddie7-great/asset_dashboard_caludedesign)' },
+        // Accept 계열을 안 보내면 거절하는 국내 공공 사이트가 있다. 신원(user-agent)은
+        // 그대로 밝힌다 — 브라우저인 척하지 않는다.
+        headers: {
+          'user-agent': 'asset-dashboard-tax-rule-watch/1.0 (+https://github.com/Eddie7-great/asset_dashboard_caludedesign)',
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'accept-language': 'ko-KR,ko;q=0.9,en;q=0.8',
+        },
       })
     } finally {
       clearTimeout(timer)
@@ -265,5 +277,20 @@ if (network) {
   console.log(`규칙 매니페스트 확인: ${manifest.manifestVersion} · ${validation.reviewState}`)
 }
 
-const sourceFailure = sourceResults.some(result => result.state !== 'ok')
-if (validation.errors.length || sourceFailure) process.exitCode = 1
+// EXIT — 두 종류의 실패를 구분한다.
+//
+// 0  통과.
+// 1  진짜 확인해야 할 것이 생겼다: 매니페스트 오류, 본문에서 기대 문구가 사라짐(변경 의심),
+//    또는 일부 출처만 접속 실패(나머지는 읽혔으니 사이트는 살아 있고 그 건만 못 읽은 것).
+// 2  네트워크로 확인을 시도했는데 **한 곳도 읽지 못했다.** 이건 세금 규칙이 바뀐 신호가
+//    아니라 law.go.kr 에 닿지 못했다는 뜻이다. 이걸 1과 똑같이 빨갛게 만들면 접속 장애가
+//    며칠 이어질 때 매일 같은 빨간 X 가 쌓이고, 그 사이에 낀 '진짜 변경'을 놓치게 된다.
+//    호출부(.github/workflows/tax-rule-watch.yml)가 2를 경고로 낮춰 다루되,
+//    검토 이슈는 그대로 열어 사실이 묻히지는 않게 한다.
+const attempted = network && sourceResults.length > 0
+const allUnavailable = attempted && summary.ok === 0 && summary.changed === 0
+if (validation.errors.length || summary.changed > 0) process.exitCode = 1
+else if (allUnavailable) {
+  console.error('[OUTAGE] 공식 출처에 한 곳도 접속하지 못했습니다 — 규칙이 바뀐 것이 아니라 확인을 못 한 상태입니다.')
+  process.exitCode = EXIT_ALL_UNAVAILABLE
+} else if (summary.unavailable > 0) process.exitCode = 1
