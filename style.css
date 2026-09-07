@@ -8,7 +8,7 @@
       --gshadow:0 8px 24px -14px rgba(30,50,90,.20);
       --acc:#2a6fdb;--acc2:#0f9488;--acc3:#7c3aed;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
-      --t1:#18213a;--t2:#4a5878;--t3:#6a7898;
+      --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
       --grid:#e6eaf2;
       --tipbg:#18213a;--tiptx:#f8fafc;--tipbd:#31405e
@@ -1398,4 +1398,54 @@
     }
 
 /* ── 세금·증여 규칙 버전 및 공식 근거 ───────────────────────── */
+
+/* Review refinements: one action list, readable labels, and a progressive 3D chart. */
+.fin-dashboard-priority{display:block}
+.fin-action-panel{padding:16px 18px}
+.fin-action-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fin-action-row{min-height:72px;padding:12px;min-width:0}
+.fin-action-row b{font-size:13px;line-height:1.5}
+.fin-action-row small{font-size:12px;line-height:1.6}
+.fin-section-head small,.cb-insight-title,.cb-insight-empty{font-size:12px}
+.fin-more-actions{margin-top:10px;color:var(--mut);font-size:12px}
+.fin-more-actions summary{cursor:pointer;padding:8px 0}
+.fin-more-actions[open] .fin-action-list{margin-top:8px}
+.cb-div-status{font-size:12px;line-height:1.6;color:var(--mut)}
+.cb-div-status.error{color:var(--warn)}
+.cb-allocation-visual{position:relative;width:100%;height:220px;margin:4px 0 14px;isolation:isolate}
+.cb-allocation-visual::before{content:'';position:absolute;z-index:-1;left:20%;right:20%;bottom:23px;height:14px;border-radius:50%;background:var(--tx);opacity:.12;filter:blur(10px)}
+.cb-allocation-visual:not(.has-3d)::before{display:none}
+.cb-allocation-visual canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.cb-allocation-fallback{height:100%;display:flex;align-items:center;justify-content:center}
+.cb-allocation-visual.has-3d .cb-allocation-fallback{display:none}
+.cb-mobile-holdings{display:none}
+@media(min-width:769px) and (max-width:1500px){
+  .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:768px){
+  #view-cdash.active{flex:0 0 auto}
+  #cb-cdash{flex:none;overflow:visible!important}
+  .fin-action-list{grid-template-columns:1fr}
+  .fin-action-row{min-height:60px}
+  .cb-allocation-visual{height:190px}
+  .cb-mobile-holdings{display:block;padding:16px;margin-top:14px;min-width:0}
+  .cb-mobile-holdings h3{margin:0 0 14px;font-size:15px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .cb-mobile-holdings h3 small{font-size:12px;color:var(--lab);font-weight:500}
+  .cb-mobile-holdings input{box-sizing:border-box;width:100%;min-width:0;min-height:44px;font:inherit;font-size:16px;background:var(--inner);border:1px solid var(--bd);border-radius:8px;padding:10px;color:var(--tx)}
+  .cb-mobile-holdings-labels{display:flex;justify-content:space-between;padding:16px 0 6px;font-size:12px;color:var(--lab)}
+  .cb-mobile-holding{border-bottom:1px solid var(--bd)}
+  .cb-mobile-holding summary{list-style:none;display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:12px;padding:15px 0;cursor:pointer}
+  .cb-mobile-holding summary::-webkit-details-marker{display:none}
+  .cb-mobile-asset{min-width:0}
+  .cb-mobile-asset b{display:block;font-size:14px;overflow-wrap:anywhere;line-height:1.5}
+  .cb-mobile-asset small{display:block;margin-top:4px;font-size:12px;color:var(--lab);overflow-wrap:anywhere}
+  .cb-mobile-value{text-align:right}
+  .cb-mobile-value b{font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cb-mobile-value small{display:block;margin-top:4px;font-size:13px}
+  .cb-mobile-holding dl{margin:0 0 15px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding:14px;background:var(--inner);border-radius:10px}
+  .cb-mobile-holding dt{font-size:12px;color:var(--lab);margin-bottom:4px}
+  .cb-mobile-holding dd{margin:0;font-size:14px;overflow-wrap:anywhere}
+  #cb-cdash .cb-dash-split{display:none!important}
+  #cb-cdash>.cb-mobile-holdings{display:block}
+}
 

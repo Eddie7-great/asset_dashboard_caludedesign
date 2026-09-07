@@ -117,6 +117,11 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 
 ## Conventions
 
+- **배당 API는 종목 단위 `verifiedTickers`를 반환한다.** HTTP 200이나 청크 요청 성공만으로 종목을 확인 완료로 기록하지 않는다. `fetchDividendHistory`도 25개씩 나누며, 실패한 종목의 이전 이력은 보존한다. 빈 배당 이력은 서버가 성공을 확인했을 때만 무배당 근거로 쓴다. 확인되지 않은 ETF 구성종목으로 중복 노출 0%를 표시하지 않는다.
+- **정렬은 표시 문자열이 아니라 행의 `data-sort-*` 원시 숫자를 사용한다.** 통화 기호·금액 가리기·음수 부호에 영향을 받지 않아야 하며, 취득가 미상은 어느 방향에서도 마지막이다.
+- **레이아웃 미리보기는 인증 예외가 아니라 세션 재검증이다.** 동일 출처 부모의 실제 `#layout-preview-frame`에서만 GET `/api/auth` 확인 후 시작한다. 새 최상위 페이지는 기존 DELETE 후 재로그인 규칙을 유지한다.
+- **3D는 선택적 시각 효과다.** SVG·키보드 범례를 유지하고, 모바일·WebGL 실패 시 SVG를 표시한다. 정지 상태·화면 밖·숨긴 탭에서는 프레임 루프를 멈추며, 페이지 전환 시 geometry/material/renderer를 해제한다. 재렌더 시 같은 차트 호스트를 재사용한다.
+
 - UI strings, comments, and labels are in Korean. Keep that style when adding new UI.
 - The frontend uses the Cobalt 3-theme system — `light` (default) / `dark` / `navy` — via `document.body.dataset.theme` (`light` = attribute removed). Switch with `setTheme(mode)` in `script.js`; `isDarkTheme()` is true for both `dark` and `navy`. CSS variables (`--t1`, `--t3`, `--inner-bg`, `--acc`, `--acc-soft`, `--tipbg`, etc.) in `style.css` are the source of truth — never hard-code colors that need to flip with the theme. Chart JS constants (`ownerColors`, `CHART_PALETTE`, `cfColors`) use the Cobalt palette (`#5b9bff`, `#4ecdc4`, `#f2a33c`, `#c084fc`, `#4ade80`, …).
 - When adding a new owner-aware widget, sync from `currentOwner` in `changeOwner()` and re-render in `switchView()` for the relevant `viewId`. Cobalt pages instead keep their own owner state and render owner buttons via `cbSetHead(sub, cbOwnerBtns(state, 'handlerName'))`. **Every calculation a page shows must respect that filter** — pass the owner through rather than computing household totals under an owner tab; if a number genuinely can't be filtered (e.g. the net worth bridge, which only has household snapshots), label it "가구 전체" on the card.

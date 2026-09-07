@@ -579,6 +579,7 @@ async function _fetchDivDataOnce(force=false) {
   const today = _cfLocalDateKey(new Date());
   const cacheKey = 'divCache_' + today;
   const verifiedKey = 'divCacheTickers_' + today;
+  const verifiedVersionKey = 'divCacheVerifiedVersion_' + today;
   const tickers = [...new Set(
     pfolioData.filter(i=>i.grp==='주식'&&i.qty>0)
       // 국내 suffix는 서버가 자동 보정하고, 일본 .T는 Yahoo 조회에 필요하므로 유지한다.
@@ -593,7 +594,7 @@ async function _fetchDivDataOnce(force=false) {
       const verified = JSON.parse(localStorage.getItem(verifiedKey) || '[]');
       // 무배당 종목은 결과 캐시에 키가 생기지 않으므로, 실제 요청을 마친 티커 목록을
       // 별도로 보관해 "새 보유 종목이 추가됐는지"까지 페이지 진입 때마다 검증한다.
-      if (Array.isArray(verified) && tickers.every(t=>verified.includes(t))) {
+      if (localStorage.getItem(verifiedVersionKey)==='2' && Array.isArray(verified) && tickers.every(t=>verified.includes(t))) {
         const parsed = JSON.parse(cached);
         // 화면의 cbStrip 규칙과 맞춰 일본 상장 .T도 캐시 키에서는 제거한다.
         window._divDataCache = Object.fromEntries(Object.entries(parsed||{}).map(
@@ -620,17 +621,27 @@ async function _fetchDivDataOnce(force=false) {
         const data = await resp.json();
         if (!data.success || !data.result) throw new Error(data?.error||'배당 데이터 응답이 비어 있습니다.');
         Object.assign(mergedResult, data.result);
-        verifiedTickers.push(...chunk);
+        const done=new Set((data.verifiedTickers||[]).map(t=>String(t).toUpperCase()));
+        verifiedTickers.push(...chunk.filter(t=>done.has(t)));
+        if(chunk.some(t=>!done.has(t))) {
+          failedChunks++;
+          lastChunkError=new Error('일부 종목의 배당 조회 실패');
+        }
       } catch(err) {
         failedChunks++; lastChunkError = err;
         console.error('[fetchDivData chunk]', chunk.length+'개', err?.message);
       } finally { _divFetch.done(); }
     }
-    if (failedChunks === chunks.length) {
+    if (!verifiedTickers.length) {
       const error=lastChunkError?.message||'배당 데이터 조회 실패';
       _setDivFetchCoverage(tickers, verifiedTickers, 'error', error);
       return {ok:false,error};
     }
+    // 확인된 무배당만 직전 배당 캐시를 제거한다. 실패·미조회는 이전 값을 유지한다.
+    verifiedTickers.forEach(t=>{
+      const key=t.replace(/\.(KS|KQ|T)$/,'');
+      if(!mergedResult[t]&&!mergedResult[key]) delete window._divDataCache[key];
+    });
     for (const [tkr, d] of Object.entries(mergedResult)) {
       const cacheTkr = String(tkr).toUpperCase().replace(/\.(KS|KQ|T)$/,'');
       const existing = DIV_INFO_DB[tkr] || DIV_INFO_DB[cacheTkr] || {};
@@ -661,6 +672,7 @@ async function _fetchDivDataOnce(force=false) {
     localStorage.setItem(cacheKey, JSON.stringify(window._divDataCache));
     // 실패한 청크의 티커를 verified 로 적으면 다음 접속에서 조회 없이 넘어가 배당이 영영 비게 된다.
     localStorage.setItem(verifiedKey, JSON.stringify(verifiedTickers));
+    localStorage.setItem(verifiedVersionKey, '2');
     syncDivHistory();
     resolvePendingDivDates();
     const count = Object.keys(window._divDataCache).length;
@@ -681,7 +693,7 @@ async function _fetchDivDataOnce(force=false) {
 
 // 종목별 배당 raw 이력 (10년치) — YoC/CAGR/DRIP 위젯용
 // 국내 .KS → .KQ 폴백을 포함하는 캐시 스키마. 버전 변경 시 기존 누락 캐시를 한 번 갱신한다.
-const DIV_HIST_CACHE_VERSION = 2;
+const DIV_HIST_CACHE_VERSION = 3;
 window._divHistoryRawCache = window._divHistoryRawCache || {};
 async function fetchDividendHistory(force = false) {
   const tickers = [...new Set(
@@ -715,23 +727,42 @@ async function fetchDividendHistory(force = false) {
         if (obj && obj.version===DIV_HIST_CACHE_VERSION && age < 7*86400000 && obj.data
           && Array.isArray(obj.tickers) && tickers.every(t=>obj.tickers.includes(t)) && !missingRetryDue) {
           window._divHistoryRawCache = normalizedData;
-          return;
+          window._divHistoryCoverage={status:'complete',verified:tickers,missing:[]};
+          return {ok:true,cached:true,count:tickers.length};
         }
       }
     } catch(e) {}
   }
-  try {
-    const _dhFetch = fetchTimeout(25000);
-    const resp = await authFetch('/api/price?type=dividend_history&tickers=' + tickers.join(','), { signal: _dhFetch.signal });
-    _dhFetch.done();
-    if (!resp.ok) { console.warn('[fetchDividendHistory] HTTP', resp.status); return; }
-    const data = await resp.json();
-    if (!data.success || !data.result) return;
-    window._divHistoryRawCache = Object.fromEntries(Object.entries(data.result).map(
-      ([t,d])=>[String(t).toUpperCase().replace(/\.(KS|KQ|T)$/,''),d]
-    ));
-    try { localStorage.setItem('divHistRaw', JSON.stringify({ version:DIV_HIST_CACHE_VERSION, savedAt: Date.now(), tickers, data: window._divHistoryRawCache })); } catch(e) {}
-  } catch(e) { console.error('[fetchDividendHistory]', e); }
+  const verified = [];
+  const failures = [];
+  window._divHistoryCoverage = {status:'pending',verified:[],missing:tickers};
+  for (const chunk of _chunkTickers(tickers)) {
+    const request = fetchTimeout(25000);
+    try {
+      const resp = await authFetch('/api/price?type=dividend_history&tickers=' + chunk.join(','), { signal:request.signal });
+      if (!resp.ok) throw new Error('배당 이력 HTTP '+resp.status);
+      const data = await resp.json();
+      if (!data.success || !data.result) throw new Error('배당 이력 응답 오류');
+      // 빈 events도 성공한 무배당 이력이다. 실패한 티커의 직전 이력은 지우지 않는다.
+      const done = new Set((data.verifiedTickers||[]).map(t=>String(t).toUpperCase()));
+      chunk.forEach(t=>{
+        const key=t.replace(/\.(KS|KQ|T)$/,'');
+        const row=data.result[t]||data.result[key]||data.result[t.replace(/\.(KS|KQ)$/,'')];
+        if (done.has(t) && row && Array.isArray(row.events)) {
+          window._divHistoryRawCache[key]=row;
+          verified.push(t);
+        } else failures.push(t);
+      });
+    } catch(e) {
+      failures.push(...chunk);
+      console.warn('[fetchDividendHistory]',e);
+    } finally { request.done(); }
+  }
+  const status=failures.length?(verified.length?'partial':'error'):'complete';
+  window._divHistoryCoverage={status,verified,missing:failures};
+  // 캐시의 tickers는 성공한 목록만 담는다. 부분 실패를 7일짜리 성공으로 캐시하지 않는다.
+  if(verified.length) try { localStorage.setItem('divHistRaw',JSON.stringify({version:DIV_HIST_CACHE_VERSION,savedAt:Date.now(),tickers:verified,data:window._divHistoryRawCache})); } catch(e) {}
+  return {ok:failures.length===0,count:verified.length,failed:failures.length};
 }
 
 const CF_DEFAULT = [
@@ -2886,6 +2917,9 @@ function portfolioSortHeader(group,field,label){
   const safeField=['qty','avgP','curP','valKRW','profit','profitPct'].includes(field)?field:'qty';
   return `<th class="sortable" aria-sort="none"><button type="button" class="table-sort-btn" onclick="sortPortfolioTable('${safeGroup}','${safeField}',this)">${holdingsEsc(label)}</button></th>`;
 }
+function portfolioSortData(values){
+  return Object.entries(values).map(([key,value])=>`data-sort-${key.toLowerCase()}="${value!=null&&Number.isFinite(Number(value))?Number(value):''}"`).join(' ');
+}
 
 
 async function applyPendingDCA() {
@@ -3258,7 +3292,7 @@ function renderPortfolio(owner) {
           // [7] 수익금에 (₩)
           const fProfit=i.costUnknown?'<span class="cost-unknown-note">산정 제외</span>':(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
           const fProfitPct=i.costUnknown?'<span class="cost-unknown-note">—</span>':sign+profitPct.toFixed(2)+'%';
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -3278,7 +3312,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -3299,7 +3333,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
       });
     }
@@ -4869,21 +4903,15 @@ function sortPortfolioTable(grpName, field, thEl) {
   // tbody 행 정렬
   const tbody = table.querySelector('tbody');
   const rows = Array.from(tbody.querySelectorAll('tr'));
-  const hasOwner = Array.from(table.tHead?.rows[0]?.cells || [])
-    .some(th => th.textContent.trim() === '소유주');
+  const getVal = row => {
+    const raw=row.getAttribute('data-sort-'+field.toLowerCase());
+    return raw!=null&&raw!==''&&Number.isFinite(Number(raw))?Number(raw):null;
+  };
   rows.sort((a, b) => {
-    // 칼럼 인덱스(소유주 칼럼 제외 기준) — DCA 주기/회당 금액 다음부터 수치 칼럼이다.
-    const cells = {
-      qty: 4, avgP: 5, curP: 6, valKRW: 7, profit: 8, profitPct: 9
-    };
-    const ci = cells[field] ?? 5;
-    const getVal = (row) => {
-      const td = row.cells[ci + (hasOwner ? 1 : 0)];
-      if (!td) return 0;
-      const txt = td.innerText.replace(/[₩+\-,%\s]/g,'').replace(/,/g,'');
-      return parseFloat(txt) || 0;
-    };
-    return (getVal(b) - getVal(a)) * st.dir;
+    const av=getVal(a),bv=getVal(b);
+    if(av==null) return bv==null?0:1;
+    if(bv==null) return -1;
+    return (av-bv)*st.dir;
   });
   rows.forEach(r => tbody.appendChild(r));
 }
@@ -4996,10 +5024,29 @@ function initDashboard(){
   })();
 }
 
+// 주소의 미리보기 파라미터만으로 인증을 건너뛸 수 없다. 같은 출처 부모가 소유한
+// iframe인지 확인하고, 서버가 세션을 인증한 경우에만 자식 화면을 시작한다.
+async function startTrustedLayoutPreview(){
+  let embedded=false;
+  try {
+    embedded=!!_layoutPreviewMode() && window.parent!==window
+      && window.parent.location.origin===location.origin
+      && window.parent.document.getElementById('layout-preview-frame')?.contentWindow===window;
+  } catch(e) {}
+  if(!embedded) return false;
+  _setAuthenticatedUi(false);
+  try {
+    const res=await fetch('/api/auth',{method:'GET',credentials:'same-origin',cache:'no-store'});
+    if(res.ok && (await res.json()).authenticated===true) _startDashboardAfterAuth();
+  } catch(e) { console.warn('[preview auth]',e); }
+  return true;
+}
+
 window.onload = async function() {
   initAmountPrivacy();
   initMenuGroups();
   try { sessionStorage.removeItem('_dashAuth'); } catch(e) {}
+  if(await startTrustedLayoutPreview()) return;
   // 페이지를 열 때마다(새로고침 포함) 비밀번호를 다시 받는다.
   // 남아 있는 세션 쿠키를 먼저 서버에서 폐기해, 게이트가 화면 장식에 그치지 않고
   // 실제로 API 호출까지 막히도록 한다. 폐기 요청이 실패해도 게이트는 그대로 띄운다(fail-closed).

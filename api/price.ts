@@ -351,6 +351,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
 
       const result: Record<string, any> = {};
+      const verifiedTickers: string[] = [];
       await mapWithConcurrency(divTickers, async (raw) => {
         const tkr = raw.trim().toUpperCase().replace(/\.(KS|KQ)$/, '');
         if (!tkr) return;
@@ -360,16 +361,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           info = await pykrxDiv(tkr);
           if (!info || !(Number(info.dps) > 0)) {
             const yhInfo = await yahooDiv(tkr);
-            if (yhInfo && Number(yhInfo.dps) > 0) info = yhInfo;
+            if (yhInfo) info = yhInfo;
           }
         } else {
           info = await yahooDiv(tkr);
         }
         // 유효한 배당/분배 데이터만 반환
-        if (info && Number(info.dps) > 0) result[tkr] = info;
+        if (info) {
+          verifiedTickers.push(raw);
+          if (Number(info.dps) > 0) result[tkr] = info;
+        }
       });
 
-      return res.status(200).json({ success: true, result, usdRate });
+      return res.status(200).json({ success: true, result, usdRate, verifiedTickers });
     }
 
     // ── 배당 이력 (raw events) — YoC/CAGR/DRIP 위젯용 ──────────
@@ -402,21 +406,25 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
               })
               .filter(e => e.amount > 0)
               .sort((a, b) => a.date.localeCompare(b.date));
-            if (events.length) return { events, cur: currency };
+            return { events, cur: currency };
           } catch (e) {}
         }
         return null;
       }
 
       const result: Record<string, any> = {};
+      const verifiedTickers: string[] = [];
       await mapWithConcurrency(histTickers, async (raw) => {
         const requested = raw.trim().toUpperCase();
         const tkr = requested.replace(/\.(KS|KQ)$/, '');
         if (!tkr) return;
         const info = await yahooHist(requested);
-        if (info && info.events.length > 0) result[tkr] = info;
+        if (info) {
+          result[tkr] = info;
+          verifiedTickers.push(requested);
+        }
       });
-      return res.status(200).json({ success: true, result });
+      return res.status(200).json({ success: true, result, verifiedTickers });
     }
 
     // ── 섹터 조회 ───────────────────────────────────────────

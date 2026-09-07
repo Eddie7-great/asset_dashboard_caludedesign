@@ -170,7 +170,7 @@ assert.match(cobaltSource, /배당 집중도[\s\S]*상위 3종목/, '배당 관�
 assert.match(cobaltSource, /const top3Div = [\s\S]*상위 배당원 TOP 3[\s\S]*cb-div-top3-name[\s\S]*share\.toFixed\(1\)/, '배당 집중도 상위 3개 종목명과 각 배당 기여 비중을 별도 위젯에 표시')
 assert.match(cobaltSource, /const label=\[ownerF\?'':x\.i\.owner, x\.title\|\|'종목명 미확인'\][\s\S]*cb-div-top3-metrics[\s\S]*cbDisp\(x\.incomeKRW\)[\s\S]*share\.toFixed\(1\)/, '전체 배당원 TOP3에는 소유주·종목명·금액·비중을 표시하고 티커는 제외')
 assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*산출 \$\{gList\.length\}\/\$\{list\.length\} · 원본 \$\{rawHistoryList\.length\}\/\$\{list\.length\}/, '배당성장률 산출 수와 원본 이력 확보 수를 분리해 표시')
-assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 2[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
+assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 3[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
 assert.match(priceApiSource, /const symbols = krMatch[\s\S]*`\$\{krMatch\[1\]\}\.KS`,`\$\{krMatch\[1\]\}\.KQ`[\s\S]*for \(const sym of symbols\)/, '국내 배당 이력은 코스피 조회 실패 시 코스닥 심볼로 재조회')
 assert.match(cobaltSource, /cbTaxChartSvg\(1240,440,list\)/, '양도소득세 중앙 차트의 가로 viewBox 확대')
 assert.match(cobaltSource, /const padL=64, padR=78, padT=14, padB=22/, '양도소득세 차트 12월 우측의 불필요한 내부 여백 축소')
@@ -361,7 +361,7 @@ const riskInsightContext = {
   window:{ _balanceSheet:{assets:[],liabilities:[],cashTargetMonths:6}, _dataFreshness:{} },
   goalData:[],
   cbAllRows:()=>riskInsightRows,
-  cbLookThrough:()=>({list:[{via:50}]}),
+  cbLookThrough:()=>({list:[{via:50}],etfCount:1,loaded:true,etfMiss:[]}),
   cbMergeRows:rows=>rows,
   cbSectors:()=>({list:[{label:'Technology',pct:40},{label:'Index ETF',pct:30}]}),
   cbDivIncomeKRW:item=>item.div||0,
@@ -393,6 +393,15 @@ const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
 const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
 assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 생성')
 assert.equal(riskInsightById['etf-overlap'].value, '5.0%', 'ETF 직접·간접 중복 노출 계산')
+for (const coverage of [
+  {list:[],etfCount:1,loaded:false,etfMiss:['VOO']},
+  {list:[{via:50}],etfCount:2,loaded:true,etfMiss:['VOO']},
+]) {
+  riskInsightContext.cbLookThrough=()=>coverage
+  const overlap=riskInsightContext.cbRiskInsights('본인',{}).find(c=>c.id==='etf-overlap')
+  assert.equal(overlap.value,'—','미조회·부분 조회는 0% 또는 전체 비율로 단정하지 않는다')
+  assert.notEqual(overlap.tone,'var(--up)','조회 실패를 안전한 상태로 표시하지 않는다')
+}
 assert.equal(riskInsightById['effective-holdings'].value, '2.9개', 'HHI 역수 기준 실효 종목 수 계산')
 assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 민감도 계산')
 assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')

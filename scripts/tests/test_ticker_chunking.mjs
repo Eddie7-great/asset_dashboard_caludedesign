@@ -167,6 +167,7 @@ const divOk = (list) => ({
   ok: true,
   json: async () => ({
     success: true,
+    verifiedTickers: list,
     result: Object.fromEntries(list.map(t => [t, { dps: 4, yld: 2, cycle: '분기', months: [3, 6, 9, 12], cur: 'USD' }])),
   }),
 })
@@ -236,6 +237,49 @@ const divOk = (list) => ({
 }
 
 // ────────────────── fetchBenchmarkData: 소유주별 상위 20종목 절단 ──────────────────
+// HTTP 200이라도 종목 단위 실패가 있을 수 있다. 확인된 무배당만 기존 값을 지운다.
+{
+  const {ctx,store}=makeDivCtx(list=>({ok:true,json:async()=>({success:true,result:{},verifiedTickers:list.filter(t=>t!=='D1')})}))
+  ctx.window._divDataCache={D0:{annualDps:3},D1:{annualDps:4}}
+  const result=await vm.runInContext('fetchDivData(true)',ctx)
+  assert.equal(result.ok,false)
+  assert.equal(ctx.window._divDataCache.D0,undefined,'확인된 무배당의 과거 값은 제거')
+  assert.equal(ctx.window._divDataCache.D1.annualDps,4,'조회 실패의 과거 값은 보존')
+  assert.ok(!JSON.parse(store['divCacheTickers_2026-08-31']).includes('D1'))
+}
+
+function makeHistoryCtx(failingIndex=-1) {
+  const calls=[],store={}; let completed=0
+  const ctx=baseContext({
+    pfolioData:Array.from({length:51},(_,i)=>({tkr:'H'+i,grp:'주식',qty:1})),
+    localStorage:{getItem:k=>store[k]||null,setItem:(k,v)=>{store[k]=v}},
+    fetchTimeout:()=>({signal:null,done:()=>completed++}),
+    authFetch:async url=>{
+      const list=url.split('tickers=')[1].split(','); calls.push(list)
+      if(calls.length===failingIndex) throw new Error('upstream timeout')
+      return {ok:true,json:async()=>({success:true,verifiedTickers:list,result:Object.fromEntries(list.map(t=>[t,{events:[],cur:'USD'}]))})}
+    },
+    window:{_divHistoryRawCache:{H25:{events:[{date:'2025-12-01',amount:1}],cur:'USD'}}},
+  })
+  vm.runInContext(CHUNK_DECL,ctx)
+  vm.runInContext('const DIV_HIST_CACHE_VERSION=3',ctx)
+  vm.runInContext(extractFunction('fetchDividendHistory'),ctx)
+  return {ctx,calls,store,completed:()=>completed}
+}
+for(const failure of [-1,2]) {
+  const {ctx,calls,store,completed}=makeHistoryCtx(failure)
+  const result=await vm.runInContext('fetchDividendHistory()',ctx)
+  assert.deepEqual(calls.map(c=>c.length),[25,25,1],'51종목 모두 서버 상한 안에서 조회')
+  assert.equal(completed(),3,'성공과 실패의 타임아웃을 모두 정리')
+  assert.equal(result.ok,failure===-1)
+  assert.equal(ctx.window._divHistoryCoverage.status,failure===-1?'complete':'partial')
+  const cached=JSON.parse(store.divHistRaw)
+  assert.equal(cached.tickers.length,failure===-1?51:26,'성공한 종목만 캐시 범위에 기록')
+  assert.equal(ctx.window._divHistoryRawCache.H25.events.length,failure===-1?0:1,'실패 시 기존 이력 유지, 정상 빈 배열은 반영')
+  await vm.runInContext('fetchDividendHistory()',ctx)
+  assert.equal(calls.length,failure===-1?3:6,'완료 캐시는 재사용, 부분 실패 캐시는 다시 조회')
+}
+
 {
   const captured = []
   // 본인은 25종목 보유 — 서버 p_tkrs 한도(20)를 넘는다. 평가액은 B0 이 가장 크도록 배치.
