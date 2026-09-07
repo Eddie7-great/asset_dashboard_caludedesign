@@ -238,6 +238,23 @@ try {
   assert.equal(response.statusCode, 400)
   assert.match(kvSource, /MAX_VALUE_BYTES = 1_000_000/)
 
+  // A successful upstream response with no dividends is verified; an upstream failure is not.
+  const {handler:dividendHandler}=compileTs('api/price.ts',{fetch:async url=>{
+    if(url.includes('er-api.com')) return {ok:true,json:async()=>({rates:{KRW:1350}})}
+    if(url.includes('/FAIL?')) return {ok:false,status:503}
+    if(url.includes('/EMPTY?')) return {ok:true,json:async()=>({chart:{result:[{meta:{currency:'USD',regularMarketPrice:100}}]}})}
+    throw new Error('Unexpected fixture URL: '+url)
+  }})
+  for(const type of ['dividend','dividend_history']) {
+    response=responseRecorder()
+    await dividendHandler({method:'GET',headers:bearerHeaders,query:{type,tickers:'EMPTY,FAIL'}},response)
+    assert.equal(response.statusCode,200)
+    assert.deepEqual(Array.from(response.body.verifiedTickers),['EMPTY'],type+' records only successful lookups')
+    assert.equal(response.body.result.FAIL,undefined)
+    if(type==='dividend_history')assert.equal(response.body.result.EMPTY.events.length,0,'successful empty history is retained')
+    else assert.equal(response.body.result.EMPTY,undefined,'confirmed non-dividend stock has no positive dividend row')
+  }
+
   const vercel = JSON.parse(fs.readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'))
   const securityHeaders = Object.fromEntries(vercel.headers[0].headers.map(item => [item.key, item.value]))
   for (const name of ['Content-Security-Policy', 'Strict-Transport-Security', 'X-Content-Type-Options', 'X-Frame-Options', 'Referrer-Policy', 'Permissions-Policy']) {

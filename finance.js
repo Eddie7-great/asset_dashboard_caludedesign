@@ -274,29 +274,18 @@ function finMonthlyActions(ownerF){
   const divList=(pfolioData||[]).filter(i=>(i.qty||0)>0&&(!ownerF||i.owner===ownerF)).map(i=>({i,d:cbDivOf(i),incomeKRW:cbDivIncomeKRW(i),tkr:i.tkr,title:i.name})).filter(x=>x.d&&x.incomeKRW>0);
   const upcoming=cbUpcomingDividendSchedule(divList,90); const divAmt=upcoming.reduce((s,x)=>s+x.amount,0);
   items.push({tone:'info',title:'향후 90일 배당',desc:upcoming.length?`${upcoming.length}건 · 예상 ${cbDisp(divAmt)}`:'예정 내역 없음',view:'divm',menu:'divm'});
-  const stale=(pfolioData||[]).filter(i=>i&&i._priceStale).length;
+  const stale=(pfolioData||[]).filter(i=>i&&i._priceStale&&(!ownerF||i.owner===ownerF)).length;
   if(stale) items.push({tone:'warn',title:'시세 데이터 확인',desc:`${stale}개 자산의 최신 시세 확인 필요`,view:'data2',menu:'data2'});
   const soonGoals=(goalData||[]).filter(g=>g.targetDate&&((new Date(g.targetDate)-Date.now())/86400000)<=180&&new Date(g.targetDate)>=new Date());
   if(soonGoals.length) items.push({tone:'warn',title:'6개월 내 목표',desc:`${soonGoals.length}개 목표 진행률 점검`,view:'plan2',menu:'plan2'});
   return items.slice(0,6);
 }
 function finDashboardFocus(owner){
-  // 대시보드 소유주 탭을 그대로 따른다 — 카드에도 어떤 범위를 보고 있는지 항상 명시한다.
   const ownerF=finOwnerF(owner);
   const scope=ownerF?cbEsc(ownerF):'가구 전체';
-  const actions=finMonthlyActions(ownerF);
-  const target=finTargetAnalysis(ownerF); const safety=finCashSafety(ownerF);
-  const drift=target.max;
-  const actionRows=actions.map(a=>`<button class="fin-action-row ${a.tone}" onclick="switchView('${a.view}',document.getElementById('menu-${a.menu}'))"><span class="fin-action-dot"></span><span><b>${cbEsc(a.title)}</b><small>${cbEsc(a.desc)}</small></span><span class="fin-action-go">›</span></button>`).join('');
-  const driftPct=drift?Math.min(100,Math.abs(drift.drift)/Math.max(1,target.threshold*2)*100):0;
-  const runwayPct=safety.runway==null?0:Math.min(100,safety.runway/safety.targetMonths*100);
-  return `<div class="fin-dashboard-priority">
-    <div class="cb-panel fin-action-panel"><div class="fin-section-head"><span>이번 달 할 일</span><small>${scope} · ${actions.length}개 점검 항목</small></div><div class="fin-action-list">${actionRows}</div></div>
-    <div class="fin-priority-side">
-      <button class="cb-panel fin-focus-card" onclick="switchView('plan2',document.getElementById('menu-plan2'))"><div class="fin-section-head"><span>목표 비중 편차</span><small>${scope} · 허용 ±${target.threshold}%p</small></div><strong>${drift?cbEsc(drift.label):'—'} <em>${drift?(drift.drift>=0?'+':'')+drift.drift.toFixed(1)+'%p':'데이터 없음'}</em></strong><div class="fin-meter"><i style="width:${driftPct}%"></i></div><p>${drift&&Math.abs(drift.drift)>=target.threshold?'리밸런싱 검토가 필요합니다.':'현재 허용범위 안입니다.'}</p></button>
-      <button class="cb-panel fin-focus-card" onclick="switchView('balance2',document.getElementById('menu-balance2'))"><div class="fin-section-head"><span>현금 안전판</span><small>${scope} · 목표 ${safety.targetMonths}개월</small></div><strong>${safety.runway==null?'—':safety.runway.toFixed(1)+'개월'} <em>${cbDisp(safety.cash)}</em></strong><div class="fin-meter cash"><i style="width:${runwayPct}%"></i></div><p>${safety.fixed<=0?'필수지출을 등록하면 계산됩니다.':safety.shortage>0?`목표까지 ${cbDisp(safety.shortage)} 부족`:'목표 현금이 확보되었습니다.'}</p></button>
-    </div>
-  </div>`;
+  const actions=finMonthlyActions(ownerF).sort((a,b)=>(a.tone==='warn'?0:1)-(b.tone==='warn'?0:1));
+  const row=a=>`<button class="fin-action-row ${a.tone}" onclick="switchView('${a.view}',document.getElementById('menu-${a.menu}'))"><span class="fin-action-dot"></span><span><b>${cbEsc(a.title)}</b><small>${cbEsc(a.desc)}</small></span><span class="fin-action-go">›</span></button>`;
+  return `<div class="fin-dashboard-priority"><div class="cb-panel fin-action-panel"><div class="fin-section-head"><span>이번 달 할 일</span><small>${scope} · ${actions.length}개 점검 항목</small></div><div class="fin-action-list">${actions.slice(0,3).map(row).join('')}</div>${actions.length>3?`<details class="fin-more-actions"><summary>추가 점검 ${actions.length-3}개</summary><div class="fin-action-list">${actions.slice(3).map(row).join('')}</div></details>`:''}</div></div>`;
 }
 
 // 모바일에서는 입력 폼을 감추므로(스타일시트 768px 규칙) 왜 안 보이는지 화면에서 알려준다.
@@ -453,7 +442,7 @@ function finNwHover(ev,idx){
   const t=(typeof _cbPerfTipEl==='function')?_cbPerfTipEl():null; if(!t) return;
   const p=series[idx], prev=series[idx-1];
   const delta=prev?p.v-prev.v:null;
-  t.innerHTML=`<div style="font-size:10.5px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
+  t.innerHTML=`<div style="font-size:12px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
     <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">순자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
     ${delta!=null?`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">전일 대비</span><b class="cb-num" style="${cbUpDn(delta)}">${cbSignDisp(delta)}</b></div>`:''}`;
   t.style.display='block';

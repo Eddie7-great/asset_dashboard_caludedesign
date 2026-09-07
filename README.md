@@ -34,7 +34,9 @@
 ## 디자인 시스템
 
 - **3테마**: **라이트(기본)** / 다크 / 네이비 — 사이드바 세그먼트로 전환, 선택 저장
-- **표시 통화**: USD / KRW / JPY 전환 (시안 8페이지에 적용, 기존 뷰는 KRW)
+- **표시 통화**: 자산 합계·손익은 KRW, 종목 평단가·현재가는 원래 거래 통화로 표시
+- **3D 자산 배분**: PC에서는 선택한 조각이 올라오는 입체 도넛, 모바일·WebGL 미지원 환경에서는 SVG 도넛. 두 차트 모두 같은 비중과 범례를 사용하며, 동작 줄이기 설정을 존중합니다.
+- **모바일 보유 목록**: 긴 종목명·평가금액·수익률을 함께 표시하고, 항목을 누르면 수량·단가·평가손익을 펼칩니다.
 - **타이포그래피**: Manrope(디스플레이) · IBM Plex Mono(숫자) · Noto Sans KR(본문)
 - **우하단 시세 위젯**: JPY100/KRW · 금 1g(KRW), 전일 종가 기준
 - **용어 툴팁**: YoC·과세표준·유기정기금 등 점선 밑줄 용어에 마우스오버 설명
@@ -84,6 +86,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `script.js` — 데이터 엔진 + 기존 기능 뷰 (~9,100줄, 모듈 시스템 없음)
 - `finance.js` — 가족 재무상태표·목표·리밸런싱·데이터 상태. `script.js`의 저장 엔진과 `cobalt.js`의 표시 헬퍼를 재사용
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
+- `allocation-3d.js` — 자산 배분 차트의 선택적 WebGL 렌더러. `vendor/`의 Three.js 0.180.0 모듈과 MIT 라이선스를 함께 배포하며, 화면에 필요할 때만 불러옵니다.
 - `style.css` — 디자인 토큰(`:root`=라이트, `[data-theme="dark"]`, `[data-theme="navy"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
 - `api/` — Vercel 서버리스 함수 (가격/배당/환율/검색/KV 프록시/인증)
 - `.github/workflows/` — 자동 배치. `품질 검사`(push·PR), `ETF 구성종목 수집`(평일 KST 18:30, 리포에 커밋), `순자산 스냅샷 기록`(매일 KST 16:40, KV에 직접 기록), `세금·증여 공식 근거 점검`(매일, 알림만)
@@ -91,6 +94,6 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 
 > 스크립트 로드 순서는 `tax-rules.js` → `script.js` → `finance.js` → `cobalt.js` 로 고정입니다.
-> `cobalt.js`가 `CB_VIEWS`에서 `finance.js`의 렌더 함수를 참조하고, 다른 전역 함수들을 감싸기 때문에 마지막에 와야 합니다.
+> `cobalt.js`가 `CB_VIEWS`에서 `finance.js`의 렌더 함수를 참조하고, 다른 전역 함수들을 감싸기 때문에 데이터·페이지 스크립트 중 마지막에 와야 합니다. 선택적 `allocation-3d.js`는 그 뒤에 로드합니다.
 
 자세한 개발 규칙은 `CLAUDE.md`(기계가 읽는 판본)와 `docs/invariants.md`(사람이 읽는 판본)를 참고하세요.
