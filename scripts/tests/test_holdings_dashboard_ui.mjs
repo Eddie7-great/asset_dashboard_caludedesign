@@ -175,7 +175,7 @@ assert.match(indexSource, /id="sidebar-refresh-btn"[^>]*>↻ <span[^>]*>새로�
 assert.match(indexSource, /id="sidebar-layout-btn"[\s\S]*id="sidebar-layout-label"[^>]*>모바일버전<\/span>/, '새로고침 아래 PC·모바일 전환 버튼 배치')
 assert.match(scriptSource, /function toggleLayoutPreview\(\)[\s\S]*openLayoutPreview\(isMobileLayout\(\)\?'desktop':'mobile'\)/, '현재 화면 폭에 맞춰 반대 버전 미리보기 전환')
 assert.match(scriptSource, /mobilePreview[\s\S]*desktopPreview[\s\S]*sidebar-layout-label/, '미리보기 안에서는 전환 버튼 문구를 반대 버전으로 변경')
-assert.match(scriptSource, /초기 대시보드 렌더가 그 해시를 덮어쓰지 않게[\s\S]*requestedView!==normalized/, '모바일 미리보기에서도 현재 페이지 해시를 유지')
+assert.match(scriptSource, /초기 대시보드 렌더가 그 해시를 덮어쓰지 않게[\s\S]*navResolve\(requestedView\):requestedView\)!==normalized/, '기존 별칭을 해석한 뒤 모바일 미리보기의 페이지 해시를 유지')
 assert.match(styleSource, /\.layout-preview-overlay\.mode-mobile \.layout-preview-stage\{width:390px[\s\S]*\.mode-desktop \.layout-preview-stage\{width:1280px/, '미리보기 iframe에 실제 모바일·PC 반응형 폭 적용')
 assert.match(cobaltSource, /aria-label="국가"><\/span>/, '배당 관리 국가 헤더 문구는 숨기고 국기 칸 유지')
 assert.match(cobaltSource, /연간 수입 · \$\{basisLabel\}<\/span><span[^>]*>[\s\S]{0,400}?배당세<\/span><\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역을 연간 수입 → 배당세 → 보유 주수 → 주당 배당 순으로 배치')

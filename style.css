@@ -133,7 +133,7 @@
 .fin-owner-table>div{display:grid;grid-template-columns:minmax(90px,.7fr) minmax(0,1.4fr) auto;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--bd)}
 .fin-owner-table>div:last-child{border-bottom:0}.fin-owner-table span{font-size:12px;font-weight:700;color:var(--mut)}.fin-owner-table span i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}.fin-owner-table small{font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fin-owner-table b{font-size:12px;white-space:nowrap}
 /* 입력란은 트랙 상한(208px)까지만 늘어난다 — 1fr 3열이면 FHD에서 한 칸이 530px가 된다 */
-.fin-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,208px));gap:10px;justify-content:start}
+.fin-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,192px));gap:12px;justify-content:start;align-items:end}
 .fin-form-grid label{display:flex;flex-direction:column;gap:5px;color:var(--lab);font-size:10.5px}
 .fin-form-grid input,.fin-form-grid select,.fin-inline-form input,.fin-target-inputs input{box-sizing:border-box;width:100%;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);padding:8px 9px;font:500 12px 'Noto Sans KR',sans-serif;outline:none}
 .fin-form-grid input:focus,.fin-form-grid select:focus,.fin-inline-form input:focus,.fin-target-inputs input:focus{border-color:var(--acc)}

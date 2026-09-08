@@ -29,9 +29,8 @@ function extractFunction(source, name) {
 
 // ── 라우팅 배선 (index.html + cobalt.js) ─────────────────────────────
 assert.match(indexSource, /<div id="view-snap" class="view-section"><div class="cb-scroll" id="cb-snap"><\/div><\/div>/, '한눈에 보기 뷰 컨테이너')
-assert.match(indexSource, /<button class="menu-btn" id="menu-snap" onclick="switchView\('snap',this\)"/, '요약 그룹 사이드바 버튼')
-const summaryGroup = indexSource.slice(indexSource.indexOf('id="menu-items-summary"'), indexSource.indexOf('data-menu-group="analysis"'))
-assert.ok(summaryGroup.includes('id="menu-snap"'), '한눈에 보기는 요약 메뉴 그룹에 있어야 한다')
+assert.doesNotMatch(indexSource, /id="menu-snap"/, '한눈에 보기의 요약은 홈으로 통합')
+assert.match(indexSource, /id="menu-dashboard"[^\n]*>홈<\/button>/, '홈 진입점 유지')
 assert.match(cobaltSource, /CB_VIEWS\s*=\s*\{[^}]*snap:cbRenderSnap/, 'CB_VIEWS 등록')
 assert.match(cobaltSource, /CB_TITLES\s*=\s*\{[^}]*snap:'한눈에 보기'/, 'CB_TITLES 등록')
 

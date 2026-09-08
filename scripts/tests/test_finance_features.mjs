@@ -35,10 +35,9 @@ function extractFunction(source, name) {
   throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-assert.match(indexSource, /data-menu-group="summary"[\s\S]*data-menu-group="analysis"[\s\S]*data-menu-group="planning"[\s\S]*data-menu-group="records"/, '사이드바를 요약·분석·계획·기록 관리로 묶음')
-assert.match(indexSource, /menu-fam2[\s\S]*구성원별 보유/, '가족 자산 화면 이름을 역할이 드러나는 구성원별 보유로 변경')
-assert.match(indexSource, /data-menu-group="records"[\s\S]*menu-tax2/, '양도소득세는 실현손익 기록 화면이므로 기록·관리 그룹에 배치')
-assert.doesNotMatch(indexSource, /data-menu-group="planning"[\s\S]{0,600}menu-tax2/, '양도소득세를 계획 그룹에서 제거')
+assert.equal((indexSource.match(/class="menu-btn\b/g)||[]).length,8,'상위 메뉴는 8개로 통합')
+assert.match(indexSource, /menu-holdings[\s\S]*자산 관리/, '자산 관리 메뉴')
+assert.match(indexSource, /menu-tax2[\s\S]*세금·증여/, '세금·증여 통합 메뉴')
 assert.match(indexSource, /class="footer-status-btn" onclick="switchView\('data2'/, '데이터 상태는 메뉴 대신 사이드바 푸터 상태 줄에서 연다')
 assert.match(indexSource, /view-balance2[\s\S]*view-plan2[\s\S]*view-data2/, '재무상태표·목표 리밸런싱·데이터 상태 화면 추가')
 assert.match(indexSource, /script\.js\?v=\d+[\s\S]*finance\.js\?v=\d+[\s\S]*cobalt\.js\?v=\d+/, '데이터 엔진 다음에 재무 기능을 로드하고 cobalt 라우터와 연결')
@@ -163,8 +162,14 @@ context.cbRenderPlan()
 context.cbRenderDataStatus()
 assert.match(elements['cb-balance2'].innerHTML, /순자산[\s\S]*순자산 추이[\s\S]*순자산 변화 분석[\s\S]*현금 안전판/, '재무상태표 빈 상태 렌더')
 assert.match(elements['cb-balance2'].innerHTML, /fin-mobile-note/, '모바일 조회 전용 안내 노출')
-assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*목표 비중과 리밸런싱[\s\S]*계좌 배치 진단/, '목표·리밸런싱 빈 상태 렌더')
-assert.match(elements['cb-plan2'].innerHTML, /연금 과세이연 계좌로 옮긴 단순 가정상 연 최대/, '일반계좌 배당의 과세이연 여력을 금액으로 제시')
+assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*새 목표 추가/, '목표 탭 렌더')
+assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 비중과 리밸런싱/, '목표 탭은 리밸런싱과 분리')
+elements['view-rebal2']={classList:{contains:()=>true}}
+elements['cb-rebal2']={innerHTML:''}
+context.cbRenderPlan()
+assert.match(elements['cb-rebal2'].innerHTML, /목표 비중과 리밸런싱[\s\S]*계좌 배치 진단/, '리밸런싱 탭 렌더')
+assert.doesNotMatch(elements['cb-rebal2'].innerHTML, /fin-goal-form/, '리밸런싱 탭에 목표 입력란을 중복 생성하지 않음')
+assert.match(elements['cb-rebal2'].innerHTML, /연금 과세이연 계좌로 옮긴 단순 가정상 연 최대/, '일반계좌 배당의 과세이연 여력을 금액으로 제시')
 assert.match(elements['cb-data2'].innerHTML, /데이터 신뢰 점검[\s\S]*성과 벤치마크/, '데이터 상태 렌더')
 assert.match(elements['cb-data2'].innerHTML, /manualRefresh\('assets'\)[\s\S]*manualRefresh\('benchmark'\)/, '데이터 상태 카드가 해당 소스만 다시 확인')
 
