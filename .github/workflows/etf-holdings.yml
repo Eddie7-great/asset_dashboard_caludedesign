@@ -16,6 +16,7 @@ on:
       - 'uv.lock'
   schedule:
     - cron: '30 9 * * 1-5'      # UTC 09:30 = KST 18:30, 평일
+    - cron: '30 22 * * 1-5'     # 미국 장 마감 이후 한 번 더 확인 (KST 다음 날 07:30)
   workflow_dispatch:
 
 permissions:

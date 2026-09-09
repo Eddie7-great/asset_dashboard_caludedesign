@@ -510,14 +510,14 @@ function cbRenderBalanceSheet(){
       <div class="cb-panel fin-section"><div class="fin-section-head"><span>소유주별 순자산</span><small>투자자산 + 기타 자산 − 부채</small></div><div class="fin-owner-table">${ownerBreak.map(x=>`<div><span><i style="background:${cbOwnerColor(x.owner)}"></i>${cbEsc(x.owner)}</span><small>투자 ${cbDisp(x.inv)} · 기타 ${cbDisp(x.oa)} · 부채 ${cbDisp(x.li)}</small><b>${cbDisp(x.net)}</b></div>`).join('')||'<div class="fin-empty">표시할 자산이 없습니다.</div>'}</div></div>
     </div>
     ${finMobileNote('재무상태표 항목')}
-    <div class="cb-panel fin-section" id="fin-bs-form"><div class="fin-section-head"><span>${old?'재무상태표 항목 수정':'재무상태표 항목 추가'}</span><small>투자자산은 자산 내역에서 관리합니다.</small></div><div class="fin-form-grid">
+    <details class="fin-editor-details" ${old?'open':''}><summary>재무상태표 항목 추가·편집</summary><div class="cb-panel fin-section" id="fin-bs-form"><div class="fin-section-head"><span>${old?'재무상태표 항목 수정':'재무상태표 항목 추가'}</span><small>투자자산은 자산 내역에서 관리합니다.</small></div><div class="fin-form-grid">
       <label>구분<select id="fin-bs-kind" onchange="finBalanceKindChange()" ${old?'disabled':''}><option value="asset" ${kind==='asset'?'selected':''}>기타 자산</option><option value="liability" ${kind==='liability'?'selected':''}>부채</option></select></label>
       <label>소유주<select id="fin-bs-owner">${OWNERS.map(o=>`<option ${(old?old.owner===o:ownerF===o)?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
       <label>분류<select id="fin-bs-category">${cats.map(c=>`<option ${old?.category===c?'selected':''}>${cbEsc(c)}</option>`).join('')}</select></label>
       <label>항목명<input id="fin-bs-name" value="${cbEsc(old?.name||'')}" placeholder="예: 거주 아파트"></label>
       <label>금액(원)<input id="fin-bs-amount" type="number" min="0" step="10000" value="${Number.isFinite(Number(old?.amount))?Number(old.amount):''}" placeholder="0"></label>
       <label>메모<input id="fin-bs-note" value="${cbEsc(old?.note||'')}" placeholder="선택 입력"></label>
-    </div><div class="fin-form-actions"><button class="primary" onclick="finBalanceSubmit()">${old?'수정 저장':'항목 추가'}</button>${old?'<button onclick="finBalanceCancel()">취소</button>':''}</div></div>`;
+    </div><div class="fin-form-actions"><button class="primary" onclick="finBalanceSubmit()">${old?'수정 저장':'항목 추가'}</button>${old?'<button onclick="finBalanceCancel()">취소</button>':''}</div></div></details>`;
 }
 
 function finGoalCurrent(g){

@@ -1,7 +1,7 @@
 // Menu families use existing view IDs so saved links and browser history stay valid.
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
-  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['fam2','구성원 비교'],['bubble','비중 분석']]},
+  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['etf2','ETF 탐색'],['fam2','구성원 비교'],['bubble','비중 분석']]},
   {menu:'balance2',title:'재무상태표',views:[['balance2','재무상태표']]},
   {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
@@ -12,6 +12,7 @@ const APP_NAV = [
 function navResolve(id){ return id==='snap'||id==='dashboard'?'cdash':id; }
 function navGroup(id){ return APP_NAV.find(g=>g.views.some(v=>v[0]===navResolve(id))); }
 function navOwner(id){
+  if(id==='etf2')return _etfOwner;
   if(id==='holdings'||id==='bubble')return currentOwner||'전체';
   if(id==='fam2')return _famKey==='all'?'전체':_famKey;
   if(id==='cdash')return _cdashOwner;
@@ -28,6 +29,7 @@ function navPrepare(id){
     const owner=navOwner(previous); if(!owner)return;
     if(id==='holdings'||id==='bubble')currentOwner=owner;
     if(id==='fam2')_famKey=owner==='전체'?'all':owner;
+    if(id==='etf2')_etfOwner=owner;
     if(id==='plan2'||id==='rebal2')_finPlanOwner=owner;
     if(id==='dca2')_cbDcaOwner=owner;
     if(id==='sim2')_simOwner=owner;

@@ -172,7 +172,7 @@ assert.match(cobaltSource, /const label=\[ownerF\?'':x\.i\.owner, x\.title\|\|'�
 assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*산출 \$\{gList\.length\}\/\$\{list\.length\} · 원본 \$\{rawHistoryList\.length\}\/\$\{list\.length\}/, '배당성장률 산출 수와 원본 이력 확보 수를 분리해 표시')
 assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 3[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
 assert.match(priceApiSource, /const symbols = krMatch[\s\S]*`\$\{krMatch\[1\]\}\.KS`,`\$\{krMatch\[1\]\}\.KQ`[\s\S]*for \(const sym of symbols\)/, '국내 배당 이력은 코스피 조회 실패 시 코스닥 심볼로 재조회')
-assert.match(cobaltSource, /cbTaxChartSvg\(1240,440,list\)/, '양도소득세 중앙 차트의 가로 viewBox 확대')
+assert.match(cobaltSource, /cbTaxChartSvg\(1240,320,list\)/, '양도소득세 차트의 가로 축을 유지하며 세로 여백 압축')
 assert.match(cobaltSource, /const padL=64, padR=78, padT=14, padB=22/, '양도소득세 차트 12월 우측의 불필요한 내부 여백 축소')
 const divGrowthContext = {
   window: {
