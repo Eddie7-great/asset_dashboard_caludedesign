@@ -6,7 +6,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 99.73,
-   "fetchedAt": "2026-09-09T12:54:12.249273+00:00",
+   "fetchedAt": "2026-09-09T13:50:19.953362+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -185,7 +185,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 50.62,
-   "fetchedAt": "2026-09-09T12:54:42.663836+00:00",
+   "fetchedAt": "2026-09-09T13:50:50.985122+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -244,7 +244,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 99.79,
-   "fetchedAt": "2026-09-09T12:54:12.874851+00:00",
+   "fetchedAt": "2026-09-09T13:50:20.413634+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -1463,7 +1463,7 @@
    "asOf": null,
    "coverage": "partial",
    "equityWeight": 87.91,
-   "fetchedAt": "2026-09-09T12:55:50.258257+00:00",
+   "fetchedAt": "2026-09-09T13:52:00.754977+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -6615,7 +6615,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 99.88,
-   "fetchedAt": "2026-09-09T12:55:51.068326+00:00",
+   "fetchedAt": "2026-09-09T13:52:01.598769+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -9549,7 +9549,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 91.29,
-   "fetchedAt": "2026-09-09T12:54:46.339878+00:00",
+   "fetchedAt": "2026-09-09T13:50:55.567858+00:00",
    "history": [
     {
      "asOf": "2026-09-09",
@@ -10161,7 +10161,7 @@
    "asOf": "2026-09-09",
    "coverage": "full",
    "equityWeight": 94.73,
-   "fetchedAt": "2026-09-09T12:54:49.722765+00:00",
+   "fetchedAt": "2026-09-09T13:50:59.728512+00:00",
    "history": [
     {
      "asOf": "2026-09-09",
@@ -10813,7 +10813,7 @@
    "asOf": null,
    "coverage": "partial",
    "equityWeight": 40.74,
-   "fetchedAt": "2026-09-09T12:55:51.126825+00:00",
+   "fetchedAt": "2026-09-09T13:52:01.681507+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -10865,7 +10865,7 @@
    "asOf": null,
    "coverage": "partial",
    "equityWeight": 25.72,
-   "fetchedAt": "2026-09-09T12:55:50.314853+00:00",
+   "fetchedAt": "2026-09-09T13:52:00.823682+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
@@ -10957,7 +10957,7 @@
    "asOf": "2026-09-08",
    "coverage": "full",
    "equityWeight": 99.88,
-   "fetchedAt": "2026-09-09T12:55:50.024120+00:00",
+   "fetchedAt": "2026-09-09T13:52:00.397950+00:00",
    "history": [
     {
      "asOf": "2026-09-08",
