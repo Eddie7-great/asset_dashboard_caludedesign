@@ -49,8 +49,10 @@ for (const name of ['_cfEsc', 'holdingsEsc', 'cbEsc']) {
 
 // Cobalt 대시보드 키는 JS 문자열에 삽입하지 않고 data 속성에서 읽는다.
 assert.doesNotMatch(cobaltSource, /cbDashPick\(\s*['"`]\s*\$\{/, '대시보드 키를 동적 인라인 JS 문자열에 삽입하지 않음')
-assert.match(cobaltSource, /data-dash-key="\$\{cbEsc\(r\.key\)\}"/, '대시보드 키는 이스케이프된 data 속성에 보관')
-assert.match(cobaltSource, /cbDashPick\(this\.dataset\.dashKey\)/, '대시보드 클릭은 DOM dataset을 통해 전달')
+assert.doesNotMatch(extractFunction(cobaltSource,'cbRenderDash'), /data-dash-key|cbDashPick/, '홈에서 제거한 상세 표는 동적 키를 렌더하지 않음')
+const dcaSource=fs.readFileSync(new URL('../../dca-editor.js',import.meta.url),'utf8')
+assert.match(dcaSource, /cbEsc\(\[x\.i\.owner,x\.i\.name\|\|x\.i\.tkr,x\.i\.broker,x\.i\.acc\]/, '새 규칙 선택기의 원격 자산명·계좌는 이스케이프')
+assert.match(dcaSource, /cbEsc\(item\.name\|\|item\.tkr\)/, '규칙 편집 제목의 종목명은 이스케이프')
 
 // 재무 목표 ID도 동일하게 data 속성을 사용해 따옴표 탈출 경로를 차단한다.
 assert.doesNotMatch(financeSource, /finGoal(?:Edit|Delete)\(\s*['"`]\s*\$\{/, '재무 목표 ID를 동적 인라인 JS 문자열에 삽입하지 않음')

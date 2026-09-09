@@ -1920,14 +1920,14 @@ function _viewMenuButton(id){
 }
 function _recordViewHistory(id){
   if(_viewHistoryRestoring||!id) return;
-  const normalized=id==='dashboard'?'cdash':id;
+  const normalized=typeof navResolve==='function'?navResolve(id):(id==='dashboard'?'cdash':id);
   if(window.history.state?.assetView===normalized) return;
   // 새 문서가 #view=... 딥링크(PC/모바일 미리보기 포함)로 열렸다면
   // 초기 대시보드 렌더가 그 해시를 덮어쓰지 않게 두고 load 복원 단계에서 적용한다.
   const requested=String(location.hash||'').match(/^#view=(.+)$/);
   if(!window.history.state?.assetView&&requested){
     const requestedView=decodeURIComponent(requested[1]);
-    if(requestedView!==normalized&&document.getElementById('view-'+requestedView)) return;
+    if((typeof navResolve==='function'?navResolve(requestedView):requestedView)!==normalized&&document.getElementById('view-'+requestedView)) return;
   }
   const url='#view='+encodeURIComponent(normalized);
   const state={...(window.history.state||{}),assetView:normalized};
@@ -3372,6 +3372,7 @@ function renderPortfolio(owner) {
     html+=`<div class="pt-group"><div class="pt-group-header f-between" role="button" tabindex="0" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const f=this.querySelector('.holdings-broker-filter-inline');if(f)f.style.display=isHidden?'inline-flex':'none';const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span>${inlineBrokerFilter}</div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpProfitText}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
   });
   document.getElementById('portfolio-tables').innerHTML=html;
+  if(typeof cbAssetMobile==='function'&&isMobileLayout())cbAssetMobile();
 }
 
 
@@ -5545,7 +5546,7 @@ function setBubbleOwnerX(owner, btn) {
   try { if (typeof changeOwner === 'function' && currentOwner !== owner) { changeOwner(owner, null, true); } } catch(e){}
   // 타이틀 즉시 업데이트 (소유주별 포트폴리오 비중 차트)
   const mt = document.getElementById('main-title');
-  if (mt) mt.textContent = (owner === '전체') ? '전체 소유주의 포트폴리오 비중 차트' : `${owner}의 포트폴리오 비중 차트`;
+  if (mt) mt.textContent = '자산 관리';
   renderBubbleChart('weight');
 }
 

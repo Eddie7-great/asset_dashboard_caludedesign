@@ -249,7 +249,7 @@ assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
 assert.match(cobaltSource, /시장<\/span><span style="width:64px">계좌<\/span><span style="width:82px;text-align:center"><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head"[^>]*>메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
-assert.match(cobaltSource, /cb-dash-table-toolbar[\s\S]*cb-dash-head[\s\S]*cb-dash-detail/, '대시보드 표 검색줄·칼럼·상세 패널에 고정용 클래스 적용')
+assert.doesNotMatch(extractFunction(cobaltSource,'cbRenderDash'), /cb-dash-table-toolbar|cb-dash-detail/, '긴 보유 표는 홈에서 제거하고 자산 관리로 통합')
 assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-dash-table-panel \.cb-dash-head\{top:45px[\s\S]*\.cb-dash-detail\{top:0!important\}/, '대시보드 제목·검색줄과 칼럼 및 우측 상세를 스크롤 중 고정')
 assert.match(styleSource, /#cb-perf2\{display:flex;flex-direction:column;padding-bottom:12px\}[\s\S]*\.cb-perf-detail-panel\{display:flex;flex:1 0 270px/, '성과 비교 하단 위젯이 남은 세로 공간을 채움')
 assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')
@@ -409,7 +409,7 @@ assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
 assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
-assert.match(cobaltSource, /포트폴리오 비중[\s\S]*min-width:640px[\s\S]*>비중<\/span>[\s\S]*r\.val\/nw\*100/, '대시보드 내역과 상세에 포트폴리오 비중 추가')
+assert.match(cobaltSource, /cbHomeTrend\(ownerF\)[\s\S]*switchView\('holdings'\)/, '홈의 추이와 자산 관리 이동 연결')
 assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:4\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '기존 8개와 신규 8개 리스크 카드를 같은 행 흐름으로 교차 배치')
 assert.match(styleSource, /\.cb-risk-card-grid\{min-width:0;display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '리스크 통합 위젯 데스크톱 4열 배치')
 assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-card-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, '리스크 통합 위젯 중간 화면 2열 배치')
@@ -419,7 +419,7 @@ assert.match(styleSource, /\.cb-div-tip-owner\{[^}]*var\(--tiptx\)/, '라이트 
 assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-dash-table-panel \.cb-dash-head,[\s\S]*\.cb-div-history-panel \.cb-div-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산·배당 관리 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
 
 // ── PC 입력란 폭 상한 · 페이지 컴팩트화 ───────────────────────────
-assert.match(styleSource, /\.fin-form-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(148px,208px\)\);gap:10px;justify-content:start\}/, '재무상태표·목표 폼 입력란 폭 상한(208px)')
+assert.match(styleSource, /\.fin-form-grid\{[^}]*minmax\(148px,192px\)[^}]*align-items:end/, '목표·재무 입력란 폭 상한과 하단 정렬')
 assert.match(styleSource, /\.cf-fixed-form\{[^}]*minmax\(160px,300px\)[^}]*justify-content:start\}/, '고정비 항목 입력란이 남은 폭을 전부 흡수하지 않게 상한')
 assert.match(styleSource, /#cf-input-panel \.form-row\{max-width:1020px\}/, '현금 흐름 수입·지출 입력 줄 폭 상한')
 assert.match(styleSource, /#cb-tax-pl\{max-width:170px\}/, '실현손익 입력란 폭 상한')
