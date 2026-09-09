@@ -6,6 +6,7 @@ GitHub Actions 배치에서만 돌아간다.
 """
 
 import json
+import math
 import re
 import sys
 import urllib.parse
@@ -59,9 +60,10 @@ US_ISIN_RE = re.compile(r'^US[0-9A-Z]{9}\d$')
 
 # 주식이 아닌 구성 자산 — 종목명으로 걸러낸다
 NON_EQUITY_NAME_RE = re.compile(
-    r'(원화\s*예금|설정\s*현금|예치금|현금성|KRW|USD\s*CASH|'
-    r'선물|futures?|스왑|swap|옵션|option|'
-    r'국고채|통안채|회사채|국채|BOND|T-?BILL|T-?NOTE|REPO|CD\d)', re.I)
+    r'(원화\s*예금|설정\s*현금|예치금|현금성|^현금$|^KRW$|\bCASH\b|'
+    r'선물|\bFUT(?:URES?)?\b|\bE[ -]?MINI\b|스왑|\bSWAP\b|옵션|\bOPTION\b|'
+    r'MONEY\s*MARKET|GOVERNMENT\s*OBLIG|TREASURY|머니마켓|단기금융|'
+    r'국고채|통안채|회사채|국채|\bBONDS?\b|T-?BILL|T-?NOTE|\bREPO\b|CD\d)', re.I)
 
 
 def is_kr_code(t):
@@ -77,13 +79,16 @@ def norm_holding_code(code_s):
     if not code_s:
         return None
     code_s = str(code_s).strip().upper()
+    code_s = re.sub(r'\.(KS|KQ)$', '', code_s)
+    if code_s in ('BRKB', 'BRK/B'):
+        return 'BRK.B'
     if is_kr_code(code_s):
         return code_s
     m = KR_ISIN_RE.match(code_s)           # KR7005930003 → 005930
     if m:
         return m.group(1)
     if US_ISIN_RE.match(code_s):           # US67066G1040 → NVDA (미등재 ISIN은 원문 유지)
-        return ISIN_TICKER.get(code_s, code_s)
+        return norm_holding_code(ISIN_TICKER[code_s]) if code_s in ISIN_TICKER else code_s
     if code_s.startswith('KR'):            # KRD010010001(원화현금)·채권 ISIN 등 비종목
         return None
     base = re.sub(r'\.(O|OQ|N|K|A)$', '', code_s)   # 로이터형 접미사 제거
@@ -102,7 +107,7 @@ def is_equity_row(code_s, name):
 def _to_float(v):
     try:
         f = float(str(v).replace(',', '').replace('%', '').strip())
-        return f if f == f else None      # NaN 방지
+        return f if math.isfinite(f) else None
     except Exception:
         return None
 
@@ -120,7 +125,7 @@ def merge_holdings(rows):
     """
     agg = {}
     for tkr, name, w in rows:
-        if not tkr or w is None or w <= 0:
+        if not tkr or w is None or not math.isfinite(w) or w <= 0:
             continue
         cur = agg.get(tkr)
         if cur:
@@ -177,6 +182,13 @@ def parse_krx_pdf(output):
         return None
 
     has_rto = any((row_ratio(r) or 0) > 0 for r in rows)
+    # KRX can return quantities but '-' for every foreign equity valuation.
+    # Accepting the priced domestic/futures subset silently understates exposure.
+    # A zero is disclosed data; a missing weight/amount is an incomplete response.
+    equity_rows = [r for r in rows if is_equity_row(
+        r.get('COMPST_ISU_CD') or r.get('COMPST_ISU_CD2'), r.get('COMPST_ISU_NM'))]
+    if any((row_ratio(r) if has_rto else row_amount(r)) is None for r in equity_rows):
+        return [], 0.0
     total_amt = 0.0
     if not has_rto:
         for r in rows:
@@ -186,7 +198,7 @@ def parse_krx_pdf(output):
 
     picked = []
     for r in rows:
-        code = str(r.get('COMPST_ISU_CD') or '').strip().upper()
+        code = str(r.get('COMPST_ISU_CD') or r.get('COMPST_ISU_CD2') or '').strip().upper()
         name = str(r.get('COMPST_ISU_NM') or '').strip()
         if not is_equity_row(code, name):
             continue
@@ -281,11 +293,13 @@ def fetch_yfinance(sym):
             if w is None or w <= 0:
                 continue
             nm = row.get('Name') if hasattr(row, 'get') else None
-            raw.append((str(s).strip().upper(), str(nm) if nm else str(s), w))
+            tk = norm_holding_code(s)
+            if tk and is_equity_row(tk, nm):
+                raw.append((tk, str(nm) if nm else str(s), w))
         if not raw:
             return []
-        scale = 100 if max(r[2] for r in raw) <= 1.5 else 1
-        return merge_holdings([(t, n, w * scale) for t, n, w in raw])
+        # yfinance Holding Percent is a fraction, including leveraged weights > 1.
+        return merge_holdings([(t, n, w * 100) for t, n, w in raw])
     except Exception:
         return []
 

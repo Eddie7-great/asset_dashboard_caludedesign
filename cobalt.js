@@ -50,8 +50,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { cdash:cbRenderDash, snap:cbRenderSnap, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
-const CB_TITLES = { cdash:'대시보드', snap:'한눈에 보기', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태' };
+const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, snap:cbRenderSnap, perf2:cbRenderPerf, fam2:cbRenderFam, balance2:cbRenderBalanceSheet, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
+const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', snap:'한눈에 보기', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 규칙은 투자 계획에서도 수정할 수 있습니다',
@@ -60,7 +60,7 @@ const CB_LEGACY_SUB = {
 };
 
 // ───────────────────────── 헬퍼 ─────────────────────────
-function cbStrip(t){ return String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,''); }
+function cbStrip(t){ return String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,'').replace(/^BRK[\/.-]?B$/,'BRK.B'); }
 function cbCls(i){
   if (i.grp === '가상화폐') return 'crypto';
   if (i.grp === '금') return 'gold';
@@ -406,16 +406,20 @@ let _cbEtfLoading = false;
 
 function cbEtfDoc(){ return window._etfHoldings || null; }
 
-async function cbEnsureEtfHoldings(){
-  if (_cbEtfLoading || window._etfHoldings !== undefined) return;
+async function cbEnsureEtfHoldings(force=false){
+  if (_cbEtfLoading || (!force && window._etfHoldings !== undefined)) return;
   _cbEtfLoading = true;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
   try{
     // 페이지를 다시 열 때 서버에 최신 여부만 조건부 확인한다.
     // 브라우저 캐시가 최신이면 ETag/Last-Modified 재검증 후 기존 본문을 재사용한다.
-    const r = await fetch('data/etf_holdings.json', { cache:'no-cache' });
-    window._etfHoldings = r.ok ? await r.json() : null;
-  }catch(e){ window._etfHoldings = null; }
-  finally{ _cbEtfLoading = false; }
+    const r = await fetch('data/etf_holdings.json', { cache:'no-cache',signal:controller.signal });
+    if(!r.ok)throw new Error('ETF '+r.status);
+    const doc=await r.json();
+    if(!doc||!doc.etfs||typeof doc.etfs!=='object'||Array.isArray(doc.etfs))throw new Error('ETF schema');
+    window._etfHoldings=doc;window._etfLoadError=false;
+  }catch(e){ if(!window._etfHoldings)window._etfHoldings=null;window._etfLoadError=true; }
+  finally{ clearTimeout(timer);_cbEtfLoading = false; }
   cbRerender();
 }
 
@@ -424,6 +428,7 @@ function cbIsEtf(i){
   const market = String(i.market || i.marketType || i.type || '').toUpperCase();
   if (market === 'ETF' || market.endsWith(' ETF')) return true;
   const code = cbStrip(i.tkr);
+  if(window._etfHoldings?.etfs?.[code])return true;
   const db = window._krStocksDB;
   const meta = db && db.byCode && typeof db.byCode.get==='function' ? db.byCode.get(code) : null;
   if (meta && String(meta.market || '').toUpperCase()==='ETF') return true;
@@ -482,13 +487,14 @@ function cbLookThrough(ownerFilter){
     d.owners.add(r.i.owner||'미지정');
     direct.set(s, d);
   });
-  let etfCount = 0; const etfMiss = [];
+  let etfCount = 0; const etfMiss = [], etfUncertain=[];
   rows.forEach(r=>{
     if (!cbIsEtf(r.i)) return;
     etfCount++;
     const strip = cbStrip(r.i.tkr);
     const ent = doc && doc.etfs ? doc.etfs[strip] : null;
-    const collected = (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    const collected = typeof etfStockRows==='function' ? etfStockRows(ent) : (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    if(ent&&typeof etfQuality==='function'&&!etfQuality(ent).reliable&&!etfUncertain.includes(r.title))etfUncertain.push(r.title);
     const holdings = (collected && collected.length) ? collected : cbSyntheticEtfHoldings(r.i);
     // 수집 데이터가 없는 ETF는 간접 보유분 없이 넘어가고 각주에 이름만 남긴다
     if (!holdings || !holdings.length){
@@ -501,7 +507,7 @@ function cbLookThrough(ownerFilter){
       if (!directByOwner.has(ownerKey)) return; // 같은 소유주의 직접 보유가 없으면 계산 제외
       const d = direct.get(ticker);
       if (!d) return;
-      const w = Number(h.w)||0;
+      const w = Number(h.w)||0;if(!Number.isFinite(w))return;
       const add = r.val * w / 100;
       if (add<=0) return;
       d.via += add;
@@ -511,7 +517,7 @@ function cbLookThrough(ownerFilter){
   const list = Array.from(direct.values())
     .map(d=>({ ...d, tot:d.val+d.via, pct:(d.val+d.via)/nw*100, dPct:d.val/nw*100, vPct:d.via/nw*100 }))
     .sort((a,b)=>b.tot-a.tot);
-  return { list, nw, etfCount, etfMiss, loaded: !!doc };
+  return { list, nw, etfCount, etfMiss, etfUncertain, loaded: !!doc };
 }
 
 // 리스크 규칙 진단 (시안 로직 이식)
@@ -523,7 +529,8 @@ function cbRisk(ownerFilter){
   const pctOf = v => v/nw*100;
   // 단일 종목 집중도 역시 개별 회사만 대상으로 하며 ETF 자체·가상화폐·금은 제외한다.
   // ETF 간접 보유분은 cbLookThrough에서 같은 소유주의 직접 보유 회사와 겹치는 부분만 합산된다.
-  const top = cbLookThrough(ownerFilter).list[0];
+  const look=cbLookThrough(ownerFilter),top = look.list[0];
+  const provisional=look.etfCount>0&&(!look.loaded||look.etfMiss.length>0||(look.etfUncertain||[]).length>0);
   const topPct = top ? top.pct : 0;
   const cryptoPct = pctOf(byCls.crypto||0), cashPct = pctOf(byCls.cash||0);
   const fxPct = pctOf(rows.filter(r=>r.i.cur && r.i.cur!=='KRW').reduce((s,r)=>s+r.val,0));
@@ -583,8 +590,10 @@ function cbRisk(ownerFilter){
           ]),
   ];
   cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 투자자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
+  const company=cards.find(c=>c.title.includes('단일 종목'));
+  if(provisional&&company){company.msg='일부 ETF 구성비가 미확인·지연 상태입니다. 확인된 직접·간접 노출만 반영한 잠정 수치입니다.';if(company.lvl===0)company.status='확인 필요';}
   const score = Math.max(0, Math.min(100, 100 - cards.reduce((s,c)=>s+c.lvl*10,0)));
-  return { score, grade: score>=75?'안정적':score>=50?'주의 필요':'고위험',
+  return { score, provisional, grade: provisional?'자료 확인 필요':score>=75?'안정적':score>=50?'주의 필요':'고위험',
     color: score>=75?upC:score>=50?wnC:dnC,
     warns: cards.filter(c=>c.lvl>0).length,
     vol, cryptoPct, fxPct, cashPct, leveragedInversePct,
@@ -606,7 +615,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
   const look=cbLookThrough(ownerFilter);
   const overlapVal=look.list.reduce((s,x)=>s+(Number(x.via)||0),0);
   const overlapPct=overlapVal/nw*100;
-  const overlapUnknown=look.etfCount>0 && (!look.loaded || (look.etfMiss||[]).length>0);
+  const overlapUnknown=look.etfCount>0 && (!look.loaded || (look.etfMiss||[]).length>0 || (look.etfUncertain||[]).length>0);
   const overlapPending=overlapUnknown && window._etfHoldings===undefined;
 
   // HHI 역수: 동일 소유주·종목의 여러 계좌를 합친 뒤 실제 비중으로 환산한다.
@@ -912,7 +921,7 @@ function cbRenderDash(){
   });
 
   // 투자자산과 전체 순자산을 구분한다. 전체 순자산은 가족 재무상태표에서 확인한다.
-  cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 가족 재무상태표에서 분리해 관리합니다.">전일 종가 기준</span>`);
+  cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 가족 재무상태표에서 분리해 관리합니다.">전일 종가 기준</span>`,cbOwnerBtns(_cdashOwner,'cbDashOwner'));
 
   // 요약 배지 — 라벨(작은 글씨)이 옆 원화 금액의 세로 중앙에 오도록 inline-flex 정렬
   const badge=(lab,val,valStyle,bg,click)=>`<span ${click?`onclick="${click}" role="button" tabindex="0" `:''}style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:16px;background:${bg};${click?'cursor:pointer':''}">
@@ -930,7 +939,7 @@ function cbRenderDash(){
         ${badge('연 배당', cbDisp(divAnnual), 'color:var(--tx)', 'var(--accSoft)')}
         ${badge('리스크', risk.score+'점 · '+risk.grade, 'color:var(--tx)', 'var(--accSoft)', "switchView('risk2',document.getElementById('menu-risk2'))")}
       </div>
-      <div style="margin-left:auto">${cbOwnerBtns(_cdashOwner,'cbDashOwner')}</div>
+
     </div>
 
     ${cbHomeTotals(ownerF)}
@@ -972,14 +981,17 @@ function cbRenderDash(){
         }).join('') || '<div style="font-size:12px;color:var(--dim)">주식·가상화폐 자산이 없습니다</div>'}
         <div class="cb-dash-sector-note">${sectorNote}</div>
       </div>
+
+      ${contributionCard}
+    </div>
+
+    <div class="home-lower-grid">
       <div class="cb-dash-movers-grid">
         ${moverCard('수익률 TOP 5', topGainers, 'var(--up)', '수익 종목이 없습니다')}
         ${moverCard('손실률 TOP 5', topLosers, 'var(--dn)', '손실 종목이 없습니다')}
       </div>
-      ${contributionCard}
-    </div>
-
     ${cbHomeTrend(ownerF)}
+    </div>
     <div class="home-shortcuts">
       <button onclick="switchView('holdings')"><span>자산 관리</span><b>보유 목록 확인 <span aria-hidden="true">↗</span></b></button>
       <button onclick="switchView('sim2')"><span>투자 계획</span><b>다음 투자금 미리 배분하기 <span aria-hidden="true">↗</span></b></button>
@@ -1545,6 +1557,7 @@ function cbLookThroughPanel(ownerFilter){
   // lt.etfMiss 는 이미 소유주 필터가 적용된 '보유 중인데 데이터가 없는' ETF 목록이고,
   // 수집기의 failures 에 오른 ETF 는 JSON 에 항목이 없으므로 그대로 여기에 잡힌다.
   const notes = lt.etfMiss.length ? ['구성종목 미조회 ETF: ' + lt.etfMiss.map(cbEsc).join(', ')] : [];
+  if(lt.etfUncertain?.length)notes.push('일부·지연 자료 포함: '+lt.etfUncertain.map(cbEsc).join(', ')+' · 표시 노출은 확인된 자료만 반영');
 
   return `
     <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
@@ -1583,7 +1596,7 @@ function cbRenderRisk(){
           </div>
         </div>
         <div style="font-size:14.5px;font-weight:800;margin-top:10px;color:${r.color}">${r.grade}</div>
-        <div style="font-size:12px;color:var(--mut);text-align:center;line-height:1.6;margin-top:6px">${r.warns===0?'모든 점검 항목이 양호합니다.':r.warns+'개 항목에서 주의·경고가 발견되었습니다.'}</div>
+        <div style="font-size:12px;color:var(--mut);text-align:center;line-height:1.6;margin-top:6px">${r.provisional?'ETF 구성 자료 확인 전 잠정 점수입니다.':r.warns===0?'모든 점검 항목이 양호합니다.':r.warns+'개 항목에서 주의·경고가 발견되었습니다.'}</div>
         <div style="width:100%;margin-top:auto;padding-top:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;align-self:stretch">
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="자산군별 역사적 변동성의 보유비중 가중평균. 1년간 수익률이 오르내리는 폭의 추정치입니다.">추정 연 변동성</span></span><span style="font-weight:700">${r.vol.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="원화가 아닌 통화(USD·JPY)로 표시된 자산의 비중. 환율 변동에 노출됩니다.">환노출</span></span><span style="font-weight:700">${r.fxPct.toFixed(1)}%</span></div>
@@ -2793,6 +2806,7 @@ function cbRenderTax(){
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
         <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
+    </div><details class="cb-tax-account-details" ${genDom||isaNet||penNet?'open':''}><summary>국내주식·ISA·연금저축 세제 상세</summary><div class="cb-tax-summary-grid">
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
         <div style="font-size:12px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
@@ -2822,6 +2836,7 @@ function cbRenderTax(){
         </div>
       </div>
     </div>
+    </details>
     ${taxSummary.legacy?`<div class="cb-panel" role="note" style="margin-top:10px;padding:10px 13px;border-left:3px solid var(--warn);font-size:12px;color:var(--mut);line-height:1.55"><b style="color:var(--warn)">소유주 미지정 기록 별도 추정</b> · 해외 일반 ${cbKrw(taxSummary.legacy.genFgn)}, ISA ${cbKrw(taxSummary.legacy.isaNet)}, 예상세액 ${cbKrw(taxSummary.legacyDue)}. 어느 사람의 공제를 사용했는지 알 수 없어 하나의 별도 버킷으로 계산했습니다. 기록을 수정해 실제 소유주를 지정하세요.</div>`:''}
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
     <div class="cb-panel" style="margin-top:12px;padding:16px 18px 10px">
@@ -2834,7 +2849,7 @@ function cbRenderTax(){
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--acc3)"></span>전체 누적손익</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--dn)"></span>누적 예상 세액</span>
       </div>
-      ${cbTaxChartSvg(1240,440,list)}
+      ${cbTaxChartSvg(1240,320,list)}
     </div>
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">

@@ -21,6 +21,7 @@ import argparse
 import datetime
 import http.cookiejar
 import json
+import math
 import os
 import re
 import sys
@@ -366,6 +367,9 @@ def parse_tiger_pdf_html(text):
     """TIGER 공식 구성종목 HTML → 정규화된 주식 구성종목."""
     parser = _HtmlTableRowsParser()
     parser.feed(text or '')
+    totals = [int(n) for n in re.findall(r'data-tot-cnt=["\'](\d+)', text or '')]
+    if totals and len(parser.rows) < max(totals):
+        return []
     picked = []
     for cells in parser.rows:
         if len(cells) < 5:
@@ -382,7 +386,9 @@ def parse_tiger_pdf_html(text):
         try:
             weight = float(cells[4].replace(',', '').replace('%', '').strip())
         except Exception:
-            continue
+            return []
+        if not math.isfinite(weight):
+            return []
         if weight > 0:
             picked.append((ticker, name or ticker, weight))
     return merge_holdings(picked)
@@ -436,6 +442,20 @@ def fetch_tiger(code):
             req = urllib.request.Request(TIGER_PDF_URL, data=body, headers=ajax_headers)
             with opener.open(req, timeout=25) as r:
                 text = r.read().decode('utf-8', 'replace')
+            total = max([int(n) for n in re.findall(r'data-tot-cnt=["\'](\d+)', text)] or [0])
+            if total > 2500:
+                return [], None
+            seen_pages = {text}
+            for offset in range(500, total, 500):
+                params = dict(urllib.parse.parse_qsl(body.decode('utf-8')))
+                params.update(firstIndex=str(offset), pageIndex=str(offset // 500 + 1))
+                page_req = urllib.request.Request(TIGER_PDF_URL, data=urllib.parse.urlencode(params).encode('utf-8'), headers=ajax_headers)
+                with opener.open(page_req, timeout=25) as r:
+                    page = r.read().decode('utf-8', 'replace')
+                if page in seen_pages:
+                    return [], None  # The server ignored pagination; don't count the first page twice.
+                seen_pages.add(page)
+                text += page
             holdings = parse_tiger_pdf_html(text)
             print('[tiger] %s (%s) %s: 공식 PDF %d행 추출'
                   % (code, ksd_fund, d, len(holdings)), file=sys.stderr)
@@ -475,6 +495,74 @@ def fetch_provider(code, name):
         return result or [], None
     except Exception as e:
         print('[provider] %s: %s' % (code, type(e).__name__), file=sys.stderr)
+        return [], None
+
+
+# Official product identifiers are links published in each manager's product page.
+TIME_PRODUCT_IDS = {'426020': '5', '426030': '2'}
+INVESCO_CUSIPS = {'QQQ': '46090E103'}
+
+
+def fetch_time(code):
+    product = TIME_PRODUCT_IDS.get(code)
+    if not product:
+        return [], None
+    url = 'https://timeetf.co.kr/m11_view.php?idx=' + product
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        with urllib.request.urlopen(req, timeout=EXTERNAL_SOURCE_TIMEOUT) as res:
+            text = res.read().decode('utf-8', 'replace')
+        return parse_time_holdings(text)
+    except Exception as e:
+        print('[time] %s: %s' % (code, type(e).__name__), file=sys.stderr)
+        return [], None
+
+
+def parse_time_holdings(text):
+    # Only the full constituent table; the page also has two historical top-ten lists.
+    section = re.search(r'id="constituentItems"[\s\S]*?</table>', text or '')
+    date = re.search(r'id="pdfDate"[^>]*value="(\d{4}-\d{2}-\d{2})"', section.group(0) if section else '')
+    if not section or not date:
+        return [], None
+    return parse_tiger_pdf_html(section.group(0)), date.group(1)
+
+
+def parse_invesco_holdings(data):
+    raw = data.get('holdings') or []
+    # Do not label a paginated/truncated response as the entire fund.
+    if not raw or len(raw) < int(data.get('totalNumberOfHoldings') or len(raw)):
+        return [], None
+    picked = []
+    for row in raw:
+        code = norm_holding_code(row.get('ticker'))
+        name = row.get('issuerName') or ''
+        kind = str(row.get('securityTypeName') or '')
+        if not code or not is_equity_row(code, name + ' ' + kind):
+            continue
+        if not re.search(r'stock|equity|deposit[ao]ry|reit', kind, re.I):
+            continue
+        try:
+            weight = float(row['percentageOfTotalNetAssets'])
+        except (TypeError, ValueError, KeyError):
+            return [], None
+        if not math.isfinite(weight):
+            return [], None
+        picked.append((code, name, weight))
+    date = data.get('effectiveBusinessDate') or data.get('effectiveDate')
+    return merge_holdings(picked), date
+
+
+def fetch_invesco(code):
+    cusip = INVESCO_CUSIPS.get(code)
+    if not cusip:
+        return [], None
+    url = ('https://dng-api.invesco.com/cache/v1/accounts/en_US/shareclasses/' + cusip
+           + '/holdings/fund?idType=cusip&productType=ETF')
+    try:
+        return parse_invesco_holdings(http_json(url, headers={'Referer': 'https://www.invesco.com/'},
+                                               timeout=EXTERNAL_SOURCE_TIMEOUT))
+    except Exception as e:
+        print('[invesco] %s: %s' % (code, type(e).__name__), file=sys.stderr)
         return [], None
 
 
@@ -617,6 +705,7 @@ def resolve_targets(explicit=None):
         return out
 
     master = kr_etf_master()
+    previous = load_previous().get('etfs', {})
     targets, seen = [], set()
     for item in kv_assets():
         if not isinstance(item, dict) or item.get('grp') != '주식':
@@ -636,7 +725,9 @@ def resolve_targets(explicit=None):
             seen.add(code)
             targets.append((code, master.get(code) or item.get('name') or code, code))
         else:
-            if not is_overseas_etf(raw):      # 원본 티커로 판별 (예: 1617.T)
+            marked_etf = str(item.get('market') or item.get('marketType') or item.get('type') or '').upper() == 'ETF'
+            # A temporary Yahoo failure must not drop a previously collected, still-held ETF.
+            if not (marked_etf or code in previous or code in INVESCO_CUSIPS or is_overseas_etf(raw)):
                 continue
             seen.add(code)
             targets.append((code, item.get('name') or code, raw))
@@ -658,31 +749,37 @@ def collect_one(code, name, lookup=None):
         h, eq, as_of = fetch_krx(code)
         if h:
             return h, eq, as_of, 'krx'
+        h, as_of = fetch_time(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:TIME'
         h, as_of = fetch_provider(code, name)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of or today, 'provider'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider'
         h, eq, as_of = fetch_zeroin(code)
         if h:
-            return h, eq, as_of or today, 'zeroin'
+            return h, eq, as_of, 'zeroin'
         h = fetch_naver(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), today, 'naver'
+            return h, round(sum(x['w'] for x in h), 2), None, 'naver'
     else:
+        h, as_of = fetch_invesco(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:Invesco'
         h = fetch_yfinance(lookup)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), today, 'yfinance'
+            return h, round(sum(x['w'] for x in h), 2), None, 'yfinance'
         h = fetch_stockanalysis(lookup)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), today, 'stockanalysis'
+            return h, round(sum(x['w'] for x in h), 2), None, 'stockanalysis'
         alias = ETF_ALIAS.get(lookup) or ETF_ALIAS.get(code)
         if alias:
             h = fetch_yfinance(alias) or fetch_stockanalysis(alias)
             if h:
-                return h, round(sum(x['w'] for x in h), 2), today, 'alias:' + alias
+                return h, round(sum(x['w'] for x in h), 2), None, 'alias:' + alias
 
     h = fetch_browser_tier(code, name)        # 4순위
     if h:
-        return h, round(sum(x['w'] for x in h), 2), today, 'browser'
+        return h, round(sum(x['w'] for x in h), 2), None, 'browser'
     return [], 0.0, None, None
 
 
@@ -697,28 +794,97 @@ def load_previous():
     return {'etfs': {}}
 
 
+def clean_snapshot(entry):
+    """Legacy snapshots may contain futures/cash misclassified as stocks."""
+    if not isinstance(entry, dict):
+        return None
+    rows = entry.get('holdings') or []
+    clean = merge_holdings([(norm_holding_code(h.get('t')), h.get('n', ''), h.get('w'))
+                            for h in rows if isinstance(h, dict)
+                            and isinstance(h.get('w'), (int, float))
+                            and is_equity_row(norm_holding_code(h.get('t')), h.get('n', ''))])
+    if not clean:
+        return None
+    result = {**entry, 'holdings': clean, 'equityWeight': round(sum(h['w'] for h in clean), 4)}
+    if len(clean) != len(rows) or not entry.get('coverage'):
+        result['coverage'] = 'partial'
+    return result
+
+
+def dated_snapshot(entry):
+    if not entry or not entry.get('asOf'):
+        return None
+    try:
+        datetime.date.fromisoformat(entry['asOf'])
+    except (ValueError, TypeError):
+        return None
+    return {k: entry.get(k) for k in ('asOf', 'source', 'coverage', 'holdings')}
+
+
+def preserve_history(entry, old):
+    # One observation per source/date. Same-date corrections replace the old record.
+    # Partial lists are retained too, but the UI never calls absent rows exits.
+    snapshots = {}
+    for raw in (old or {}).get('history', []) + [old, entry]:
+        s = dated_snapshot(clean_snapshot(raw))
+        if s:
+            snapshots[(s['asOf'], s['source'])] = s
+    entry['history'] = sorted(snapshots.values(), key=lambda x: (x['asOf'], x['source'] or ''))[-30:]
+    return entry
+
+
+def snapshot_stale(entry, today):
+    try:
+        day = datetime.date.fromisoformat(entry.get('asOf') or '')
+    except (ValueError, TypeError):
+        return True
+    if day > today:
+        return True
+    age = sum((day + datetime.timedelta(days=i)).weekday() < 5 for i in range(1, (today-day).days+1))
+    active = entry.get('active') or re.search(r'액티브|\bACTIVE\b', entry.get('name') or '', re.I)
+    return age > (2 if active else 5)
+
+
 def run(targets, dry_run=False):
     prev = load_previous()
     etfs, failures = {}, []
+    today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date().isoformat()
+    summary = {'complete': 0, 'partial': 0, 'retained': 0, 'missing': 0}
 
     for code, name, lookup in targets:
+        old = clean_snapshot(prev['etfs'].get(code))
         holdings, eq, as_of, source = collect_one(code, name, lookup)
+        if holdings and old and as_of and old.get('asOf') and as_of < old['asOf']:
+            holdings = []  # A stale provider response must not roll the fund backwards.
         if holdings:
+            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco') else 'partial'
             etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
-                          'equityWeight': eq, 'holdings': holdings}
+                          'equityWeight': eq, 'holdings': holdings, 'coverage': coverage,
+                          'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                          'lastAttempt': today, 'retained': False,
+                          'active': bool(re.search(r'액티브|\bACTIVE\b', name, re.I))}
+            summary['complete' if coverage == 'full' else 'partial'] += 1
             print('  %-8s %-28s %4d종목  주식비중 %5.1f%%  (%s, %s)'
                   % (code, name[:28], len(holdings), eq, source, as_of))
         else:
-            old = prev['etfs'].get(code)
             if old and old.get('holdings'):
                 # 수집 실패 + 직전 데이터 있음 → 직전 스냅샷 유지 (asOf 가 곧 stale 표시)
-                etfs[code] = old
+                etfs[code] = {**old, 'lastAttempt': today, 'retained': True}
+                summary['retained'] += 1
                 print('  %-8s %-28s 수집 실패 → 직전 스냅샷 유지 (%s)' % (code, name[:28], old.get('asOf')))
             else:
                 failures.append(name or code)
+                summary['missing'] += 1
                 print('  %-8s %-28s 수집 실패' % (code, name[:28]))
+        if code in etfs:
+            preserve_history(etfs[code], old)
 
-    doc = {'asOf': datetime.date.today().isoformat(), 'etfs': etfs, 'failures': failures}
+    stale_count = sum(snapshot_stale(e, datetime.date.fromisoformat(today)) for e in etfs.values())
+    doc = {'asOf': today, 'etfs': etfs, 'failures': failures, 'summary': {**summary, 'staleOrUndated': stale_count}, 'schemaVersion': 2}
+    print('품질 요약: 전체 %d / 일부 %d / 이전 유지 %d / 미조회 %d' % tuple(summary.values()))
+    print('기준일 지연·미확인: %d' % stale_count)
+    if summary['partial'] or summary['retained'] or summary['missing'] or stale_count:
+        print('::warning::ETF 일부 자료가 불완전하거나 이전 자료입니다. ETF 탐색 화면의 기준일과 수집 상태를 확인하세요.')
     print('\n수집 %d / 실패 %d' % (len(etfs), len(failures)))
     if dry_run:
         print('(--dry-run: 파일을 쓰지 않음)')
