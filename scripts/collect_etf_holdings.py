@@ -735,6 +735,60 @@ def resolve_targets(explicit=None):
 
 
 # ── 수집 ────────────────────────────────────────────────────────
+def parse_proshares_holdings(text):
+    """Read the complete issuer table, retaining original physical-stock weights.
+
+    Swap/index exposure rows are not direct stock positions. Reject changed or
+    truncated table schemas instead of marking a silently shortened list full.
+    """
+    section = re.search(r'<section\b[^>]*id="Holdings"[^>]*>(.*?)</section>', text, re.S | re.I)
+    if not section:
+        return [], None
+    table = re.search(r'<table\b[^>]*id="holdings"[^>]*>(.*?)</table>', section[1], re.S | re.I)
+    date = re.search(r'as of\s+(\d{1,2})/(\d{1,2})/(\d{4})', section[1], re.I)
+    if not table or not date or not all(s in table[1] for s in ('Exposure Weight', 'Ticker', 'Market Value')):
+        return [], None
+    try:
+        as_of = datetime.date(int(date[3]), int(date[1]), int(date[2]))
+        if as_of > datetime.date.today():
+            return [], None
+        parser = _HtmlTableRowsParser()
+        parser.feed(table[1])
+        picked = []
+        for cells in parser.rows:
+            if len(cells) != 7:
+                return [], None
+            weight, code, name, exposure, market, shares, sedol = cells
+            # Physical positions have market value; derivative notionals are
+            # separately published and must never enter stock look-through.
+            if code in ('--', '—', '-', '') or exposure not in ('--', '—', '-', '') or re.search(r'MNY\s+MKT|MONEY\s+MARKET', name, re.I) or not is_equity_row(code, name):
+                continue
+            ticker = norm_holding_code(code)
+            w = float(weight.replace('%', '').replace(',', ''))
+            if not math.isfinite(w) or w < 0 or not market.startswith('$'):
+                return [], None
+            if w > 0:
+                picked.append((ticker, name, w))
+        # QLD is a broad Nasdaq portfolio; a top-ten response is incomplete.
+        if len(picked) < 90:
+            return [], None
+        return merge_holdings(picked), as_of.isoformat()
+    except (ValueError, TypeError):
+        return [], None
+
+
+def fetch_proshares(code):
+    if code != 'QLD':
+        return [], None
+    try:
+        req = urllib.request.Request('https://www.proshares.com/our-etfs/leveraged-and-inverse/qld', headers={'User-Agent': UA})
+        with urllib.request.urlopen(req, timeout=EXTERNAL_SOURCE_TIMEOUT) as response:
+            return parse_proshares_holdings(response.read().decode('utf-8'))
+    except Exception as exc:
+        print('[proshares] %s: %s' % (code, exc), file=sys.stderr)
+        return [], None
+
+
 def collect_one(code, name, lookup=None):
     """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None).
 
@@ -762,6 +816,9 @@ def collect_one(code, name, lookup=None):
         if h:
             return h, round(sum(x['w'] for x in h), 2), None, 'naver'
     else:
+        h, as_of = fetch_proshares(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:ProShares'
         h, as_of = fetch_invesco(code)
         if h:
             return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:Invesco'
@@ -857,7 +914,7 @@ def run(targets, dry_run=False):
         if holdings and old and as_of and old.get('asOf') and as_of < old['asOf']:
             holdings = []  # A stale provider response must not roll the fund backwards.
         if holdings:
-            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco') else 'partial'
+            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco', 'provider:ProShares') else 'partial'
             etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
                           'equityWeight': eq, 'holdings': holdings, 'coverage': coverage,
                           'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
