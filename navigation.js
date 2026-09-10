@@ -2,14 +2,13 @@
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['etf2','ETF 탐색'],['fam2','구성원 비교'],['bubble','비중 분석']]},
-  {menu:'balance2',title:'재무상태표',views:[['balance2','재무상태표']]},
   {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
   {menu:'tax2',title:'세금·증여',views:[['tax2','실현손익·세금'],['gift2','가족 증여']]},
 ];
-function navResolve(id){ return id==='snap'||id==='dashboard'?'cdash':id; }
+function navResolve(id){ return id==='snap'||id==='dashboard'||id==='balance2'?'cdash':id; }
 function navGroup(id){ return APP_NAV.find(g=>g.views.some(v=>v[0]===navResolve(id))); }
 function navOwner(id){
   if(id==='etf2')return _etfOwner;

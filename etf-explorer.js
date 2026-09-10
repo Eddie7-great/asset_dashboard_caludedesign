@@ -1,6 +1,72 @@
 // ETF 공시 관찰 기록. 실제 보유 수량·매매 기록에는 쓰지 않는다.
 let _etfOwner='전체', _etfCode='', _etfQuery='', _etfPage=0, _etfSelected='', _etfMode='holdings', _etfCompare='';
 const ETF_PAGE_SIZE=10;
+let _etfRefreshGeneration=0;
+const _etfLiveControllers=new Set();
+const _etfLiveStates={};
+function etfLiveMessage(code){
+  const state=_etfLiveStates[code];
+  if(!state)return '페이지 진입 시 원본 자료 확인';
+  const time=state.at?new Date(state.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
+  return ({loading:'원본 조회 중…',ok:'원본 확인 완료',failed:'조회 실패 · 마지막 자료 유지',older:'이전 기준일 응답 · 마지막 자료 유지',undated:'기준일 미확인 응답 · 마지막 자료 유지'})[state.status]+(time?' · '+time:'');
+}
+function etfRetainLive(code){
+  const old=cbEtfDoc()?.etfs?.[code];
+  if(old)(window._etfLiveEntries ||= {})[code]={...old,retained:true,lastAttempt:new Date().toISOString()};
+}
+function etfAcceptLive(old,next){
+  if(!next||!Array.isArray(next.holdings)||!next.holdings.length||next.holdings.some(h=>!h.t||!Number.isFinite(h.w)||h.w<=0))return null;
+  if(old?.asOf&&(!next.asOf||next.asOf<old.asOf))return null;
+  if(old?.coverage==='full'&&next.coverage!=='full')return null;
+  const snapshots=new Map();
+  for(const s of [...(old?.history||[]),old,next])if(s?.asOf)snapshots.set(s.asOf+'|'+s.source,{asOf:s.asOf,source:s.source,coverage:s.coverage,holdings:s.holdings});
+  return {...old,...next,history:[...snapshots.values()].sort((a,b)=>a.asOf.localeCompare(b.asOf)).slice(-30)};
+}
+function etfRenderLiveUpdate(){
+  if(typeof _cobaltActive!=='undefined'&&_cobaltActive!=='etf2')return;
+  const root=document.getElementById('cb-etf2');
+  const open=[...(root?.querySelectorAll('details')||[])].map(el=>el.open);
+  const focus=document.activeElement?.id;
+  cbRenderEtfExplorer();
+  root?.querySelectorAll('details').forEach((el,i)=>{el.open=!!open[i];});
+  if(focus)document.getElementById(focus)?.focus({preventScroll:true});
+}
+async function etfRefreshOnOpen(){
+  const generation=++_etfRefreshGeneration;
+  _etfLiveControllers.forEach(controller=>controller.abort());
+  _etfLiveControllers.clear();
+  await cbEnsureEtfHoldings(true);
+  if(generation!==_etfRefreshGeneration)return;
+  // All owners' held ETFs; filtering and redraws do not restart network requests.
+  const codes=[...new Set(cbAllRows().filter(r=>cbIsEtf(r.i)).map(r=>cbStrip(r.i.tkr)))];
+  codes.forEach(code=>{_etfLiveStates[code]={status:'loading'};});
+  etfRenderLiveUpdate();
+  async function worker(){
+    while(codes.length&&generation===_etfRefreshGeneration){
+      const code=codes.shift(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
+      _etfLiveControllers.add(controller);
+      try{
+        const response=await fetch('/api/dashboard?type=etf_holdings&ticker='+encodeURIComponent(code),{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+        if(!response.ok)throw new Error('lookup');
+        const data=await response.json();
+        if(!data.success||data.code!==code)throw new Error('lookup');
+        if(generation!==_etfRefreshGeneration)return;
+        const accepted=etfAcceptLive(cbEtfDoc()?.etfs?.[code],data.entry);
+        if(accepted){
+          window._etfHoldings ||= {etfs:{}};
+          (window._etfLiveEntries ||= {})[code]=accepted;
+        }else etfRetainLive(code);
+        _etfLiveStates[code]={status:accepted?'ok':data.entry?.asOf?'older':'undated',at:data.checkedAt};
+      }catch(e){
+        if(generation!==_etfRefreshGeneration)return;
+        etfRetainLive(code);
+        _etfLiveStates[code]={status:'failed',at:new Date().toISOString()};
+      }finally{clearTimeout(timer);_etfLiveControllers.delete(controller);}
+      etfRenderLiveUpdate();
+    }
+  }
+  await Promise.all([worker(),worker()]);
+}
 function etfStockRows(entry){
   return (Array.isArray(entry?.holdings)?entry.holdings:[]).filter(h=>h&&h.t&&Number.isFinite(h.w)&&h.w>0
     && !/선물|\bFUT(?:URES?)?\b|E[ -]?MINI|스왑|\bSWAP\b|옵션|\bOPTION\b|MONEY\s*MARKET|GOVERNMENT\s*OBLIG|TREASURY|현금|예금|국고채|통안채|회사채|국채|\bBONDS?\b|머니마켓/i.test(h.n||''));
@@ -126,6 +192,7 @@ function etfExposureHtml(ticker,holding){
     <p class="etf-caption">전체 포트 = 해당 소유주의 주식·ETF·가상화폐·금·현금 평가액 합계(부동산·부채 제외). 간접 비중 = ETF 평가액 × 해당 종목의 ETF 내 공시 비중 ÷ 전체 포트 평가액. 각 ETF의 직접 편입 주식만 합산하며 파생·레버리지의 전체 경제적 노출은 포함하지 않습니다.</p>`;
 }
 function etfSourceLink(entry){
+  if(entry?.source==='FunETF')return 'https://www.funetf.co.kr/search?schVal='+encodeURIComponent(_etfCode);
   if(entry?.source==='provider:ProShares')return 'https://www.proshares.com/our-etfs/leveraged-and-inverse/qld';
   if(entry?.source==='provider:TIME')return 'https://timeetf.co.kr/m11_view.php?idx='+(_etfCode==='426020'?'5':'2');
   if(entry?.source==='provider:Invesco')return 'https://www.invesco.com/us/en/financial-products/etfs/invesco-qqq-trust-series-1.html';
@@ -142,7 +209,7 @@ function cbRenderEtfExplorer(){
   const fundValue=etfHeldRows().filter(r=>cbStrip(r.i.tkr)===_etfCode).reduce((sum,r)=>sum+r.val,0);
   root.innerHTML=`<div class="etf-heading"><div><span class="sim-eyebrow">ETF EXPLORER</span><h3>펀드 안의 포트폴리오</h3></div></div>
     <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
-    <div class="etf-fund-value"><span>선택 ETF 평가액</span><b>${cbDisp(fundValue)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span></div><button class="cb-btn" onclick="cbEnsureEtfHoldings(true)"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(q.rows.reduce((sum,h)=>sum+h.w,0)):'미확인'}</span></div></div>
+    <div class="etf-fund-value"><span>선택 ETF 평가액</span><b>${cbDisp(fundValue)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(etfLiveMessage(_etfCode))}</span></div><button class="cb-btn" onclick="etfRefreshOnOpen()"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(q.rows.reduce((sum,h)=>sum+h.w,0)):'미확인'}</span></div></div>
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
     ${m.funds.length?'': '<p class="etf-notice">선택한 구성원에게 보유 ETF가 없습니다.</p>'}
     <div class="etf-layout"><section class="cb-panel etf-visual-card"><div class="etf-section-title"><b>구성 비중 분포</b><span>상위 12종목 · 막대를 눌러 상세 확인</span></div>
@@ -152,7 +219,7 @@ function cbRenderEtfExplorer(){
     ${_etfMode==='changes'?`<label class="etf-compare">비교 기준<select id="etf-compare" onchange="_etfCompare=this.value;_etfPage=0;etfRefreshResults()">${m.history.map(s=>`<option value="${cbEsc(s.asOf+'|'+s.source)}"${s===m.previous?' selected':''}>${cbEsc(s.asOf)} · ${cbEsc(s.source)}</option>`).join('')}</select></label>`:''}
     <label class="etf-search">종목 검색<input id="etf-search" type="search" value="${cbEsc(_etfQuery)}" placeholder="종목명 또는 티커" oninput="etfSearch(this.value)"></label><div id="etf-results"></div></section></div>
     <section class="cb-panel etf-network" id="etf-network"></section>
-    <details class="cb-panel etf-method"><summary>출처·갱신 주기·변경 이력 기준</summary><p>출처 ${cbEsc(m.entry?.source||'미조회')}${link?` · <a href="${link}" target="_blank" rel="noopener noreferrer">운용사 원문 ↗</a>`:''} · 마지막 수집 ${cbEsc(m.entry?.fetchedAt||'기록 없음')} · 마지막 시도 ${cbEsc(m.entry?.lastAttempt||'기록 없음')}</p><p>한국·미국 장 마감 후 평일 두 차례 수집을 시도합니다(KST 18:30, 다음 날 07:30). 화면의 다시 확인은 게시된 자료를 다시 읽습니다. 액티브 ETF는 2평일, 그 외는 5평일을 넘으면 지연으로 표시합니다(거래소 휴일 미반영). 기준일이 없으면 최신 여부를 확정하지 않습니다.</p><p>최근 30개 출처·기준일별 관찰 기록을 보관합니다. 같은 기준일의 수정 공시는 교체하며 과거 이력을 소급 생성하지 않습니다. 같은 출처의 전체 목록끼리만 편입·편출을 판정합니다. 비중 변화에는 가격 움직임도 포함되므로 실제 매매량·매매 시점을 뜻하지 않습니다. 파생·레버리지 ETF의 주식 목록은 전체 경제적 노출과 다를 수 있습니다.</p></details>`;
+    <details class="cb-panel etf-method"><summary>출처·갱신 주기·변경 이력 기준</summary><p>출처 ${cbEsc(m.entry?.source||'미조회')}${link?` · <a href="${link}" target="_blank" rel="noopener noreferrer">운용사 원문 ↗</a>`:''} · 마지막 수집 ${cbEsc(m.entry?.fetchedAt||'기록 없음')} · 마지막 시도 ${cbEsc(m.entry?.lastAttempt||'기록 없음')}</p><p>한국·미국 장 마감 후 평일 두 차례 수집을 시도합니다(KST 18:30, 다음 날 07:30). 페이지를 열거나 자료 다시 확인을 누를 때마다 원본을 조회합니다. 국내는 FunETF, 해외는 지원 운용사와 대체 출처를 확인합니다. 실패하거나 기준일이 이전이면 마지막 정상 자료를 유지합니다. 화면 조회 이력은 현재 세션에, 정기 수집 이력은 서버에 보관합니다. 액티브 ETF는 2평일, 그 외는 5평일을 넘으면 지연으로 표시합니다(거래소 휴일 미반영). 기준일이 없으면 최신 여부를 확정하지 않습니다.</p><p>최근 30개 출처·기준일별 관찰 기록을 보관합니다. 같은 기준일의 수정 공시는 교체하며 과거 이력을 소급 생성하지 않습니다. 같은 출처의 전체 목록끼리만 편입·편출을 판정합니다. 비중 변화에는 가격 움직임도 포함되므로 실제 매매량·매매 시점을 뜻하지 않습니다. 파생·레버리지 ETF의 주식 목록은 전체 경제적 노출과 다를 수 있습니다.</p></details>`;
   etfRefreshResults();
   if(focus){const el=document.getElementById(focus);el?.focus({preventScroll:true});if(typeof selection==='number'&&el?.type==='search')el.setSelectionRange(selection,selection);}
 }

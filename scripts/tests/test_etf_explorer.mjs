@@ -82,7 +82,7 @@ toggleContext.etfOwner('본인');toggleContext.etfOwner('본인');
 assert.equal(vm.runInContext('_etfOwner',toggleContext),'전체');
 assert.equal(JSON.stringify({portfolio,data}),saved,'Exposure exploration does not mutate financial records or published snapshots');
 const cobalt=fs.readFileSync('cobalt.js','utf8');
-const loader=cobalt.slice(cobalt.indexOf('async function cbEnsureEtfHoldings('),cobalt.indexOf('\nfunction cbIsEtf('));
+const loader=cobalt.slice(cobalt.indexOf('let _cbEtfPromise='),cobalt.indexOf('\nfunction cbIsEtf('));
 let requests=0,fail=false;
 const good={etfs:{F:current}};
 const loadContext=vm.createContext({window:{},AbortController,setTimeout,clearTimeout,cbRerender(){},

@@ -89,7 +89,7 @@ def norm_holding_code(code_s):
         return m.group(1)
     if US_ISIN_RE.match(code_s):           # US67066G1040 → NVDA (미등재 ISIN은 원문 유지)
         return norm_holding_code(ISIN_TICKER[code_s]) if code_s in ISIN_TICKER else code_s
-    if code_s.startswith('KR'):            # KRD010010001(원화현금)·채권 ISIN 등 비종목
+    if code_s == 'KRW' or (code_s.startswith('KR') and len(code_s) == 12):  # Korean non-stock ISINs, not US tickers KR/KRC.
         return None
     base = re.sub(r'\.(O|OQ|N|K|A)$', '', code_s)   # 로이터형 접미사 제거
     if re.fullmatch(r'[A-Z0-9.\-]{1,12}', base):
