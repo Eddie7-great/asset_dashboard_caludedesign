@@ -2,6 +2,9 @@
 
 ### ETF observations and compact layouts (2026-09-09)
 
+- Re-clicking an ETF owner filter returns to all owners; re-clicking a constituent explicitly clears selection (null is distinct from the initial empty selection). Each owner exposure card is one native details/summary disclosure. Keep verification counts inside the held-ETF selector card.
+- ProShares QLD uses the dated complete issuer table, preserving physical-stock NAV weights and excluding swaps, money-market collateral and placeholders. A malformed/truncated table must fall through to a partial source; never infer constituent exposure from the fund's target leverage. Allocation analysis retains an HTML weight-list fallback when Plotly is unavailable and merges accounts by owner, asset group and normalized ticker.
+
 - `etf-explorer.js` loads before `cobalt.js`. `etf2` is an asset-management tab, keeping eight main destinations and the related owner scope. The explorer never writes financial records.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
 - Each ETF retains up to 30 source/date snapshots. Same-date corrections replace that observation; an older response cannot overwrite a newer dated snapshot. Failed retrieval preserves the prior valid data and date with retained=true. Only full lists from the same source prove entries/exits; partial lists compare shared tickers only. Weight changes include price effects and never imply actual trades.

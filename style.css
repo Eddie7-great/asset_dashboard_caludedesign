@@ -1449,3 +1449,8 @@
   #cb-cdash>.cb-mobile-holdings{display:block}
 }
 
+.bubble-list-fallback{overflow:auto!important}
+.bubble-list-fallback #bubble-center-summary{display:none!important}
+.bubble-weight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+.bubble-weight-item{min-width:0}
+@media(max-width:520px){.bubble-weight-grid{grid-template-columns:1fr}}

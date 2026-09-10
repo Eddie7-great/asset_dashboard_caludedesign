@@ -5806,7 +5806,7 @@ function _repositionBubbleCenter(container) {
 
 // 모바일 전용 버블 폴백 — Plotly sunburst 대신 종목별 비중 막대 리스트 (비중 가독성 우선)
 function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
-  const fmt = v => '₩' + Math.round(v).toLocaleString();
+  const fmt = v => typeof cbDisp === 'function' ? cbDisp(v) : '₩' + Math.round(v).toLocaleString();
   const showOwner = _bubbleOwner === '전체';
   const rows = [...itemsAug].sort((a, b) => b.val - a.val);
   const html = rows.map((x, idx) => {
@@ -5814,7 +5814,7 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
     const color = _bubbleSectorColor(x.sector);
     const ownerTag = showOwner ? `<span style="font-size:.62rem;color:var(--acc);font-weight:700;background:var(--inner-bg);padding:1px 6px;border-radius:8px;flex-shrink:0">${_cfEsc(x.raw.owner || '-')}</span>` : '';
     const name = _cfEsc(x.raw.name || x.raw.tkr || '-');
-    return `<div style="padding:7px 2px;border-bottom:1px solid var(--border-light)">
+    return `<div class="bubble-weight-item" style="padding:5px 2px;border-bottom:1px solid var(--border-light)">
       <div style="display:flex;align-items:center;gap:6px;min-width:0">
         ${ownerTag}
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;font-weight:600;color:var(--t1)">${name}</span>
@@ -5832,22 +5832,20 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 8px">
       <span style="font-size:.8rem;font-weight:700;color:var(--t3)">종목별 비중 (${rows.length}종목)</span>
       <span style="font-size:.74rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(totalVal)}</span>
-    </div>${html}</div>`;
+    </div><div class="bubble-weight-grid">${html}</div></div>`;
 }
 
 function renderBubbleChart(mode) {
   // view-bubble 의 컨테이너 재활용 (sunburst-container), 없으면 레거시
   const container = document.getElementById('sunburst-container') || document.getElementById('bubble-chart-container');
   if (!container) return;
-  if (typeof Plotly === 'undefined') {
-    container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:40px">Plotly 로딩 중...</div>';
-    return;
-  }
+  const listFallback = isMobileLayout() || typeof Plotly === 'undefined';
+  container.classList.toggle('bubble-list-fallback', listFallback);
 
   if (!window._bubbleRetry) window._bubbleRetry = 0;
   const rect = container.getBoundingClientRect();
   // 모바일은 HTML 리스트 폴백이라 컨테이너 크기 불필요 — 0크기 재시도 게이트 통과
-  if (!isMobileLayout() && (rect.width < 10 || rect.height < 10)) {
+  if (!listFallback && (rect.width < 10 || rect.height < 10)) {
     const vbActive = !!document.querySelector('#view-bubble.active');
     if (vbActive && window._bubbleRetry < 30) {
       window._bubbleRetry++;
@@ -5876,7 +5874,7 @@ function renderBubbleChart(mode) {
   const baseItems = pfolioData
     .filter(i => i && i.grp !== '부동산' && (!filterOwner || i.owner === filterOwner))
     .map(i => ({ raw: i, val: _bubbleItemValueKRW(i, usdRate) }))
-    .filter(x => x.val > 0);
+    .filter(x => Number.isFinite(x.val) && x.val > 0);
 
   if (baseItems.length === 0) {
     try { if (typeof Plotly !== 'undefined') Plotly.purge(container); } catch (e) {}
@@ -5911,7 +5909,7 @@ function renderBubbleChart(mode) {
   // 동일 소유주+티커(DCA 중복 포함)를 하나의 leaf로 병합
   const _mergeMap = new Map();
   baseItems.forEach(({ raw, val }) => {
-    const key = `${raw.owner || ''}::${(raw.tkr || raw.name || '').toUpperCase()}`;
+    const key = `${raw.owner || ''}::${raw.grp || ''}::${(raw.tkr || raw.name || '').toUpperCase().replace(/\.(KS|KQ)$/, '')}`;
     if (_mergeMap.has(key)) {
       _mergeMap.get(key).val += val;
       if (!raw.dca) _mergeMap.get(key).raw = raw; // 보유 항목을 대표 항목으로 우선
@@ -5925,7 +5923,7 @@ function renderBubbleChart(mode) {
   }));
 
   // ── 모바일: Plotly 대신 종목별 비중 리스트 + 섹터 비중표 ──
-  if (isMobileLayout()) {
+  if (listFallback) {
     try { Plotly.purge(container); } catch (e) {}
     container._bubbleExtLabelsHookAttached = false;
     _renderBubbleMobileWeights(container, itemsAug, totalVal);

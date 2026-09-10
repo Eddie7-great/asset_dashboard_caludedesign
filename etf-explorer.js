@@ -41,12 +41,12 @@ function etfCompareSnapshots(current,previous){
   return {complete,comparable,rows};
 }
 function etfHeldRows(){return cbAllRows().filter(r=>cbIsEtf(r.i)&&(_etfOwner==='전체'||r.i.owner===_etfOwner));}
-function etfOwner(owner){_etfOwner=owner;_etfCode='';_etfPage=0;_etfSelected='';_etfQuery='';_etfCompare='';cbRenderEtfExplorer();cbRestoreFilterFocus('cb-head-widgets','data-owner',owner);}
+function etfOwner(owner){_etfOwner=owner===_etfOwner?'전체':owner;_etfCode='';_etfPage=0;_etfSelected='';_etfQuery='';_etfCompare='';cbRenderEtfExplorer();cbRestoreFilterFocus('cb-head-widgets','data-owner',owner);}
 function etfChoose(code){_etfCode=code;_etfPage=0;_etfQuery='';_etfSelected='';_etfCompare='';cbRenderEtfExplorer();document.getElementById('etf-fund')?.focus();}
 function etfSearch(value){_etfQuery=value;_etfPage=0;etfRefreshResults();}
 function etfPage(step){_etfPage+=step;etfRefreshResults();document.querySelector('#etf-results .etf-pager button:not(:disabled)')?.focus();}
 function etfMode(mode){_etfMode=mode;_etfPage=0;_etfQuery='';cbRenderEtfExplorer();cbRestoreFilterFocus('cb-etf2','data-etf-mode',mode);}
-function etfSelect(ticker){const inTable=!!document.activeElement?.closest('.etf-table');_etfSelected=ticker;etfRefreshResults();if(inTable)cbRestoreFilterFocus('etf-results','data-etf-ticker',ticker);}
+function etfSelect(ticker){const inTable=!!document.activeElement?.closest('.etf-table');_etfSelected=_etfSelected===ticker?null:ticker;etfRefreshResults();if(inTable)cbRestoreFilterFocus('etf-results','data-etf-ticker',ticker);}
 function etfModel(){
   const funds=[...new Map(etfHeldRows().map(r=>[cbStrip(r.i.tkr),{code:cbStrip(r.i.tkr),name:r.title}])).values()];
   if(!funds.some(f=>f.code===_etfCode))_etfCode=(funds.find(f=>etfQuality(cbEtfDoc()?.etfs?.[f.code]).reliable)||funds.find(f=>etfStockRows(cbEtfDoc()?.etfs?.[f.code]).length)||funds[0])?.code||'';
@@ -112,20 +112,21 @@ function etfExposureHtml(ticker,holding){
     <div class="etf-exposure-grid">${owners.map(o=>{
       const approximate=o.uncertain.length>0,scale=Math.max(100,o.totalPct||0),unknownIndirect=approximate&&!o.routes.length;
       const indirectLabel=unknownIndirect?'미확인':etfPct(o.indirectPct),totalLabel=unknownIndirect&&o.exposure===0?'미확인':etfPct(o.totalPct);
-      return `<article class="etf-owner-exposure" data-exposure-owner="${cbEsc(o.owner)}"><div class="etf-exposure-head"><b>${cbEsc(o.owner)}</b><span>전체 포트 ${o.valid?cbDisp(o.total):'—'}</span></div>
+      return `<details class="etf-owner-exposure" data-exposure-owner="${cbEsc(o.owner)}"><summary class="etf-owner-summary"><div class="etf-exposure-head"><b>${cbEsc(o.owner)}</b><span>전체 포트 ${o.valid?cbDisp(o.total):'—'}</span></div>
         <div class="etf-exposure-total"><strong>${totalLabel}</strong><span>전체 포트에서 ${cbEsc(identity.name)} 비중${approximate?' · 확인 자료 기준':''}</span></div>
         <div class="etf-exposure-bar" role="img" aria-label="${cbEsc(o.owner)} 전체 포트 대비 직접 ${etfPct(o.directPct)}, ETF 간접 ${indirectLabel}${approximate?', 불완전한 ETF 자료 포함':''}"><i class="etf-direct" style="width:${o.valid?o.directPct/scale*100:0}%"></i><i class="etf-indirect" style="width:${o.valid?o.indirectPct/scale*100:0}%"></i></div>
         <div class="etf-exposure-legend"><span><i class="etf-direct"></i>직접 <b>${etfPct(o.directPct)}</b></span><span><i class="etf-indirect"></i>ETF 간접 <b>${indirectLabel}</b></span>${o.valid&&o.totalPct<=100?`<span class="etf-other">${approximate?'그 외·미확인':'나머지'} ${etfPct(100-o.totalPct)}</span>`:''}</div>
         ${o.valid&&o.totalPct>100?'<p class="etf-caption">명목 노출이 전체 포트 100%를 초과합니다. 막대는 총 노출에 맞춰 표시합니다.</p>':''}
         <div class="etf-stock-split"><span>이 종목 보유분을 100%로 보면</span><b>${unknownIndirect?'자료 부족으로 비율 미확정':`직접 ${etfPct(o.directShare)} <em>:</em> 간접 ${etfPct(o.indirectShare)}`}</b></div>
-        <details class="etf-exposure-details"><summary>금액·ETF별 계산 보기${approximate?' · 자료 확인 필요':''}</summary><div class="etf-route-direct"><span>직접 보유 평가액</span><b>${o.valid?cbDisp(o.direct):'—'}</b></div>
+        <span class="etf-owner-toggle"><span class="etf-expand-label">금액·ETF별 계산 펼치기</span><span class="etf-collapse-label">계산 내역 접기</span>${approximate?' · 자료 확인 필요':''}</span></summary><div class="etf-exposure-details"><div class="etf-route-direct"><span>직접 보유 평가액</span><b>${o.valid?cbDisp(o.direct):'—'}</b></div>
         ${o.routes.map(r=>`<div class="etf-exposure-route"><b>${cbEsc(r.name)}</b><span>ETF 평가액 ${cbDisp(r.etfValue)} × 편입 비중 ${etfPct(r.w)}</span><span><strong>${cbDisp(r.value)}</strong> · 전체 포트의 ${etfPct(o.valid?r.value/o.total*100:null)}</span><small>구성 기준 ${cbEsc(r.asOf||'미확인')}${r.reliable?'':' · '+cbEsc(r.label)}</small></div>`).join('')||'<p class="etf-caption">확인된 ETF 간접 보유가 없습니다.</p>'}
-        ${approximate?`<p class="etf-exposure-warning">자료 확인 필요: ${o.uncertain.map(f=>cbEsc(f.name)+' ('+cbEsc(f.label)+')').join(' · ')}</p>`:''}</details>
-        ${!o.valid?'<p class="etf-exposure-warning">전체 포트 평가액을 확인할 수 없어 비중을 계산하지 않습니다.</p>':approximate?'<p class="etf-exposure-warning">일부·지연·미조회 ETF가 있어 간접 비중과 보유 비율은 확정값이 아닙니다.</p>':''}</article>`;
+        ${approximate?`<p class="etf-exposure-warning">자료 확인 필요: ${o.uncertain.map(f=>cbEsc(f.name)+' ('+cbEsc(f.label)+')').join(' · ')}</p>`:''}</div>
+        ${!o.valid?'<p class="etf-exposure-warning">전체 포트 평가액을 확인할 수 없어 비중을 계산하지 않습니다.</p>':approximate?'<p class="etf-exposure-warning">일부·지연·미조회 ETF가 있어 간접 비중과 보유 비율은 확정값이 아닙니다.</p>':''}</details>`;
     }).join('')||'<p class="sim-empty">선택한 소유주에게 포트폴리오가 없습니다.</p>'}</div>
     <p class="etf-caption">전체 포트 = 해당 소유주의 주식·ETF·가상화폐·금·현금 평가액 합계(부동산·부채 제외). 간접 비중 = ETF 평가액 × 해당 종목의 ETF 내 공시 비중 ÷ 전체 포트 평가액. 각 ETF의 직접 편입 주식만 합산하며 파생·레버리지의 전체 경제적 노출은 포함하지 않습니다.</p>`;
 }
 function etfSourceLink(entry){
+  if(entry?.source==='provider:ProShares')return 'https://www.proshares.com/our-etfs/leveraged-and-inverse/qld';
   if(entry?.source==='provider:TIME')return 'https://timeetf.co.kr/m11_view.php?idx='+(_etfCode==='426020'?'5':'2');
   if(entry?.source==='provider:Invesco')return 'https://www.invesco.com/us/en/financial-products/etfs/invesco-qqq-trust-series-1.html';
   return null;
@@ -135,12 +136,13 @@ function cbRenderEtfExplorer(){
   cbSetHead('ETF의 내부 구성과 기준일별 비중 변화 · 공시 관찰값이며 실시간 매매 내역은 아닙니다',cbOwnerBtns(_etfOwner,'etfOwner'));
   cbEnsureEtfHoldings();
   const m=etfModel(),q=m.quality,link=etfSourceLink(m.entry);
-  if(!_etfSelected)_etfSelected=cbStrip(q.rows[0]?.t);
+  if(_etfSelected==='')_etfSelected=cbStrip(q.rows[0]?.t);
   const focus=document.activeElement?.id,selection=document.activeElement?.selectionStart;
   const counts=m.funds.reduce((a,f)=>{const q=etfQuality(cbEtfDoc()?.etfs?.[f.code]);a[q.reliable?'ok':'check']++;return a;},{ok:0,check:0});
-  root.innerHTML=`<div class="etf-heading"><div><span class="sim-eyebrow">ETF EXPLORER</span><h3>펀드 안의 포트폴리오</h3></div><div class="etf-counts">보유 ${m.funds.length} · 확인 ${counts.ok} · 점검 ${counts.check}</div></div>
+  const fundValue=etfHeldRows().filter(r=>cbStrip(r.i.tkr)===_etfCode).reduce((sum,r)=>sum+r.val,0);
+  root.innerHTML=`<div class="etf-heading"><div><span class="sim-eyebrow">ETF EXPLORER</span><h3>펀드 안의 포트폴리오</h3></div></div>
     <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
-    <div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span></div><button class="cb-btn" onclick="cbEnsureEtfHoldings(true)"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button></div>
+    <div class="etf-fund-value"><span>선택 ETF 평가액</span><b>${cbDisp(fundValue)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span></div><button class="cb-btn" onclick="cbEnsureEtfHoldings(true)"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(q.rows.reduce((sum,h)=>sum+h.w,0)):'미확인'}</span></div></div>
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
     ${m.funds.length?'': '<p class="etf-notice">선택한 구성원에게 보유 ETF가 없습니다.</p>'}
     <div class="etf-layout"><section class="cb-panel etf-visual-card"><div class="etf-section-title"><b>구성 비중 분포</b><span>상위 12종목 · 막대를 눌러 상세 확인</span></div>
@@ -167,9 +169,9 @@ function etfRefreshResults(){
   root.innerHTML=`<p class="etf-caption" role="status">${cbEsc(note)}</p><div class="etf-table${changes?' is-changes':''}"><div class="etf-table-head"><span>종목</span><span>${changes?'이전 → 현재':'비중'}</span>${changes?'<span>변화</span>':''}</div>${rows.slice(_etfPage*ETF_PAGE_SIZE,(_etfPage+1)*ETF_PAGE_SIZE).map(h=>`<button class="etf-table-row${cbStrip(h.t)===_etfSelected?' selected':''}" data-etf-ticker="${cbEsc(cbStrip(h.t))}" onclick="etfSelect(this.dataset.etfTicker)" aria-pressed="${cbStrip(h.t)===_etfSelected}"><span class="etf-table-identity">${etfIdentityHtml(h)}${changes?`<small class="etf-change-kind">${cbEsc(h.kind)}</small>`:''}</span><span>${changes?h.old.toFixed(2)+' → ':''}${h.w.toFixed(2)}%</span>${changes?`<strong class="${h.delta>0?'etf-increase':'etf-decrease'}">${h.delta>0?'+':''}${h.delta.toFixed(2)}p</strong>`:''}</button>`).join('')||'<p class="sim-empty">표시할 종목이 없습니다.</p>'}</div><div class="etf-pager"><button class="cb-btn" onclick="etfPage(-1)"${_etfPage===0?' disabled':''}>이전</button><span>${_etfPage+1} / ${pages} · ${rows.length}종목</span><button class="cb-btn" onclick="etfPage(1)"${_etfPage>=pages-1?' disabled':''}>다음</button></div>`;
   document.querySelectorAll('.etf-rank-row').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.etfTicker===_etfSelected)));
   const network=document.getElementById('etf-network');if(!network)return;
-  const selected=_etfSelected||cbStrip(m.quality.rows[0]?.t);
+  const selected=_etfSelected===null?'':(_etfSelected||cbStrip(m.quality.rows[0]?.t));
   const holding=m.quality.rows.find(h=>cbStrip(h.t)===selected)||diff.rows.find(h=>cbStrip(h.t)===selected);
-  const openOwners=new Set([...network.querySelectorAll('.etf-owner-exposure')].filter(el=>el.querySelector('details[open]')).map(el=>el.dataset.exposureOwner));
+  const openOwners=new Set([...network.querySelectorAll('.etf-owner-exposure')].filter(el=>el.open).map(el=>el.dataset.exposureOwner));
   network.innerHTML=selected?etfExposureHtml(selected,holding):'<p class="sim-empty">구성종목을 선택하면 소유주별 비중을 확인할 수 있습니다.</p>';
-  network.querySelectorAll('.etf-owner-exposure').forEach(el=>{if(openOwners.has(el.dataset.exposureOwner))el.querySelector('details').open=true;});
+  network.querySelectorAll('.etf-owner-exposure').forEach(el=>{if(openOwners.has(el.dataset.exposureOwner))el.open=true;});
 }
