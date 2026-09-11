@@ -750,8 +750,7 @@ def parse_proshares_holdings(text):
         return [], None
     try:
         as_of = datetime.date(int(date[3]), int(date[1]), int(date[2]))
-        korea_today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
-        if as_of > korea_today:
+        if as_of > datetime.date.today():
             return [], None
         parser = _HtmlTableRowsParser()
         parser.feed(table[1])
@@ -854,7 +853,8 @@ def fetch_funetf(code):
         if not date or parser.params.get('itemId') != isin:
             return [], None
         as_of = datetime.datetime.strptime(date[1], '%Y%m%d').date()
-        if as_of > datetime.date.today():
+        korea_today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
+        if as_of > korea_today:
             return [], None
         parser.params['etfPdfYmd'] = date[1]
         rows = http_json('https://www.funetf.co.kr/api/public/product/view/etfpdf?' + urllib.parse.urlencode(parser.params), headers={'Referer': url}, timeout=EXTERNAL_SOURCE_TIMEOUT)
