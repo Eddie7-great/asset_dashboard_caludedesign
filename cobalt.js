@@ -54,7 +54,7 @@ const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, snap:cbRenderS
 const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', snap:'한눈에 보기', perf2:'성과 비교', fam2:'구성원별 보유', balance2:'가족 재무상태표', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
-  holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 규칙은 투자 계획에서도 수정할 수 있습니다',
+  holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
   cashflow: '월별 수입·지출 기록과 고정비 관리 · 고정비로 분류한 항목이 재무상태표의 현금 안전판 기준이 됩니다',
   bubble:   '주식·ETF·가상화폐·금·현금 비중 비교 · ETF는 펀드 단위이며 원을 클릭하면 하위 종목으로 들어갑니다',
 };
@@ -855,7 +855,7 @@ function cbRenderDash(){
     <div style="display:flex;align-items:center;gap:8px;padding:4px 10px 4px 24px;font-size:12px">
       <span style="width:6px;height:6px;border-radius:50%;background:${cbOwnerColor(r.i.owner)};flex-shrink:0"></span>
       <span class="cb-tip-block" data-overflow-tip="${cbEsc(r.title)}" style="flex:1;min-width:0">
-        <span data-overflow-watch style="display:block;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.title)} <span style="color:var(--dim)">· ${cbEsc(r.i.owner)}</span></span>
+        <span data-overflow-watch style="display:block;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.cls==='us'?cbStrip(r.i.tkr):r.title)} <span style="color:var(--dim)">· ${cbEsc(r.i.owner)}</span></span>
       </span>
       <span style="font-weight:600;flex-shrink:0">${cbDisp(r.val)}</span>
       <span class="cb-num" style="width:46px;text-align:right;font-weight:700;color:var(--lab);flex-shrink:0">${baseV>0?(r.val/baseV*100).toFixed(1):'0.0'}%</span>
@@ -995,13 +995,12 @@ function cbRenderDash(){
       </div>
 
       ${contributionCard}
+      <div class="cb-home-movers">
         ${moverCard('수익률 TOP 5', topGainers, 'var(--up)', '수익 종목이 없습니다')}
         ${moverCard('손실률 TOP 5', topLosers, 'var(--dn)', '손실 종목이 없습니다')}
+      </div>
     </div>
-    <div class="home-shortcuts">
-      <button onclick="switchView('holdings')"><span>자산 관리</span><b>보유 목록 확인 <span aria-hidden="true">↗</span></b></button>
-      <button onclick="switchView('sim2')"><span>투자 계획</span><b>다음 투자금 미리 배분하기 <span aria-hidden="true">↗</span></b></button>
-    </div>`;
+    ${cbHomeHoldings(held)}`;
   const allocation=el.querySelector('.cb-allocation-visual');
   if(retainedAllocation&&allocation){
     retainedAllocation.dataset.allocation=allocation.dataset.allocation;
@@ -1018,9 +1017,12 @@ function cbMobileHoldings(rows,query=_cdashQ,onSearch='cbDashSearch'){
     return `<details class="cb-mobile-holding"><summary><span class="cb-mobile-asset"><b>${cbEsc(r.title)}</b><small>${cbEsc(r.i.owner)} · ${cbEsc(r.subTitle||r.cl.label)}</small></span><span class="cb-mobile-value"><b>${cbDisp(r.val)}</b><small style="${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gainPct)}">${r.gainPct==null?'—':cbPct(r.gainPct)} <span aria-hidden="true">⌄</span></small></span></summary><dl><div><dt>보유수량</dt><dd>${cbEsc(qty)}</dd></div><div><dt>평단가</dt><dd>${r.i.grp==='현금'?'—':r.i.costUnknown?'취득가 미상':cbFmtNative(r.avgNative,r.i.cur)}</dd></div><div><dt>현재가</dt><dd>${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</dd></div><div><dt>평가손익</dt><dd>${r.i.costUnknown?'산정 제외':cbSignDisp(r.gain)}</dd></div></dl></details>`;
   }).join('')+(rows.length?'':'<p class="fin-empty">검색 결과가 없습니다.</p>')+'</section>';
 }
+function cbHomeHoldings(rows){
+  return `<section class="cb-panel cb-home-holdings"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3><input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div><div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목</th><th>수량</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${cbEsc(r.i.owner)}</td><td><b>${cbEsc(r.title)}</b> <small>${cbEsc(cbStrip(r.i.tkr))}</small></td><td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td><td>${cbDisp(r.val)}</td><td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td><td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`).join('')||'<tr><td colspan="6">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`;
+}
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
-  const inp=document.querySelector(isMobileLayout()?'#cb-mobile-search':'#cb-cdash .cb-dash-table-toolbar input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
+  const inp=document.querySelector('#cb-cdash .cb-dash-table-toolbar input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
 function cbDashPick(key){ _cdashSel=key; cbRenderDash(); }
 // 대시보드 소유주 필터 (전체/소유주) — 선택 종목은 초기화해 필터 결과 첫 종목으로 재선택
 function cbDashOwner(o){ _cdashOwner=o; _cdashSel=null; _cdashAllocOpen=null; _cdashSecOpen=null; cbRenderDash(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
@@ -3136,6 +3138,11 @@ function cbDcaRuleLabel(i){
   if (cycle==='매일') return '매영업일';
   return cycle+' '+cbDcaDayLabel(i);
 }
+function cbDcaOpenHolding(idx){
+  if(isMobileLayout())return;
+  const item=pfolioData[idx];if(!item)return;
+  switchView('holdings');editItem(item.owner,item.tkr,idx);
+}
 function cbRenderDca(){
   const el = document.getElementById('cb-dca2'); if(!el) return;
   const ownerF = (_cbDcaOwner && _cbDcaOwner!=='전체') ? _cbDcaOwner : null;
@@ -3174,7 +3181,6 @@ function cbRenderDca(){
   cbSetHead('적립식 매수 규칙·예정일 관리 · 실제 주문과 체결은 증권사에서 확인하세요',
     cbOwnerBtns(_cbDcaOwner,'cbDcaOwner'));
   el.innerHTML = `
-    ${cbDcaEditorHtml(ownerF)}
     <div class="cb-dca-summary-grid">
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">활성 규칙</div><div class="cb-dca-summary-value">${active.length}<span> / ${items.length}</span></div></div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label"><span data-tip="활성 규칙의 월 적립식 매수 합계를 월평균 영업일(21.7일)로 나눈 하루 평균 매수 금액">일평균 적립식 매수 합계</span></div><div class="cb-dca-summary-value">${cbDisp(daily)}</div></div>
@@ -3214,7 +3220,7 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="width:96px;text-align:right;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="width:100px;text-align:right;font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
           <span class="dca-rule-actions" style="width:94px;display:flex;justify-content:center;gap:7px">
-            <button type="button" class="cb-btn" onclick="cbDcaEdit(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 적립식 규칙 수정">수정</button>
+            <button type="button" class="cb-btn" onclick="cbDcaOpenHolding(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 보유 목록에서 적립식 규칙 수정">수정</button>
             <span role="button" tabindex="0" onclick="cbDcaToggle(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 규칙 ${x.i.dca?'일시 중지':'활성화'}" aria-pressed="${!!x.i.dca}" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
           </span>
         </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px">등록된 적립식 규칙이 없습니다. 위에서 보유 종목을 선택해 규칙을 추가하세요.</div>'}

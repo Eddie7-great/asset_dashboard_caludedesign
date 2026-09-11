@@ -1,5 +1,7 @@
 // Ephemeral scenarios: this module never writes portfolio data, goals or KV.
 let _simOwner='전체',_simState=null;
+let _simView='backtest';
+function simView(view){_simView=view==='allocation'?'allocation':'backtest';cbRenderSimulator();}
 
 // Allocate a fixed new contribution, without selling existing assets. Rounded to KRW.
 function simCalculate(current,weights,monthly,months,mode='gap'){
@@ -34,7 +36,7 @@ function cbRenderSimulator(){
   if(!_simState)_simState=simDefaults();
   const s=_simState;
   cbSetHead('입력값을 바꿔 추가 투자 후 자산 배분을 비교합니다 · 저장되지 않는 가상 계산',cbOwnerBtns(_simOwner,'simOwner'));
-  el.innerHTML=`
+  el.innerHTML=`<div class="sim-view-tabs"><button class="cb-btn" aria-pressed="${_simView==='backtest'}" onclick="simView('backtest')">과거 성과 백테스트</button><button class="cb-btn" aria-pressed="${_simView==='allocation'}" onclick="simView('allocation')">추가 투자 배분</button></div><div ${_simView==='backtest'?'':'hidden'}>${btHtml()}</div><div class="sim-future" ${_simView==='allocation'?'':'hidden'}>
     <div class="sim-mobile-preview"><span id="sim-mobile-total"></span><button class="cb-btn" onclick="document.querySelector('.sim-results').scrollIntoView({behavior:'smooth',block:'start'})">배분 보기 ↓</button></div>
     <div class="sim-layout"><section class="cb-panel sim-controls" aria-label="시뮬레이션 조건"><div class="fin-section-head"><span>투자 조건</span><button class="cb-btn" onclick="simReset()">초기화</button></div>
       <label class="sim-field" for="sim-monthly">월 투자금 <span>만원</span><input id="sim-monthly" type="number" data-no-comma="1" inputmode="decimal" min="0" max="10000" step="any" value="${s.monthly}" oninput="simInput('monthly',this.value)"></label>
@@ -46,7 +48,7 @@ function cbRenderSimulator(){
       <div class="sim-weights">${Object.entries(CB_CLS).map(([k,m])=>`<div class="sim-weight"><label for="sim-${k}"><i style="background:${m.color}"></i>${m.label}</label><input id="sim-${k}" type="number" data-no-comma="1" min="0" max="100" step="any" value="${s.weights[k]}" oninput="simWeight('${k}',this.value)"><span>%</span><input id="sim-${k}-range" class="sim-range" type="range" aria-label="${m.label} 목표 비중 조절" min="0" max="100" step="1" value="${s.weights[k]}" oninput="simWeight('${k}',this.value)"></div>`).join('')}</div>
       <p id="sim-weight-total" class="sim-weight-total"></p>
     </section><section class="sim-results" aria-label="예상 자산 배분"><p id="sim-error" class="sim-error" role="status" hidden></p><div id="sim-result"></div></section></div>
-    <p class="sim-assumptions">계산 기준: 현재 주가·환율 유지, 수익률 0%, 매도 없음. 세금·수수료·배당·매수 단위는 제외합니다. 추가 투자금은 기존 보유 현금에서 차감하지 않는 새 자금입니다. 부족한 비중 우선 방식은 적립 기간 전체 금액을 투자한 뒤의 목표 부족액에 비례 배분합니다. 이 화면의 변경은 원장·목표·적립식 규칙에 저장되지 않습니다.</p>`;
+    <p class="sim-assumptions">계산 기준: 현재 주가·환율 유지, 수익률 0%, 매도 없음. 세금·수수료·배당·매수 단위는 제외합니다. 추가 투자금은 기존 보유 현금에서 차감하지 않는 새 자금입니다. 부족한 비중 우선 방식은 적립 기간 전체 금액을 투자한 뒤의 목표 부족액에 비례 배분합니다. 이 화면의 변경은 원장·목표·적립식 규칙에 저장되지 않습니다.</p></div>`;
   simUpdate();
 }
 function simValue(value){ return String(value).trim()===''?NaN:Number(value); }

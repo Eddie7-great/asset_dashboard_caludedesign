@@ -147,7 +147,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finGoalPace', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
