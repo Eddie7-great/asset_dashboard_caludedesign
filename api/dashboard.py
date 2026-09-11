@@ -25,7 +25,38 @@ SESSION_TTL_SECONDS = 8 * 60 * 60
 MAX_TICKERS = 25
 MAX_QUERY_LENGTH = 2048
 TICKER_PATTERN = re.compile(r'^[A-Z0-9.^=_-]{1,24}$')
-ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'fundamentals', 'resolve'}
+ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'fundamentals', 'resolve', 'etf_holdings'}
+
+
+def get_live_etf(code):
+    # Shared parsers, bounded HTTP sources only: no KRX retries or browser tier here.
+    import sys
+    source_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'scripts')
+    if source_dir not in sys.path:
+        sys.path.insert(0, source_dir)
+    import collect_etf_holdings as source
+    if not re.fullmatch(r'[A-Z0-9][A-Z0-9.\-]{0,15}', code):
+        raise ValueError('invalid_etf')
+    if source.is_kr_code(code):
+        rows, as_of = source.fetch_funetf(code)
+        provider = 'FunETF'
+    else:
+        rows, as_of = source.fetch_proshares(code)
+        provider = 'provider:ProShares'
+        if not rows:
+            rows, as_of = source.fetch_invesco(code)
+            provider = 'provider:Invesco'
+        if not rows:
+            rows = source.fetch_stockanalysis(code)
+            provider = 'stockanalysis'
+    checked = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if not rows:
+        return {'success': False, 'code': code, 'checkedAt': checked, 'error': 'Holdings unavailable'}
+    return {'success': True, 'code': code, 'checkedAt': checked, 'entry': {
+        'holdings': rows, 'asOf': as_of, 'source': provider,
+        'coverage': 'full' if as_of else 'partial',
+        'equityWeight': round(sum(row['w'] for row in rows), 4),
+        'fetchedAt': checked, 'lastAttempt': checked, 'retained': False}}
 
 
 def _session_secret():
@@ -797,7 +828,9 @@ class handler(BaseHTTPRequestHandler):
             self._send_json({'success': False, 'error': 'Invalid type'}, 400)
             return
         try:
-            if qtype == 'rates': data = get_rates()
+            if qtype == 'etf_holdings':
+                data = get_live_etf(params.get('ticker', [''])[0].strip())
+            elif qtype == 'rates': data = get_rates()
             elif qtype == 'gold':
                 unit = params.get('unit', ['g'])[0]
                 if unit not in {'g', '돈', 'kg'}:

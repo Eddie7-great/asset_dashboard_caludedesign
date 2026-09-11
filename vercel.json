@@ -48,7 +48,8 @@
       "maxDuration": 15
     },
     "api/dashboard.py": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "scripts/*.py"
     },
     "api/stock-price.js": {
       "maxDuration": 15

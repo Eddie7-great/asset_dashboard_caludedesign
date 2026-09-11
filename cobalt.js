@@ -399,14 +399,29 @@ function cbSectors(includeCrypto, ownerFilter){
 
 // ───────────────────────── ETF 룩스루 (구성종목 합산) ─────────────────────────
 // 구성종목은 GitHub Actions 배치(scripts/collect_etf_holdings.py)가 평일 18:30에 수집해
-// data/etf_holdings.json 으로 커밋한다. 브라우저는 그 파일만 읽는다 —
-// 외부 사이트를 직접 fetch 하면 CORS 로 막히고, 서버리스 경유는 KRX 왕복이 함수 제한시간을 넘긴다.
+// data/etf_holdings.json 으로 커밋한다. ETF 페이지 진입 시 인증 API로 원본도 조회한다.
+// 서버리스에서는 제한 시간이 긴 KRX·브라우저 재시도 없이 HTTP 어댑터만 사용한다.
 // 개별 주식으로 직접 보유하지 않은 구성종목은 계산하지 않는다(요구사항).
 let _cbEtfLoading = false;
 
-function cbEtfDoc(){ return window._etfHoldings || null; }
+function cbEtfDoc(){
+  const doc=window._etfHoldings;
+  if(!doc)return doc||null;
+  const etfs={...doc.etfs};
+  for(const [code,entry] of Object.entries(window._etfLiveEntries||{})){
+    if(!etfs[code]?.asOf || entry.asOf>=etfs[code].asOf)etfs[code]=entry;
+  }
+  return {...doc,etfs};
+}
 
-async function cbEnsureEtfHoldings(force=false){
+let _cbEtfPromise=null;
+function cbEnsureEtfHoldings(force=false){
+  if(_cbEtfPromise)return _cbEtfPromise;
+  if(!force&&window._etfHoldings!==undefined)return Promise.resolve();
+  _cbEtfPromise=cbLoadEtfHoldings(force).finally(()=>{_cbEtfPromise=null;});
+  return _cbEtfPromise;
+}
+async function cbLoadEtfHoldings(force=false){
   if (_cbEtfLoading || (!force && window._etfHoldings !== undefined)) return;
   _cbEtfLoading = true;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -920,8 +935,8 @@ function cbRenderDash(){
     }
   });
 
-  // 투자자산과 전체 순자산을 구분한다. 전체 순자산은 가족 재무상태표에서 확인한다.
-  cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 가족 재무상태표에서 분리해 관리합니다.">전일 종가 기준</span>`,cbOwnerBtns(_cdashOwner,'cbDashOwner'));
+  // 홈 합계는 투자자산이며 부동산과 부채를 포함한 순자산과 구분한다.
+  cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 포함하지 않습니다.">전일 종가 기준</span>`,cbOwnerBtns(_cdashOwner,'cbDashOwner'));
 
   // 요약 배지 — 라벨(작은 글씨)이 옆 원화 금액의 세로 중앙에 오도록 inline-flex 정렬
   const badge=(lab,val,valStyle,bg,click)=>`<span ${click?`onclick="${click}" role="button" tabindex="0" `:''}style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:16px;background:${bg};${click?'cursor:pointer':''}">
@@ -942,9 +957,6 @@ function cbRenderDash(){
 
     </div>
 
-    ${cbHomeTotals(ownerF)}
-    ${finDashboardFocus(ownerF)}
-
     <div class="cb-dash-insight-grid">
       <div class="cb-panel" style="min-width:0;padding:16px 18px">
         <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);margin-bottom:10px">자산 배분 <span style="color:var(--dim)">· 차트/항목 클릭 시 종목 표시</span></div>
@@ -952,7 +964,7 @@ function cbRenderDash(){
         ${alloc.map(c=>{
           const open = _cdashAllocOpen===c.key;
           return `
-          <div class="cb-hrow" role="button" tabindex="0" onclick="cbDashAllocToggle('${c.key}')" style="display:flex;align-items:center;gap:9px;padding:6px 8px;cursor:pointer;font-size:12.5px;${open?'background:var(--accSoft)':''}">
+          <div class="cb-hrow cb-home-allocation-row" role="button" tabindex="0" onclick="cbDashAllocToggle('${c.key}')" style="display:flex;align-items:center;gap:9px;padding:6px 8px;cursor:pointer;font-size:12.5px;${open?'background:var(--accSoft)':''}">
             <span style="width:9px;height:9px;border-radius:2px;background:${c.color};flex-shrink:0"></span>
             <span style="flex:1;color:var(--mut)">${c.label}</span>
             <span class="cb-num" style="font-size:12px;color:var(--lab)">${cbDisp(c.v)}</span>
@@ -983,14 +995,8 @@ function cbRenderDash(){
       </div>
 
       ${contributionCard}
-    </div>
-
-    <div class="home-lower-grid">
-      <div class="cb-dash-movers-grid">
         ${moverCard('수익률 TOP 5', topGainers, 'var(--up)', '수익 종목이 없습니다')}
         ${moverCard('손실률 TOP 5', topLosers, 'var(--dn)', '손실 종목이 없습니다')}
-      </div>
-    ${cbHomeTrend(ownerF)}
     </div>
     <div class="home-shortcuts">
       <button onclick="switchView('holdings')"><span>자산 관리</span><b>보유 목록 확인 <span aria-hidden="true">↗</span></b></button>
@@ -1934,7 +1940,6 @@ function cbRenderDiv(){
      </label>`
   );
   el.innerHTML = `
-    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('dividend',year):''}
     <div class="cb-div-summary-grid">
       <div class="cb-panel cb-div-summary-card"><div style="font-size:12px;color:var(--lab)">연간 배당 수입 · ${basisLabel}${ownerF?' · '+cbEsc(ownerF):''}</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div>${netBasis?`<div style="font-size:12px;color:var(--dim);margin-top:2px">세전 ${cbDisp(divGrossAnnual)} · 세금 ${cbDisp(divTaxAnnual)}</div>`:''}</div>
       <div class="cb-panel cb-div-summary-card"><div style="font-size:12px;color:var(--lab)">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
@@ -1968,7 +1973,7 @@ function cbRenderDiv(){
         <small>기준 ${cbDisp(CB_FIN_INCOME_THRESHOLD)} · 이 앱에 없는 예적금 이자는 미포함</small>
       </div>
       <div class="cb-fin-income-grid">
-        ${alloc.owners.filter(o=>o.gross>0).map(o=>{
+        ${alloc.owners.filter(o=>o.gross>0).sort((a,b)=>OWNERS.indexOf(a.owner)-OWNERS.indexOf(b.owner)).map(o=>{
           const pct=Math.min(100,o.comprehensivePct);
           const over=o.comprehensiveOver>0;
           const near=!over&&o.comprehensivePct>=80;
@@ -2039,7 +2044,8 @@ function cbRenderDiv(){
       ${upcomingDividends.length>upcomingDividendShown.length?`<div class="cb-insight-more">외 ${upcomingDividends.length-upcomingDividendShown.length}건</div>`:''}
       <div class="cb-div-upcoming-note">지급일이 확인되지 않은 종목은 ‘월 예정’으로 표시합니다.</div>
     </div>
-    </div>`;
+    </div>
+    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('dividend',year):''}`;
 }
 function cbDivMonthPick(m){
   const month=Number(m);
@@ -2345,7 +2351,6 @@ function cbRenderGift(){
     </div>`;
 
   el.innerHTML = `
-    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('gift',new Date().getFullYear()):''}
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
 
       <!-- ── 자녀 증여 ── -->
@@ -2423,7 +2428,8 @@ function cbRenderGift(){
       ※ 공제는 고정된 연령대·결혼 후 10년 구간마다 자동으로 새로 생기는 것이 아니라, 원칙적으로 각 증여일 이전 10년 동안 동일인에게 받은 증여를 합산해 검토합니다.
       이 화면은 입력한 최근 10년 합계와 계획 금액을 비교하는 참고용이며 실제 신고·증여 실행 전 세무 전문가 확인이 필요합니다.
       할인율(상속세 및 증여세법 시행규칙상 현재 연 3.0%)과 공제액은 규칙 버전에서 관리하며 변경될 수 있습니다.
-    </div>`;
+    </div>
+    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('gift',new Date().getFullYear()):''}`;
 }
 
 // ── 차트 hover ───────────────────────────────────────────────
@@ -2778,7 +2784,6 @@ function cbRenderTax(){
      </label>`
   );
   el.innerHTML = `
-    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('capitalGains',year):''}
     <!-- 상단 요약: 기존 5개를 압축하고 해외 기본공제 사용률을 추가 -->
     <div class="cb-tax-summary-grid">
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--dn)">
@@ -2806,7 +2811,6 @@ function cbRenderTax(){
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
         <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
-    </div><details class="cb-tax-account-details" ${genDom||isaNet||penNet?'open':''}><summary>국내주식·ISA·연금저축 세제 상세</summary><div class="cb-tax-summary-grid">
       <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
         <div style="font-size:12px;letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
@@ -2836,7 +2840,6 @@ function cbRenderTax(){
         </div>
       </div>
     </div>
-    </details>
     ${taxSummary.legacy?`<div class="cb-panel" role="note" style="margin-top:10px;padding:10px 13px;border-left:3px solid var(--warn);font-size:12px;color:var(--mut);line-height:1.55"><b style="color:var(--warn)">소유주 미지정 기록 별도 추정</b> · 해외 일반 ${cbKrw(taxSummary.legacy.genFgn)}, ISA ${cbKrw(taxSummary.legacy.isaNet)}, 예상세액 ${cbKrw(taxSummary.legacyDue)}. 어느 사람의 공제를 사용했는지 알 수 없어 하나의 별도 버킷으로 계산했습니다. 기록을 수정해 실제 소유주를 지정하세요.</div>`:''}
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
     <div class="cb-panel" style="margin-top:12px;padding:16px 18px 10px">
@@ -2917,7 +2920,8 @@ function cbRenderTax(){
         </div>
         <div style="font-size:12px;color:var(--dim);line-height:1.55;margin-top:auto;padding-top:12px">손실 상계 후보는 해외 일반계좌의 현재 평가손실만 표시합니다. 실제 매도 전 수수료·환율·세법 적용 여부를 확인하세요.</div>
       </div>
-    </div>`;
+    </div>
+    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('capitalGains',year):''}`;
 }
 function cbTaxYear(y){ _cbTaxYear = y; cbRenderTax(); }
 // 소유주 탭 — 요약 카드·차트·내역이 모두 list 파생이라 필터만 바꾸면 전부 갱신된다
@@ -3317,6 +3321,7 @@ switchView = function(id, btn){
   if (id==='snap') cbVerifySnapshotDividendData();
   if (id==='perf2') cbVerifyPerfOwnersOnOpen();
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
+  if(id==='etf2')etfRefreshOnOpen();
   navSync(id);
   if(typeof _recordViewHistory==='function') _recordViewHistory(id);
 };

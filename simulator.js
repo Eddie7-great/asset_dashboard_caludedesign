@@ -1,18 +1,5 @@
 // Ephemeral scenarios: this module never writes portfolio data, goals or KV.
 let _simOwner='전체',_simState=null;
-let _homeTf='6M';
-function cbHomeTotals(ownerF){
-  const t=finBalanceTotals(ownerF);
-  return `<div class="home-totals"><div><small>전체 순자산</small><strong>${cbDisp(t.net)}</strong><span>투자자산 + 기타 자산 − 부채</span></div><div><small>기타 자산</small><b>${cbDisp(t.otherAssets)}</b></div><div><small>부채</small><b>${cbDisp(t.liabilities)}</b></div><button class="cb-btn" onclick="switchView('balance2')">재무상태표 보기 ↗</button></div>`;
-}
-function cbHomeTrend(ownerF){
-  const series=finNwSeries(ownerF,_homeTf),stats=finNwStats(series);
-  return `<section class="cb-panel fin-section home-trend"><div class="fin-section-head"><span>순자산 추이 <small>· ${cbEsc(ownerF||'가구 전체')}</small></span><div class="owner-tabs">${Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_homeTf?' active':''}" data-home-tf="${tf}" aria-pressed="${tf===_homeTf}" onclick="cbHomeTf('${tf}')">${tf}</button>`).join('')}</div></div><p class="home-trend-note">${stats?'기간 증감 '+cbSignDisp(stats.change):'기록이 쌓이면 순자산 변화를 볼 수 있습니다.'} · 실제 저장한 자산 기록 기준</p>${finNwCoverageNote(finNwCoverage(series,_homeTf))}${finNwChartSvg(series,1100,200)}</section>`;
-}
-function cbHomeTf(tf){
-  if(!Object.hasOwn(FIN_NW_TFS,tf))return;
-  _homeTf=tf;cbRenderDash();cbRestoreFilterFocus('cb-cdash','data-home-tf',tf);
-}
 
 // Allocate a fixed new contribution, without selling existing assets. Rounded to KRW.
 function simCalculate(current,weights,monthly,months,mode='gap'){
@@ -47,7 +34,7 @@ function cbRenderSimulator(){
   if(!_simState)_simState=simDefaults();
   const s=_simState;
   cbSetHead('입력값을 바꿔 추가 투자 후 자산 배분을 비교합니다 · 저장되지 않는 가상 계산',cbOwnerBtns(_simOwner,'simOwner'));
-  el.innerHTML=`<section class="sim-hero cb-panel"><div><span class="sim-eyebrow">INVESTMENT LAB · 가상 계산</span><h3>다음 투자금, 어떻게 나눌까요?</h3><p>월 투자금과 목표를 바꾸고 자산 비중의 변화를 확인하세요.</p></div><span class="sim-hero-mark" aria-hidden="true">↗</span></section>
+  el.innerHTML=`
     <div class="sim-mobile-preview"><span id="sim-mobile-total"></span><button class="cb-btn" onclick="document.querySelector('.sim-results').scrollIntoView({behavior:'smooth',block:'start'})">배분 보기 ↓</button></div>
     <div class="sim-layout"><section class="cb-panel sim-controls" aria-label="시뮬레이션 조건"><div class="fin-section-head"><span>투자 조건</span><button class="cb-btn" onclick="simReset()">초기화</button></div>
       <label class="sim-field" for="sim-monthly">월 투자금 <span>만원</span><input id="sim-monthly" type="number" data-no-comma="1" inputmode="decimal" min="0" max="10000" step="any" value="${s.monthly}" oninput="simInput('monthly',this.value)"></label>

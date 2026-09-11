@@ -409,7 +409,7 @@ assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
 assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
-assert.match(cobaltSource, /cbHomeTrend\(ownerF\)[\s\S]*switchView\('holdings'\)/, '홈의 추이와 자산 관리 이동 연결')
+assert.doesNotMatch(cobaltSource, /cbHomeTrend\(ownerF\)|cbHomeTotals\(ownerF\)/, '홈의 중복 요약과 추이 제거')
 assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:4\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '기존 8개와 신규 8개 리스크 카드를 같은 행 흐름으로 교차 배치')
 assert.match(styleSource, /\.cb-risk-card-grid\{min-width:0;display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '리스크 통합 위젯 데스크톱 4열 배치')
 assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-card-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, '리스크 통합 위젯 중간 화면 2열 배치')

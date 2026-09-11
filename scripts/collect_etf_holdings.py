@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """보유 ETF 구성종목 수집 → data/etf_holdings.json.
 
-GitHub Actions 배치 전용이다. 브라우저에서 외부 사이트를 직접 부르면 CORS 로 막히므로
-수집은 전부 CI 에서 하고, 대시보드는 커밋된 JSON 만 읽는다.
+GitHub Actions가 영구 이력을 수집한다. ETF 페이지의 인증 API는 이 모듈의 제한된
+HTTP 어댑터를 재사용하며 원장이나 이력 파일을 쓰지 않는다.
 
 수집 우선순위
-  1순위  KRX 내부 JSON API (국내 ETF)  — bld 값은 pykrx 소스에서 확인한 것
+  1순위  FunETF 전체 PDF 구성종목 → KRX 내부 JSON API (국내 ETF)
   2순위  운용사 공식 어댑터(지원 운용사) / ZEROIN(그 외 국내 ETF)
   3순위  네이버(국내) / yfinance·stockanalysis(해외)
   4순위  Playwright 헤드리스 브라우저 (앞선 소스가 모두 실패한 ETF만)
@@ -34,7 +34,7 @@ from html.parser import HTMLParser
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from etf_common import (  # noqa: E402
-    ETF_ALIAS, UA, fetch_naver, fetch_stockanalysis, fetch_yfinance,
+    ETF_ALIAS, UA, NON_EQUITY_NAME_RE, fetch_naver, fetch_stockanalysis, fetch_yfinance,
     http_json, is_equity_row, is_kr_code, merge_holdings,
     norm_holding_code, parse_krx_pdf,
 )
@@ -789,6 +789,82 @@ def fetch_proshares(code):
         return [], None
 
 
+class _FunEtfFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.params = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == 'input' and a.get('name') in ('itemId', 'fundCd', 'repFundCd', 'gijunYmd', 'kodexPdfYmd'):
+            self.params[a['name']] = a.get('value', '')
+
+
+def parse_funetf_holdings(rows, isin):
+    """Full dated PDF basket only: preserve published weights, reject gaps.
+
+    The UI's monthly zeroinstock top holdings are deliberately not used.
+    """
+    if not isinstance(rows, list) or not rows:
+        return []
+    picked = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get('etfCd') != isin or row.get('total') != len(rows):
+            return []
+        name = str(row.get('citmNm') or '')
+        if NON_EQUITY_NAME_RE.search(name) or re.search(r'현금|예금|통화안정증권|MNY\s*MKT', name, re.I) or row.get('viewGrp') == 'N':
+            continue
+        try:
+            w = float(row['evP'])
+        except (KeyError, ValueError, TypeError):
+            return []
+        if not math.isfinite(w) or w < 0:
+            return []
+        if not w:
+            continue
+        raw_ticker = str(row.get('ticker') or '').strip()
+        raw_ticker = re.sub(r'\s+(US|KS|KQ|JP|HK|CH|TT|LN|GR|FP)$', '', raw_ticker, flags=re.I)
+        ticker = norm_holding_code(raw_ticker.replace('/', '.') or row.get('grpItmNo'))
+        if not ticker or not is_equity_row(ticker, name):
+            return []
+        picked.append((ticker, name, w))
+    return merge_holdings(picked)
+
+
+_funetf_catalog = None
+
+
+def fetch_funetf(code):
+    global _funetf_catalog
+    try:
+        if _funetf_catalog is None:
+            catalog = http_json('https://www.funetf.co.kr/api/public/quickSearch/etf', timeout=EXTERNAL_SOURCE_TIMEOUT)
+            _funetf_catalog = {r['itemId'][3:9]: r['itemId'] for r in catalog if isinstance(r, dict) and r.get('nation') == 'KR' and re.fullmatch(r'KR7[0-9A-Z]{6}\d{3}', str(r.get('itemId', '')))}
+        isin = _funetf_catalog.get(code)
+        if not isin:
+            return [], None
+        url = 'https://www.funetf.co.kr/product/etf/view/' + isin
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        with urllib.request.urlopen(req, timeout=EXTERNAL_SOURCE_TIMEOUT) as response:
+            html = response.read().decode('utf-8')
+        parser = _FunEtfFormParser()
+        parser.feed(html)
+        date = re.search(r'(?:let|const|var)\s+etfPdfYmd\s*=\s*[\"\'](\d{8})[\"\']', html)
+        if not date or parser.params.get('itemId') != isin:
+            return [], None
+        as_of = datetime.datetime.strptime(date[1], '%Y%m%d').date()
+        korea_today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
+        if as_of > korea_today:
+            return [], None
+        parser.params['etfPdfYmd'] = date[1]
+        rows = http_json('https://www.funetf.co.kr/api/public/product/view/etfpdf?' + urllib.parse.urlencode(parser.params), headers={'Referer': url}, timeout=EXTERNAL_SOURCE_TIMEOUT)
+        holdings = parse_funetf_holdings(rows, isin)
+        return holdings, as_of.isoformat() if holdings else None
+    except Exception as exc:
+        print('[funetf] %s: %s' % (code, exc), file=sys.stderr)
+        return [], None
+
+
 def collect_one(code, name, lookup=None):
     """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None).
 
@@ -800,6 +876,9 @@ def collect_one(code, name, lookup=None):
     lookup = lookup or code
 
     if is_kr_code(code):
+        h, as_of = fetch_funetf(code)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'FunETF'
         h, eq, as_of = fetch_krx(code)
         if h:
             return h, eq, as_of, 'krx'
@@ -914,7 +993,7 @@ def run(targets, dry_run=False):
         if holdings and old and as_of and old.get('asOf') and as_of < old['asOf']:
             holdings = []  # A stale provider response must not roll the fund backwards.
         if holdings:
-            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco', 'provider:ProShares') else 'partial'
+            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco', 'provider:ProShares', 'FunETF') else 'partial'
             etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
                           'equityWeight': eq, 'holdings': holdings, 'coverage': coverage,
                           'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),

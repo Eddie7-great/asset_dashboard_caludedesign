@@ -1,11 +1,18 @@
 # CLAUDE.md
 
+### Compact navigation and FunETF (2026-09-10)
+
+- Each ETF-page entry and manual refresh revalidates the published snapshot and queries held ETF symbols through the authenticated, no-store dashboard API. Use only bounded HTTP adapters (FunETF domestically; supported issuers then stockanalysis abroad), never the long KRX/browser retry chain in a function. Limit browser concurrency to two; ignore responses from superseded page entries. Preserve dated/full last-good observations on failures, older dates or undated/partial regressions; display the latest attempt separately from composition asOf. Live observations are session-only; scheduled collection persists history.
+
+- The current navigation has seven main destinations. Balance-sheet UI is retired; old balance2 links resolve to home. Preserve stored balance-sheet values and snapshot jobs because goals and financial totals still depend on them. Home omits duplicate net-worth totals, monthly actions and the trend chart; its five analysis cards share one desktop row. Tax summary cards share one desktop row, with responsive wrapping on small screens. Tax/dividend/gift source disclosures remain accessible at the bottom. Section links share button typography and align right.
+- Domestic ETF collection first checks FunETF's public catalog and full PDF-basket endpoint. Resolve its product ID from the catalog, not a calculated ISIN. Use the page's published etfPdfYmd, validate fund identity and advertised row count, retain original NAV weights, and reject invalid or unmapped positive stock rows. Never substitute monthly top holdings or normalize weights to 100%. Failures continue through existing issuer/KRX sources. US symbols KR and KRC are stocks, not Korean non-equity ISINs.
+
 ### ETF observations and compact layouts (2026-09-09)
 
 - Re-clicking an ETF owner filter returns to all owners; re-clicking a constituent explicitly clears selection (null is distinct from the initial empty selection). Each owner exposure card is one native details/summary disclosure. Keep verification counts inside the held-ETF selector card.
 - ProShares QLD uses the dated complete issuer table, preserving physical-stock NAV weights and excluding swaps, money-market collateral and placeholders. A malformed/truncated table must fall through to a partial source; never infer constituent exposure from the fund's target leverage. Allocation analysis retains an HTML weight-list fallback when Plotly is unavailable and merges accounts by owner, asset group and normalized ticker.
 
-- `etf-explorer.js` loads before `cobalt.js`. `etf2` is an asset-management tab, keeping eight main destinations and the related owner scope. The explorer never writes financial records.
+- `etf-explorer.js` loads before `cobalt.js`. `etf2` is an asset-management tab, keeping seven main destinations and the related owner scope. The explorer never writes financial records.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
 - Each ETF retains up to 30 source/date snapshots. Same-date corrections replace that observation; an older response cannot overwrite a newer dated snapshot. Failed retrieval preserves the prior valid data and date with retained=true. Only full lists from the same source prove entries/exits; partial lists compare shared tickers only. Weight changes include price effects and never imply actual trades.
 - Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
@@ -14,7 +21,7 @@
 
 ### Consolidated workspace (2026-09-08)
 
-- Navigation is defined in `navigation.js`: eight menu families, secondary links retain existing view IDs. `snap`/`dashboard` resolve to `cdash` before history recording. Keep active menu/title, owner scope across related tabs, and back/forward in sync. Home contains summaries, allocation and snapshot trends; holdings belong to asset management. `plan2` is goals, `rebal2` is allocation/account diagnostics, `dca2` is scheduling, `sim2` is scenarios.
+- Navigation is defined in `navigation.js`: seven menu families, secondary links retain existing view IDs. `snap`/`dashboard`/`balance2` resolve to `cdash` before history recording. Keep active menu/title, owner scope across related tabs, and back/forward in sync. Home contains investment summaries and compact allocation/ranking cards; holdings belong to asset management. `plan2` is goals, `rebal2` is allocation/account diagnostics, `dca2` is scheduling, `sim2` is scenarios.
 - Script order: `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `simulator.js` → `dca-editor.js` → `etf-explorer.js` → `cobalt.js` → `allocation-3d.js`. The new modules define functions only until Cobalt renders. `workspace-ui.css` follows `style.css`.
 - Scenarios are memory-only: never persist, update actual holdings or execute trades. Contributions are external funds; prices/FX fixed, returns 0%, fees/taxes/dividends/lot sizes excluded. Validate finite nonnegative inputs and 100% target weights; rounded KRW allocations must conserve the budget. Keep inputs/focus while results update. Scenario and DCA numeric controls use `data-no-comma="1"` to retain native numeric validation. Mobile can edit scenarios although actual finance records remain read-only.
 - DCA edits change only the selected asset object's plan fields. Require both remote loads ready, preserve valuation/cost fields, reject stale item references, retain drafts and roll back in-memory plan changes on failure. All writes use the existing CAS save path. No simulated fills.
@@ -36,7 +43,7 @@ This is a Vercel-hosted single-page app — there is no build step.
 ### Frontend — vanilla JS SPA (no framework, no bundler)
 
 - Scripts load in the order listed in Consolidated workspace above. `cobalt.js` wraps `switchView`, `changeOwner`, `saveAssetsToKV`, `loadAssetsFromKV`, `loadExtDataFromKV`, `fetchDivData`, `updateBenchmark`, `setTheme`, `liveRefresh`, `refreshPyData` to re-render the active page and stamp data-freshness. It must follow the finance/navigation/simulator/editor definitions it references in `CB_VIEWS`. The optional 3D enhancement loads after Cobalt.
-- `index.html` defines every view as `<div id="view-*">` siblings; `switchView(viewId)` toggles `.active`. A new page needs a view/container, a renderer in `CB_VIEWS`, and an entry in the appropriate `APP_NAV` family. Keep eight top-level destinations rather than adding a menu button per page. Legacy pages use `CB_LEGACY_SUB` for header descriptions.
+- `index.html` defines every view as `<div id="view-*">` siblings; `switchView(viewId)` toggles `.active`. A new page needs a view/container, a renderer in `CB_VIEWS`, and an entry in the appropriate `APP_NAV` family. Keep seven top-level destinations rather than adding a menu button per page. Legacy pages use `CB_LEGACY_SUB` for header descriptions.
 - `script.js` is a single ~9,100-line file with all logic. Globals shared across modules are real `window.` globals — `pfolioData`, `currentOwner`, `_bubbleOwner`, `_divDataCache`, `RATES`, `benchData`, `divHistory`, `_netWorthHistory`, `_balanceSheet`, `_targetAlloc`, `goalData`, etc. There is no module system; ordering in the file matters.
 - Charting: **Chart.js 4.4.1** for the 현금 흐름 bar/donut charts and **Plotly 2.26.0** for the bubble/sunburst-trace chart (`renderBubbleChart` in `script.js`) — both loaded from CDN in `index.html` with SRI. Highcharts was dropped when the legacy views went: its only user was the 히트맵 treemap in `view-analysis`. **Cobalt pages use no chart library at all** — they render inline SVG (`cbDonutSvg`, `cbRingSvg`, `finNwChartSvg`), because a page redrawn by `innerHTML` replacement would otherwise need chart-instance lifecycle management.
 - Persistent state is stored in **Upstash Redis (KV)** via `getKV` / `setKV` (`saveAssetsToKV`, `loadAssetsFromKV`), which call the server-side proxy `api/kv.ts` — the Upstash credentials live in Vercel env vars (`KV_REST_API_URL`, `KV_REST_API_TOKEN`), never in the client. Local `localStorage` is used only for short-lived caches (e.g. `divCache_<YYYY-MM-DD>`, `cfData`).
@@ -56,7 +63,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 ### ETF 구성종목 수집 — GitHub Actions 배치
 
 브라우저에서 외부 사이트를 직접 fetch 하면 CORS 로 막히고, 서버리스 경유는 KRX 왕복이
-함수 제한시간(15~30s)을 넘겨 룩스루가 자주 비었다. 그래서 수집은 CI 로 옮겼다.
+함수 제한시간을 넘겨 룩스루가 자주 비었다. 긴 재시도와 영구 이력 수집은 CI에서 처리하고, 페이지 진입 시에는 인증 API의 제한된 HTTP 소스도 별도로 조회한다.
 
 - `.github/workflows/etf-holdings.yml` — 평일 KST 18:30(cron `30 9 * * 1-5` UTC) + 수동 실행.
   스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.

@@ -7,8 +7,10 @@ const defaults={crypto:5,us:35,kr:25,jp:5,gold:10,cash:20};
 const ctx=vm.createContext({FIN_DEFAULT_TARGET:defaults});
 vm.runInContext(navigation+'\n'+sim,ctx);
 const groups=JSON.parse(vm.runInContext('JSON.stringify(APP_NAV)',ctx));
-assert.deepEqual(groups.map(g=>g.title),['홈','자산 관리','재무상태표','투자 분석','배당','투자 계획','현금 흐름','세금·증여']);
-assert.equal((html.match(/class="menu-btn\b/g)||[]).length,8);
+assert.deepEqual(groups.map(g=>g.title),['홈','자산 관리','투자 분석','배당','투자 계획','현금 흐름','세금·증여']);
+assert.equal((html.match(/class="menu-btn\b/g)||[]).length,7);
+assert.equal(ctx.navResolve('balance2'),'cdash','Retired balance-sheet links safely return home');
+assert.ok(!html.includes('id="view-balance2"'));
 for(const group of groups){
   assert.ok(html.includes(`id="menu-${group.menu}"`));
   for(const [view]of group.views){assert.ok(html.includes(`id="view-${view}"`));assert.equal(ctx.navGroup(view).menu,group.menu);}
