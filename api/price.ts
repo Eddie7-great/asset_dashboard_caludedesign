@@ -257,7 +257,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       if (!divTickers.length) return res.status(200).json({ success: true, result: {} });
       const fxRates = await getExchangeRates();
       const usdRate = fxRates?.['KRW'] ?? 1380;
-      const KR_RE = /^[0-9A-Z]{6}$/i;
+      const KR_RE = /^[0-9][0-9A-Z]{5}$/i;
 
       // 월배열에서 cycle/ months 도출
       const deriveCycle = (months: number[]): { cycle: string; months: number[] } => {
@@ -463,11 +463,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const ts: number[] = result.timestamp || [];
         const q = result.indicators?.quote?.[0] || {};
         const meta = result.meta || {};
-        const bars: Array<{t:number;o:number;h:number;l:number;c:number;v:number}> = [];
+        const adj = result.indicators?.adjclose?.[0]?.adjclose || [];
+        const session = meta.currentTradingPeriod?.regular;
+        const bars: Array<{t:number;o:number;h:number;l:number;c:number;v:number;adj:number|null;complete:boolean}> = [];
         for (let i = 0; i < ts.length; i++) {
           const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i], v = q.volume?.[i];
           if (o == null || h == null || l == null || c == null) continue;
-          bars.push({ t: ts[i], o, h, l, c, v: v ?? 0 });
+          const complete = Number.isFinite(session?.start) && Number.isFinite(session?.end)
+            ? ts[i]<session.start || Date.now()/1000>=session.end
+            : ts[i]<Math.floor(Date.now()/86400000)*86400;
+          bars.push({ t: ts[i], o, h, l, c, v: v ?? 0, adj: Number.isFinite(adj[i]) && adj[i]>0 ? adj[i] : null, complete });
         }
         return {
           symbol: sym,
