@@ -36,7 +36,7 @@ function _maskAmountText(value){
   return out;
 }
 function _maskAmountAttributes(el){
-  if (!el || el.nodeType !== 1) return;
+  if (!el || el.nodeType !== 1 || el.closest?.('[data-privacy-exempt]')) return;
   const attrs = ['title','data-tip','data-overflow-tip','aria-label'];
   let originals = _amountPrivacyAttrOriginal.get(el);
   attrs.forEach(name => {
@@ -60,7 +60,7 @@ function _maskAmountTree(root){
     while (node) {
       if (node.nodeType === 1) {
         _maskAmountAttributes(node);
-      } else if (node.nodeType === 3 && !/^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(node.parentElement?.tagName || '')) {
+      } else if (node.nodeType === 3 && !node.parentElement?.closest?.('[data-privacy-exempt]') && !/^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(node.parentElement?.tagName || '')) {
         const current = node.nodeValue || '';
         const masked = _maskAmountText(current);
         if (masked !== current) {

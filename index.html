@@ -47,7 +47,7 @@
             <option value="kg">(kg)</option>
           </select>
         </span>
-        <strong id="side-gold-rate" class="side-rate-val">-</strong>
+        <strong data-privacy-exempt="true" id="side-gold-rate" class="side-rate-val">-</strong>
       </div>
     </div>
     <nav class="menu-list compact-menu" id="sidebar-menu" aria-label="주요 화면">
@@ -81,13 +81,20 @@
   <main class="content-area f-col">
     <div class="f-between" id="page-head" style="padding:11px 22px;border-bottom:1px solid var(--border-dark);flex-shrink:0;gap:10px;">
       <button id="sidebar-toggle" class="hamburger-btn" onclick="toggleSidebar()" aria-label="메뉴 열기" aria-expanded="false">☰</button>
+      <div class="page-heading-line">
       <h2 class="page-title" id="main-title" style="font-size:1.4rem;margin:0;">가족 자산 관리</h2>
       <!-- 모바일은 폭이 없어 소제목을 접어 둔다. 면책·기준 설명이 통째로 사라지지 않도록 토글로 편다. -->
       <button id="page-sub-toggle" class="page-sub-toggle" type="button" onclick="toggleHeadSub()" aria-expanded="false" aria-controls="main-title-sub" aria-label="이 화면 설명 보기">ⓘ</button>
       <!-- 페이지 소제목 (메인 제목 옆 작은 글씨) + 페이지 컨트롤 — cobalt.js cbSetHead()가 채움 -->
       <span id="main-title-sub" style="font-size:11.5px;color:var(--lab);min-width:0"></span>
+      </div>
+      <div class="page-control-line">
       <nav id="page-sections" class="page-sections" aria-label="세부 메뉴" hidden></nav>
       <div id="cb-head-widgets" style="display:none;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap"></div>
+      <div id="cf-header-tabs" class="cf-section-tabs" role="tablist" aria-label="현금 흐름 화면 선택">
+        <button id="cf-section-tab-monthly" class="cf-section-tab active" type="button" role="tab" aria-selected="true" aria-controls="cf-monthly-section" onclick="switchCashFlowSection('monthly',this)">월별 현금흐름</button>
+        <button id="cf-section-tab-fixed" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cf-fixed-section" onclick="switchCashFlowSection('fixed',this)">고정비 관리 <span id="cf-fixed-pending-badge" class="cf-fixed-pending-badge" style="display:none"></span></button>
+      </div>
       <div id="cf-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
         <button class="owner-btn active" id="cf-owner-전체" onclick="setCfOwner('전체',this)">전체</button>
         <button class="owner-btn" id="cf-owner-본인" onclick="setCfOwner('본인',this)">본인</button>
@@ -115,6 +122,7 @@
         <button class="owner-btn" onclick="changeOwner('아내',this)">아내</button>
         <button class="owner-btn" onclick="changeOwner('자녀1',this)">자녀1</button>
         <button class="owner-btn" onclick="changeOwner('아버지',this)">아버지</button>
+      </div>
       </div>
     </div>
 
@@ -152,10 +160,6 @@
 
     <!-- CASHFLOW -->
     <div id="view-cashflow" class="view-section">
-      <div class="cf-section-tabs" role="tablist" aria-label="현금 흐름 화면 선택">
-        <button id="cf-section-tab-monthly" class="cf-section-tab active" type="button" role="tab" aria-selected="true" aria-controls="cf-monthly-section" onclick="switchCashFlowSection('monthly',this)">월별 현금흐름</button>
-        <button id="cf-section-tab-fixed" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cf-fixed-section" onclick="switchCashFlowSection('fixed',this)">고정비 관리 <span id="cf-fixed-pending-badge" class="cf-fixed-pending-badge" style="display:none"></span></button>
-      </div>
       <div id="cf-monthly-section" class="cf-grid" role="tabpanel" aria-labelledby="cf-section-tab-monthly">
         <div class="f-col" style="gap:15px;height:100%;min-height:0;overflow-y:auto">
           <!-- 통합 수입/지출 내역 관리 -->

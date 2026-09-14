@@ -335,9 +335,9 @@ function cbSortDividendRows(rows){
 // sub/widgets 모두 null 이면 헤더 부속 요소를 비활성화(레거시 뷰 전환 시).
 function cbSetHead(sub, widgets){
   const s = document.getElementById('main-title-sub');
-  if (s) s.innerHTML = sub || '';
+  if (s) {s.innerHTML = sub || '';s.title=s.textContent||'';}
   const w = document.getElementById('cb-head-widgets');
-  if (w){ w.innerHTML = widgets || ''; w.style.display = (sub==null && widgets==null) ? 'none' : 'flex'; }
+  if (w){ w.innerHTML = widgets || ''; w.style.display = widgets ? 'flex' : 'none'; }
   // 모바일은 헤더 폭이 없어 소제목을 접어 두므로 'ⓘ' 토글이 유일한 통로다.
   // 설명이 없는 화면에서는 버튼도 숨기고, 화면을 옮기면 이전 설명이 열린 채 남지 않게 접는다.
   const t = document.getElementById('page-sub-toggle');
@@ -1017,8 +1017,57 @@ function cbMobileHoldings(rows,query=_cdashQ,onSearch='cbDashSearch'){
     return `<details class="cb-mobile-holding"><summary><span class="cb-mobile-asset"><b>${cbEsc(r.title)}</b><small>${cbEsc(r.i.owner)} · ${cbEsc(r.subTitle||r.cl.label)}</small></span><span class="cb-mobile-value"><b>${cbDisp(r.val)}</b><small style="${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gainPct)}">${r.gainPct==null?'—':cbPct(r.gainPct)} <span aria-hidden="true">⌄</span></small></span></summary><dl><div><dt>보유수량</dt><dd>${cbEsc(qty)}</dd></div><div><dt>평단가</dt><dd>${r.i.grp==='현금'?'—':r.i.costUnknown?'취득가 미상':cbFmtNative(r.avgNative,r.i.cur)}</dd></div><div><dt>현재가</dt><dd>${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</dd></div><div><dt>평가손익</dt><dd>${r.i.costUnknown?'산정 제외':cbSignDisp(r.gain)}</dd></div></dl></details>`;
   }).join('')+(rows.length?'':'<p class="fin-empty">검색 결과가 없습니다.</p>')+'</section>';
 }
+function cbHomeSummary(sel,nw){
+  let selPanel = '<div style="font-size:12px;color:var(--dim);text-align:center;padding:28px 8px">좌측 목록에서 종목을 클릭하면<br>상세 정보가 여기 표시됩니다.</div>';
+  if (sel){
+    const d = cbDivOf(sel.i);
+    const divState = cbDividendStatus(sel.i);
+    const g = cbDivGrowth(sel.i);
+    const sector = sel.i.grp==='주식' ? (typeof _gicsSector==='function'? _gicsSector(sel.i):'—') : sel.cl.label;
+    const yoc = (d && !sel.i.costUnknown && sel.avgNative>0 && sel.i.grp!=='가상화폐') ? ((d.annualDps/sel.avgNative)*100).toFixed(2) : null;
+    const selDivKRW = d ? d.annualDps * sel.qty * cbRate(d.cur || sel.i.cur) : 0;
+    const acctTxt = sel.acctList.length ? sel.acctList.join('+') : (sel.i.acc||'');
+    const qtyTxt = sel.i.grp==='현금' ? '예수금'
+      : Number(sel.qty||0).toLocaleString(undefined,{maximumFractionDigits:4}) + (sel.i.grp==='가상화폐'?'개':sel.i.unit||'주');
+    const divBox = d ? `
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--mut)">연간 배당수입</span><span style="font-weight:700;color:var(--up)">${cbDisp(selDivKRW)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--mut)"><span data-tip="현재 주가 대비 연간 배당금 비율">시가 수익률</span> / <span data-tip="Yield on Cost — 내 평단가 대비 연간 배당금 비율. 오래 보유할수록 높아집니다.">YoC</span></span><span style="font-weight:700">${(d.yldNum||0).toFixed(2)}% / ${yoc!=null?yoc+'%':'—'}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--mut)"><span data-tip="최근 배당 이력 기준 주당 배당금의 연평균 성장률(CAGR)">배당성장률</span></span><span style="font-weight:700;${g!=null?cbUpDn(g):''}">${g!=null?(g>=0?'+':'')+g.toFixed(1)+'%':'—'}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--mut)">주당 배당 · 주기</span><span class="cb-num" style="font-weight:700">${cbFmtNative(d.annualDps,d.cur||sel.i.cur)} · ${cbEsc(d.cycle||'—')}</span></div>
+      </div>`
+      : `<div class="cb-div-status ${divState.state}" role="status">${cbEsc(divState.text)}</div>`;
+    const cell = (lab,val,style='',cls='',outerStyle='') => `<div style="${outerStyle}"><div style="font-size:12px;color:var(--lab)">${lab}</div><div class="${cls}" style="font-size:14px;font-weight:700;margin-top:1px;${style}">${val}</div></div>`;
+    selPanel = `
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <span style="flex-shrink:0;margin-top:1px">${cbFlagSvg(sel, 18)}</span>
+        <div style="min-width:0;flex:1">
+          <div class="cb-tip-block" data-overflow-tip="${cbEsc(sel.i.name||sel.i.tkr)}"><span data-overflow-watch style="display:block;font-size:14px;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(sel.i.name||sel.i.tkr)}</span></div>
+          <div class="cb-tip-block" data-overflow-tip="${cbEsc([sel.tkr,sel.cl.label,sel.i.owner,acctTxt].filter(Boolean).join(' · '))}"><span data-overflow-watch style="display:block;font-size:12px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(sel.tkr)} · ${sel.cl.label} · ${cbEsc(sel.i.owner)}${acctTxt?' · '+cbEsc(acctTxt):''}</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:12px">
+        ${cell('평가액', cbDisp(sel.val))}
+        ${cell('평가손익', sel.i.grp==='현금'?'—':(sel.i.costUnknown?'산정 제외':cbSignDisp(sel.gain)), sel.i.costUnknown?'color:var(--lab)':cbUpDn(sel.gain))}
+        ${cell('보유수량', qtyTxt, 'font-size:12.5px', 'cb-num')}
+        ${cell('<span data-tip="보유 수량 전체의 평균 매수 단가(가중평균)">평단가</span>', sel.i.grp==='현금'?'—':(sel.i.costUnknown?'취득가 미상':cbFmtNative(sel.avgNative,sel.i.cur)), '', 'cb-num')}
+        ${cell('현재가', sel.i.grp==='현금'?'—':cbFmtNative(sel.i.curP,sel.i.cur), '', 'cb-num')}
+        ${cell('수익률', sel.gainPct==null?'—':cbPct(sel.gainPct), sel.gainPct==null?'color:var(--lab)':cbUpDn(sel.gainPct))}
+        ${cell('<span data-tip="현재 선택한 소유주 포트폴리오에서 이 종목의 평가액이 차지하는 비중">포트폴리오 비중</span>', (nw>0?sel.val/nw*100:0).toFixed(1)+'%')}
+        ${cell('섹터', cbEsc(sector), 'font-size:12px;font-weight:600;white-space:nowrap', '', 'grid-column:1/-1')}
+      </div>
+      <div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--bd)">
+        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);margin-bottom:7px">배당 정보</div>${divBox}${d&&divState.state!=='ready'?`<p class="cb-div-status ${divState.state}">${cbEsc(divState.text)} · 이전 조회값 표시</p>`:''}
+      </div>`;
+  }
+
+  return selPanel;
+}
 function cbHomeHoldings(rows){
-  return `<section class="cb-panel cb-home-holdings"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3><input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div><div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목</th><th>수량</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${cbEsc(r.i.owner)}</td><td><b>${cbEsc(r.title)}</b> <small>${cbEsc(cbStrip(r.i.tkr))}</small></td><td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td><td>${cbDisp(r.val)}</td><td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td><td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`).join('')||'<tr><td colspan="6">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`;
+  const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
+  _cdashSel=sel?.key||null;
+  const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
+  return `<section class="cb-panel cb-home-holdings"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3><input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div><div class="home-holdings-layout"><div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목</th><th>수량</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.key===_cdashSel?'is-selected':''}"><td>${cbEsc(r.i.owner)}</td><td><button class="home-stock-pick" data-key="${cbEsc(r.key)}" onclick="cbDashPick(this.dataset.key)" aria-pressed="${r.key===_cdashSel}"><b>${cbEsc(r.title)}</b></button> <small>${cbEsc(cbStrip(r.i.tkr))}</small></td><td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td><td>${cbDisp(r.val)}</td><td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td><td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`).join('')||'<tr><td colspan="6">검색 결과가 없습니다.</td></tr>'}</tbody></table></div><aside class="home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div></section>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
@@ -1405,7 +1454,7 @@ function cbRenderFam(){
   const q=(_famQ||'').trim().toLowerCase();
   const filtered = q ? base.filter(r=>((r.i.tkr||'')+' '+(r.i.name||'')+' '+r.cl.label+' '+(r.i.owner||'')).toLowerCase().includes(q)) : base;
   const held = cbSortOwnerNameVal(filtered);
-  const famMixOwners = OWNERS.map(owner=>{
+  const famMixOwners = OWNERS.filter(owner=>_famKey==='all'||owner===_famKey).map(owner=>{
     const ownerRows=rows.filter(r=>r.i.owner===owner);
     const total=ownerRows.reduce((s,r)=>s+r.val,0);
     const segments=Object.entries(CB_CLS).map(([key,meta])=>({
@@ -1416,11 +1465,11 @@ function cbRenderFam(){
   });
   const famMixClasses = Object.entries(CB_CLS).map(([key,meta])=>({
     key,label:meta.label,color:meta.color,
-    value:rows.filter(r=>r.cls===key).reduce((s,r)=>s+r.val,0)
+    value:base.filter(r=>r.cls===key).reduce((s,r)=>s+r.val,0)
   })).filter(x=>x.value>0);
 
   // 조회 전용 페이지 — 수정은 "자산 내역"에서만 (내역 우측 수정 버튼 제거됨)
-  cbSetHead('카드 클릭 시 해당 구성원만 필터링 · 소유주→자산군→국가→종목명 순 정렬 · 조회 전용');
+  cbSetHead('소유주별 보유 내역 · 자산군 구성',cbOwnerBtns(_famKey==='all'?'전체':_famKey,'cbFamOwner'));
   el.innerHTML = `
     <div class="cb-fam-card-grid">
       ${cards.map(f=>`
@@ -1495,6 +1544,7 @@ function cbRenderFam(){
     </div>
     </div>`;
 }
+function cbFamOwner(owner){cbFamPick(owner==='전체'?'all':owner);}
 function cbFamPick(k){ _famKey=k; cbRenderFam(); cbRestoreFilterFocus('cb-fam2','data-fam-key',k); }
 function cbFamSearch(v){ _famQ=v; cbRenderFam();
   const inp=document.querySelector('#cb-fam2 input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
@@ -1735,22 +1785,24 @@ function cbUpcomingDividendSchedule(list, days=90, asOf=null){
   const events=[];
   (list||[]).forEach(x=>{
     const months=Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:cbDefaultDivMonths(x.d?.cycle))
-      .map(m=>((Number(m)%12)+12)%12)));
+      .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12)));
     const exactDay=Number(x.d?.payDay);
-    const hasExactDay=Number.isFinite(exactDay)&&exactDay>=1;
+    const hasExactDay=Number.isInteger(exactDay)&&exactDay>=1&&exactDay<=31;
     const perAmount=months.length?x.incomeKRW/months.length:0;
-    for(let offset=0;offset<=4;offset++){
+    if(!Number.isFinite(perAmount)||perAmount<=0)return;
+    for(let offset=0;offset<=Math.ceil((end-start)/86400000/28)+1;offset++){
       const cursor=new Date(start.getFullYear(),start.getMonth()+offset,1);
       const month=cursor.getMonth();
       if(!months.includes(month)) continue;
       const lastDay=new Date(cursor.getFullYear(),month+1,0).getDate();
-      const day=hasExactDay?Math.min(exactDay,lastDay):15;
+      const day=hasExactDay?Math.min(exactDay,lastDay):1;
       const date=new Date(cursor.getFullYear(),month,day);
-      if(date<start||date>end) continue;
+      if(hasExactDay ? date<start||date>end : new Date(cursor.getFullYear(),month,lastDay)<start||date>end) continue;
       events.push({
         date,
-        dateLabel:hasExactDay?`${month+1}월 ${day}일`:`${month+1}월 예정`,
-        exact:hasExactDay,
+        dateLabel:hasExactDay?`${month+1}월 ${day}일경`:`${month+1}월 예정`,
+        exact:false,
+        boundary:!hasExactDay&&(date<start||new Date(cursor.getFullYear(),month,lastDay)>end),
         owner:x.i?.owner||'—',
         ticker:cbStrip(x.tkr||x.i?.tkr),
         title:x.title||x.i?.name||x.tkr||'—',
@@ -2044,7 +2096,7 @@ function cbRenderDiv(){
         }).join('') || '<div class="cb-insight-empty">향후 90일 내 예상 배당이 없습니다.</div>'}
       </div>
       ${upcomingDividends.length>upcomingDividendShown.length?`<div class="cb-insight-more">외 ${upcomingDividends.length-upcomingDividendShown.length}건</div>`:''}
-      <div class="cb-div-upcoming-note">지급일이 확인되지 않은 종목은 ‘월 예정’으로 표시합니다.</div>
+      <div class="cb-div-upcoming-note">과거 지급 패턴과 현재 보유량 기준의 세전 추정입니다. 확정 공시 일정이 아니며 실제 지급일·금액은 달라질 수 있습니다. ‘월 예정’은 기간과 겹치는 달을 포함하므로 일부는 90일 밖에 지급될 수 있습니다.</div>
     </div>
     </div>
     ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('dividend',year):''}`;

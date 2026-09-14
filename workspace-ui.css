@@ -155,3 +155,26 @@
 .bt-panel p{font-size:12px;color:var(--lab);line-height:1.6}.bt-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.bt-kpis>div{padding:10px;background:var(--inner);border-radius:8px;min-width:0}.bt-kpis small{font-size:11px;color:var(--lab)}.bt-kpis b{display:block;margin-top:7px;font-size:17px;overflow-wrap:anywhere}
 .bt-chart{display:block;width:100%;height:210px;background:var(--inner);border-radius:8px}.bt-chart-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--lab);gap:7px;margin-top:6px}.bt-inspect{display:flex;align-items:center;gap:12px;font-size:12px;margin-top:12px}.bt-inspect input{flex:1;min-width:0}.sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
 @media(max-width:768px){.bt-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-chart{height:160px}.bt-search input{width:100%}.bt-chart-labels{font-size:10px}}
+/* Keep descriptive titles together and group controls without space-between gaps. */
+#page-head{justify-content:flex-start;flex-wrap:wrap;gap:8px!important}
+#main-title{white-space:nowrap;flex-shrink:0}
+#main-title-sub{order:0;flex:0 1 auto;max-width:44%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#main-title-sub:empty{display:none}
+#page-sections{margin-left:auto;flex-shrink:0}
+#page-head #owner-tabs-container,#page-head #cf-owner-bar,#page-head #cb-head-widgets,#page-head #bubble-owner-bar{margin-left:0!important;padding-left:0}
+#page-head:not(:has(#page-sections:not([hidden]))):not(:has(#cf-header-tabs:not([hidden]))) #cb-head-widgets{margin-left:auto!important}
+#cf-header-tabs{display:none;margin:0 0 0 auto;padding:0;gap:5px;border:0;background:transparent}
+.content-area:has(#view-cashflow.active) #cf-header-tabs{display:flex}
+#cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:8px;font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;white-space:nowrap}
+.home-holdings-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}
+.home-stock-summary{position:sticky;top:0;padding:12px;border-left:1px solid var(--bd);min-width:0;white-space:normal}
+.home-stock-pick{border:0;background:transparent;color:var(--tx);padding:3px 0;cursor:pointer;text-align:left;font:inherit}
+.cb-home-holdings tr.is-selected{background:var(--accSoft)}
+@media(max-width:1100px){.home-holdings-layout{grid-template-columns:minmax(0,1fr) 245px}}
+@media(max-width:768px){.home-holdings-layout{grid-template-columns:1fr}.home-stock-summary{position:static;border-left:0;border-top:1px solid var(--bd)}#main-title-sub{display:block!important;max-width:100%;grid-column:2;grid-row:1;font-size:10px!important;align-self:end;transform:translateY(12px)}#page-head #main-title{font-size:18px!important;align-self:start}#page-sub-toggle{display:none!important}#cf-header-tabs{grid-column:1/-1;flex-wrap:wrap;margin-left:0}#main-title-sub{white-space:normal;transform:none;grid-row:2;text-align:center}#cb-head-widgets,#owner-tabs-container,#cf-owner-bar,#bubble-owner-bar,#analysis-owner-bar{grid-row:3!important}}
+.page-heading-line{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1 1 240px}
+.page-control-line{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0}
+#page-head .page-heading-line #main-title-sub{flex:1 1 auto;max-width:none;order:0;white-space:nowrap}
+#page-head .page-control-line #page-sections{margin:0;flex:0 1 auto}
+#cf-header-tabs{margin:0}
+@media(max-width:768px){.page-heading-line{grid-column:2;grid-row:1;align-items:center;gap:5px}.page-control-line{grid-column:1/-1;grid-row:2;flex-wrap:wrap;width:100%;justify-content:flex-end}.page-heading-line #main-title{font-size:17px!important}.page-heading-line #main-title-sub{font-size:10px!important;text-align:left;overflow:hidden;text-overflow:ellipsis}.page-control-line #page-sections{width:auto;max-width:100%;flex-basis:auto;order:0}.page-control-line #cf-header-tabs{max-width:100%}#page-sub-toggle{display:none!important}}

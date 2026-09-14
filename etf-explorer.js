@@ -207,7 +207,7 @@ function cbRenderEtfExplorer(){
   const focus=document.activeElement?.id,selection=document.activeElement?.selectionStart;
   const counts=m.funds.reduce((a,f)=>{const q=etfQuality(cbEtfDoc()?.etfs?.[f.code]);a[q.reliable?'ok':'check']++;return a;},{ok:0,check:0});
   const fundValue=etfHeldRows().filter(r=>cbStrip(r.i.tkr)===_etfCode).reduce((sum,r)=>sum+r.val,0);
-  root.innerHTML=`<div class="etf-heading"><div><span class="sim-eyebrow">ETF EXPLORER</span><h3>펀드 안의 포트폴리오</h3></div></div>
+  root.innerHTML=`
     <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
     <div class="etf-fund-value"><span>선택 ETF 평가액</span><b>${cbDisp(fundValue)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(etfLiveMessage(_etfCode))}</span></div><button class="cb-btn" onclick="etfRefreshOnOpen()"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(q.rows.reduce((sum,h)=>sum+h.w,0)):'미확인'}</span></div></div>
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
