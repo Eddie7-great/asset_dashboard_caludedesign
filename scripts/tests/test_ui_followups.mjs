@@ -217,7 +217,7 @@ assert.match(cobaltSource, /<div class="cb-lt-row">[\s\S]*class="cb-lt-name"[\s\
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{display:none\}/, '좁은 화면에서는 룩스루 직접/ETF 칸을 숨겨 잘림 방지')
 assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
-assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*지급일이 확인되지 않은 종목은 ‘월 예정’/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
+assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
 assert.match(styleSource, /@media \(min-width:1580px\)\{[\s\S]*cb-div-detail-grid[\s\S]*290px/, '배당 표가 충분히 넓을 때만 일정 위젯을 우측 배치')
 assert.match(cobaltSource, /cb-family-table-toolbar[\s\S]*전체 투자자산[\s\S]*cb-family-head/, '가족 투자자산 표 제목·검색줄과 칼럼 헤더에 연속 고정 클래스 적용')
@@ -234,7 +234,7 @@ const upcoming = upcomingContext.cbUpcomingDividendSchedule([
   { i:{owner:'아내'}, tkr:'O', title:'Realty Income', incomeKRW:240_000, d:{months:[8],payDay:5} },
 ], 90, '2026-07-30T00:00:00')
 assert.equal(upcoming[0].dateLabel, '8월 예정', '지급일 미확인 종목은 월 단위 일정으로 표시')
-assert.equal(upcoming.find(x => x.ticker === 'O').dateLabel, '9월 5일', '확인된 지급일은 일자까지 표시')
+assert.equal(upcoming.find(x => x.ticker === 'O').dateLabel, '9월 5일경', '과거 지급 패턴은 확정일로 표시하지 않음')
 assert.equal(upcoming.find(x => x.ticker === 'SCHD').amount, 60_000, '연간 예상 배당을 지급 월수로 나눠 회차 금액 산출')
 // 지급월이 응답에 없으면 주기 기반 폴백을 써야 한다 — 월별 막대(cbDivMonthlyForYear)와
 // 같은 cbDefaultDivMonths 를 통과하지 않으면 같은 화면에서 두 위젯이 다른 일정을 그린다.
@@ -249,7 +249,7 @@ assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
 assert.match(cobaltSource, /시장<\/span><span style="width:64px">계좌<\/span><span style="width:82px;text-align:center"><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head"[^>]*>메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
-assert.doesNotMatch(extractFunction(cobaltSource,'cbRenderDash'), /cb-dash-table-toolbar|cb-dash-detail/, '긴 보유 표는 홈에서 제거하고 자산 관리로 통합')
+assert.match(cobaltSource, /cbHomeSummary\(sel,nw\)/, '홈 보유 목록 옆 선택 종목 요약 유지')
 assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-dash-table-panel \.cb-dash-head\{top:45px[\s\S]*\.cb-dash-detail\{top:0!important\}/, '대시보드 제목·검색줄과 칼럼 및 우측 상세를 스크롤 중 고정')
 assert.match(styleSource, /#cb-perf2\{display:flex;flex-direction:column;padding-bottom:12px\}[\s\S]*\.cb-perf-detail-panel\{display:flex;flex:1 0 270px/, '성과 비교 하단 위젯이 남은 세로 공간을 채움')
 assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')
@@ -437,3 +437,8 @@ assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '�
 }
 
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
+
+const lateMonth=upcomingContext.cbUpcomingDividendSchedule([{tkr:"TEST",incomeKRW:120,d:{months:[8],payDay:null}}],90,"2026-09-20T00:00:00");
+assert.equal(lateMonth.length,1,"15일이 지나도 날짜 미정 월 배당은 사라지지 않는다");
+assert.equal(lateMonth[0].exact,false,"추정 일정은 확정일이 아니다");
+assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보존한다");
