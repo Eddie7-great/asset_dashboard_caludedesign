@@ -37,9 +37,20 @@ def get_live_etf(code):
     import collect_etf_holdings as source
     if not re.fullmatch(r'[A-Z0-9][A-Z0-9.\-]{0,15}', code):
         raise ValueError('invalid_etf')
+    attempts = []
+    started = time.monotonic()
     if source.is_kr_code(code):
         rows, as_of = source.fetch_funetf(code)
         provider = 'FunETF'
+        attempts.append({'source': provider, 'ok': bool(rows)})
+        if not rows and code in source.TIME_PRODUCT_IDS and time.monotonic() - started < 30:
+            rows, as_of = source.fetch_time(code)
+            provider = 'provider:TIME'
+            attempts.append({'source': provider, 'ok': bool(rows)})
+        if not rows and time.monotonic() - started < 30:
+            rows, _, as_of = source.fetch_zeroin(code, max_attempts=1)
+            provider = 'zeroin'
+            attempts.append({'source': provider, 'ok': bool(rows)})
     else:
         rows, as_of = source.fetch_proshares(code)
         provider = 'provider:ProShares'
@@ -51,8 +62,8 @@ def get_live_etf(code):
             provider = 'stockanalysis'
     checked = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if not rows:
-        return {'success': False, 'code': code, 'checkedAt': checked, 'error': 'Holdings unavailable'}
-    return {'success': True, 'code': code, 'checkedAt': checked, 'entry': {
+        return {'success': False, 'code': code, 'checkedAt': checked, 'error': 'Holdings unavailable', 'attempts': attempts}
+    return {'success': True, 'code': code, 'checkedAt': checked, 'attempts': attempts, 'entry': {
         'holdings': rows, 'asOf': as_of, 'source': provider,
         'coverage': 'full' if as_of else 'partial',
         'equityWeight': round(sum(row['w'] for row in rows), 4),
