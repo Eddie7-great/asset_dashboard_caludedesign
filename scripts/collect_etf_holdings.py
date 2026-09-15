@@ -981,6 +981,31 @@ def snapshot_stale(entry, today):
     return age > (2 if active else 5)
 
 
+def persisted_projection(doc):
+    """Return only fields whose change should create a new repository snapshot.
+
+    The collector runs on a clock, so collection/attempt timestamps change even when
+    the published basket does not.  Persisting those timestamps alone creates a full
+    Vercel deployment (including the Python runtime) without changing what the user
+    can learn from the snapshot.
+    """
+    if not isinstance(doc, dict):
+        return doc
+    projected = {key: value for key, value in doc.items() if key != 'asOf'}
+    projected['etfs'] = {
+        code: {key: value for key, value in entry.items()
+               if key not in ('fetchedAt', 'lastAttempt')}
+        for code, entry in (doc.get('etfs') or {}).items()
+        if isinstance(entry, dict)
+    }
+    return projected
+
+
+def has_persisted_changes(previous, current):
+    """Whether composition, quality, coverage, history or schema actually changed."""
+    return persisted_projection(previous) != persisted_projection(current)
+
+
 def run(targets, dry_run=False):
     prev = load_previous()
     etfs, failures = {}, []
@@ -1025,6 +1050,9 @@ def run(targets, dry_run=False):
     if dry_run:
         print('(--dry-run: 파일을 쓰지 않음)')
         return doc
+    if not has_persisted_changes(prev, doc):
+        print('→ 구성종목·기준일·품질 변경 없음 (시각 메타데이터만 달라 파일 유지)')
+        return prev
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     with open(OUT_PATH, 'w', encoding='utf-8') as f:
         json.dump(doc, f, ensure_ascii=False, indent=1, sort_keys=True)

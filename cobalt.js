@@ -398,8 +398,9 @@ function cbSectors(includeCrypto, ownerFilter){
 }
 
 // ───────────────────────── ETF 룩스루 (구성종목 합산) ─────────────────────────
-// 구성종목은 GitHub Actions 배치(scripts/collect_etf_holdings.py)가 평일 18:30에 수집해
-// data/etf_holdings.json 으로 커밋한다. ETF 페이지 진입 시 인증 API로 원본도 조회한다.
+// 구성종목은 GitHub Actions 배치가 미국 장 마감 뒤 평일 1회 수집해 저장소에 커밋한다.
+// 데이터 전용 커밋은 Vercel 배포를 만들지 않으므로 GitHub 원본을 우선 읽고, 실패할 때
+// 배포 당시의 로컬 사본으로 폴백한다. ETF 페이지 진입 시 인증 API로 원본도 조회한다.
 // 서버리스에서는 제한 시간이 긴 KRX·브라우저 재시도 없이 HTTP 어댑터만 사용한다.
 // 개별 주식으로 직접 보유하지 않은 구성종목은 계산하지 않는다(요구사항).
 let _cbEtfLoading = false;
@@ -415,6 +416,10 @@ function cbEtfDoc(){
 }
 
 let _cbEtfPromise=null;
+const CB_ETF_SNAPSHOT_URLS = [
+  'https://raw.githubusercontent.com/Eddie7-great/asset_dashboard_caludedesign/main/data/etf_holdings.json',
+  'data/etf_holdings.json'
+];
 function cbEnsureEtfHoldings(force=false){
   if(_cbEtfPromise)return _cbEtfPromise;
   if(!force&&window._etfHoldings!==undefined)return Promise.resolve();
@@ -426,12 +431,17 @@ async function cbLoadEtfHoldings(force=false){
   _cbEtfLoading = true;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
   try{
-    // 페이지를 다시 열 때 서버에 최신 여부만 조건부 확인한다.
-    // 브라우저 캐시가 최신이면 ETag/Last-Modified 재검증 후 기존 본문을 재사용한다.
-    const r = await fetch('data/etf_holdings.json', { cache:'no-cache',signal:controller.signal });
-    if(!r.ok)throw new Error('ETF '+r.status);
-    const doc=await r.json();
-    if(!doc||!doc.etfs||typeof doc.etfs!=='object'||Array.isArray(doc.etfs))throw new Error('ETF schema');
+    let doc=null,lastError=null;
+    for(const url of CB_ETF_SNAPSHOT_URLS){
+      try{
+        const r=await fetch(url,{cache:'no-store',signal:controller.signal});
+        if(!r.ok)throw new Error('ETF '+r.status);
+        const candidate=await r.json();
+        if(!candidate||!candidate.etfs||typeof candidate.etfs!=='object'||Array.isArray(candidate.etfs))throw new Error('ETF schema');
+        doc=candidate;break;
+      }catch(e){lastError=e;}
+    }
+    if(!doc)throw lastError||new Error('ETF snapshot unavailable');
     window._etfHoldings=doc;window._etfLoadError=false;
   }catch(e){ if(!window._etfHoldings)window._etfHoldings=null;window._etfLoadError=true; }
   finally{ clearTimeout(timer);_cbEtfLoading = false; }

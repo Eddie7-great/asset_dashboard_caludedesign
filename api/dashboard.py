@@ -491,7 +491,7 @@ def get_dividends(tickers):
 
 # ── 5. (ETF 구성종목 조회는 이 경로에서 제거됨) ─────────────────
 # 브라우저 → 이 함수 → KRX 왕복이 서버리스 제한시간을 자주 넘겨 룩스루가 비었다.
-# 이제 GitHub Actions(.github/workflows/etf-holdings.yml)가 평일 18:30 에
+# 이제 GitHub Actions(.github/workflows/etf-holdings.yml)가 미국 장 마감 뒤 평일 1회
 # scripts/collect_etf_holdings.py 로 수집해 data/etf_holdings.json 을 커밋하고,
 # 대시보드는 그 정적 파일만 읽는다.
 

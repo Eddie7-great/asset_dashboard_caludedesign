@@ -48,6 +48,21 @@ for i in range(45):
     next_entry=snapshot((datetime.date(2026,9,9)+datetime.timedelta(days=i)).isoformat(),i+1)
     c.preserve_history(next_entry,corrected);corrected=next_entry
 assert len(corrected['history'])==30
+
+# Clock-only metadata must not create a new repository commit and Vercel deployment.
+persisted_a={'asOf':'2026-09-14','etfs':{'426020':{**snapshot(),
+    'fetchedAt':'2026-09-14T00:00:00+00:00','lastAttempt':'2026-09-14','retained':False}},
+    'failures':[],'summary':{'complete':1,'partial':0,'retained':0,'missing':0,'staleOrUndated':1},'schemaVersion':2}
+persisted_b=copy.deepcopy(persisted_a)
+persisted_b['asOf']='2026-09-15'
+persisted_b['etfs']['426020']['fetchedAt']='2026-09-15T00:00:00+00:00'
+persisted_b['etfs']['426020']['lastAttempt']='2026-09-15'
+assert not c.has_persisted_changes(persisted_a,persisted_b)
+persisted_b['etfs']['426020']['holdings'][0]['w']=5.1
+assert c.has_persisted_changes(persisted_a,persisted_b)
+persisted_b=copy.deepcopy(persisted_a); persisted_b['etfs']['426020']['retained']=True
+assert c.has_persisted_changes(persisted_a,persisted_b), 'Quality state changes must persist'
+
 original=copy.deepcopy(old)
 with patch.object(c,'load_previous',return_value={'etfs':{'426020':old}}),patch.object(c,'collect_one',return_value=([],0,None,None)):
     doc=c.run([('426020','TIME 액티브','426020')],dry_run=True)

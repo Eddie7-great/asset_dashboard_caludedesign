@@ -7,6 +7,11 @@
 - The current navigation has seven main destinations. Balance-sheet UI is retired; old balance2 links resolve to home. Preserve stored balance-sheet values and snapshot jobs because goals and financial totals still depend on them. Home omits duplicate net-worth totals, monthly actions and the trend chart; its allocation, sector and contribution cards sit beside vertically stacked gain/loss rankings, with equal combined heights. Tax summary cards share one desktop row, with responsive wrapping on small screens. Tax/dividend/gift source disclosures remain accessible at the bottom. Section links share button typography and align right.
 - Domestic ETF collection first checks FunETF's public catalog and full PDF-basket endpoint. Resolve its product ID from the catalog, not a calculated ISIN. Use the page's published etfPdfYmd, validate fund identity and advertised row count, retain original NAV weights, and reject invalid or unmapped positive stock rows. Never substitute monthly top holdings or normalize weights to 100%. Failures continue through existing issuer/KRX sources. US symbols KR and KRC are stocks, not Korean non-equity ISINs.
 
+### Vercel storage and ETF snapshot deployments (2026-09-15)
+
+- The scheduled ETF collector runs once per weekday after the US close (UTC 22:30 / KST 07:30). A run that changes only `fetchedAt`, `lastAttempt`, or the top-level collection date must leave `data/etf_holdings.json` untouched. Composition dates, holdings, source/coverage, retained state, history, failures, quality summary, and schema changes still persist.
+- `vercel.json` skips deployments whose only changed path is `data/etf_holdings.json`. The dashboard therefore reads that public file from the repository's raw GitHub URL first and falls back to the copy bundled with the last code deployment. Keep the raw host in CSP `connect-src`. Any code/configuration change must still exit the ignore command nonzero and deploy normally.
+
 ### ETF observations and compact layouts (2026-09-09)
 
 - Re-clicking an ETF owner filter returns to all owners; re-clicking a constituent explicitly clears selection (null is distinct from the initial empty selection). Each owner exposure card is one native details/summary disclosure. Keep verification counts inside the held-ETF selector card.
@@ -65,7 +70,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 브라우저에서 외부 사이트를 직접 fetch 하면 CORS 로 막히고, 서버리스 경유는 KRX 왕복이
 함수 제한시간을 넘겨 룩스루가 자주 비었다. 긴 재시도와 영구 이력 수집은 CI에서 처리하고, 페이지 진입 시에는 인증 API의 제한된 HTTP 소스도 별도로 조회한다.
 
-- `.github/workflows/etf-holdings.yml` — 평일 KST 18:30(cron `30 9 * * 1-5` UTC) + 수동 실행.
+- `.github/workflows/etf-holdings.yml` — 미국 장 마감 뒤 평일 KST 07:30(cron `30 22 * * 1-5` UTC) + 수동 실행.
   스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
   리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요.
 - `scripts/collect_etf_holdings.py` — KV `assets` 에서 보유 ETF를 추려 수집한다.

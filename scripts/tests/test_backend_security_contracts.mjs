@@ -260,6 +260,20 @@ try {
   for (const name of ['Content-Security-Policy', 'Strict-Transport-Security', 'X-Content-Type-Options', 'X-Frame-Options', 'Referrer-Policy', 'Permissions-Policy']) {
     assert.ok(securityHeaders[name], `${name} must be configured`)
   }
+  assert.match(securityHeaders['Content-Security-Policy'], /connect-src[^;]*https:\/\/raw\.githubusercontent\.com/)
+  assert.equal(
+    vercel.ignoreCommand,
+    "git diff --quiet HEAD^ HEAD -- . ':(exclude)data/etf_holdings.json'",
+    'ETF snapshot-only commits must not create another serverless deployment',
+  )
+  const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+  assert.match(cobaltSource, /raw\.githubusercontent\.com\/Eddie7-great\/asset_dashboard_caludedesign\/main\/data\/etf_holdings\.json/)
+  assert.match(cobaltSource, /CB_ETF_SNAPSHOT_URLS[\s\S]*data\/etf_holdings\.json/,
+    'The deployed snapshot remains the offline fallback when GitHub is unavailable')
+
+  const etfWorkflow = fs.readFileSync(new URL('../../.github/workflows/etf-holdings.yml', import.meta.url), 'utf8')
+  assert.deepEqual(etfWorkflow.match(/- cron:/g), ['- cron:'], 'ETF fallback collection runs once per weekday')
+  assert.match(etfWorkflow, /cron: '30 22 \* \* 1-5'/)
 
   console.log('PASS backend security contracts')
 } finally {
