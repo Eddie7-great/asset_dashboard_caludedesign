@@ -9,6 +9,24 @@ import collect_etf_holdings as collector
 from etf_common import norm_holding_code
 
 
+class LiveFallbackTests(unittest.TestCase):
+    def test_domestic_live_falls_back_once_and_reports_sources(self):
+        import ast, os, re, time
+        api = Path(__file__).resolve().parents[2] / 'api/dashboard.py'
+        tree = ast.parse(api.read_text(encoding='utf-8'))
+        function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'get_live_etf')
+        ctx = {'__file__':str(api),'os':os,'re':re,'time':time,'datetime':datetime}
+        exec(compile(ast.Module(body=[function],type_ignores=[]),str(api),'exec'),ctx)
+        rows=[{'t':'NVDA','n':'NVIDIA','w':8}]
+        with patch.object(collector,'fetch_funetf',return_value=([],None)),patch.object(collector,'fetch_zeroin',return_value=(rows,8,'2026-09-14')) as fallback:
+            result=ctx['get_live_etf']('133690')
+            self.assertTrue(result['success'])
+            self.assertEqual(result['entry']['source'],'zeroin')
+            self.assertEqual(result['entry']['holdings'][0]['w'],8)
+            fallback.assert_called_once_with('133690',max_attempts=1)
+            self.assertEqual(result['attempts'],[{'source':'FunETF','ok':False},{'source':'zeroin','ok':True}])
+
+
 class FunEtfTests(unittest.TestCase):
     isin = 'KR7133690008'
 

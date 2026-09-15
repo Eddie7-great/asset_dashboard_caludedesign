@@ -28,3 +28,5 @@ await ctx.etfRefreshOnOpen();
 fail=false;resume();await superseded;
 assert.match(ctx.etfLiveMessage('133690'),/조회 실패/,'Superseded successful response must not overwrite the latest attempt');
 console.log('PASS per-open ETF refresh and last-good protection');
+
+const before=requests;await ctx.etfRefreshOnOpen("not-held");assert.equal(requests,before,"Targeted retry cannot query an unheld ETF");

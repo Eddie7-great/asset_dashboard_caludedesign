@@ -251,7 +251,7 @@ def parse_zeroin_holdings_html(text):
     return holdings, round(sum(x['w'] for x in holdings), 2), as_of
 
 
-def fetch_zeroin(code):
+def fetch_zeroin(code, max_attempts=None):
     """운용사와 무관하게 국내 상장 ETF의 전체 구성종목을 받는다."""
     url = ZEROIN_HOLDINGS_URL.format(code=urllib.parse.quote(str(code).strip()))
     headers = {
@@ -259,7 +259,7 @@ def fetch_zeroin(code):
         'Accept': 'text/html,application/xhtml+xml',
         'Referer': 'https://etf.zeroin.co.kr/',
     }
-    attempts = len(ZEROIN_RETRY_DELAYS) + 1
+    attempts = len(ZEROIN_RETRY_DELAYS) + 1 if max_attempts is None else max(1, min(3, int(max_attempts)))
     last_as_of = None
     for attempt in range(1, attempts + 1):
         try:

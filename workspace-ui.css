@@ -178,3 +178,19 @@
 #page-head .page-control-line #page-sections{margin:0;flex:0 1 auto}
 #cf-header-tabs{margin:0}
 @media(max-width:768px){.page-heading-line{grid-column:2;grid-row:1;align-items:center;gap:5px}.page-control-line{grid-column:1/-1;grid-row:2;flex-wrap:wrap;width:100%;justify-content:flex-end}.page-heading-line #main-title{font-size:17px!important}.page-heading-line #main-title-sub{font-size:10px!important;text-align:left;overflow:hidden;text-overflow:ellipsis}.page-control-line #page-sections{width:auto;max-width:100%;flex-basis:auto;order:0}.page-control-line #cf-header-tabs{max-width:100%}#page-sub-toggle{display:none!important}}
+/* ETF verification stays readable on a single status line. */
+.etf-toolbar .etf-status{display:flex;flex-direction:row;align-items:center;gap:8px;white-space:nowrap;max-width:100%;overflow-x:auto}
+.etf-status>span,.etf-status>b{flex-shrink:0;margin:0}
+@media(min-width:1101px){.etf-toolbar{grid-template-columns:minmax(180px,1.4fr) minmax(160px,1fr) auto}.etf-toolbar .etf-status{grid-column:1/-1;grid-row:2}.etf-toolbar>button{grid-column:3;grid-row:1}}
+@media(max-width:1100px){.etf-toolbar .etf-status{grid-column:1/-1}}
+.etf-inspection{margin:9px 0;padding:10px 13px;font-size:12px}.etf-inspection summary{cursor:pointer;font-weight:700}.etf-inspection-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(160px,1.4fr) auto auto;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}.etf-inspection-row small{display:block;color:var(--lab);margin-top:3px}.etf-inspection p{color:var(--lab)}
+#cb-perf2 .cb-perf-detail-panel{min-height:0;flex:0 0 auto;padding:10px 12px!important}
+#cb-perf2 .cb-perf-detail-grid{flex:0 0 auto;align-items:start}
+#cb-perf2 .cb-perf-detail-row{flex:0 0 auto;padding:6px 7px;font-size:11px}
+#cb-perf2 .cb-perf-detail-head{padding:6px 7px}.cb-perf-detail-note{margin-top:7px;font-size:10px;line-height:1.5}
+.cb-risk-overview{align-items:stretch!important}.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0;align-self:stretch}
+.cb-risk-priorities{align-self:stretch;margin:16px 0;font-size:11px;line-height:1.5}.cb-risk-priorities p{padding:7px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
+.fin-price-help p{font-size:12px;line-height:1.7;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12px}.fin-price-issues small{color:var(--lab)}
+@media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) 280px}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:5px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{flex:1 1 0!important;min-width:0!important}#cf-input-panel .form-row:has(#btn-cf-submit)>#cf-date-group{flex:0 0 122px!important}#cf-input-panel .form-input{padding:7px 5px;font-size:11px}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
+@media(max-width:768px){.etf-inspection-row{grid-template-columns:1fr auto}.etf-inspection-row>span{grid-column:1/-1}.cb-risk-priorities{margin:10px 0}}
+.cb-risk-card-grid{align-content:stretch;grid-auto-rows:1fr}

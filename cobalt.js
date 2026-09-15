@@ -1365,7 +1365,7 @@ function cbRenderPerf(){
         <span style="margin-left:auto;font-size:12px;color:var(--dim)">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
       </div>
       <div style="position:relative" onmouseleave="cbPerfHide()">
-        ${cbMultiLineSvg(seriesArr, 1100, 250)}
+        ${cbMultiLineSvg(seriesArr, 1100, 220)}
         <div style="position:absolute;top:0;bottom:0;left:${padLpct}%;right:${padRpct}%">
           <div id="cb-perf-guide" style="position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--acc);display:none;pointer-events:none"></div>
           ${N>0 ? labels.map((_,i)=>{
@@ -1399,7 +1399,7 @@ function cbRenderPerf(){
               </div>`).join('')}
           </div>`).join('')}
       </div>
-      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 실제 금액 추이는 <b>가족 재무상태표 &gt; 순자산 추이</b>를 보세요. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
+      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
 }
 function cbPerfTf(t){ _cbPerfTf = t; cbRenderPerf(); cbRestoreFilterFocus('cb-head-widgets','data-perf-tf',t); }
@@ -1655,6 +1655,7 @@ function cbRenderRisk(){
         </div>
         <div style="font-size:14.5px;font-weight:800;margin-top:10px;color:${r.color}">${r.grade}</div>
         <div style="font-size:12px;color:var(--mut);text-align:center;line-height:1.6;margin-top:6px">${r.provisional?'ETF 구성 자료 확인 전 잠정 점수입니다.':r.warns===0?'모든 점검 항목이 양호합니다.':r.warns+'개 항목에서 주의·경고가 발견되었습니다.'}</div>
+        <div class="cb-risk-priorities"><b>먼저 확인할 항목</b>${r.cards.filter(c=>c.lvl>0).slice().sort((a,b)=>b.lvl-a.lvl).slice(0,3).map(c=>`<p><strong>${cbEsc(c.title)}</strong><span>${cbEsc(c.msg)}</span></p>`).join('')||'<p>현재 규칙에서 감지된 주의 항목이 없습니다.</p>'}<small>선택 소유주 기준 · 규칙 기반 점검이며 미래 손실 확률은 아닙니다.</small></div>
         <div style="width:100%;margin-top:auto;padding-top:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;align-self:stretch">
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="자산군별 역사적 변동성의 보유비중 가중평균. 1년간 수익률이 오르내리는 폭의 추정치입니다.">추정 연 변동성</span></span><span style="font-weight:700">${r.vol.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="원화가 아닌 통화(USD·JPY)로 표시된 자산의 비중. 환율 변동에 노출됩니다.">환노출</span></span><span style="font-weight:700">${r.fxPct.toFixed(1)}%</span></div>

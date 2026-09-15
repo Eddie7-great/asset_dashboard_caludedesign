@@ -8,7 +8,7 @@ function etfLiveMessage(code){
   const state=_etfLiveStates[code];
   if(!state)return '페이지 진입 시 원본 자료 확인';
   const time=state.at?new Date(state.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
-  return ({loading:'원본 조회 중…',ok:'원본 확인 완료',failed:'조회 실패 · 마지막 자료 유지',older:'이전 기준일 응답 · 마지막 자료 유지',undated:'기준일 미확인 응답 · 마지막 자료 유지'})[state.status]+(time?' · '+time:'');
+  return ({cancelled:'이전 요청 중단 · 다시 확인',loading:'원본 조회 중…',ok:'원본 확인 완료',failed:'조회 실패 · 마지막 자료 유지',older:'이전 기준일 응답 · 마지막 자료 유지',undated:'기준일 미확인 응답 · 마지막 자료 유지'})[state.status]+(time?' · '+time:'');
 }
 function etfRetainLive(code){
   const old=cbEtfDoc()?.etfs?.[code];
@@ -31,14 +31,15 @@ function etfRenderLiveUpdate(){
   root?.querySelectorAll('details').forEach((el,i)=>{el.open=!!open[i];});
   if(focus)document.getElementById(focus)?.focus({preventScroll:true});
 }
-async function etfRefreshOnOpen(){
+async function etfRefreshOnOpen(onlyCode=null){
   const generation=++_etfRefreshGeneration;
+  Object.values(_etfLiveStates).forEach(state=>{if(state.status==='loading')state.status='cancelled';});
   _etfLiveControllers.forEach(controller=>controller.abort());
   _etfLiveControllers.clear();
   await cbEnsureEtfHoldings(true);
   if(generation!==_etfRefreshGeneration)return;
   // All owners' held ETFs; filtering and redraws do not restart network requests.
-  const codes=[...new Set(cbAllRows().filter(r=>cbIsEtf(r.i)).map(r=>cbStrip(r.i.tkr)))];
+  const codes=[...new Set(cbAllRows().filter(r=>cbIsEtf(r.i)).map(r=>cbStrip(r.i.tkr)))].filter(code=>!onlyCode||code===onlyCode);
   codes.forEach(code=>{_etfLiveStates[code]={status:'loading'};});
   etfRenderLiveUpdate();
   async function worker(){
@@ -49,18 +50,18 @@ async function etfRefreshOnOpen(){
         const response=await fetch('/api/dashboard?type=etf_holdings&ticker='+encodeURIComponent(code),{cache:'no-store',credentials:'same-origin',signal:controller.signal});
         if(!response.ok)throw new Error('lookup');
         const data=await response.json();
-        if(!data.success||data.code!==code)throw new Error('lookup');
+        if(!data.success||data.code!==code){const error=new Error('lookup');error.attempts=data.attempts;throw error;}
         if(generation!==_etfRefreshGeneration)return;
         const accepted=etfAcceptLive(cbEtfDoc()?.etfs?.[code],data.entry);
         if(accepted){
           window._etfHoldings ||= {etfs:{}};
           (window._etfLiveEntries ||= {})[code]=accepted;
         }else etfRetainLive(code);
-        _etfLiveStates[code]={status:accepted?'ok':data.entry?.asOf?'older':'undated',at:data.checkedAt};
+        _etfLiveStates[code]={status:accepted?'ok':data.entry?.asOf?'older':'undated',at:data.checkedAt,attempts:data.attempts||[]};
       }catch(e){
         if(generation!==_etfRefreshGeneration)return;
         etfRetainLive(code);
-        _etfLiveStates[code]={status:'failed',at:new Date().toISOString()};
+        _etfLiveStates[code]={status:'failed',at:new Date().toISOString(),attempts:e.attempts||[]};
       }finally{clearTimeout(timer);_etfLiveControllers.delete(controller);}
       etfRenderLiveUpdate();
     }
@@ -210,6 +211,7 @@ function cbRenderEtfExplorer(){
   root.innerHTML=`
     <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
     <div class="etf-fund-value"><span>선택 ETF 평가액</span><b>${cbDisp(fundValue)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(etfLiveMessage(_etfCode))}</span></div><button class="cb-btn" onclick="etfRefreshOnOpen()"${_cbEtfLoading?' disabled':''}>${_cbEtfLoading?'확인 중…':'자료 다시 확인'}</button><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(q.rows.reduce((sum,h)=>sum+h.w,0)):'미확인'}</span></div></div>
+    ${etfInspectionHtml(m.funds)}
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
     ${m.funds.length?'': '<p class="etf-notice">선택한 구성원에게 보유 ETF가 없습니다.</p>'}
     <div class="etf-layout"><section class="cb-panel etf-visual-card"><div class="etf-section-title"><b>구성 비중 분포</b><span>상위 12종목 · 막대를 눌러 상세 확인</span></div>
@@ -241,4 +243,14 @@ function etfRefreshResults(){
   const openOwners=new Set([...network.querySelectorAll('.etf-owner-exposure')].filter(el=>el.open).map(el=>el.dataset.exposureOwner));
   network.innerHTML=selected?etfExposureHtml(selected,holding):'<p class="sim-empty">구성종목을 선택하면 소유주별 비중을 확인할 수 있습니다.</p>';
   network.querySelectorAll('.etf-owner-exposure').forEach(el=>{if(openOwners.has(el.dataset.exposureOwner))el.open=true;});
+}
+
+function etfInspectionHtml(funds){
+  const pending=funds.filter(f=>!etfQuality(cbEtfDoc()?.etfs?.[f.code]).reliable);
+  if(!pending.length)return '';
+  return `<details class="cb-panel etf-inspection"><summary>점검 ETF ${pending.length}개 · 사유와 원본 확인</summary>${pending.map(f=>{
+    const entry=cbEtfDoc()?.etfs?.[f.code],q=etfQuality(entry),state=_etfLiveStates[f.code];
+    const sources=(state?.attempts||[]).map(a=>a.source+(a.ok?' 확인':' 응답 없음')).join(' → ');
+    return `<div class="etf-inspection-row"><button class="cb-btn" data-code="${cbEsc(f.code)}" onclick="etfChoose(this.dataset.code)">${cbEsc(f.name)} · ${cbEsc(f.code)}</button><span>${cbEsc(q.label)} · 기준 ${cbEsc(entry?.asOf||'미확인')}<small>${cbEsc(sources||etfLiveMessage(f.code))}</small></span><button class="cb-btn" data-code="${cbEsc(f.code)}" onclick="etfRefreshOnOpen(this.dataset.code)"${state?.status==='loading'?' disabled':''}>이 ETF 재조회</button>${/^[0-9][0-9A-Z]{5}$/.test(f.code)?'<a href="https://www.funetf.co.kr/" target="_blank" rel="noopener noreferrer">FunETF에서 코드 검색</a>':'<small>해외 ETF는 운용사 공시와 대조</small>'}</div>`;
+  }).join('')}<p>전체 목록·기준일·신선도를 확인해야 ‘확인’으로 바뀝니다. 일부 자료나 조회 실패를 정상으로 표시하지 않습니다.</p></details>`;
 }
