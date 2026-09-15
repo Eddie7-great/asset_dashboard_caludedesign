@@ -6115,6 +6115,7 @@ function renderBubbleChart(mode) {
   // 최신 컨텍스트(ids/customdata/테마)를 컨테이너에 스태시하고 이벤트 훅이 읽는다.
   container._lastBubbleCtx = { ids, customdata, isDark, textColor };
   const ownerLabelNames=new Set(customdata.filter(d=>d.kind==='owner').map(d=>d.owner));
+  const ownerLabelWeights=new Map(customdata.filter(d=>d.kind==='owner').map(d=>[d.owner,Number(d.weight)||0]));
   const _fixOwnerLabelAlign = () => {
     const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
     if (!svgEl) return;
@@ -6136,23 +6137,31 @@ function renderBubbleChart(mode) {
       t.setAttribute('dominant-baseline', 'central');
       const ownerName=(t.textContent||'').replace(/^●\s*/,'').trim();
       const isOwnerLabel=ownerLabelNames.has(ownerName);
-      t.style.fontSize=isOwnerLabel?'16px':'13px';
+      const ownerWeight=isOwnerLabel?(ownerLabelWeights.get(ownerName)||0):0;
+      // 작은 소유주 조각에 16px 라벨과 컬러 점을 강제로 넣으면 인접 링/차트 경계에서
+      // 글자가 잘린다. 비중에 맞춰 글자와 점을 단계적으로 줄여 조각 안에 유지한다.
+      const ownerFontSize=ownerWeight>=20?15:(ownerWeight>=10?13:11);
+      const showOwnerDot=ownerWeight>=10;
+      t.style.fontSize=isOwnerLabel?ownerFontSize+'px':'13px';
       t.style.fontWeight=isOwnerLabel?'800':'650';
       if(isOwnerLabel) {
         t.setAttribute('data-cb-bubble-owner',ownerName);
-        t.style.letterSpacing='.02em';
+        t.style.letterSpacing='0';
         while(t.firstChild) t.removeChild(t.firstChild);
-        const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
-        dotSpan.textContent='● ';
-        dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
-        dotSpan.style.fontSize='12px';
-        dotSpan.style.fontWeight='900';
         const labelSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
         labelSpan.textContent=ownerName;
         labelSpan.setAttribute('fill',textColor);
-        labelSpan.style.fontSize='16px';
+        labelSpan.style.fontSize=ownerFontSize+'px';
         labelSpan.style.fontWeight='800';
-        t.append(dotSpan,labelSpan);
+        if(showOwnerDot){
+          const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+          dotSpan.textContent='● ';
+          dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
+          dotSpan.style.fontSize=Math.max(8,ownerFontSize-4)+'px';
+          dotSpan.style.fontWeight='900';
+          t.append(dotSpan);
+        }
+        t.append(labelSpan);
       } else {
         t.removeAttribute('data-cb-bubble-owner');
       }

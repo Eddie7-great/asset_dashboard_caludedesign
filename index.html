@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=52">
-  <link rel="stylesheet" href="workspace-ui.css?v=2">
+  <link rel="stylesheet" href="style.css?v=53">
+  <link rel="stylesheet" href="workspace-ui.css?v=3">
 <link rel="stylesheet" href="etf-explorer.css?v=2">
 </head>
 <body>
@@ -161,9 +161,8 @@
     <!-- CASHFLOW -->
     <div id="view-cashflow" class="view-section">
       <div id="cf-monthly-section" class="cf-grid" role="tabpanel" aria-labelledby="cf-section-tab-monthly">
-        <div class="f-col" style="gap:15px;height:100%;min-height:0;overflow-y:auto">
-          <!-- 통합 수입/지출 내역 관리 -->
-          <div id="cf-input-panel" class="glass-panel" style="flex-shrink:0">
+        <!-- 입력부는 전체 폭을 써서 데스크톱에서 한 줄을 유지하고, 아래만 내역/차트 2열로 나눈다. -->
+        <div id="cf-input-panel" class="glass-panel cf-entry-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">수입 / 지출 내역 관리
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="display:flex;gap:8px">
@@ -172,24 +171,24 @@
                 </div>
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:8px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-row cf-entry-form" style="margin-bottom:8px;align-items:flex-end">
               <input type="hidden" id="cf-edit-index" value="-1">
-              <div class="form-group f-col" style="flex:.75;min-width:92px"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
+              <div class="form-group f-col cf-entry-owner"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
               <!-- 날짜 (일회성만) -->
-              <div class="form-group f-col" id="cf-date-group" style="flex:.8"><label class="form-label">날짜</label><input type="date" id="cf-date" class="form-input"></div>
+              <div class="form-group f-col cf-entry-date" id="cf-date-group"><label class="form-label">날짜</label><input type="date" id="cf-date" class="form-input"></div>
               <!-- 주기 (자동이체만, 초기 숨김) -->
-              <div class="form-group f-col" id="cf-cycle-group" style="display:none;flex:.8"><label class="form-label">주기</label><select id="at-cycle" class="form-input" onchange="toggleAtCycleFields()"><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly" selected>매월</option><option value="month-end">매월말</option></select></div>
-              <div class="form-group f-col" id="at-dom-row" style="display:none"><label class="form-label">날짜(일)</label><input type="number" id="at-dom" class="form-input" value="25" min="1" max="31" style="width:70px"></div>
-              <div class="form-group f-col" id="at-dow-row" style="display:none"><label class="form-label">요일</label><select id="at-dow" class="form-input"><option value="0">일</option><option value="1">월</option><option value="2">화</option><option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option></select></div>
-              <div class="form-group f-col" style="flex:.6"><label class="form-label">유형</label>
+              <div class="form-group f-col cf-entry-cycle" id="cf-cycle-group" style="display:none"><label class="form-label">주기</label><select id="at-cycle" class="form-input" onchange="toggleAtCycleFields()"><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly" selected>매월</option><option value="month-end">매월말</option></select></div>
+              <div class="form-group f-col cf-entry-day" id="at-dom-row" style="display:none"><label class="form-label">날짜(일)</label><input type="number" id="at-dom" class="form-input" value="25" min="1" max="31"></div>
+              <div class="form-group f-col cf-entry-day" id="at-dow-row" style="display:none"><label class="form-label">요일</label><select id="at-dow" class="form-input"><option value="0">일</option><option value="1">월</option><option value="2">화</option><option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option></select></div>
+              <div class="form-group f-col cf-entry-type"><label class="form-label">유형</label>
                 <select id="cf-type" class="form-input"><option value="수입">수입</option><option value="지출" selected>지출</option></select>
                 <select id="at-type" class="form-input" style="display:none"><option value="수입">수입</option><option value="지출" selected>지출</option></select>
               </div>
-              <div class="form-group f-col"><label class="form-label">카테고리</label><select id="cf-cat" class="form-input"><option>교통/차량</option><option>교육</option><option>급여</option><option>기타</option><option>관리비</option><option>문화/생활</option><option>배당금</option><option>대출납입금</option><option>세금</option><option>식비</option><option>의료/건강</option><option>저축/투자</option><option>주거/통신</option></select>
+              <div class="form-group f-col cf-entry-category"><label class="form-label">카테고리</label><select id="cf-cat" class="form-input"><option>교통/차량</option><option>교육</option><option>급여</option><option>기타</option><option>관리비</option><option>문화/생활</option><option>배당금</option><option>대출납입금</option><option>세금</option><option>식비</option><option>의료/건강</option><option>저축/투자</option><option>주거/통신</option></select>
                 <select id="at-cat" class="form-input" style="display:none"><option>교통/차량</option><option>교육</option><option>급여</option><option>기타</option><option>관리비</option><option>문화/생활</option><option>배당금</option><option>대출납입금</option><option>세금</option><option>식비</option><option>의료/건강</option><option>저축/투자</option><option>주거/통신</option></select>
               </div>
-              <div class="form-group f-col" style="flex:1.5"><label class="form-label">내용</label><input type="text" id="cf-desc" class="form-input" placeholder="상세 내역 입력"></div>
-              <div class="form-group f-col"><label class="form-label">금액</label><input type="text" id="cf-amt" class="form-input" placeholder="0" inputmode="numeric" oninput="handleAmtInput(this)">
+              <div class="form-group f-col cf-entry-desc"><label class="form-label">내용</label><input type="text" id="cf-desc" class="form-input" placeholder="상세 내역 입력"></div>
+              <div class="form-group f-col cf-entry-amount"><label class="form-label">금액</label><input type="text" id="cf-amt" class="form-input" placeholder="0" inputmode="numeric" oninput="handleAmtInput(this)">
                 <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" oninput="handleAmtInput(this)">
               </div>
               <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
@@ -197,8 +196,8 @@
             </div>
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>
-          </div>
-          <div class="glass-panel" style="flex:1;overflow-y:auto">
+        </div>
+        <div class="glass-panel cf-detail-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">
               <span>상세 내역 리스트 (전체)</span>
               <div class="f-row" style="gap:6px">
@@ -208,21 +207,20 @@
             </div>
             <table id="cf-detail-table" class="pt-table">
               <colgroup>
-                <col style="width:70px">
+                <col style="width:64px">
+                <col style="width:52px">
                 <col style="width:60px">
-                <col style="width:70px">
-                <col style="width:90px">
-                <col>
-                <col style="width:110px">
                 <col style="width:80px">
-                <col style="width:90px">
+                <col>
+                <col style="width:98px">
+                <col style="width:64px">
+                <col style="width:62px">
               </colgroup>
               <thead><tr id="cf-thead-row"><th class="text-left">날짜</th><th class="text-left">유형</th><th id="cf-th-owner" class="text-left">소유주</th><th class="text-left">카테고리</th><th class="text-left">내용</th><th class="text-right">금액</th><th class="text-right">주기</th><th>관리</th></tr></thead>
               <tbody id="cf-table-body"></tbody>
             </table>
-          </div>
         </div>
-        <div class="f-col" style="gap:15px;height:100%;min-height:0">
+        <div class="f-col cf-chart-column" style="gap:12px;height:100%;min-height:0">
           <div class="glass-panel f-col" style="flex:2;min-height:0">
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
@@ -487,8 +485,8 @@
 </div>
 
 <script defer src="tax-rules.js?v=2"></script>
-<script defer src="script.js?v=49"></script>
-<script defer src="finance.js?v=11"></script>
+<script defer src="script.js?v=50"></script>
+<script defer src="finance.js?v=12"></script>
 <script defer src="navigation.js?v=2"></script>
 <script defer src="backtest.js?v=1"></script>
 <script defer src="simulator.js?v=1"></script>
