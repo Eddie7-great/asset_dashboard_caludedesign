@@ -66,7 +66,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - `api/stock-price.js` — additional price helper (Node); 네이버 금융 스크래핑으로 국내 주식/ETF 실시간 가격을 반환 (`liveRefreshDomesticEtfs`가 호출).
 - `api/kv.ts` — Upstash Redis(KV) 프록시이자 **낙관적 동시성(CAS) 게이트**. 키는 `assets` / `ext_data` / `data_freshness` 세 개만 허용하는 allowlist(자유 문자열 화이트리스트가 아니다). GET `/api/kv?key=`는 값과 개정번호를 한 Lua 스크립트로 함께 읽어 `{result, revision}`을 반환한다(Upstash 원형을 그대로 흘리지 않는다). POST `{value, expectedRevision}`은 `__revision__:<key>`가 `expectedRevision`과 같을 때만 쓰고 개정번호를 올린다 — 불일치면 **409**(현재 revision 동봉), `expectedRevision` 누락이면 **428**, 값이 1MB를 넘으면 413, 상류 실패·응답 형식 오류는 **502**다. 프런트 짝은 `script.js`의 `_kvRevisions` 맵과 `_setKVOnce` / `setKV`(키별 쓰기 직렬화 큐)이며, 409를 받으면 대기 중이던 같은 탭 저장까지 중단해 오래된 메모리 상태가 새 revision을 덮어쓰지 않게 한다.
 - `api/auth.ts` — 비밀번호 인증 라우트. POST `{password}`가 `DASHBOARD_PASSWORD`와 일치하면 `SESSION_SECRET`으로 서명한 HttpOnly 세션 쿠키를 발급한다. 기존 배포는 `SESSION_SECRET`이 없을 때 `AUTH_TOKEN`을 서버 내부 서명 키로만 임시 사용하며 bearer로는 허용하지 않는다. 서버 내부 `/api/dashboard` 호출은 별도 `INTERNAL_API_TOKEN` 또는 사용자의 세션 쿠키를 사용한다. 필수 환경변수 미설정 시 fail-closed(500).
-- `api/price.ts?type=ohlcv&tkr=...&range=1y` — OHLCV+벤치마크 시계열 엔드포인트(`price.ts`에 존재). KR 6자 코드는 `.KS → .KQ` 폴백, 응답에 타깃 bars + `^GSPC` / `^KS11` / 섹터 ETF 종가 동봉. (현재 프론트엔드에서 직접 호출하지 않는 독립 엔드포인트.)
+- `api/price.ts?type=ohlcv&tkr=...&range=1y` — OHLCV+벤치마크 시계열 엔드포인트(`price.ts`에 존재). KR 6자 코드는 `.KS → .KQ` 폴백, 응답에 타깃 bars + `^GSPC` / `^KS11` / 섹터 ETF 종가 동봉. (`backtest.js`의 과거 성과 백테스트가 이 엔드포인트를 호출한다.)
 
 ### ETF 구성종목 수집 — GitHub Actions 배치
 
@@ -75,7 +75,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 
 - `.github/workflows/etf-holdings.yml` — 미국 장 마감 뒤 평일 KST 07:30(cron `30 22 * * 1-5` UTC) + 수동 실행.
   스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
-  리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요.
+  리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요. KRX 경로를 쓰려면 `KRX_ID` / `KRX_PW` 도 함께 설정한다 — 없으면 스모크가 대체 소스로 내려가 조용히 통과할 수 있다.
 - `scripts/collect_etf_holdings.py` — KV `assets` 에서 보유 ETF를 추려 수집한다.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
   단축코드→ISIN 매핑은 `MDCSTAT04601`. 두 bld 값 모두 pykrx 소스에서 확인한 것), 실패 시
