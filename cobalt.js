@@ -478,6 +478,13 @@ function cbSyntheticEtfHoldings(i){
 
 // 레버리지·인버스 노출은 ETF 평가액 자체를 투자자산과 비교한다.
 // 국내 상품명 규칙과 해외 대표 티커/영문 상품명 규칙을 함께 사용해 특정 ETF에 한정하지 않는다.
+// 상품명에 배수가 드러나지 않는 대표 티커의 노출 배수.
+const CB_LEV_MULT = {
+  TQQQ:3, UPRO:3, SPXU:3, SQQQ:3, SOXL:3, SOXS:3, LABU:3, LABD:3, TECL:3, TECS:3,
+  TNA:3, TZA:3, UDOW:3, SDOW:3, FNGU:3, NAIL:3, WANT:3,
+  QLD:2, SSO:2, SDS:2, QID:2, USD:2, BITU:2, ETHU:2,
+  SH:1, PSQ:1, DOG:1, RWM:1,
+};
 function cbLeveragedInverseMeta(i){
   if (!cbIsEtf(i)) return null;
   const ticker = cbStrip(i && i.tkr);
@@ -494,7 +501,56 @@ function cbLeveragedInverseMeta(i){
   const leveraged = leveragedTickers.has(ticker)
     || /레버리지|LEVERAG|ULTRAPRO|(?:^|[\s(])ULTRA(?:[\s)]|$)|(?:^|[\s(+-])[23](?:\.\d+)?\s*(?:X|배)(?:[\s)]|$)|BULL\s*[23](?:\.\d+)?X/.test(name);
   if (!inverse && !leveraged) return null;
-  return { kind: inverse ? '인버스' : '레버리지', ticker };
+  // 노출 배수 — 변동성 가중에 쓴다. 상품명에 적힌 배수를 우선하고, 없으면 알려진 티커 표를 본다.
+  // 그래도 모르면 레버리지는 2배, 단순 인버스는 1배로 본다(가장 흔한 형태).
+  // 변동 '폭'만 필요하므로 방향(인버스의 음수)은 쓰지 않는다.
+  const named = name.match(/(?:^|[\s(+-])([23](?:\.\d+)?)\s*(?:X|배)(?:[\s)]|$)/);
+  const mult = named ? Number(named[1])
+    : (CB_LEV_MULT[ticker] || (leveraged ? 2 : 1));
+  return { kind: inverse ? '인버스' : '레버리지', ticker, mult };
+}
+
+// ETF 간 중복도 — 같은 소유주가 가진 서로 다른 ETF 가 같은 회사를 동시에 담고 있는 정도.
+//
+// cbLookThrough 는 '직접 보유한 회사와 겹치는 부분'만 센다(그 규칙은 그대로 둔다).
+// 그래서 NVDA 를 직접 안 들고 두 ETF 로만 담고 있으면 중복도가 0 으로 보인다.
+// 테마가 몰린 포트폴리오에서 실제 편중이 통째로 과소평가되므로 별도 지표로 따로 낸다.
+//
+// 소유주 경계는 룩스루와 같다 — 서로 다른 소유주의 ETF 를 한 종목으로 합치지 않는다.
+function cbEtfCrossOverlap(ownerFilter){
+  const doc = cbEtfDoc();
+  const rows = cbAllRows().filter(r=>!ownerFilter || r.i.owner===ownerFilter);
+  const nw = rows.reduce((s,r)=>s+r.val,0) || 1;
+  // key = 소유주::티커 → { val, funds:Set, name }
+  const byOwnerTicker = new Map();
+  let etfCount = 0; const unknown = [];
+  rows.forEach(r=>{
+    if (!cbIsEtf(r.i)) return;
+    etfCount++;
+    const ent = doc && doc.etfs ? doc.etfs[cbStrip(r.i.tkr)] : null;
+    const collected = typeof etfStockRows==='function' ? etfStockRows(ent) : (ent && Array.isArray(ent.holdings)) ? ent.holdings : null;
+    const holdings = (collected && collected.length) ? collected : cbSyntheticEtfHoldings(r.i);
+    // 구성종목을 못 받았거나 잠정인 ETF 는 이름만 남기고 합산에서 뺀다 — 확인된 자료만 센다.
+    if (!holdings || !holdings.length){ if (unknown.indexOf(r.title)<0) unknown.push(r.title); return; }
+    if (ent && typeof etfQuality==='function' && !etfQuality(ent).reliable && unknown.indexOf(r.title)<0) unknown.push(r.title);
+    holdings.forEach(h=>{
+      const t = cbStrip(h.t); if(!t) return;
+      const w = Number(h.w)||0; if(!Number.isFinite(w)||w<=0) return;
+      const key = String(r.i.owner||'') + '::' + t;
+      const cur = byOwnerTicker.get(key) || { val:0, funds:new Set(), name:h.n||t, tkr:t };
+      cur.val += r.val * w / 100;
+      cur.funds.add(r.title);
+      byOwnerTicker.set(key, cur);
+    });
+  });
+  // 두 개 이상의 ETF 에 동시에 들어 있는 종목만 '중복'이다.
+  const shared = [...byOwnerTicker.values()].filter(x=>x.funds.size>=2).sort((a,b)=>b.val-a.val);
+  const val = shared.reduce((s,x)=>s+x.val,0);
+  return {
+    pct: val/nw*100, val, etfCount, count: shared.length,
+    top: shared[0] ? { name:shared[0].name, tkr:shared[0].tkr, funds:shared[0].funds.size, pct:shared[0].val/nw*100 } : null,
+    unknown, provisional: etfCount>0 && (!doc || unknown.length>0),
+  };
 }
 
 function cbLookThrough(ownerFilter){
@@ -570,7 +626,12 @@ function cbRisk(ownerFilter){
   const leveragedInverseVal = leveragedInverse.reduce((s,x)=>s+x.r.val,0);
   const leveragedInversePct = pctOf(leveragedInverseVal);
   const leveragedInverseTop = leveragedInverse[0] || null;
-  const vol = rows.reduce((s,r)=>s+(r.val/nw)*(CB_VOL[r.cls]||0),0)*100;
+  // 자산군 상수만 쓰면 QLD(2배 QQQ)도 일반 미국 ETF와 똑같이 22% 로 잡혀 위험이 과소평가된다.
+  // cbLeveragedInverseMeta 가 이미 배수를 알고 있으므로 그만큼 기여분을 키운다.
+  const vol = rows.reduce((s,r)=>{
+    const lev = cbLeveragedInverseMeta(r.i);
+    return s + (r.val/nw)*(CB_VOL[r.cls]||0)*(lev ? lev.mult : 1);
+  },0)*100;
   const secs = secs0;
   const topSec = secs[0] || {label:'—', pct:0};
   const clsCount = Object.keys(byCls).length;
@@ -642,6 +703,11 @@ function cbRiskInsights(ownerFilter, baseRisk){
 
   // 직접 보유 회사와 ETF 편입 종목이 겹쳐 생긴 간접 보유분의 투자자산 대비 비중.
   const look=cbLookThrough(ownerFilter);
+  // ETF 끼리 같은 회사를 담고 있는 정도 — 위 지표가 못 보는 부분을 따로 낸다.
+  const crossOverlap=cbEtfCrossOverlap(ownerFilter);
+  // 최다 중복 종목명은 ETF 구성종목 자료에서 온 외부 문자열이다. 카드 렌더러가 detail 을
+  // cbEsc 로 감싸 출력하므로 여기서는 지역 변수로만 받아 둔다(이중 이스케이프 방지).
+  const crossTopLabel=crossOverlap.top?String(crossOverlap.top.name||crossOverlap.top.tkr||''):'';
   const overlapVal=look.list.reduce((s,x)=>s+(Number(x.via)||0),0);
   const overlapPct=overlapVal/nw*100;
   const overlapUnknown=look.etfCount>0 && (!look.loaded || (look.etfMiss||[]).length>0 || (look.etfUncertain||[]).length>0);
@@ -718,7 +784,19 @@ function cbRiskInsights(ownerFilter, baseRisk){
       id:'etf-overlap', title:'ETF 중복 노출률', value:overlapUnknown?'—':overlapPct.toFixed(1)+'%',
       detail:overlapUnknown?(overlapPending?'구성종목 확인 중':'구성종목 미조회 · 판정 보류'):(overlapPct>0?`간접 중복 ${cbDisp(overlapVal)}`:'직접·간접 중복 없음'),
       tone:overlapUnknown?(overlapPending?'var(--lab)':warn):toneHigh(overlapPct,5,15),
-      tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 투자자산으로 나눈 비중입니다.',
+      tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 투자자산으로 나눈 비중입니다. 직접 보유가 없는 회사는 여기에 잡히지 않으므로 ETF 간 중복도를 함께 보세요.',
+    },
+    {
+      // 위 카드가 못 보는 부분 — 직접 보유가 없어도 여러 ETF 가 같은 회사를 담고 있으면 편중이다.
+      id:'etf-cross-overlap', title:'ETF 간 중복도',
+      value:crossOverlap.etfCount===0?'ETF 없음':(crossOverlap.provisional&&crossOverlap.count===0?'—':crossOverlap.pct.toFixed(1)+'%'),
+      detail:crossOverlap.etfCount===0?'보유 ETF가 없습니다'
+        :crossOverlap.count===0?(crossOverlap.provisional?'구성종목 확인 전 · 판정 보류':'겹치는 종목 없음')
+        :`${crossOverlap.count}종목 겹침${crossOverlap.top?` · 최다 ${crossTopLabel} ${crossOverlap.top.funds}개 펀드`:''}${crossOverlap.provisional?' · 일부 미확인':''}`,
+      tone:crossOverlap.etfCount===0?up
+        :crossOverlap.provisional&&crossOverlap.count===0?'var(--lab)'
+        :toneHigh(crossOverlap.pct,15,30),
+      tip:'같은 소유주가 가진 서로 다른 ETF 가 동시에 담고 있는 회사의 간접 보유분 합계를 투자자산으로 나눈 비중입니다. 직접 보유 여부와 무관하게 셉니다 — 테마가 몰린 포트폴리오는 섹터 분류가 흩어져 있어도 실제로는 같은 회사에 겹쳐 노출됩니다. 구성종목을 확인하지 못한 ETF 는 합산에서 빼고 그 사실을 함께 표시합니다.',
     },
     {
       id:'effective-holdings', title:'실효 종목 수', value:effectiveCount.toFixed(1)+'개',
@@ -1509,7 +1587,9 @@ function cbRenderRisk(){
   const ownerF = (_cbRiskOwner && _cbRiskOwner!=='전체') ? _cbRiskOwner : null;
   const r = cbRisk(ownerF);
   const insights = cbRiskInsights(ownerF,r);
-  const riskGridCards=Array.from({length:4},(_,row)=>[
+  // 행 수를 고정하면(예전 4행) 카드를 하나 추가했을 때 화면에서 조용히 사라진다.
+  const gridRows=Math.max(Math.ceil(r.cards.length/2),Math.ceil(insights.length/2));
+  const riskGridCards=Array.from({length:gridRows},(_,row)=>[
     ...r.cards.slice(row*2,row*2+2).map(card=>({kind:'primary',card})),
     ...insights.slice(row*2,row*2+2).map(card=>({kind:'insight',card})),
   ]).flat();
@@ -1528,7 +1608,7 @@ function cbRenderRisk(){
         <div style="font-size:12px;color:var(--mut);text-align:center;line-height:1.6;margin-top:6px">${r.provisional?'ETF 구성 자료 확인 전 잠정 점수입니다.':r.warns===0?'모든 점검 항목이 양호합니다.':r.warns+'개 항목에서 주의·경고가 발견되었습니다.'}</div>
         <div class="cb-risk-priorities"><b>먼저 확인할 항목</b>${r.cards.filter(c=>c.lvl>0).slice().sort((a,b)=>b.lvl-a.lvl).slice(0,3).map(c=>`<p><strong>${cbEsc(c.title)}</strong><span>${cbEsc(c.msg)}</span></p>`).join('')||'<p>현재 규칙에서 감지된 주의 항목이 없습니다.</p>'}<small>선택 소유주 기준 · 규칙 기반 점검이며 미래 손실 확률은 아닙니다.</small></div>
         <div style="width:100%;margin-top:auto;padding-top:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;align-self:stretch">
-          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="자산군별 역사적 변동성의 보유비중 가중평균. 1년간 수익률이 오르내리는 폭의 추정치입니다.">추정 연 변동성</span></span><span style="font-weight:700">${r.vol.toFixed(1)}%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="자산군별 역사적 변동성의 보유비중 가중평균이며, 레버리지·인버스 상품은 노출 배수만큼 키워 반영합니다. 1년간 수익률이 오르내리는 폭의 추정치입니다. 종목별 실제 변동성이나 종목 간 상관관계는 반영하지 않습니다.">추정 연 변동성</span></span><span style="font-weight:700">${r.vol.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)"><span data-tip="원화가 아닌 통화(USD·JPY)로 표시된 자산의 비중. 환율 변동에 노출됩니다.">환노출</span></span><span style="font-weight:700">${r.fxPct.toFixed(1)}%</span></div>
           <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">현금 비중</span><span style="font-weight:700">${r.cashPct.toFixed(1)}%</span></div>
         </div>
