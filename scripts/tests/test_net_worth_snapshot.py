@@ -181,5 +181,31 @@ class _FakeApi:
 check('JPY는 100엔당 시세를 1엔당으로 환산', batch.fetch_rates(_FakeApi())['JPY'], 9.5)
 check('KRW는 항상 1', batch.fetch_rates(_FakeApi())['KRW'], 1)
 
+print('\n[예약 실행 기준일]')
+# GitHub 예약 실행은 몇 시간씩 밀린다. 실측 10회(2026-09-06~15)에서 중앙값 약 4시간 56분,
+# 최악 6시간 44분이었고, 그날 실행은 KST 23:24 로 자정 경계까지 36분밖에 남지 않았다.
+# 실행 시각의 KST 날짜를 그대로 쓰면 경계를 넘기는 순간 하루가 통째로 빈다.
+import datetime as _dt  # noqa: E402
+
+_UTC = _dt.timezone.utc
+
+
+def _anchored(iso):
+    now = _dt.datetime.fromisoformat(iso).replace(tzinfo=_UTC)
+    return batch.scheduled_kst_date('07:40', now)[0]
+
+
+check('정시 실행(UTC 07:40)은 그날 KST 날짜', _anchored('2026-09-14T07:40:00'), '2026-09-14')
+check('5시간 지연도 같은 날', _anchored('2026-09-14T12:52:00'), '2026-09-14')
+check('실측 최악 6h44m 지연도 같은 날', _anchored('2026-09-14T14:24:00'), '2026-09-14')
+# 여기가 핵심 — 앵커가 없으면 KST 09-15 로 찍혀 09-14 가 영영 빈다.
+check('KST 자정을 넘겨도 예정일로 기록', _anchored('2026-09-14T16:30:00'), '2026-09-14')
+check('19시간 지연(다음날 새벽)도 예정일로 기록', _anchored('2026-09-15T03:00:00'), '2026-09-14')
+check('다음 예정 시각 직전까지는 이전 예정일', _anchored('2026-09-15T07:39:00'), '2026-09-14')
+check('다음 예정 시각이 되면 넘어간다', _anchored('2026-09-15T07:40:00'), '2026-09-15')
+check('지연 시간도 함께 돌려준다',
+      batch.scheduled_kst_date('07:40', _dt.datetime(2026, 9, 14, 14, 24, tzinfo=_UTC))[1],
+      _dt.timedelta(hours=6, minutes=44))
+
 print('\n%d개 항목 · 실패 %d건' % (len(PASS) + len(FAIL), len(FAIL)))
 sys.exit(1 if FAIL else 0)

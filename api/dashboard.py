@@ -39,6 +39,9 @@ def get_live_etf(code):
         raise ValueError('invalid_etf')
     attempts = []
     started = time.monotonic()
+    # 운용사/거래소 경로는 전체 바스켓을 주는 출처다. stockanalysis 만 응답이
+    # 전체 개수를 밝힐 때 참이 되므로, 기본값을 True 로 두고 그 분기에서만 덮어쓴다.
+    full = True
     if source.is_kr_code(code):
         rows, as_of = source.fetch_funetf(code)
         provider = 'FunETF'
@@ -58,14 +61,18 @@ def get_live_etf(code):
             rows, as_of = source.fetch_invesco(code)
             provider = 'provider:Invesco'
         if not rows:
-            rows = source.fetch_stockanalysis(code)
+            # as_of 를 반드시 함께 덮어쓴다 — 예전에는 직전 분기(Invesco)의 값이
+            # 그대로 남아 stockanalysis 결과에 남의 기준일이 붙을 수 있었다.
+            rows, as_of, full = source.fetch_stockanalysis(code)
             provider = 'stockanalysis'
     checked = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if not rows:
         return {'success': False, 'code': code, 'checkedAt': checked, 'error': 'Holdings unavailable', 'attempts': attempts}
     return {'success': True, 'code': code, 'checkedAt': checked, 'attempts': attempts, 'entry': {
         'holdings': rows, 'asOf': as_of, 'source': provider,
-        'coverage': 'full' if as_of else 'partial',
+        # 기준일만으로 완전성을 단정하지 않는다 — 날짜가 있어도 상위 N 개만 받은
+        # 목록일 수 있으므로 '전체를 받았다는 근거'가 함께 있어야 full 이다.
+        'coverage': 'full' if (as_of and full) else 'partial',
         'equityWeight': round(sum(row['w'] for row in rows), 4),
         'fetchedAt': checked, 'lastAttempt': checked, 'retained': False}}
 

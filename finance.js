@@ -1,18 +1,15 @@
 // =====================================================================
-// finance.js — 가족 재무상태표·목표·리밸런싱·데이터 신뢰 기능
+// finance.js — 목표·리밸런싱·투자자산 추이·데이터 신뢰 기능
 // script.js의 저장 엔진과 cobalt.js의 공통 표시 헬퍼를 재사용한다.
 // =====================================================================
 
 const FIN_DEFAULT_TARGET={crypto:5,us:35,kr:25,jp:5,gold:10,cash:20};
-const FIN_ASSET_CATS=['부동산','예·적금','보험 해약환급금','차량','기타 자산'];
-const FIN_LIABILITY_CATS=['주택담보대출','신용대출','전세·임대보증금','카드·단기부채','기타 부채'];
 // 순자산이 줄지 않는 자산 이동 카테고리 — 필수지출·순현금흐름 계산에서 모두 제외한다.
 const FIN_SAVING_CATS=['저축/투자'];
-let _finBalanceEdit=null;
 let _finGoalEdit=null;
-let _finBalanceOwner='전체';
 let _finPlanOwner='전체';
 let _finNwTf='6M';
+let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성과 페이지는 자체 소유주 필터가 없다)
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
 function finNewId(){ return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
@@ -108,14 +105,6 @@ function finTargetAnalysis(ownerF){
 }
 // 순현금흐름은 순자산 변화를 설명하기 위한 값이므로 '저축/투자'는 제외한다.
 // 통장에서 증권계좌로 옮긴 돈은 지출이 아니라 자산 이동이라 순자산이 줄지 않는다.
-function finMonthCashflow(sinceDate='',ownerF){
-  const d=new Date(),today=finLocalDateKey(d),prefix=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  return (cfData||[])
-    .filter(x=>!FIN_SAVING_CATS.includes(x&&x.cat))
-    .filter(x=>!ownerF||x.owner===ownerF)
-    .filter(x=>{const date=String(x.date||'');return sinceDate?(date>sinceDate&&date<=today):date.startsWith(prefix);})
-    .reduce((s,x)=>s+(x.type==='수입'?1:-1)*(Number(x.amt)||0),0);
-}
 // 무버전 스냅샷은 두 종류다.
 // - 초기 형식: total=투자자산
 // - 4b86 이후 형식: nonInvestmentAssets 필드가 있고 total=전체 순자산
@@ -136,40 +125,26 @@ function finSnapshotNumber(value){
   const n=Number(value);
   return Number.isFinite(n)?n:null;
 }
-function finSnapshotNet(entry,balanceSheetEmpty){
+// 스냅샷에서 '투자자산'만 뽑는다 — 부동산·부채는 대시보드에서 관리하지 않으므로 추이에서도 뺀다.
+// schemaV 1 은 total 자체가 투자자산이던 시절이고, 2 부터 portfolio 가 따로 있다.
+// 순자산 기준과 달리 두 형식이 바로 비교되므로 재무상태표 유무로 버릴 기록이 없다 — 커버리지가 더 넓다.
+function finSnapshotInvestment(entry){
   const kind=finSnapshotKind(entry);
+  if(!kind) return null;
+  if(kind==='investment') return finSnapshotNumber(entry?.total);
+  const direct=finSnapshotNumber(entry?.portfolio);
+  if(direct!=null) return direct;
+  // portfolio 를 안 남긴 과거 '전체 순자산' 항목은 구성요소로 되돌린다(정확한 역산이다).
+  // 구성요소마저 없으면 total 이 투자자산인지 순자산인지 알 수 없으므로 버린다.
   const total=finSnapshotNumber(entry?.total);
-  if(!kind||total==null) return null;
-  if(kind==='full') return total;
-  return balanceSheetEmpty?total:null;
+  const other=finSnapshotNumber(entry?.nonInvestmentAssets), debt=finSnapshotNumber(entry?.liabilities);
+  if(total==null||(other==null&&debt==null)) return null;
+  return total-(other||0)+(debt||0);
 }
-function finSnapshotOwnerNet(entry,owner,balanceSheetEmpty){
-  const kind=finSnapshotKind(entry);
-  if(!kind||!owner) return null;
-  if(kind==='full'){
-    return finSnapshotNumber((entry.netByOwner||{})[owner]);
-  }
-  if(!balanceSheetEmpty) return null;
+function finSnapshotOwnerInvestment(entry,owner){
+  if(!finSnapshotKind(entry)||!owner) return null;
   return finSnapshotNumber((entry.portfolioByOwner||{})[owner]);
 }
-function finNetWorthBridge(){
-  const totals=finBalanceTotals();
-  const bsEmpty=totals.otherAssets===0&&totals.liabilities===0;
-  const hist=(window._netWorthHistory||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const today=finLocalDateKey(new Date());
-  const candidates=hist.filter(x=>x.date!==today);
-  const skipped=candidates.filter(x=>finSnapshotNet(x,bsEmpty)==null).length;
-  let prior=null,previous=totals.net;
-  for(let k=candidates.length-1;k>=0;k--){
-    const net=finSnapshotNet(candidates[k],bsEmpty);
-    if(net!=null){ prior=candidates[k]; previous=net; break; }
-  }
-  const change=totals.net-previous;
-  const cashflow=finMonthCashflow(prior?.date||'');
-  const residual=change-cashflow;
-  return {totals,prior,previous,change,cashflow,residual,skipped};
-}
-
 // 데이터 상태는 ext_data 전체 저장과 분리한다. 상태 변경만으로 현금흐름·목표 같은 큰 객체의
 // revision 충돌을 만들지 않도록 data_freshness 키만 짧게 디바운스해 갱신한다.
 // 이번 접속에서 직접 확인한 건지 구분해야 "3시간 전 확인"이 내 확인인지 알 수 있다.
@@ -304,42 +279,14 @@ async function finSaveAndRender(renderFn,refreshSnapshot=false){
   return result;
 }
 // 목록이 소유주 필터로 걸러지므로 수정·삭제는 배열 인덱스가 아니라 id 로 찾는다.
-function finBalanceKey(kind){ return kind==='liability'?'liabilities':'assets'; }
-function finBalanceFind(kind,id){
-  const list=window._balanceSheet[finBalanceKey(kind)]||[];
-  return list.findIndex(x=>String(x.id)===String(id));
-}
-function finBalanceKindChange(){ const k=document.getElementById('fin-bs-kind')?.value||'asset'; const sel=document.getElementById('fin-bs-category'); if(!sel)return; const cats=k==='liability'?FIN_LIABILITY_CATS:FIN_ASSET_CATS; sel.innerHTML=cats.map(x=>`<option>${cbEsc(x)}</option>`).join(''); }
-function finBalanceEdit(kind,id){ _finBalanceEdit={kind,id}; cbRenderBalanceSheet(); document.getElementById('fin-bs-form')?.scrollIntoView({behavior:'smooth',block:'center'}); }
-function finBalanceCancel(){ _finBalanceEdit=null; cbRenderBalanceSheet(); }
-function finBalanceDelete(kind,id){
-  finEnsureState();
-  const idx=finBalanceFind(kind,id); if(idx<0) return;
-  const row=window._balanceSheet[finBalanceKey(kind)][idx];
-  if(!confirm(`'${row.name}' 항목을 삭제할까요?`)) return;
-  window._balanceSheet[finBalanceKey(kind)].splice(idx,1); _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
-}
-function finBalanceSubmit(){
-  finEnsureState();
-  const kind=document.getElementById('fin-bs-kind')?.value||'asset';
-  const editIdx=_finBalanceEdit?finBalanceFind(_finBalanceEdit.kind,_finBalanceEdit.id):-1;
-  const row={
-    id:editIdx>=0?_finBalanceEdit.id:finNewId(),
-    owner:document.getElementById('fin-bs-owner')?.value||'본인',
-    category:document.getElementById('fin-bs-category')?.value||'기타',
-    name:(document.getElementById('fin-bs-name')?.value||'').trim(),
-    amount:Number(document.getElementById('fin-bs-amount')?.value)||0,
-    note:(document.getElementById('fin-bs-note')?.value||'').trim()
-  };
-  if(!row.name||row.amount<=0){ alert('항목명과 0보다 큰 금액을 입력해 주세요.'); return; }
-  // 수정은 제자리에서 교체한다 — splice 후 push 하면 목록 맨 아래로 튀어 어디를 고쳤는지 놓친다.
-  if(editIdx>=0) window._balanceSheet[finBalanceKey(_finBalanceEdit.kind)].splice(editIdx,1,row);
-  else window._balanceSheet[finBalanceKey(kind)].push(row);
-  _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
-}
-function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(cbRenderBalanceSheet); }
-function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
-function finNwTf(tf){ _finNwTf=tf; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-balance2','data-nw-tf',tf); }
+// 목표 개월수는 리스크 진단의 '현금 유동성 커버리지' 카드에서 바꾼다.
+// (재무상태표 화면이 사라지면서 이 값만 바꿀 수 있는 자리가 없어졌었다.)
+// 1~36 범위로 조이고, 값이 비어 있거나 숫자가 아니면 기본 6개월로 되돌린다.
+function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(typeof cbRenderRisk==='function'?cbRenderRisk:null); }
+// 투자자산 추이 카드는 투자 분석 > 성과 페이지 안에 있다. 이 페이지에는 소유주 필터가 없으므로
+// (소유주별 수익률을 라인으로 동시에 보여주는 화면이다) 카드가 자기 소유주 상태를 따로 기억한다.
+function finNwTf(tf){ _finNwTf=tf; if(typeof cbRenderPerf==='function') cbRenderPerf(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-perf2','data-nw-tf',tf); }
+function finNwOwner(o){ _finNwOwner=o; if(typeof cbRenderPerf==='function') cbRenderPerf(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-perf2','data-nw-owner',o); }
 
 // ── 순자산 추이 ─────────────────────────────────────────
 // _netWorthHistory 는 앱을 열 때마다 하루 1건씩 쌓이고 있었지만 그리는 화면이 없었다.
@@ -351,14 +298,11 @@ function finNwSeries(ownerF,tf){
   const hist=(window._netWorthHistory||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   const tfKey=tf===undefined?_finNwTf:tf;
   const days=FIN_NW_TFS[tfKey]!==undefined?FIN_NW_TFS[tfKey]:180;
+  // 'YYYY-MM-DD' 만 넘기면 UTC 로 읽혀 KST 에서 하루 밀린다 — 기간 경계에서 하루가 들쭉날쭉해진다.
   const cutoff=days?Date.now()-days*86400000:null;
-  const picked=hist.filter(h=>!cutoff||new Date(h.date).getTime()>=cutoff);
-  const scopeTotals=finBalanceTotals(ownerF);
-  const balanceSheetEmpty=scopeTotals.otherAssets===0&&scopeTotals.liabilities===0;
+  const picked=hist.filter(h=>!cutoff||new Date(String(h.date)+'T00:00:00').getTime()>=cutoff);
   return picked.map(h=>{
-    const v=ownerF
-      ? finSnapshotOwnerNet(h,ownerF,balanceSheetEmpty)
-      : finSnapshotNet(h,balanceSheetEmpty);
+    const v=ownerF?finSnapshotOwnerInvestment(h,ownerF):finSnapshotInvestment(h);
     return {date:h.date,v};
   }).filter(p=>p.v!=null);
 }
@@ -399,7 +343,7 @@ function finNwStats(series){
     min:Math.min(...values), max:Math.max(...values)};
 }
 function finNwChartSvg(series,w,h){
-  if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때마다 하루 1건씩 자동으로 쌓입니다. (현재 ${series.length}건)</div>`;
+  if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때와 매일 자동 기록 배치가 하루 1건씩 쌓습니다. (현재 ${series.length}건)</div>`;
   const vals=series.map(p=>p.v);
   const mn=Math.min(...vals), mx=Math.max(...vals), span=(mx-mn)||Math.abs(mx)||1;
   const step=cbNiceStep(span*1.2/4);
@@ -427,7 +371,7 @@ function finNwChartSvg(series,w,h){
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
   }).join('');
   window._finNwHover=series;
-  const chartLabel=`순자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
+  const chartLabel=`투자자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
   return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
     ${grid}
@@ -443,7 +387,7 @@ function finNwHover(ev,idx){
   const p=series[idx], prev=series[idx-1];
   const delta=prev?p.v-prev.v:null;
   t.innerHTML=`<div style="font-size:12px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
-    <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">순자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
+    <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">투자자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
     ${delta!=null?`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">전일 대비</span><b class="cb-num" style="${cbUpDn(delta)}">${cbSignDisp(delta)}</b></div>`:''}`;
   t.style.display='block';
   const r=t.getBoundingClientRect(), pad=16;
@@ -454,70 +398,34 @@ function finNwHover(ev,idx){
 }
 function finNwHide(){ const t=document.getElementById('cb-perf-tip'); if(t) t.style.display='none'; }
 
-function cbRenderBalanceSheet(){
-  finEnsureState(); const el=document.getElementById('cb-balance2'); if(!el)return;
-  const ownerF=finOwnerF(_finBalanceOwner);
+// 투자자산 추이 카드 — 성과 비교 페이지(perf2)에 들어간다.
+// 같은 페이지 위쪽의 수익률 차트는 '지금 비중을 과거에 소급한 백캐스트'라 실제 금액 추이가 아니다.
+// 이 카드가 그 각주가 가리키는 대상이다: 매일 기록된 스냅샷의 실제 평가액.
+// 부동산·부채는 대시보드에서 관리하지 않으므로 순자산이 아니라 투자자산만 그린다.
+function finInvestTrendCard(){
+  finEnsureState();
+  const ownerF=finOwnerF(_finNwOwner);
   const scope=ownerF?cbEsc(ownerF):'가구 전체';
-  const t=finBalanceTotals(ownerF),bridge=finNetWorthBridge(),safe=finCashSafety(ownerF);
-  cbSetHead('투자자산 + 기타 자산 − 부채 · 전체 순자산을 투자 성과와 분리해 관리',
-    cbOwnerBtns(_finBalanceOwner,'finBalanceOwner'));
-  const listOf=kind=>(window._balanceSheet[finBalanceKey(kind)]||[]).filter(x=>!ownerF||x.owner===ownerF);
-  const rows=(kind,list)=>list.map(x=>`<div class="fin-bs-row"><span><b>${cbEsc(x.name)}</b><small>${cbEsc(x.owner)} · ${cbEsc(x.category)}${x.note?' · '+cbEsc(x.note):''}</small></span><strong>${cbDisp(Number(x.amount)||0)}</strong><span class="fin-row-actions"><button data-kind="${cbEsc(kind)}" data-id="${cbEsc(String(x.id||''))}" onclick="finBalanceEdit(this.dataset.kind,this.dataset.id)">수정</button><button data-kind="${cbEsc(kind)}" data-id="${cbEsc(String(x.id||''))}" onclick="finBalanceDelete(this.dataset.kind,this.dataset.id)">삭제</button></span></div>`).join('')||'<div class="fin-empty">등록된 항목이 없습니다.</div>';
-  const assetList=listOf('asset'), liabList=listOf('liability');
-  const edit=_finBalanceEdit;
-  const editIdx=edit?finBalanceFind(edit.kind,edit.id):-1;
-  const old=editIdx>=0?window._balanceSheet[finBalanceKey(edit.kind)][editIdx]:null;
-  const kind=edit?.kind||'asset'; const cats=kind==='liability'?FIN_LIABILITY_CATS:FIN_ASSET_CATS;
-  const ownerBreak=OWNERS.map(owner=>{const inv=finRows(owner).reduce((s,r)=>s+r.val,0);const oa=finSum(window._balanceSheet.assets,owner);const li=finSum(window._balanceSheet.liabilities,owner);return{owner,inv,oa,li,net:inv+oa-li};}).filter(x=>x.inv||x.oa||x.li);
-
-  // 순자산 추이
-  const series=finNwSeries(ownerF); const st=finNwStats(series);
+  const series=finNwSeries(ownerF);
+  const st=finNwStats(series);
   const cov=finNwCoverage(series,_finNwTf);
-  const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${tf}" onclick="finNwTf('${tf}')" aria-pressed="${tf===_finNwTf}">${tf}</button>`).join('');
-
-  // 브리지는 가구 전체 스냅샷만 있으므로 소유주 필터와 무관하게 가구 기준임을 밝힌다.
-  const bridgeNote=bridge.prior
-    ? `${cbEsc(bridge.prior.date)} 이후 · 가구 전체 기준${bridge.skipped?` · 정의가 다른 과거 스냅샷 ${bridge.skipped}건 제외`:''}`
-    : '스냅샷 준비 중';
-  const bridgeCards=bridge.prior
-    ? `<div class="fin-bridge"><div><small>이전 순자산</small><b>${cbDisp(bridge.previous)}</b></div><span>+</span><div class="${bridge.cashflow>=0?'up':'down'}"><small>이후 순현금흐름</small><b>${cbSignDisp(bridge.cashflow)}</b></div><span>+</span><div class="${bridge.residual>=0?'up':'down'}"><small><span data-tip="순자산 변화에서 가계부에 기록된 순현금흐름을 뺀 나머지입니다. 시세·환율 변동이 대부분이지만, 가계부에 적지 않은 입출금이나 자산 내역 직접 수정도 여기에 함께 잡힙니다.">설명되지 않는 차이</span></small><b>${cbSignDisp(bridge.residual)}</b></div><span>=</span><div><small>현재 순자산</small><b>${cbDisp(bridge.totals.net)}</b></div></div>`
-    : `<div class="fin-empty">오늘부터 순자산 스냅샷을 쌓습니다. 다음 스냅샷부터 현금흐름과 나머지 변동을 분리해 보여드립니다.</div>`;
-  el.innerHTML=`
-    <div class="fin-summary-grid"><div class="cb-panel fin-kpi"><small>${scope} 투자자산</small><strong>${cbDisp(t.investment)}</strong><span>주식·가상화폐·금·현금</span></div><div class="cb-panel fin-kpi"><small>기타 자산</small><strong>${cbDisp(t.otherAssets)}</strong><span>부동산·예적금·보험 등</span></div><div class="cb-panel fin-kpi liability"><small>부채</small><strong>${cbDisp(t.liabilities)}</strong><span>대출·보증금·단기부채</span></div><div class="cb-panel fin-kpi net"><small>${scope} 순자산</small><strong>${cbDisp(t.net)}</strong><span>총자산 ${cbDisp(t.assets)} − 부채</span></div></div>
-
-    <div class="cb-panel fin-section">
-      <div class="fin-section-head">
-        <span>순자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span>
-        <div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">${tfBtns}</div>
-      </div>
-      ${st?`<div class="fin-nw-stats">
-        <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
-        <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 순자산이 0원 이하인 구간이 있으면 비율을 산정하지 않습니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd!=null&&st.mdd<0?'down':''}">${st.mdd==null?'—':st.mdd.toFixed(1)+'%'}</b></div>
-        <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
-        <div><small>스냅샷</small><b>${series.length}일</b></div>
-      </div>`:''}
-      ${finNwCoverageNote(cov)}
-      ${finNwChartSvg(series,1100,230)}
+  const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${cbEsc(tf)}" onclick="finNwTf('${cbEsc(tf)}')" aria-pressed="${tf===_finNwTf}">${cbEsc(tf)}</button>`).join('');
+  const ownerBtns=['전체',...OWNERS].map(o=>`<button class="owner-btn${_finNwOwner===o?' active':''}" data-nw-owner="${cbEsc(o)}" onclick="finNwOwner('${cbEsc(o)}')" aria-pressed="${_finNwOwner===o}">${cbEsc(o)}</button>`).join('');
+  return `<div class="cb-panel fin-section" style="margin-top:12px">
+    <div class="fin-section-head">
+      <span>투자자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope} · <span data-tip="위 수익률 차트와 달리 소급 가정이 없습니다. 매일 기록된 실제 평가액이라 그 사이의 매수·매도·입금이 그대로 반영됩니다.">실제 기록 금액</span></span></span>
+      <div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">${ownerBtns}${tfBtns}</div>
     </div>
-
-    <div class="cb-panel fin-section"><div class="fin-section-head"><span>순자산 변화 분석</span><small>${bridgeNote}</small></div>${bridgeCards}</div>
-    <div class="fin-balance-grid">
-      <div class="cb-panel fin-section"><div class="fin-section-head"><span>기타 자산</span><small>${assetList.length}개 · ${cbDisp(t.otherAssets)}</small></div>${rows('asset',assetList)}</div>
-      <div class="cb-panel fin-section"><div class="fin-section-head"><span>부채</span><small>${liabList.length}개 · ${cbDisp(t.liabilities)}</small></div>${rows('liability',liabList)}</div>
-    </div>
-    <div class="fin-balance-grid">
-      <div class="cb-panel fin-section"><div class="fin-section-head"><span>현금 안전판</span><small>${scope} · 필수지출 기준</small></div><div class="fin-safety"><strong>${safe.runway==null?'—':safe.runway.toFixed(1)+'개월'}</strong><p>현금 ${cbDisp(safe.cash)} / 월 필수지출 ${cbDisp(safe.fixed)}</p><p>DCA 포함 월 약정액 ${cbDisp(safe.committed)}${safe.committedRunway!=null?' · '+safe.committedRunway.toFixed(1)+'개월':''}</p><div class="fin-inline-form"><label>목표 개월</label><input id="fin-cash-target" type="number" min="1" max="36" value="${safe.targetMonths}"><button onclick="finSaveCashTarget()">저장</button></div>${safe.fixed<=0?'<small class="fin-callout">현금 흐름 &gt; 고정비 관리에서 고정비로 분류하면 자동 계산됩니다.</small>':safe.shortage>0?`<small class="fin-callout warn">목표까지 ${cbDisp(safe.shortage)}가 더 필요합니다.</small>`:'<small class="fin-callout ok">목표 안전판을 확보했습니다.</small>'}${safe.pendingCount?`<small class="fin-callout warn">미분류 자동이체 ${safe.pendingCount}건(월 ${cbDisp(safe.pendingMonthly)})은 합산하지 않았습니다. 현금 흐름 &gt; 고정비 관리에서 분류해 주세요.</small>`:''}</div></div>
-      <div class="cb-panel fin-section"><div class="fin-section-head"><span>소유주별 순자산</span><small>투자자산 + 기타 자산 − 부채</small></div><div class="fin-owner-table">${ownerBreak.map(x=>`<div><span><i style="background:${cbOwnerColor(x.owner)}"></i>${cbEsc(x.owner)}</span><small>투자 ${cbDisp(x.inv)} · 기타 ${cbDisp(x.oa)} · 부채 ${cbDisp(x.li)}</small><b>${cbDisp(x.net)}</b></div>`).join('')||'<div class="fin-empty">표시할 자산이 없습니다.</div>'}</div></div>
-    </div>
-    ${finMobileNote('재무상태표 항목')}
-    <details class="fin-editor-details" ${old?'open':''}><summary>재무상태표 항목 추가·편집</summary><div class="cb-panel fin-section" id="fin-bs-form"><div class="fin-section-head"><span>${old?'재무상태표 항목 수정':'재무상태표 항목 추가'}</span><small>투자자산은 자산 내역에서 관리합니다.</small></div><div class="fin-form-grid">
-      <label>구분<select id="fin-bs-kind" onchange="finBalanceKindChange()" ${old?'disabled':''}><option value="asset" ${kind==='asset'?'selected':''}>기타 자산</option><option value="liability" ${kind==='liability'?'selected':''}>부채</option></select></label>
-      <label>소유주<select id="fin-bs-owner">${OWNERS.map(o=>`<option ${(old?old.owner===o:ownerF===o)?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
-      <label>분류<select id="fin-bs-category">${cats.map(c=>`<option ${old?.category===c?'selected':''}>${cbEsc(c)}</option>`).join('')}</select></label>
-      <label>항목명<input id="fin-bs-name" value="${cbEsc(old?.name||'')}" placeholder="예: 거주 아파트"></label>
-      <label>금액(원)<input id="fin-bs-amount" type="number" min="0" step="10000" value="${Number.isFinite(Number(old?.amount))?Number(old.amount):''}" placeholder="0"></label>
-      <label>메모<input id="fin-bs-note" value="${cbEsc(old?.note||'')}" placeholder="선택 입력"></label>
-    </div><div class="fin-form-actions"><button class="primary" onclick="finBalanceSubmit()">${old?'수정 저장':'항목 추가'}</button>${old?'<button onclick="finBalanceCancel()">취소</button>':''}</div></div></details>`;
+    ${st?`<div class="fin-nw-stats">
+      <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
+      <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 수익률이 아니라 실제 평가액 기준이므로 추가 입금·출금도 함께 반영됩니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd!=null&&st.mdd<0?'down':''}">${st.mdd==null?'—':st.mdd.toFixed(1)+'%'}</b></div>
+      <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
+      <div><small>스냅샷</small><b>${series.length}일</b></div>
+    </div>`:''}
+    ${finNwCoverageNote(cov)}
+    ${finNwChartSvg(series,1100,200)}
+    <small class="fin-callout">주식·ETF·가상화폐·금·현금 평가액 합계입니다. 부동산·부채는 포함하지 않습니다 · 증감에는 시세 변동과 추가 입금이 함께 섞여 있어 수익률이 아닙니다 · 기록은 앱을 연 날과 매일 자동 기록 배치(평일·주말 KST 16:40)가 남깁니다</small>
+  </div>`;
 }
 
 function finGoalCurrent(g){

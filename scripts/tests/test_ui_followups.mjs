@@ -367,6 +367,10 @@ const riskInsightContext = {
   goalData:[],
   cbAllRows:()=>riskInsightRows,
   cbLookThrough:()=>({list:[{via:50}],etfCount:1,loaded:true,etfMiss:[]}),
+  // ETF 간 중복도는 실제 구현을 넣어 돌린다 — 이 픽스처에는 ETF 가 없으므로 0% 가 나온다.
+  cbEtfDoc:()=>({etfs:{}}),
+  etfStockRows:entry=>(entry&&Array.isArray(entry.holdings)?entry.holdings:[]),
+  etfQuality:()=>({reliable:true}),
   cbMergeRows:rows=>rows,
   cbSectors:()=>({list:[{label:'Technology',pct:40},{label:'Index ETF',pct:30}]}),
   cbDivIncomeKRW:item=>item.div||0,
@@ -387,6 +391,14 @@ vm.createContext(riskInsightContext)
 })
 ;['finNewId','finEnsureState','finOwnerF','finRows','finMonthlyFixedCost','finCashSafety']
   .forEach(name=>vm.runInContext(extractFunction(financeSource, name), riskInsightContext))
+// cbRiskInsights 가 부르는 함수는 함께 넣는다 — 하나라도 빠지면 ReferenceError 로 죽는다.
+;['cbIsEtf','cbSyntheticEtfHoldings','cbEtfCrossOverlap']
+  .forEach(name=>vm.runInContext(extractFunction(cobaltSource, name), riskInsightContext))
+;['CB_SINGLE_STOCK_LEV_ISSUER','CB_NOT_SINGLE_STOCK'].forEach(name=>{
+  const start = cobaltSource.indexOf(`const ${name}`)
+  assert.notEqual(start, -1, `${name} 상수를 찾을 수 없음`)
+  vm.runInContext(cobaltSource.slice(start, cobaltSource.indexOf('\n', cobaltSource.indexOf(';', start))), riskInsightContext)
+})
 vm.runInContext(extractFunction(cobaltSource, 'cbRiskInsights'), riskInsightContext)
 
 // 필수지출 단일 소스: 미분류(식비 900)와 저축/투자(500)는 빠지고 고정비 100만 남는다
@@ -396,7 +408,10 @@ assert.equal(safetyProbe.pendingCount, 1, '미분류 자동이체는 합산하�
 assert.equal(safetyProbe.committed, 200, '월 약정액 = 필수지출 + DCA')
 const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
 const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
-assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 생성')
+assert.equal(riskInsights.length, 9, '리스크 보조 진단 위젯 9개 생성 (ETF 간 중복도 추가)')
+// 카드가 늘어도 그리드가 조용히 버리지 않아야 한다 — 예전에는 4행 고정이라 9번째가 안 보였다.
+assert.match(cobaltSource, /const gridRows=Math\.max\(/, '리스크 카드 행 수는 카드 개수를 따른다')
+assert.ok(riskInsights.some(c=>c.id==='etf-cross-overlap'), 'ETF 간 중복도 위젯 존재')
 assert.equal(riskInsightById['etf-overlap'].value, '5.0%', 'ETF 직접·간접 중복 노출 계산')
 for (const coverage of [
   {list:[],etfCount:1,loaded:false,etfMiss:['VOO']},
@@ -415,7 +430,7 @@ assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 
 assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
 assert.doesNotMatch(cobaltSource, /cbHomeTrend\(ownerF\)|cbHomeTotals\(ownerF\)/, '홈의 중복 요약과 추이 제거')
-assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:4\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '기존 8개와 신규 8개 리스크 카드를 같은 행 흐름으로 교차 배치')
+assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:gridRows\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '규칙 카드와 보조 진단을 같은 행 흐름으로 교차 배치하되 행 수는 카드 개수를 따른다')
 assert.match(styleSource, /\.cb-risk-card-grid\{min-width:0;display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '리스크 통합 위젯 데스크톱 4열 배치')
 assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-card-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, '리스크 통합 위젯 중간 화면 2열 배치')
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-perf-detail-grid,\.cb-dash-insight-grid,\.cb-risk-card-grid\{grid-template-columns:1fr\}/, '리스크 위젯 모바일 1열 배치')

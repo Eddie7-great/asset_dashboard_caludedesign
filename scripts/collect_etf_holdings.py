@@ -866,57 +866,66 @@ def fetch_funetf(code):
 
 
 def collect_one(code, name, lookup=None):
-    """→ (holdings, equityWeight, asOf, source) / 실패 시 ([], 0, None, None).
+    """→ (holdings, equityWeight, asOf, source, complete) / 실패 시 ([], 0, None, None, False).
 
-    code   : 접미사를 뗀 코드 — JSON 키이자 프런트 cbStrip() 결과와 일치해야 한다
-    lookup : 외부 조회용 원본 티커. 야후는 일본 종목을 '1617.T' 로만 인식하므로
-             접미사를 뗀 '1617' 로 조회하면 실패한다. 미지정이면 code 를 쓴다.
+    code     : 접미사를 뗀 코드 — JSON 키이자 프런트 cbStrip() 결과와 일치해야 한다
+    lookup   : 외부 조회용 원본 티커. 야후는 일본 종목을 '1617.T' 로만 인식하므로
+               접미사를 뗀 '1617' 로 조회하면 실패한다. 미지정이면 code 를 쓴다.
+    complete : 그 출처가 '전체 바스켓'을 준다고 볼 근거가 있을 때만 True.
+               coverage='full' 의 유일한 판단 근거다 — 출처 이름이 아니라 실제 근거로 정한다.
     """
-    today = datetime.date.today().isoformat()
     lookup = lookup or code
 
     if is_kr_code(code):
         h, as_of = fetch_funetf(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'FunETF'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'FunETF', True
         h, eq, as_of = fetch_krx(code)
         if h:
-            return h, eq, as_of, 'krx'
+            return h, eq, as_of, 'krx', True
         h, as_of = fetch_time(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:TIME'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:TIME', True
         h, as_of = fetch_provider(code, name)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider', True
         h, eq, as_of = fetch_zeroin(code)
         if h:
-            return h, eq, as_of, 'zeroin'
+            return h, eq, as_of, 'zeroin', True
         h = fetch_naver(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), None, 'naver'
+            return h, round(sum(x['w'] for x in h), 2), None, 'naver', False
     else:
         h, as_of = fetch_proshares(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:ProShares'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:ProShares', True
         h, as_of = fetch_invesco(code)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:Invesco'
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'provider:Invesco', True
+        # stockanalysis 가 yfinance 보다 먼저다. yfinance 는 funds_data.top_holdings 를 쓰므로
+        # **정의상 상위 10종목만** 돌려주는데, 먼저 두면 성공하는 순간 체인이 끊겨
+        # 전체 바스켓을 주는 stockanalysis 까지 가지 않는다. 실제로 DRAM 이 3종목(주식비중 40.7%),
+        # SPYM·1629 가 10종목으로 굳어 룩스루 간접 노출이 통째로 축소됐다.
+        # 국내 분기(FunETF → KRX → …)와 같은 원칙 — 완전한 출처를 먼저 쓰고 부분 출처는 폴백으로 둔다.
+        h, as_of, full = fetch_stockanalysis(lookup)
+        if h:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'stockanalysis', full
         h = fetch_yfinance(lookup)
         if h:
-            return h, round(sum(x['w'] for x in h), 2), None, 'yfinance'
-        h = fetch_stockanalysis(lookup)
-        if h:
-            return h, round(sum(x['w'] for x in h), 2), None, 'stockanalysis'
+            return h, round(sum(x['w'] for x in h), 2), None, 'yfinance', False
         alias = ETF_ALIAS.get(lookup) or ETF_ALIAS.get(code)
         if alias:
-            h = fetch_yfinance(alias) or fetch_stockanalysis(alias)
+            h, as_of, full = fetch_stockanalysis(alias)
             if h:
-                return h, round(sum(x['w'] for x in h), 2), None, 'alias:' + alias
+                return h, round(sum(x['w'] for x in h), 2), as_of, 'alias:' + alias, full
+            h = fetch_yfinance(alias)
+            if h:
+                return h, round(sum(x['w'] for x in h), 2), None, 'alias:' + alias, False
 
     h = fetch_browser_tier(code, name)        # 4순위
     if h:
-        return h, round(sum(x['w'] for x in h), 2), None, 'browser'
-    return [], 0.0, None, None
+        return h, round(sum(x['w'] for x in h), 2), None, 'browser', False
+    return [], 0.0, None, None, False
 
 
 def load_previous():
@@ -1014,11 +1023,13 @@ def run(targets, dry_run=False):
 
     for code, name, lookup in targets:
         old = clean_snapshot(prev['etfs'].get(code))
-        holdings, eq, as_of, source = collect_one(code, name, lookup)
+        holdings, eq, as_of, source, full = collect_one(code, name, lookup)
         if holdings and old and as_of and old.get('asOf') and as_of < old['asOf']:
             holdings = []  # A stale provider response must not roll the fund backwards.
         if holdings:
-            coverage = 'full' if source in ('krx', 'zeroin', 'provider', 'provider:TIME', 'provider:Invesco', 'provider:ProShares', 'FunETF') else 'partial'
+            # 출처 이름이 아니라 '전체 바스켓을 받았다는 근거'로 정한다.
+            # 근거가 없으면 partial 로 남겨 etfQuality 가 잠정으로 표시하게 둔다.
+            coverage = 'full' if full else 'partial'
             etfs[code] = {'name': name, 'asOf': as_of, 'source': source,
                           'equityWeight': eq, 'holdings': holdings, 'coverage': coverage,
                           'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -1071,9 +1082,9 @@ def smoke(code):
     name = kr_etf_master().get(code) or code
     print('스모크 테스트: %s (%s)' % (code, name))
     print('  KRX 로그인 자격: %s' % ('있음' if krx_available() else '없음 → ZEROIN 등 대체 소스 사용'))
-    holdings, eq, as_of, source = collect_one(code, name)
-    print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s · 소스 %s'
-          % (len(holdings), eq, as_of, source))
+    holdings, eq, as_of, source, full = collect_one(code, name)
+    print('  구성종목 %d개 · 주식비중 %.1f%% · 기준일 %s · 소스 %s · 전체바스켓 %s'
+          % (len(holdings), eq, as_of, source, '예' if full else '아니오(부분)'))
     for h in holdings[:5]:
         print('    %-12s %-28s %6.2f%%' % (h['t'], h['n'][:28], h['w']))
     if len(holdings) < SMOKE_HARD_MIN:

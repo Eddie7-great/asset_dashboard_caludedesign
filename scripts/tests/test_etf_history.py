@@ -64,11 +64,11 @@ persisted_b=copy.deepcopy(persisted_a); persisted_b['etfs']['426020']['retained'
 assert c.has_persisted_changes(persisted_a,persisted_b), 'Quality state changes must persist'
 
 original=copy.deepcopy(old)
-with patch.object(c,'load_previous',return_value={'etfs':{'426020':old}}),patch.object(c,'collect_one',return_value=([],0,None,None)):
+with patch.object(c,'load_previous',return_value={'etfs':{'426020':old}}),patch.object(c,'collect_one',return_value=([],0,None,None,False)):
     doc=c.run([('426020','TIME 액티브','426020')],dry_run=True)
     assert doc['etfs']['426020']['retained'] and doc['etfs']['426020']['asOf']=='2026-09-07'
 assert old==original, 'Do not mutate the previous snapshot'
-with patch.object(c,'load_previous',return_value={'etfs':{'426020':old}}),patch.object(c,'collect_one',return_value=([{'t':'NVDA','n':'NVIDIA','w':3}],3,'2026-09-01','provider:TIME')):
+with patch.object(c,'load_previous',return_value={'etfs':{'426020':old}}),patch.object(c,'collect_one',return_value=([{'t':'NVDA','n':'NVIDIA','w':3}],3,'2026-09-01','provider:TIME',True)):
     doc=c.run([('426020','TIME 액티브','426020')],dry_run=True)
     assert doc['etfs']['426020']['asOf']=='2026-09-07', 'Do not regress to an older provider date'
 print('PASS ETF source validation, futures exclusions, same-date corrections, bounded history, retained snapshots')
