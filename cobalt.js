@@ -1174,7 +1174,24 @@ function cbHomeHoldings(rows){
   const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
-  return `<section class="cb-panel cb-home-holdings"><div class="home-holdings-layout"><div class="home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3><input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div><div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목명 · 티커</th><th>수량</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.key===_cdashSel?'is-selected':''}"><td>${cbEsc(r.i.owner)}</td><td><button class="home-stock-pick" data-key="${cbEsc(r.key)}" onclick="cbDashPick(this.dataset.key)" aria-pressed="${r.key===_cdashSel}"><b>${cbEsc(r.title)}</b></button> <small>${cbEsc(cbStrip(r.i.tkr))}</small></td><td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td><td>${cbDisp(r.val)}</td><td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td><td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`).join('')||'<tr><td colspan="6">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></div><aside class="home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div></section>`;
+  // 선택은 행 전체가 받는다 — 예전에는 종목명을 감싼 button 만 눌렸고 티커·수량·금액 칸은 죽어 있었다.
+  // 키는 data-key 로만 넘긴다(인라인 JS 문자열에 넣지 않는다). Enter·Space 는 script.js 의 문서 위임이
+  // 처리하므로 인라인 onkeydown 을 붙이지 않는다 — 붙이면 이중 실행된다.
+  const row=r=>`<tr class="${r.key===_cdashSel?'is-selected':''}" role="button" tabindex="0" aria-pressed="${r.key===_cdashSel}" data-key="${cbEsc(r.key)}" onclick="cbDashPick(this.dataset.key)">`
+    +`<td>${cbEsc(r.i.owner)}</td>`
+    +`<td><b>${cbEsc(r.title)}</b> <small>${cbEsc(cbStrip(r.i.tkr))}</small></td>`
+    +`<td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td>`
+    // 취득가 미상은 cbCostKRW 가 0 을 돌려주므로 그대로 그리면 ₩0 이 찍힌다 — 평가손익 칸과 같은 가드를 쓴다.
+    +`<td>${r.i.costUnknown?'—':cbDisp(r.cost)}</td>`
+    +`<td>${cbDisp(r.val)}</td>`
+    +`<td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td>`
+    +`<td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`;
+  return `<div class="home-holdings-layout">`
+    +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3>`
+    +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
+    +`<div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목명 · 티커</th><th>수량</th><th>매입금액</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead>`
+    +`<tbody>${rows.map(row).join('')||'<tr><td colspan="7">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
+    +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
