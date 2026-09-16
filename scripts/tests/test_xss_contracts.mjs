@@ -163,6 +163,25 @@ const assetContext = {
   Date, Set, Number, String, Array, Math,
 }
 vm.createContext(assetContext)
+// fixAssetCurrencies 가 닫고 있는 통화 정의도 소스에서 그대로 가져온다 —
+// 테스트에 목록을 복사해 두면 지원 통화가 늘어도 눈치채지 못한다.
+function extractConst(source, name) {
+  const start = source.indexOf(`const ${name}`)
+  assert.notEqual(start, -1, `${name} 정의를 찾을 수 없음`)
+  const brace = source.indexOf('{', start)
+  const lineEnd = source.indexOf('\n', start)
+  // 객체 리터럴이면 닫는 중괄호까지, 한 줄짜리면 그 줄까지.
+  if (brace === -1 || brace > lineEnd) return source.slice(start, lineEnd)
+  let depth = 0
+  for (let i = brace; i < source.length; i++) {
+    if (source[i] === '{') depth++
+    else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1) + ';'
+  }
+  throw new Error(`${name} 정의의 닫는 괄호를 찾을 수 없음`)
+}
+for (const name of ['CURRENCY_META', 'CASH_CURRENCIES']) {
+  vm.runInContext(extractConst(scriptSource, name), assetContext)
+}
 for (const name of ['_boundedStoredText', '_safeStoredNumber', '_isStoredDateKey', '_normalizeStoredOwner', 'fixAssetCurrencies']) {
   vm.runInContext(extractFunction(scriptSource, name), assetContext)
 }
@@ -175,7 +194,28 @@ const [asset] = assetContext.fixAssetCurrencies([{
 assert.equal(asset.owner, '미지정', '자산 소유주 allow-list 적용')
 assert.match(asset.tkr, /^[A-Z0-9.^=_-]*$/, '자산 티커를 허용 문자로 제한')
 assert.doesNotMatch(asset.name + asset.broker + asset.acc, /[<>\u0000-\u001f\u007f]/, '자산 문자열에서 태그·제어문자를 제거')
-assert.ok(['USD','JPY','KRW'].includes(asset.cur), '자산 통화 allow-list 적용')
+assert.ok(['USD','JPY','AUD','KRW'].includes(asset.cur), '자산 통화 allow-list 적용')
+
+// ── 지원 통화 단일 출처 ────────────────────────────────────────────────
+// 통화 기호·소수 자릿수·국기가 여러 파일에 3항 분기로 흩어져 있어, 통화를 하나 늘릴 때마다
+// 몇 군데를 반드시 빠뜨렸다(호주달러 예수금에 태극기가 붙는 식). 정의는 한 곳만 둔다.
+// vm 의 const 는 컨텍스트 객체의 속성이 아니라 렉시컬 바인딩이라 컨텍스트 안에서 평가해 읽는다.
+const curIn = expr => vm.runInContext(`JSON.stringify(${expr})`, assetContext)
+assert.equal(curIn('CASH_CURRENCIES'), JSON.stringify(['KRW','USD','JPY','AUD']), '현금 예수금 지원 통화')
+for (const cur of ['KRW','USD','JPY','AUD']) {
+  const meta = JSON.parse(curIn(`CURRENCY_META[${JSON.stringify(cur)}]`))
+  assert.ok(meta && meta.symbol && meta.flag, `${cur} 정의에 기호·국기 필요`)
+  assert.ok(Number.isInteger(meta.cashDecimals), `${cur} 현금 소수 자릿수 필요`)
+}
+assert.equal(JSON.parse(curIn('CURRENCY_META.AUD')).symbol, 'A$', '호주달러 기호')
+assert.equal(JSON.parse(curIn('CURRENCY_META.AUD')).flag, 'AU', '호주달러는 태극기가 아니다')
+assert.equal(JSON.parse(curIn('CURRENCY_META.JPY')).cashDecimals, 0, '엔화 예수금은 정수')
+assert.equal(JSON.parse(curIn('CURRENCY_META.AUD')).cashDecimals, 2, '호주달러 예수금은 센트까지')
+// allow-list 는 정의 목록을 그대로 따라야 한다 — 배열을 따로 적으면 둘이 갈린다.
+assert.match(scriptSource, /const allowedCurrencies=new Set\(CASH_CURRENCIES\)/, '통화 allow-list 는 정의 목록을 그대로 쓴다')
+// 환율 시드가 없으면 RATES[cur]||1 경로가 1:1 로 떨어져 평가액이 수백 배 어긋난다.
+assert.match(scriptSource, /const RATES = \{ USD: [\d.]+, JPY: [\d.]+, AUD: [\d.]+, KRW: 1 \}/, '지원 통화마다 환율 시드')
+assert.doesNotMatch(scriptSource, /delete RATES\.AUD/, '조회 실패로 환율을 지우면 1:1 로 떨어진다')
 for (const field of ['qty','avgP','curP','dcaAmt','dcaQty']) {
   assert.ok(Number.isFinite(asset[field]) && asset[field] >= 0, `${field}는 유한한 음수 아닌 값으로 제한`)
 }

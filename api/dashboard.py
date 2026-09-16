@@ -258,7 +258,8 @@ def safe_history(ticker_yf, period='1y'):
 
 # ── 1. 환율 ─────────────────────────────────────────────────────
 def get_rates():
-    r = {'usd_krw': UNAVAILABLE, 'usd_jpy': UNAVAILABLE, 'jpy100_krw': UNAVAILABLE}
+    r = {'usd_krw': UNAVAILABLE, 'usd_jpy': UNAVAILABLE, 'jpy100_krw': UNAVAILABLE,
+         'aud_krw': UNAVAILABLE}
 
     # USD/KRW
     v = safe_last_close('KRW=X')
@@ -269,6 +270,12 @@ def get_rates():
     v = safe_last_close('JPY=X')
     if v:
         r['usd_jpy'] = round(v, 2)
+
+    # AUD/KRW — 호주달러 예수금용. 환율을 못 받으면 '미조회'로 두고 절대 1로 대체하지 않는다
+    # (1로 대체하면 A$1 = ₩1 로 계산돼 평가액이 약 950배 어긋난 채 조용히 표시된다).
+    v = safe_last_close('AUDKRW=X')
+    if v:
+        r['aud_krw'] = round(v, 2)
 
     # JPY100/KRW (계산)
     u = r.get('usd_krw')

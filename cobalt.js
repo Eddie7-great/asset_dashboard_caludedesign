@@ -85,10 +85,14 @@ function cbDisp(vKrw){
 function cbSignDisp(vKrw){ return (vKrw>=0?'+':'') + cbDisp(vKrw); }
 function cbKrw(n){ return (n<0?'-':'') + '₩' + Math.abs(Math.round(n)).toLocaleString('ko-KR'); }
 function cbPct(r){ return (r>=0?'+':'') + (r*100).toFixed(Math.abs(r)<0.1?2:1) + '%'; }
+// 통화 기호·소수 자릿수는 script.js 의 CURRENCY_META 하나만 따른다.
+// 예전에는 여기서도 USD/JPY 를 따로 분기해, 통화를 늘릴 때마다 한쪽만 고쳐지곤 했다.
 function cbFmtNative(n, cur){
-  if (cur==='USD') return '$' + Number(n).toLocaleString('en-US',{maximumFractionDigits:2});
-  if (cur==='JPY') return '¥' + Math.round(n).toLocaleString('ja-JP');
-  return '₩' + Math.round(n).toLocaleString('ko-KR');
+  const meta = (typeof curMeta==='function') ? curMeta(cur) : null;
+  const sym = meta ? meta.symbol : (cur==='USD'?'$':cur==='JPY'?'¥':'₩');
+  const dec = meta ? meta.cashDecimals : (cur==='USD'?2:0);
+  const loc = cur==='JPY' ? 'ja-JP' : cur==='KRW' ? 'ko-KR' : 'en-US';
+  return sym + Number(n).toLocaleString(loc,{minimumFractionDigits:0,maximumFractionDigits:dec});
 }
 function cbEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function cbUpDn(v){ return 'color:' + (v>=0 ? 'var(--up)' : 'var(--dn)'); }
@@ -235,7 +239,9 @@ function cbFlagSvg(r, h){
   const mkt = cbFlagMarket(r.cls);
   if (mkt && typeof _mktFlagSvg==='function') return _mktFlagSvg(mkt, h);
   if (r.cls==='gold') return cbGoldBarSvg(h);
-  const icon = { crypto:{c:CB_CLS.crypto.color,t:'₿'}, cash:{c:CB_CLS.cash.color,t:'₩'} }[r.cls]
+  // 현금 배지는 보유 통화의 기호를 쓴다 — 예전에는 통화와 무관하게 항상 ₩ 이었다.
+  const icon = { crypto:{c:CB_CLS.crypto.color,t:'₿'},
+    cash:{c:CB_CLS.cash.color, t:(typeof curSymbol==='function'?curSymbol(r.i&&r.i.cur):'₩')} }[r.cls]
     || { c:(r.cl&&r.cl.color)||'#8a97b0', t:'•' };
   const w = Math.round(h*1.5);
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${w}px;height:${h}px;border-radius:3px;font-size:${Math.round(h*0.66)}px;font-weight:800;background:${icon.c}22;color:${icon.c};vertical-align:-2px">${icon.t}</span>`;

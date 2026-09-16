@@ -127,6 +127,7 @@ check('미국 주식은 USD 환율 적용',
       batch.asset_value_krw({'grp': '주식', 'cur': 'USD', 'qty': 100, 'curP': 80}, RATES), 100 * 80 * 1400)
 check('일본 주식은 1엔당 환율 적용',
       batch.asset_value_krw({'grp': '주식', 'cur': 'JPY', 'qty': 20, 'curP': 3000}, RATES), 20 * 3000 * 9.5)
+# 앱(`RATES[cur]||1`)과 같은 규칙이라 계산 자체는 바꾸지 않는다. 대신 기록 직전에 막는다.
 check('모르는 통화는 1로 본다',
       batch.asset_value_krw({'grp': '주식', 'cur': 'EUR', 'qty': 2, 'curP': 10}, RATES), 20)
 
@@ -180,6 +181,21 @@ class _FakeApi:
 
 check('JPY는 100엔당 시세를 1엔당으로 환산', batch.fetch_rates(_FakeApi())['JPY'], 9.5)
 check('KRW는 항상 1', batch.fetch_rates(_FakeApi())['KRW'], 1)
+
+print('\n[환율 누락 차단]')
+# A$1 을 ₩1 로 적은 스냅샷이 영구 이력에 남는 것이 가장 나쁘다 — 계산 규칙은 앱과 같이 두고
+# 기록 직전에 막는다.
+_RATES_OK = {'KRW': 1.0, 'USD': 1400.0, 'JPY': 9.5, 'AUD': 900.0}
+_RATES_NO_AUD = {'KRW': 1.0, 'USD': 1400.0, 'JPY': 9.5}
+_AUD_CASH = [{'grp': '현금', 'cur': 'AUD', 'qty': 10000, 'curP': 1}]
+check('환율이 다 있으면 통과', batch.missing_rate_currencies(_AUD_CASH, _RATES_OK), [])
+check('환율 없는 통화를 집어낸다', batch.missing_rate_currencies(_AUD_CASH, _RATES_NO_AUD), ['AUD'])
+check('KRW는 환율 조회 대상이 아니다',
+      batch.missing_rate_currencies([{'grp': '현금', 'cur': 'KRW', 'qty': 1, 'curP': 1}], _RATES_NO_AUD), [])
+check('금은 curP가 이미 원화라 제외',
+      batch.missing_rate_currencies([{'grp': '금', 'cur': 'AUD', 'qty': 1, 'curP': 1}], _RATES_NO_AUD), [])
+check('엔화 예수금도 환율이 있으면 통과',
+      batch.missing_rate_currencies([{'grp': '현금', 'cur': 'JPY', 'qty': 1, 'curP': 1}], _RATES_OK), [])
 
 print('\n[예약 실행 기준일]')
 # GitHub 예약 실행은 몇 시간씩 밀린다. 실측 10회(2026-09-06~15)에서 중앙값 약 4시간 56분,

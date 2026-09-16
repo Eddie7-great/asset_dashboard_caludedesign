@@ -1,7 +1,28 @@
 // =============================================
 // DATA
 // =============================================
-const RATES = { USD: 1380, JPY: 9.2, KRW: 1 };
+const RATES = { USD: 1380, JPY: 9.2, AUD: 900, KRW: 1 };
+
+// 지원 통화의 단일 출처 — 기호·현금 소수 자릿수·예수금 선택지를 여기서만 정의한다.
+// 예전에는 `cur==='USD'?'$':(cur==='JPY'?'¥':'₩')` 같은 3항 분기가 여러 파일에 흩어져 있어
+// 통화를 하나 늘릴 때마다 국기·기호·소수점 중 몇 군데를 반드시 빠뜨렸다.
+// AUD 처럼 환율이 없을 수 있는 통화는 rate 를 1 로 대체하지 않는다 — cbRate/RATES 참조부가
+// 조용히 1:1 로 환산해 평가액이 수백 배 어긋나기 때문이다(_priceStale 로 드러낸다).
+const CURRENCY_META = {
+  KRW: { symbol: '₩',  cashDecimals: 0, label: '₩ KRW',  flag: 'KR' },
+  USD: { symbol: '$',  cashDecimals: 2, label: '$ USD',  flag: 'US' },
+  JPY: { symbol: '¥',  cashDecimals: 0, label: '¥ JPY',  flag: 'JP' },
+  AUD: { symbol: 'A$', cashDecimals: 2, label: 'A$ AUD', flag: 'AU' },
+};
+const CASH_CURRENCIES = Object.keys(CURRENCY_META);
+function curMeta(cur){ return CURRENCY_META[String(cur||'').toUpperCase()] || CURRENCY_META.KRW; }
+function curSymbol(cur){ return curMeta(cur).symbol; }
+// 환율을 실제로 아는 통화인지 — 모르면 평가액을 만들지 않고 호출부가 stale 로 표시한다.
+function curRateKnown(cur){
+  const c = String(cur||'KRW').toUpperCase();
+  if (c === 'KRW') return true;
+  return Number.isFinite(RATES[c]) && RATES[c] > 0;
+}
 let _donutMainLevel = 'top', _donutAccLevel = 'top';
 
 function _taxRuleValue(path, fallback, when) {
@@ -2863,9 +2884,13 @@ function getHoldingsAssetCellHtml(name,ticker,item){
   const parts = [name,ticker].filter(Boolean);
   let flag = '';
   if (item) {
-    const market = item.cur==='USD' ? 'US' : item.cur==='JPY' ? 'JP' : 'KR';
+    // 국기는 CURRENCY_META 를 따른다. 예전에는 비 USD/JPY 를 전부 'KR' 로 봐서
+    // 호주달러 예수금에 태극기가 붙었다. 국기 도안이 없는 통화는 기호 배지로 대신한다.
+    const market = curMeta(item.cur).flag;
     if ((item.grp==='주식'||item.grp==='현금') && typeof _mktFlagSvg==='function') {
-      flag = `<span class="holdings-asset-flag">${_mktFlagSvg(market,15)}</span>`;
+      flag = (market==='KR'||market==='US'||market==='JP')
+        ? `<span class="holdings-asset-flag">${_mktFlagSvg(market,15)}</span>`
+        : `<span class="holdings-asset-flag holdings-cur-badge" aria-label="${holdingsEsc(String(item.cur||''))}">${holdingsEsc(curSymbol(item.cur))}</span>`;
     } else if (item.grp==='금') {
       flag = '<span class="holdings-asset-flag" aria-label="금"><svg width="23" height="15" viewBox="0 0 36 24" aria-hidden="true"><polygon points="5,9 14,3.5 30,6 21,11.5" fill="#ffe18a"/><polygon points="5,9 21,11.5 21,19 5,16.2" fill="#d9a520"/><polygon points="21,11.5 30,6 30,13.2 21,19" fill="#a96f0b"/></svg></span>';
     } else if (item.grp==='가상화폐') {
@@ -3219,9 +3244,12 @@ function renderPortfolio(owner) {
 
         if(grpName==='현금'){
           // [8] 현금: 정렬, 검정폰트, 클릭편집
+          // 환율은 반드시 RATES 를 거친다. 지원 통화가 아니면 1:1 이 되어 평가액이 수백 배 어긋나므로
+          // curRateKnown 으로 확인하고, 확인되지 않으면 시세 미확인으로 표시한다.
           const krwRate=RATES[i.cur]||1;
+          if(!curRateKnown(i.cur)) i._priceStale=true;
           const cashKRW=Math.round(i.qty*krwRate);
-          const symCur=i.cur==='USD'?'$':(i.cur==='JPY'?'¥':'₩');
+          const symCur=curSymbol(i.cur);
           const fBal=symCur+(Number(i.qty)||0).toLocaleString();
           const fKRW='₩'+cashKRW.toLocaleString();
           grpTotal+=cashKRW;grpInvest+=cashKRW;
@@ -3276,7 +3304,7 @@ function renderPortfolio(owner) {
           // 주식 (국내/해외)
           const rate=RATES[i.cur]||1;
           const dec=i.cur==='USD'?2:(i.cur==='JPY'?1:0);
-          const sym=i.cur==='USD'?'$':(i.cur==='JPY'?'¥':'₩');
+          const sym=curSymbol(i.cur);
           const invest=i.qty*i.avgP*rate, current=i.qty*i.curP*rate;
           const {profit, pct:profitPct}=calcProfit(current, invest);
           grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;grpTotal+=current;
@@ -4309,8 +4337,10 @@ if (document.readyState === 'loading') {
 
 // 현금 잔액 입력: USD는 소수점 허용 (달러센트 지원)
 function handleCashAmtInput(el) {
+  // 소수 허용 여부는 통화 정의(CURRENCY_META)를 따른다 — 예전에는 'USD' 만 하드코딩돼 있어
+  // 통화를 늘리면 센트·소수가 조용히 잘렸다.
   const curSel = document.getElementById('add-currency');
-  if (curSel && curSel.value === 'USD') {
+  if (curMeta(curSel && curSel.value).cashDecimals > 0) {
     const raw = el.value.replace(/[^0-9.]/g, '');
     if (el.value !== raw) el.value = raw;
   } else {
@@ -6647,7 +6677,7 @@ const KNOWN_US_TICKERS = new Set(['NVDA','AAPL','MSFT','TSLA','AMZN','GOOGL','ME
 const _KR_CODE_RE = /^[0-9A-Z]{6}$/i;
 function fixAssetCurrencies(arr) {
   const allowedGroups=new Set(['주식','가상화폐','금','현금']);
-  const allowedCurrencies=new Set(['KRW','USD','JPY']);
+  const allowedCurrencies=new Set(CASH_CURRENCIES);
   const allowedMarkets=new Set(['KR','KOSPI','KOSDAQ','US','JP','CRYPTO','GOLD']);
   const allowedUnits=new Set(['','주','개','g','kg','돈']);
   const allowedDcaCycles=new Set(['매일','매주','매월']);
@@ -7109,6 +7139,11 @@ async function fetchPyRates() {
     if (el) el.textContent = jpyFmt;
     RATES.JPY = rates.jpy100_krw / 100;
   }
+  // AUD/KRW — 호주달러 예수금 평가에 쓴다. 못 받으면 RATES.AUD 를 비워 두어야 한다.
+  // 1 로 채우면 A$1 = ₩1 로 조용히 계산돼 평가액이 약 950배 어긋난다.
+  // 실패해도 시드값(RATES.AUD)을 지우지 않는다 — 지우면 RATES[cur]||1 경로가 1:1 로 떨어져
+  // A$1 = ₩1 로 계산된다. 값은 유지하고 신선도만 데이터 상태에서 드러낸다.
+  if (Number.isFinite(rates.aud_krw) && rates.aud_krw>0) RATES.AUD = rates.aud_krw;
   return Number.isFinite(rates.usd_krw)&&rates.usd_krw>0&&Number.isFinite(rates.jpy100_krw)&&rates.jpy100_krw>0;
 }
 
