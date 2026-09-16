@@ -96,4 +96,23 @@ assert.equal(loadContext.window._etfLoadError,true);
 fail=false;remoteFail=true;await loadContext.cbEnsureEtfHoldings(true);
 assert.equal(requests.length,5);assert.equal(requests.at(-1),'data/etf_holdings.json');
 assert.equal(loadContext.window._etfLoadError,false,'The deployed snapshot recovers when GitHub is unavailable');
-console.log('PASS ETF freshness, company labels, owner portfolio denominators, direct/indirect exposure and incomplete-data safeguards');
+// ── ETF 탐색 화면 계약 ─────────────────────────────────────────────
+const explorerSource=fs.readFileSync('etf-explorer.js','utf8');
+const explorerCss=fs.readFileSync('etf-explorer.css','utf8');
+// 진입 시 etfRefreshOnOpen 이 이미 돌므로(cobalt.js CB_VIEWS) 같은 일을 하는 버튼은 없앴다.
+assert.doesNotMatch(explorerSource,/자료 다시 확인/,'툴바의 재확인 버튼은 제거됐다');
+assert.match(cobalt,/if\(id==='etf2'\)etfRefreshOnOpen\(\)/,'페이지 진입이 조회 경로를 대신한다');
+// '비중 변화' 를 누를 때마다 드롭다운이 아래에 새로 생겨 화면이 통째로 밀렸다.
+// 같은 줄에 두고, 다른 모드에서는 자리만 유지한다(포커스는 받지 않게 disabled).
+assert.match(explorerSource,/class="etf-tabs">[\s\S]*etfMode\('\$\{id\}'\)[\s\S]*class="etf-compare\$\{_etfMode==='changes'\?'':' is-hidden'\}"/,'비교 기준을 탭과 같은 줄에 둔다');
+assert.match(explorerSource,/etf-compare[\s\S]{0,200}\$\{_etfMode==='changes'\?'':' disabled tabindex="-1"'\}/,'숨긴 상태에서는 키보드 포커스도 받지 않는다');
+assert.match(explorerCss,/\.etf-tabs \.etf-compare\.is-hidden\{visibility:hidden\}/,'display:none 이 아니라 자리를 유지한다');
+assert.match(explorerCss,/\.etf-fund-value\{display:flex;flex-direction:row/,'선택 ETF 평가액은 라벨과 값을 나란히 놓는다');
+// 점검 위젯은 '왜 점검인지'만 남긴다 — 소스 시도 이력은 툴바의 role="status" 줄에 계속 있다.
+assert.doesNotMatch(explorerSource,/state\?\.attempts\|\|\[\]/,'점검 행에서 소스 시도 이력을 빼 사유를 앞세운다');
+assert.match(explorerSource,/etf-inspection-row[\s\S]{0,400}\$\{cbEsc\(q\.label\)\} · 기준/,'이름과 한 줄 사유만 남긴다');
+// 총 노출이 100%를 넘는 구조(담보 위 스왑)를 숫자 옆에서 설명한다. 재정규화하지 않는다.
+assert.equal(ctx.etfWeightSum([h('A',59.11),h('B',41.08)]).toFixed(2),'100.19','비중 합은 그대로 더한다');
+assert.match(explorerSource,/etfWeightSum\(q\.rows\)>100\?' 합계가 100%를 넘는 것은/,'100% 초과를 설명하는 문구를 붙인다');
+
+console.log('PASS ETF freshness, company labels, owner portfolio denominators, direct/indirect exposure, incomplete-data safeguards and explorer layout contracts');
