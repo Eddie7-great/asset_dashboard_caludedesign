@@ -160,7 +160,8 @@
     <!-- CASHFLOW -->
     <div id="view-cashflow" class="view-section">
       <div id="cf-monthly-section" class="cf-grid" role="tabpanel" aria-labelledby="cf-section-tab-monthly">
-        <!-- 입력부는 전체 폭을 써서 데스크톱에서 한 줄을 유지하고, 아래만 내역/차트 2열로 나눈다. -->
+        <!-- 입력부는 좌측 열만 쓰고, 우측 첫 행에는 선택한 달의 요약을 둔다.
+             (예전에는 입력부가 두 열을 모두 차지해 우측 절반이 통째로 빈 여백이었다) -->
         <div id="cf-input-panel" class="glass-panel cf-entry-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">수입 / 지출 내역 관리
               <div style="display:flex;align-items:center;gap:10px">
@@ -196,6 +197,7 @@
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>
         </div>
+        <div id="cf-month-summary" class="glass-panel cf-summary-panel" aria-live="polite"></div>
         <div class="glass-panel cf-detail-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">
               <span>상세 내역 리스트 (전체)</span>

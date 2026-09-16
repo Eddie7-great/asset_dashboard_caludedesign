@@ -670,7 +670,21 @@
       height: 100%;
       min-width: 0;
     }
-    .cf-entry-panel{grid-column:1/-1;padding:12px 14px;min-width:0}
+    .cf-entry-panel{grid-column:1;padding:12px 14px;min-width:0}
+    /* 좁아진 열에서 입력 줄은 가로 스크롤 대신 접힌다 — 스크롤은 필드가 있는지조차 안 보인다 */
+    #cf-input-panel .cf-entry-form{flex-wrap:wrap!important;overflow-x:visible!important}
+    .cf-summary-panel{grid-column:2;min-width:0;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+    .cf-summary-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--t2)}
+    .cf-summary-row>b{font-family:'IBM Plex Mono','Manrope',monospace;font-size:.92rem;font-weight:800;color:var(--t1);white-space:nowrap}
+    .cf-summary-row.is-net{padding-top:8px;border-top:1px dashed var(--border-dark)}
+    .cf-summary-row.is-net>b{font-size:1.06rem}
+    .cf-summary-rate-track{height:6px;border-radius:4px;background:var(--inner-bg);overflow:hidden}
+    .cf-summary-rate-track>i{display:block;height:100%;border-radius:4px;background:var(--acc)}
+    .cf-summary-note{margin-top:auto;font-size:.66rem;line-height:1.5;color:var(--t3)}
+    .cf-summary-pending{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:8px 10px;border-radius:9px;background:var(--inner-bg);font-size:.7rem;line-height:1.5;color:var(--t2)}
+    .cf-summary-pending b{color:var(--warn)}
+    .cf-summary-pending button{border:1px solid var(--border-dark);background:transparent;color:var(--t2);border-radius:7px;padding:4px 9px;font:650 .66rem 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
+    .cf-summary-pending button:hover{border-color:var(--acc);color:var(--acc)}
     .cf-detail-panel{min-width:0;min-height:0;overflow-y:auto}
     .cf-chart-column{min-width:0;overflow-y:auto}
     #cf-input-panel .cf-entry-form{max-width:none;display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:2px}
@@ -762,6 +776,7 @@
       /* 자식의 인라인 grid-row/column 배치 해제 — 1열 축소 시 암시적 컬럼(빈 슬리버) 생성 방지 */
 
       .cf-grid { grid-template-columns: 1fr; height: auto; }
+      .cf-entry-panel,.cf-summary-panel{grid-column:1}
       .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .cf-fixed-form{grid-template-columns:repeat(4,minmax(0,1fr))}
       .cf-fixed-desc-field{grid-column:span 2}

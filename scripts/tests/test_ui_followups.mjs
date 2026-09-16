@@ -261,8 +261,29 @@ assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 �
 assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
 assert.match(scriptSource, /ownerLabelWeights[\s\S]*ownerWeight>=20\?15:\(ownerWeight>=10\?13:11\)[\s\S]*showOwnerDot=ownerWeight>=10/, '비중 차트의 작은 소유주 조각은 라벨과 점을 줄여 잘림 방지')
 assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax\(300px,320px\) minmax\(0,1fr\)/, '리스크 점수 카드를 넓히고 우측 진단 카드에 남은 폭 배분')
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '현금흐름 입력을 전체 폭에 두고 내역과 차트를 하단 2열로 분리')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1\/-1/, '현금흐름 우측 차트 최소 폭과 전체 폭 입력 행 보장')
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-month-summary" class="glass-panel cf-summary-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '입력부 옆에 선택 달 요약을 두고 내역과 차트를 하단 2열로 분리')
+assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;[\s\S]*\.cf-summary-panel\{grid-column:2/, '입력부는 좌측 열만 쓰고 우측 첫 행은 요약 카드가 채운다')
+assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
+// 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
+// (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
+{
+  const summaryContext = {
+    cfYear: 2026, cfMonth: 9, _cfOwner: '전체',
+    FIN_SAVING_CATS: ['저축/투자'],
+    finMonthlyFixedCost: () => ({ monthly: 0, pendingCount: 2, pendingMonthly: 330000 }),
+    document: { getElementById: () => null },
+  }
+  summaryContext._cfEsc = v => String(v == null ? '' : v)
+  vm.createContext(summaryContext)
+  vm.runInContext(extractFunction(scriptSource, 'cfMonthSummaryHtml'), summaryContext)
+  const html = summaryContext.cfMonthSummaryHtml(5_000_000, 3_000_000, { 식비: 1_000_000, '저축/투자': 2_000_000 })
+  assert.match(html, /순현금흐름[\s\S]*?\+₩2,000,000/, '순현금흐름은 통장에 남은 돈')
+  assert.match(html, /저축률[\s\S]*?80\.0%/, "저축률은 '저축/투자' 400만을 소비에서 되돌려 계산")
+  assert.match(html, /자동이체 2건<\/b>이 고정비로 분류되지 않았습니다/, '미분류 자동이체를 그 자리에서 안내')
+  assert.match(html, /2026년 9월 요약/, '선택한 달을 제목에 표시')
+  const noIncome = summaryContext.cfMonthSummaryHtml(0, 120000, { 식비: 120000 })
+  assert.match(noIncome, /저축률[\s\S]*?—/, '수입이 없으면 저축률을 내지 않는다')
+}
 assert.match(financeSource, /fin-data-card-main[\s\S]*fin-data-card-meta[\s\S]*fin-data-support-grid/, '데이터 상태 카드와 안내 패널을 컴팩트 가로형으로 구성')
 assert.match(scriptSource, /표시할 자산이 없습니다\./, '비중 차트 빈 상태도 테마 글꼴과 한글 문구 사용')
 assert.match(indexSource, /toggleAmountPrivacy\(\)[\s\S]*id="sidebar-privacy-btn"[\s\S]*금액 가리기/, '좌하단에 전역 금액 가리기 버튼 추가')

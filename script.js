@@ -4242,8 +4242,41 @@ function renderCashFlow() {
     window.cfDonutChartInst.data.datasets[0].backgroundColor=allColors;
     window.cfDonutChartInst.update();
   }
+  const sumEl=document.getElementById('cf-month-summary');
+  if(sumEl)sumEl.innerHTML=cfMonthSummaryHtml(tIn,tOut,expByCat);
   updateCfTrendChart();window.activeCfCat=null;
   if(_cfSection==='fixed')renderFixedCostView();
+}
+
+// 선택한 달의 요약 — 이미 계산된 값만 쓴다(새 계산 없음).
+// 저축률은 '저축/투자' 지출을 소비에서 되돌린다. 그 카테고리는 자산 이동이라 순자산을
+// 줄이지 않고, finMonthlyFixedCost·finNetWorthBridge 도 같은 이유로 제외한다.
+// 그래서 순현금흐름(통장에 남은 돈)과 저축률(소득 중 안 쓴 비율)은 서로 다른 숫자다.
+function cfMonthSummaryHtml(tIn, tOut, expByCat){
+  const savingCats = (typeof FIN_SAVING_CATS!=='undefined') ? FIN_SAVING_CATS : ['저축/투자'];
+  const savingOut = savingCats.reduce((sum,cat)=>sum+(expByCat[cat]||0),0);
+  const net = tIn - tOut;
+  const kept = tIn - (tOut - savingOut);                 // 소득 - 소비지출
+  const rate = tIn>0 ? kept/tIn*100 : null;
+  const scope = _cfOwner==='전체' ? '가구 전체' : _cfOwner;
+  const won = v => (v<0?'-₩':'₩') + Math.abs(Math.round(v)).toLocaleString();
+  const fx = (typeof finMonthlyFixedCost==='function')
+    ? finMonthlyFixedCost(_cfOwner==='전체'?null:_cfOwner) : {pendingCount:0,pendingMonthly:0};
+  const pending = fx.pendingCount>0
+    ? `<div class="cf-summary-pending"><span><b>자동이체 ${fx.pendingCount}건</b>이 고정비로 분류되지 않았습니다 (월 ${won(fx.pendingMonthly)}). 분류해야 월 필수지출과 현금 안전판이 맞게 나옵니다.</span>`
+      + `<button type="button" onclick="switchCashFlowSection('fixed',document.getElementById('cf-section-tab-fixed'))">고정비 관리로</button></div>`
+    : '';
+  return `<div class="cb-label f-between" style="margin-bottom:2px"><span>${cfYear}년 ${cfMonth}월 요약</span>`
+    + `<span style="font-size:.68rem;color:var(--t3);font-weight:600;letter-spacing:0">${_cfEsc(scope)}</span></div>`
+    + `<div class="cf-summary-row"><span>총 수입</span><b class="c-up">${won(tIn)}</b></div>`
+    + `<div class="cf-summary-row"><span>총 지출</span><b class="c-dn">-${won(tOut).replace('-','')}</b></div>`
+    + (savingOut>0?`<div class="cf-summary-row"><span style="padding-left:9px;color:var(--t3);font-size:.72rem">└ 저축/투자 (자산 이동)</span><b style="font-size:.8rem;color:var(--t2)">${won(savingOut)}</b></div>`:'')
+    + `<div class="cf-summary-row is-net"><span>순현금흐름</span><b class="${net>0?'c-up':(net<0?'c-dn':'')}">${net===0?'₩0':(net>0?'+':'')+won(net)}</b></div>`
+    + `<div class="cf-summary-row"><span data-tip="소득에서 소비지출을 뺀 비율입니다. '저축/투자' 지출은 통장에서 빠져나가도 자산으로 옮겨 간 돈이라 소비에서 제외합니다 — 그래서 순현금흐름과 다를 수 있습니다.">저축률</span>`
+    + `<b>${rate==null?'—':rate.toFixed(1)+'%'}</b></div>`
+    + `<div class="cf-summary-rate-track"><i style="width:${rate==null?0:Math.max(0,Math.min(100,rate)).toFixed(1)}%"></i></div>`
+    + pending
+    + `<div class="cf-summary-note">이 달에 기록된 내역과 예정된 자동이체를 합산한 값입니다. 수입이 없는 달은 저축률을 내지 않습니다.</div>`;
 }
 
 function prevCfMonth(){cfMonth--;if(cfMonth<1){cfMonth=12;cfYear--;}renderCashFlow();}
