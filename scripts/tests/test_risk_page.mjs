@@ -59,6 +59,13 @@ const context = {
   cssVar: (_name, fallback) => fallback,
 }
 vm.createContext(context)
+// cbSyntheticEtfHoldings 가 닫고 있는 상수도 함께 넣는다 — 함수만 꺼내면 ReferenceError 로 죽는다.
+for (const name of ['CB_SINGLE_STOCK_LEV_ISSUER', 'CB_NOT_SINGLE_STOCK']) {
+  const start = source.indexOf(`const ${name}`)
+  assert.notEqual(start, -1, `${name} 상수를 찾을 수 없음`)
+  const end = source.indexOf('\n', source.indexOf(';', start))
+  vm.runInContext(source.slice(start, end), context)
+}
 for (const name of ['cbStrip', 'cbIsEtf', 'cbSyntheticEtfHoldings', 'cbLeveragedInverseMeta', 'cbLookThrough', 'cbRisk']) {
   vm.runInContext(extractFunction(name), context)
 }
@@ -111,4 +118,22 @@ rows = rows.concat([
 assert.equal(context.cbLeveragedInverseMeta(rows.at(-2).i).kind, '인버스', 'SQQQ는 인버스 상품으로 판별')
 assert.equal(context.cbLeveragedInverseMeta(rows.at(-1).i), null, '일반 해외 ETF는 노출도에서 제외')
 
-console.log('PASS 리스크 소유주 범위·ETF 제외·0% 막대·레버리지·인버스 노출')
+// 단일 종목 레버리지 ETF — 기초자산이 상품명에 하나로 명시된 경우만 해석한다.
+// 지수형(QLD 등)에 적용하면 '레버리지 배수로 구성종목을 추론'하는 금지 규칙을 어기게 된다.
+// vm 컨텍스트에서 만든 객체는 프로토타입이 달라 deepStrictEqual 이 통하지 않는다 — 직렬화해 비교한다.
+const synth = (name, tkr) => JSON.stringify(context.cbSyntheticEtfHoldings({ name, tkr }))
+assert.equal(synth('T-REX 2X Long BMNR Daily Target', 'BMNU'), JSON.stringify([{ t: 'BMNR', n: 'BMNR', w: 200 }]),
+  '단일 종목 2배 ETF는 기초자산 200% 노출로 해석')
+assert.equal(synth('Defiance Daily Target 3X Long MSTR', 'MSTX'), JSON.stringify([{ t: 'MSTR', n: 'MSTR', w: 300 }]),
+  '3배 상품은 300% 노출')
+assert.equal(synth('ProShares Ultra QQQ', 'QLD'), 'null',
+  '지수 추종 레버리지 ETF는 배수로 구성종목을 추론하지 않는다')
+assert.equal(synth('Direxion Daily Semiconductor Bull 3X', 'SOXL'), 'null',
+  '섹터 지수 레버리지 ETF도 해석하지 않는다')
+assert.equal(synth('T-REX 2X Long QQQ Daily', 'XXXX'), 'null',
+  '단일 종목 발행사라도 기초자산이 지수면 해석하지 않는다')
+assert.equal(synth('T-REX 2X Short NVDA Daily Target', 'NVDQ'), 'null',
+  '인버스는 음수 노출이라 룩스루로 해석하지 않는다 — 레버리지·인버스 카드가 담당')
+assert.equal(synth('TIGER 미국S&P500', '360750'), 'null', '일반 지수 ETF는 해당 없음')
+
+console.log('PASS 리스크 소유주 범위·ETF 제외·0% 막대·레버리지·인버스 노출·단일 종목 레버리지 해석')

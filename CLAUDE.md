@@ -15,7 +15,7 @@
 ### ETF observations and compact layouts (2026-09-09)
 
 - Re-clicking an ETF owner filter returns to all owners; re-clicking a constituent explicitly clears selection (null is distinct from the initial empty selection). Each owner exposure card is one native details/summary disclosure. Keep verification counts inside the held-ETF selector card.
-- ProShares QLD uses the dated complete issuer table, preserving physical-stock NAV weights and excluding swaps, money-market collateral and placeholders. A malformed/truncated table must fall through to a partial source; never infer constituent exposure from the fund's target leverage. Allocation analysis retains an HTML weight-list fallback when Plotly is unavailable and merges accounts by owner, asset group and normalized ticker.
+- ProShares QLD uses the dated complete issuer table, preserving physical-stock NAV weights and excluding swaps, money-market collateral and placeholders. A malformed/truncated table must fall through to a partial source; never infer constituent exposure from the fund's target leverage. A **single-underlying** leveraged ETF is the one exception and is not an inference: when the product name states one stock (`T-REX 2X Long BMNR`), `cbSyntheticEtfHoldings` resolves that stock at the stated multiple. It requires both a single-stock issuer and an underlying that is not an index symbol, and never resolves inverse products. Index-tracking leveraged funds stay unresolved. Allocation analysis retains an HTML weight-list fallback when Plotly is unavailable and merges accounts by owner, asset group and normalized ticker.
 
 - `etf-explorer.js` loads before `cobalt.js`. `etf2` is an asset-management tab, keeping seven main destinations and the related owner scope. The explorer never writes financial records.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
@@ -77,12 +77,20 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
   단축코드→ISIN 매핑은 `MDCSTAT04601`. 두 bld 값 모두 pykrx 소스에서 확인한 것), 실패 시
   ZEROIN 전체 구성종목(운용사 공통) → 운용사 어댑터(TIGER 공식 PDF AJAX) → 네이버 증권 →
-  Playwright 순. 해외는 yfinance → stockanalysis → 티커 별칭.
+  Playwright 순. 해외는 **stockanalysis → yfinance → 티커 별칭**(별칭 안에서도 stockanalysis 우선).
+  **yfinance 를 stockanalysis 앞에 두지 않는다** — `funds_data.top_holdings` 는 정의상 상위 10종목만
+  주는데 먼저 성공하면 체인이 끊겨 전체 바스켓을 영영 못 받는다. 실제로 DRAM 이 3종목(주식비중 40.7%),
+  SPYM·1629 가 10종목으로 굳어 룩스루 간접 노출이 통째로 축소됐다.
   **pykrx 래퍼를 쓰지 않는다** — 래퍼가 `COMPST_ISU_CD` 를 `[3:9]` 로 잘라
   US ISIN(`US67066G1040`)을 `066G10` 으로 망가뜨려 해외 편입 종목을 매칭할 수 없게 만든다.
 - `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,
   **비중은 100%로 재정규화하지 않는다**(ETF 순자산 대비 원값 유지 → `equityWeight` 로 주식 비중 합 노출).
   삼성전자/삼성전자우, GOOGL/GOOG 는 통합하지 않는다.
+- **`coverage` 는 출처 이름이 아니라 '전부 받았다는 근거'로 정한다.** `collect_one` 이 다섯 번째 값으로
+  완전성을 돌려주고 그것만이 `coverage='full'` 의 근거다. stockanalysis 는 응답이 전체 종목 수를
+  스스로 밝히고 그 수가 읽은 행 수와 같을 때만 full 이며, 기준일도 응답이 줄 때만 채운다.
+  기준일이 있다고 완전한 목록인 것은 아니다 — 상위 N 개 목록에도 날짜는 붙을 수 있다.
+  영숫자가 하나도 없는 코드(`--`, `-`)는 티커가 아니라 자리표시자이므로 주식 행에서 제외한다.
 - `data/etf_holdings.json` — 워크플로가 커밋하는 유일한 소스.
   `{asOf, etfs:{code:{name,asOf,source,equityWeight,holdings:[{t,n,w}]}}, failures:[ETF명]}`.
   수집 실패해도 직전 스냅샷이 있으면 유지하고(해당 entry 의 `asOf` 가 곧 stale 표시), 없으면 `failures` 에 이름만 넣는다.

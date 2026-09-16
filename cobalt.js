@@ -463,11 +463,32 @@ function cbIsEtf(i){
 // 단일 기초자산 레버리지 ETF는 일반 구성종목 목록 대신 기초자산·노출배수를 해석한다.
 // 회사 집중도는 직접 보유한 개별 회사와의 교집합만 표시하므로 ETHU 같은 가상화폐
 // 파생 ETF는 회사 행으로 나오지 않고, 이미 해석된 상품이므로 미조회 각주에도 표시하지 않는다.
+//
+// 이것은 QLD 처럼 '레버리지 배수로 스왑 바스켓을 추론'하는 것과 다르다 — 단일 종목 ETF는
+// 기초자산이 상품명에 하나로 명시돼 있어 추론이 아니라 정의다. 그래서 지수형 상품에는
+// 절대 적용하지 않도록, 단일 종목 상품만 내는 발행사와 기초자산 토큰을 함께 요구한다.
+const CB_SINGLE_STOCK_LEV_ISSUER = /(T-?REX|DEFIANCE|GRANITESHARES|TRADR|LEVERAGE\s*SHARES|YIELDMAX)/;
+// 아래 심볼은 지수·섹터 추종이라 '단일 회사'로 해석하면 안 된다.
+const CB_NOT_SINGLE_STOCK = new Set([
+  'QQQ','SPY','IWM','DIA','SOXX','SMH','XLK','XLF','XLE','TLT','IEF','EEM','EFA','VOO','VTI',
+  'NDX','SPX','RUT','DJIA','KOSPI','KOSDAQ','GLD','SLV','USO','ARKK','BITO',
+]);
 function cbSyntheticEtfHoldings(i){
   const ticker = cbStrip(i && i.tkr);
   const name = String(i && i.name || '').toUpperCase();
   if (ticker==='ETHU' || (/(2X|ULTRA)/.test(name) && /(ETHER|ETHEREUM|이더리움)/.test(name))){
     return [{ t:'ETH', n:'이더리움', w:200 }];
+  }
+  // 예: 'T-REX 2X Long BMNR Daily Target' → BMNR 에 200% 노출.
+  // 인버스(SHORT)는 음수 노출이라 룩스루 합산 규칙과 맞지 않으므로 해석하지 않는다
+  // — 그쪽은 리스크 진단의 '레버리지·인버스 노출도' 카드가 이미 담당한다.
+  if (CB_SINGLE_STOCK_LEV_ISSUER.test(name)){
+    const m = name.match(/(\d(?:\.\d)?)\s*X\s+LONG\s+([A-Z]{1,5})\b/);
+    const under = m && cbStrip(m[2]);
+    if (under && !CB_NOT_SINGLE_STOCK.has(under)){
+      const mult = Number(m[1]);
+      if (Number.isFinite(mult) && mult > 0 && mult <= 5) return [{ t:under, n:under, w:mult*100 }];
+    }
   }
   return null;
 }

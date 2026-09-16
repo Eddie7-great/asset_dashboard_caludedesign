@@ -5,6 +5,7 @@ _yf_etf_holdings, _sa_etf_holdings)에서 이식했다. 이제 이 로직은 브
 GitHub Actions 배치에서만 돌아간다.
 """
 
+import datetime
 import json
 import math
 import re
@@ -92,7 +93,9 @@ def norm_holding_code(code_s):
     if code_s == 'KRW' or (code_s.startswith('KR') and len(code_s) == 12):  # Korean non-stock ISINs, not US tickers KR/KRC.
         return None
     base = re.sub(r'\.(O|OQ|N|K|A)$', '', code_s)   # 로이터형 접미사 제거
-    if re.fullmatch(r'[A-Z0-9.\-]{1,12}', base):
+    # 영숫자가 하나도 없는 값('--', '-', '.')은 티커가 아니라 자리표시자다.
+    # 운용사 표에서 현금·기타자산 행의 코드 칸에 자주 쓰이므로 주식으로 받아들이면 안 된다.
+    if re.fullmatch(r'[A-Z0-9.\-]{1,12}', base) and re.search(r'[A-Z0-9]', base):
         return base
     return None
 
@@ -304,14 +307,56 @@ def fetch_yfinance(sym):
         return []
 
 
+# stockanalysis 응답에서 기준일로 쓸 수 있는 값만 받는다.
+# 키 이름에 date/asof/updated 가 들어가고 값이 날짜로 읽히는 것만 인정하며,
+# 미래 날짜는 버린다 — 기준일이 틀리면 신선도 판정이 통째로 어긋난다.
+_SA_DATE_KEY_RE = re.compile(r'(date|as_?of|updated)', re.I)
+# 응답이 전체 종목 수를 스스로 밝힐 때만 완전성을 인정한다.
+_SA_COUNT_KEY_RE = re.compile(r'^(total|count|totalholdings|holdingscount|numholdings)$', re.I)
+
+
+def _sa_date(value):
+    """'YYYY-MM-DD' / ISO 타임스탬프 / epoch 초·밀리초를 날짜 문자열로. 아니면 None."""
+    if isinstance(value, bool) or value is None:
+        return None
+    today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        if ts > 1e11:           # 밀리초
+            ts /= 1000.0
+        if ts < 9.466848e8:     # 2000-01-01 이전은 기준일로 보지 않는다
+            return None
+        try:
+            day = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    else:
+        m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', str(value).strip())
+        if not m:
+            return None
+        try:
+            day = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    if day > today or day.year < 2000:
+        return None
+    return day.isoformat()
+
+
 def fetch_stockanalysis(sym):
+    """(holdings, asOf, complete) — 전체 바스켓 출처.
+
+    yfinance 와 달리 상위 N 개로 잘리지 않으므로 해외 분기에서 먼저 시도한다.
+    asOf 와 complete 는 응답이 스스로 밝힐 때만 채우고, 근거가 없으면 None/False 로 둔다
+    — 수집 성공은 완전성도 신선도도 뜻하지 않는다.
+    """
     s = (sym or '').strip().upper()
     if not s:
-        return []
+        return [], None, False
     try:
         data = http_json('https://stockanalysis.com/api/symbol/e/%s/holdings' % s, timeout=12)
     except Exception:
-        return []
+        return [], None, False
 
     def _w(d):
         for k, v in d.items():
@@ -336,19 +381,29 @@ def fetch_stockanalysis(sym):
                 return v.strip()
         return None
 
-    best, stack = [], [data]
+    as_of, declared = None, None
+    best, best_total = [], 0
+    stack = [data]
     while stack:
         node = stack.pop()
         if isinstance(node, dict):
+            for key, value in node.items():
+                if as_of is None and _SA_DATE_KEY_RE.search(str(key)):
+                    as_of = _sa_date(value)
+                if declared is None and _SA_COUNT_KEY_RE.match(str(key)):
+                    n = _to_float(value)
+                    if n is not None and 1 <= n <= 5000 and float(n).is_integer():
+                        declared = int(n)
             stack.extend(node.values())
         elif isinstance(node, list):
-            rows = []
+            rows, total = [], 0
             for it in node:
                 if not isinstance(it, dict):
                     continue
                 w = _w(it)
                 if w is None:
                     continue
+                total += 1
                 tk, nm = _sym(it), _name(it)
                 if not (tk or nm):
                     continue
@@ -356,8 +411,11 @@ def fetch_stockanalysis(sym):
                     continue
                 rows.append((tk or (nm or ''), nm or tk, w))
             if len(rows) > len(best):
-                best = rows
+                best, best_total = rows, total
     if not best:
-        return []
+        return [], None, False
     scale = 100 if max(r[2] for r in best) <= 1.5 else 1
-    return merge_holdings([(re.sub(r'\.(US|USD)$', '', t), n, w * scale) for t, n, w in best])
+    holdings = merge_holdings([(re.sub(r'\.(US|USD)$', '', t), n, w * scale) for t, n, w in best])
+    # 응답이 밝힌 전체 개수와 실제로 읽은 행 수가 같을 때만 '전부 받았다'고 본다.
+    complete = declared is not None and declared == best_total
+    return holdings, as_of, complete
