@@ -80,12 +80,39 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
   단축코드→ISIN 매핑은 `MDCSTAT04601`. 두 bld 값 모두 pykrx 소스에서 확인한 것), 실패 시
   ZEROIN 전체 구성종목(운용사 공통) → 운용사 어댑터(TIGER 공식 PDF AJAX) → 네이버 증권 →
-  Playwright 순. 해외는 **stockanalysis → yfinance → 티커 별칭**(별칭 안에서도 stockanalysis 우선).
+  Playwright 순. 해외는 **stockanalysis(전체 바스켓일 때) → 공식 보유명세 파일 → stockanalysis(부분) →
+  yfinance → 티커 별칭** 순이다.
   **yfinance 를 stockanalysis 앞에 두지 않는다** — `funds_data.top_holdings` 는 정의상 상위 10종목만
   주는데 먼저 성공하면 체인이 끊겨 전체 바스켓을 영영 못 받는다. 실제로 DRAM 이 3종목(주식비중 40.7%),
   SPYM·1629 가 10종목으로 굳어 룩스루 간접 노출이 통째로 축소됐다.
+  **원칙은 '완전한 출처가 먼저, 부분 출처는 폴백'이지 출처의 종류가 아니다.** 그래서 신선한 전체
+  바스켓을 받았다면 그쪽이 고정 파일보다 우선이고, 부분 목록뿐이면 파일이 이긴다.
   **pykrx 래퍼를 쓰지 않는다** — 래퍼가 `COMPST_ISU_CD` 를 `[3:9]` 로 잘라
   US ISIN(`US67066G1040`)을 `066G10` 으로 망가뜨려 해외 편입 종목을 매칭할 수 없게 만든다.
+- `scripts/etf_sources.py` + `data/etf_sources/` — **운용사 공식 보유명세 파일 어댑터.**
+  공개 조회 소스가 상위 N개만 주는 해외 ETF(1629·SPYM·DRAM)를 위해 운용사 공시 파일을 리포에 커밋해 쓴다.
+  순서를 바꿔 GitHub Actions 에서 실제로 돌려 봐도 셋 다 그대로였고(run 35073894717), funetf.co.kr 은
+  국내 상장 ETF 카탈로그라 해당 없다. **표준 라이브러리만 쓴다** — xlsx 는 `zipfile`+`ElementTree`,
+  PDF 는 콘텐츠 스트림의 `BT`/`Td`/`Tj` 좌표를 직접 읽는다(openpyxl·pypdf 를 넣지 않는다).
+  - 등록은 `data/etf_sources/index.json`. **검증에 하나라도 실패하면 조용히 기존 체인으로 폴백한다**
+    (식별자 불일치 / 기준일 파싱 실패 / 헤더 불일치 / 비중 합계가 97~103% 밖 / 기대 행 수 미달).
+  - `coverage='full'` 의 근거는 **파일의 비중이 순자산 100%를 설명한다는 것**이다 — 상위 N개 목록은
+    이 밴드에 들어올 수 없다. 출처가 '파일'이라는 사실 자체는 근거가 아니다.
+  - PDF 의 `BT`…`ET` 블록을 정규식으로 찾지 않는다. 본문에 `DRAM ETF Holdings` 같은 문자열이 있으면
+    ` ET` 가 먼저 걸려 블록이 잘린다(실제로 표지 제목이 통째로 사라졌다). 줄 단위로 읽고 괄호 깊이를 센다.
+  - 반올림 후 `0.0000%` 인 행은 버린다 — SPDR 표의 `CONTRA …`(합병 대기 자리표시자)가 여기 해당한다.
+  - `005930 KS` 같은 Bloomberg 접미사는 **알려진 거래소 목록에 한해서만** 뗀다. 공백 뒤를 무조건 버리지 않는다.
+  - **한계: 파일이 고정이라 기준일이 멈춘다.** `etfQuality` 기준을 넘기면 '기준일 지연'으로 표시되는데
+    그게 사실 그대로다. 갱신은 같은 경로에 새 파일을 덮어쓰고 `expect` 를 맞추면 된다.
+- **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `parse_tema_pdf` 안에서만.**
+  QLD 금지 규칙은 스왑 바스켓 내용을 **알 수 없어서** 둔 것이라 여기에 해당하지 않는다. 근거는 이름
+  추측이 아니라 운용사가 쓴 식별자다 — 스왑 행 Identifier 의 첫 토큰이 기초자산의 CUSIP/SEDOL 이고
+  그 값이 **같은 표의 현물 주식 행 Identifier 와 일치**한다(`595112103`→MU, `6771720`→005930,
+  `6450267`→000660). 현물 행에 없는 기초자산(비상장 CXMT `BTMTQT8`)은 식별자를 코드로 남긴다 —
+  어떤 직접 보유와도 매칭되지 않으므로 허위 룩스루를 만들 수 없다.
+  `NON_EQUITY_NAME_RE` 의 `스왑|SWAP` 제외는 그대로 두고, 다른 어댑터로 넓히지 않는다.
+  **총 노출이 100%를 넘을 수 있다**(DRAM 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
+  재정규화하지 않는다.
 - `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,
   **비중은 100%로 재정규화하지 않는다**(ETF 순자산 대비 원값 유지 → `equityWeight` 로 주식 비중 합 노출).
   삼성전자/삼성전자우, GOOGL/GOOG 는 통합하지 않는다.
