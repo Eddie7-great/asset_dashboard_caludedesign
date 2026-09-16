@@ -408,7 +408,7 @@ assert.equal(safetyProbe.pendingCount, 1, '미분류 자동이체는 합산하�
 assert.equal(safetyProbe.committed, 200, '월 약정액 = 필수지출 + DCA')
 const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
 const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
-assert.equal(riskInsights.length, 9, '리스크 보조 진단 위젯 9개 생성 (ETF 간 중복도 추가)')
+assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 (현금 유동성 커버리지는 투자 계획 > 목표로 이동)')
 // 카드가 늘어도 그리드가 조용히 버리지 않아야 한다 — 예전에는 4행 고정이라 9번째가 안 보였다.
 assert.match(cobaltSource, /const gridRows=Math\.max\(/, '리스크 카드 행 수는 카드 개수를 따른다')
 assert.ok(riskInsights.some(c=>c.id==='etf-cross-overlap'), 'ETF 간 중복도 위젯 존재')
@@ -427,7 +427,7 @@ assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 �
 assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')
 assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 집중도 계산')
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
-assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
+assert.ok(!('liquidity-coverage' in riskInsightById), '현금 유동성 커버리지 카드는 리스크 진단에 없다')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
 assert.doesNotMatch(cobaltSource, /cbHomeTrend\(ownerF\)|cbHomeTotals\(ownerF\)/, '홈의 중복 요약과 추이 제거')
 assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:gridRows\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '규칙 카드와 보조 진단을 같은 행 흐름으로 교차 배치하되 행 수는 카드 개수를 따른다')

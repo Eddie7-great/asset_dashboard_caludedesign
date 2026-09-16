@@ -63,6 +63,15 @@
 .fin-mobile-note{display:none;margin-top:12px;padding:11px 13px;border-radius:9px;background:var(--inner);border:1px solid var(--bd2);color:var(--mut);font-size:11.5px;line-height:1.55}
 
 /* 순자산 추이 요약 수치 */
+.fin-trend-tabs{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.fin-trend-tabs .owner-tabs{display:inline-flex;gap:3px;flex-wrap:wrap}
+.fin-trend-tabs-sep{width:1px;align-self:stretch;min-height:19px;background:var(--grid);flex:0 0 auto}
+.fin-cash-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:11px;color:var(--mut)}
+.fin-cash-target label{white-space:nowrap}
+.fin-cash-target input{width:58px;min-width:0;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;font-family:'IBM Plex Mono',monospace}
+.fin-cash-target button{padding:3px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;cursor:pointer}
+.fin-cash-target button:hover{border-color:var(--acc);color:var(--acc)}
+.fin-cash-target small{flex-basis:100%;color:var(--warn);font-size:10px}
 .fin-nw-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:12px}
 .fin-nw-stats>div{padding:9px 11px;border-radius:9px;background:var(--inner);min-width:0}
 .fin-nw-stats small{display:block;font-size:10px;color:var(--dim)}
@@ -995,30 +1004,24 @@
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
     .cb-tax-deduction-remain{margin-top:auto;padding-top:7px;font-size:10.5px;color:var(--dim)}
     .cb-dash-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
-    .cb-risk-overview{display:grid;grid-template-columns:minmax(300px,320px) minmax(0,1fr);gap:12px;align-items:stretch}
-    .cb-risk-score-card{width:auto;min-width:0;padding:18px 20px;display:flex;flex-direction:column;align-items:center}
+    .cb-risk-overview{display:grid;grid-template-columns:minmax(300px,320px) minmax(0,1fr);gap:10px;align-items:stretch}
+    .cb-risk-score-card{width:auto;min-width:0;padding:14px 16px;display:flex;flex-direction:column;align-items:center}
     .cb-risk-priorities{width:100%;box-sizing:border-box}
     .cb-risk-priorities p{min-width:0;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-card-grid{min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-content:start}
-    .cb-risk-primary-card{min-width:0;padding:11px 12px}
+    .cb-risk-card-grid{min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-content:start}
+    .cb-risk-primary-card{min-width:0;padding:9px 11px}
     .cb-risk-primary-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px}
     .cb-risk-primary-title{min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:700;line-height:1.35;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-primary-title>span:last-child{flex-shrink:0;padding:1px 8px;border-radius:16px;font-size:10px;font-weight:800;white-space:nowrap}
     .cb-risk-primary-value{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;line-height:1.25;white-space:nowrap}
-    .cb-risk-primary-message{margin-top:4px;color:var(--mut);font-size:11px;line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-insight-card{min-width:0;min-height:94px;padding:11px 12px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
+    .cb-risk-primary-message{margin-top:3px;color:var(--mut);font-size:11px;line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
+    .cb-risk-insight-card{min-width:0;min-height:80px;padding:9px 11px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:10.5px;font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-insight-value{margin-top:7px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
-    .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:7px;color:var(--dim);font-size:10px;line-height:1.4}
+    .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
+    .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:10px;line-height:1.4}
     .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 현금 안전판 목표 개월수 입력 — 유일한 조작 지점이라 카드 안에 둔다.
        인라인 폭을 주면 미디어쿼리가 덮지 못해 좁은 화면에서 카드를 넘친다. */
-    .cb-risk-insight-control{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:11px;color:var(--mut)}
-    .cb-risk-insight-control label{white-space:nowrap}
-    .cb-risk-insight-control input{width:58px;min-width:0;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;font-family:'IBM Plex Mono',monospace}
-    .cb-risk-insight-control button{padding:3px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;cursor:pointer}
-    .cb-risk-insight-control button:hover{border-color:var(--acc);color:var(--acc)}
-    .cb-risk-insight-control small{flex-basis:100%;color:var(--warn);font-size:10px}
     /* 종목 집중도(ETF 룩스루) 행 — 고정 폭 합계가 542px 라 인라인으로 두면 좁은 화면에서
        마지막 '직접/ETF' 칸이 화면 밖으로 밀려 잘린다. 클래스로 빼서 폭을 조절한다. */
     .cb-lt-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px}
@@ -1115,7 +1118,7 @@
       .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
       .cb-dash-movers-grid{grid-column:auto}
       .cb-mover-row{gap:4px;font-size:10.5px}
-      .cb-risk-insight-card{min-height:88px}
+      .cb-risk-insight-card{min-height:76px}
       /* 한눈에 보기: 히어로 지표 2열, 월별 막대는 값 라벨 없이 높이만으로 읽는다 */
       .fin-nw-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:3px 0 7px;overscroll-behavior-inline:contain}
       .fin-nw-chart-canvas{min-width:680px}

@@ -768,16 +768,6 @@ function cbRiskInsights(ownerFilter, baseRisk){
   const dividendTop3=dividendSources.slice(0,3).reduce((s,x)=>s+x,0);
   const dividendTop3Pct=dividendAnnual>0?dividendTop3/dividendAnnual*100:0;
 
-  // 현금 소진 기간은 재무상태표의 '현금 안전판'과 같은 값이어야 한다.
-  // 필수지출 정의(고정비 관리와 동일: isFixedCost===true, 저축/투자 제외)를 중복 구현하지 않고
-  // finCashSafety 하나에 위임한다. finance.js 미로드 시에만 현금만으로 축약해 표시한다.
-  const safety=(typeof finCashSafety==='function')
-    ? finCashSafety(ownerFilter)
-    : {cash:rows.filter(r=>r.cls==='cash').reduce((s,r)=>s+r.val,0),committed:0,committedRunway:null,pendingCount:0,targetMonths:6,shortage:0};
-  const cashVal=safety.cash;
-  const monthlyCommitment=safety.committed;
-  const liquidityMonths=safety.committedRunway;
-
   // 취득가를 아는 투자자산만 사용해 현재 평가손실에서 원금까지 필요한 반등률을 계산한다.
   const recoveryRows=rows.filter(r=>r.i.grp!=='현금'&&!r.i.costUnknown&&r.cost>0);
   const recoveryValue=recoveryRows.reduce((s,r)=>s+r.val,0);
@@ -835,24 +825,6 @@ function cbRiskInsights(ownerFilter, baseRisk){
       detail:dividendAnnual>0?`연 배당 ${cbDisp(dividendAnnual)}`:'배당 데이터 없음',
       tone:dividendAnnual>0?toneHigh(dividendTop3Pct,45,70):warn,
       tip:'연간 예상 배당수입 중 가장 큰 세 개 배당원이 차지하는 비중입니다. 소유주가 다르면 같은 종목도 별도로 계산합니다.',
-    },
-    {
-      id:'liquidity-coverage', title:'현금 유동성 커버리지',
-      value:liquidityMonths==null?'약정 없음':liquidityMonths.toFixed(1)+'개월',
-      detail:monthlyCommitment>0
-        ? `월 약정 ${cbDisp(monthlyCommitment)}${safety.pendingCount?` · 미분류 ${safety.pendingCount}건 제외`:''}`
-        : `현금 ${cbDisp(cashVal)}`,
-      tone:liquidityMonths==null?up:toneLow(liquidityMonths,3,1),
-      // 목표 개월수를 바꿀 수 있는 유일한 자리다 — 재무상태표 화면이 사라지면서
-      // finSaveCashTarget 을 부를 곳이 없어졌고, 값은 저장된 채로 굳어 있었다.
-      control:(typeof finSaveCashTarget!=='function') ? ''
-        : (typeof isMobileLayout==='function'&&isMobileLayout())
-        ? `<div class="cb-risk-insight-control"><span>목표 ${safety.targetMonths}개월</span>${typeof finMobileNote==='function'?finMobileNote('현금 안전판 목표'):''}</div>`
-        : `<div class="cb-risk-insight-control"><label for="fin-cash-target">목표 개월</label>`
-          + `<input id="fin-cash-target" type="number" min="1" max="36" step="1" value="${safety.targetMonths}" aria-label="현금 안전판 목표 개월수">`
-          + `<button onclick="finSaveCashTarget()">저장</button>`
-          + `${safety.shortage>0?`<small>목표까지 ${cbDisp(safety.shortage)} 부족</small>`:''}</div>`,
-      tip:'현금성 자산을 "월 필수지출 + 월 DCA 자동매수액"으로 나눈 값입니다. 필수지출은 현금 흐름 > 고정비 관리에서 고정비로 분류한 항목만 쓰며(저축/투자 제외), 가족 재무상태표의 현금 안전판과 같은 기준입니다.',
     },
     {
       id:'recovery-return', title:'손실 회복 필요 수익률',
@@ -1646,7 +1618,6 @@ function cbRenderRisk(){
               <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
                 <span data-overflow-watch>${cbEsc(card.detail)}</span>
               </div>
-              ${card.control||''}
             </div>`;
           const c=card;
           return `

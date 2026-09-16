@@ -282,7 +282,10 @@ async function finSaveAndRender(renderFn,refreshSnapshot=false){
 // 목표 개월수는 리스크 진단의 '현금 유동성 커버리지' 카드에서 바꾼다.
 // (재무상태표 화면이 사라지면서 이 값만 바꿀 수 있는 자리가 없어졌었다.)
 // 1~36 범위로 조이고, 값이 비어 있거나 숫자가 아니면 기본 6개월로 되돌린다.
-function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(typeof cbRenderRisk==='function'?cbRenderRisk:null); }
+// 현금 안전판 목표 개월수를 바꾸는 유일한 자리는 투자 계획 > 목표다.
+// (리스크 진단의 '현금 유동성 커버리지' 카드에 있었지만, 목표 화면이 이미 같은 값을
+//  '현금 안전판 · 월 필수지출 기준'으로 보여주고 있어 바로 옆이 제자리다)
+function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(typeof cbRenderPlan==='function'?cbRenderPlan:null); }
 // 투자자산 추이 카드는 투자 분석 > 성과 페이지 안에 있다. 이 페이지에는 소유주 필터가 없으므로
 // (소유주별 수익률을 라인으로 동시에 보여주는 화면이다) 카드가 자기 소유주 상태를 따로 기억한다.
 function finNwTf(tf){ _finNwTf=tf; if(typeof cbRenderPerf==='function') cbRenderPerf(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-perf2','data-nw-tf',tf); }
@@ -346,7 +349,7 @@ function finNwChartSvg(series,w,h){
   if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때와 매일 자동 기록 배치가 하루 1건씩 쌓습니다. (현재 ${series.length}건)</div>`;
   const vals=series.map(p=>p.v);
   const mn=Math.min(...vals), mx=Math.max(...vals), span=(mx-mn)||Math.abs(mx)||1;
-  const step=cbNiceStep(span*1.2/4);
+  const step=cbNiceStep(span*1.2/6);   // 눈금 6단계 — 4단계는 한 칸이 너무 굵어 금액을 읽기 어려웠다
   const rawLo=Math.floor((mn-span*0.1)/step)*step;
   const lo=mn>=0?Math.max(0,rawLo):rawLo, hi=Math.ceil((mx+span*0.1)/step)*step;
   const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
@@ -370,7 +373,11 @@ function finNwChartSvg(series,w,h){
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
   }).join('');
-  window._finNwHover=series;
+  window._finNwHover=series; window._finNwPts=pts;
+  // 가이드선·마커는 SVG 안에 둔다 — 성과 차트처럼 HTML 오버레이로 하면 viewBox 의
+  // padL/padR 을 퍼센트로 다시 계산해야 하는데, 여기서는 이미 정확한 좌표를 알고 있다.
+  const guide=`<line id="fin-nw-guide" x1="0" x2="0" y1="0" y2="${h}" style="stroke:var(--acc);stroke-dasharray:3 3;display:none" stroke-width="1"></line>`
+    +`<circle id="fin-nw-marker" r="4" fill="${stroke}" stroke="var(--inner-bg)" stroke-width="1.5" style="display:none"></circle>`;
   const chartLabel=`투자자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
   return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
@@ -378,7 +385,7 @@ function finNwChartSvg(series,w,h){
     <path d="${area}" fill="${stroke}" opacity=".10"></path>
     <path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     <circle cx="${pts[pts.length-1].x.toFixed(1)}" cy="${pts[pts.length-1].y.toFixed(1)}" r="3.4" fill="${stroke}"></circle>
-    ${ticks}${hit}
+    ${guide}${ticks}${hit}
   </svg></div></div>`;
 }
 function finNwHover(ev,idx){
@@ -395,8 +402,19 @@ function finNwHover(ev,idx){
   if(x+r.width>window.innerWidth-8) x=ev.clientX-r.width-pad;
   if(yy+r.height>window.innerHeight-8) yy=ev.clientY-r.height-pad;
   t.style.left=Math.max(8,x)+'px'; t.style.top=Math.max(8,yy)+'px';
+  finNwGuide(idx);
 }
-function finNwHide(){ const t=document.getElementById('cb-perf-tip'); if(t) t.style.display='none'; }
+// 마우스를 올린 지점이 그래프의 어디인지 세로 점선과 마커로 드러낸다.
+// 터치는 기존 data-chart-hit="finNw:<i>" 문서 위임이 이 함수까지 그대로 이어진다.
+function finNwGuide(idx){
+  const g=document.getElementById('fin-nw-guide'), m=document.getElementById('fin-nw-marker');
+  const pt=(window._finNwPts||[])[idx];
+  if(!g||!m) return;
+  if(!pt){ g.style.display='none'; m.style.display='none'; return; }
+  g.setAttribute('x1',pt.x.toFixed(1)); g.setAttribute('x2',pt.x.toFixed(1)); g.style.display='';
+  m.setAttribute('cx',pt.x.toFixed(1)); m.setAttribute('cy',pt.y.toFixed(1)); m.style.display='';
+}
+function finNwHide(){ const t=document.getElementById('cb-perf-tip'); if(t) t.style.display='none'; finNwGuide(-1); }
 
 // 투자자산 추이 카드 — 성과 비교 페이지(perf2)에 들어간다.
 // 같은 페이지 위쪽의 수익률 차트는 '지금 비중을 과거에 소급한 백캐스트'라 실제 금액 추이가 아니다.
@@ -414,7 +432,7 @@ function finInvestTrendCard(){
   return `<div class="cb-panel fin-section" style="margin-top:12px">
     <div class="fin-section-head">
       <span>투자자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope} · <span data-tip="위 수익률 차트와 달리 소급 가정이 없습니다. 매일 기록된 실제 평가액이라 그 사이의 매수·매도·입금이 그대로 반영됩니다.">실제 기록 금액</span></span></span>
-      <div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">${ownerBtns}${tfBtns}</div>
+      <div class="fin-trend-tabs"><div class="owner-tabs" role="group" aria-label="소유주 선택">${ownerBtns}</div><span class="fin-trend-tabs-sep" aria-hidden="true"></span><div class="owner-tabs" role="group" aria-label="기간 선택">${tfBtns}</div></div>
     </div>
     ${st?`<div class="fin-nw-stats">
       <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
@@ -510,7 +528,15 @@ function finGoalPace(goal,current,now=new Date()){
 }
 function finGoalContext(ownerF){
   const a=finTargetAnalysis(ownerF),cash=finCashSafety(ownerF);
-  return `<div class="fin-goal-context"><div class="cb-panel"><small>목표에 연결할 투자자산 · ${cbEsc(ownerF||'가구 전체')}</small><b>${cbDisp(a.total)}</b></div><div class="cb-panel"><small>현재 월 적립식 매수액</small><b>${cbDisp(a.monthlyDca)}</b></div><div class="cb-panel"><small>현금 안전판 · 월 필수지출 기준</small><b>${cash.runway==null?'고정비 등록 필요':cash.runway.toFixed(1)+'개월'}</b></div></div>`;
+  // 모바일은 재무 입력이 읽기 전용이라 저장 버튼 대신 현재 목표만 보여준다.
+  const ro=(typeof isMobileLayout==='function'&&isMobileLayout());
+  const ctl=ro
+    ? `<div class="fin-cash-target"><span>목표 ${cash.targetMonths}개월</span>${typeof finMobileNote==='function'?finMobileNote('현금 안전판 목표'):''}</div>`
+    : `<div class="fin-cash-target"><label for="fin-cash-target">목표 개월</label>`
+      + `<input id="fin-cash-target" type="number" min="1" max="36" step="1" value="${cash.targetMonths}" aria-label="현금 안전판 목표 개월수">`
+      + `<button onclick="finSaveCashTarget()">저장</button>`
+      + `${cash.shortage>0?`<small>목표까지 ${cbDisp(cash.shortage)} 부족</small>`:''}</div>`;
+  return `<div class="fin-goal-context"><div class="cb-panel"><small>목표에 연결할 투자자산 · ${cbEsc(ownerF||'가구 전체')}</small><b>${cbDisp(a.total)}</b></div><div class="cb-panel"><small>현재 월 적립식 매수액</small><b>${cbDisp(a.monthlyDca)}</b></div><div class="cb-panel"><small>현금 안전판 · 월 필수지출 기준</small><b>${cash.runway==null?'고정비 등록 필요':cash.runway.toFixed(1)+'개월'}</b>${ctl}</div></div>`;
 }
 function cbRenderPlan(){
   finEnsureState();const rebalance=document.getElementById('view-rebal2')?.classList.contains('active');
