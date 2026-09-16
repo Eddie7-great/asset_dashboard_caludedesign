@@ -44,7 +44,8 @@ assert.doesNotMatch(indexSource, /id="view-balance2"/, '요청에 따라 재무�
 assert.match(indexSource, /script\.js\?v=\d+[\s\S]*finance\.js\?v=\d+[\s\S]*cobalt\.js\?v=\d+/, '데이터 엔진 다음에 재무 기능을 로드하고 cobalt 라우터와 연결')
 assert.match(indexSource, /class="side-seg-btn active" id="theme-seg-light"[\s\S]*class="side-seg-btn" id="theme-seg-navy"/, '첫 렌더의 테마 선택 상태를 라이트로 표시')
 assert.match(scriptSource, /if \(!THEMES\.includes\(mode\)\) mode = 'light'[\s\S]*const _m0=THEMES\.includes\(_t0\)\?_t0:'light'[\s\S]*THEMES\.includes\(savedTheme\) \? savedTheme : 'light'/, '저장값이 없거나 잘못된 경우 라이트 테마를 기본값으로 사용')
-assert.match(cobaltSource, /fam2:'구성원별 보유'[\s\S]*balance2:'가족 재무상태표'[\s\S]*plan2:'목표·리밸런싱'[\s\S]*data2:'데이터 상태'/, '신규 화면 라우팅 제목 등록')
+assert.match(cobaltSource, /fam2:'구성원별 보유'[\s\S]*plan2:'목표·리밸런싱'[\s\S]*data2:'데이터 상태'/, '신규 화면 라우팅 제목 등록')
+assert.doesNotMatch(cobaltSource, /balance2:/, '도달 불가였던 재무상태표 라우팅 제거 — 옛 링크는 navResolve 가 홈으로 보낸다')
 assert.doesNotMatch(cobaltSource, /finDashboardFocus\(ownerF\)/, '홈에서 이번 달 할 일 제거')
 assert.match(financeSource, /function finDashboardFocus\(owner\)\{[\s\S]*finMonthlyActions\(ownerF\)/, '대시보드 점검 항목이 선택한 소유주를 따름')
 assert.match(financeSource, /function finMonthlyActions\(ownerF\)[\s\S]*finTargetAnalysis\(ownerF\)[\s\S]*finCashSafety\(ownerF\)/, '목표 편차·현금 안전판을 같은 소유주 범위의 점검 항목으로 통합')
@@ -53,8 +54,10 @@ assert.doesNotMatch(scriptSource, /const ext = \{[^\n]*dataFreshness:/, '데이�
 assert.match(financeSource, /FIN_FRESHNESS_KV_KEY='data_freshness'[\s\S]*setKV\(FIN_FRESHNESS_KV_KEY[\s\S]*getKV\(FIN_FRESHNESS_KV_KEY/, '데이터 상태를 전용 KV에 저장·복원')
 assert.match(scriptSource, /nonInvestmentAssets[\s\S]*liabilities[\s\S]*total = portfolio \+ nonInvestmentAssets - liabilities/, '순자산 스냅샷에서 투자자산·기타 자산·부채를 분리')
 assert.match(scriptSource, /schemaV: 2[\s\S]*netByOwner/, '스냅샷에 스키마 버전과 소유주별 순자산을 기록')
-assert.match(financeSource, /function cbRenderBalanceSheet\([\s\S]*순자산 추이[\s\S]*순자산 변화 분석[\s\S]*현금 안전판/, '재무상태표에 순자산 추이·변화 분석·현금 안전판 제공')
-assert.match(financeSource, /function cbRenderBalanceSheet\([\s\S]*cbOwnerBtns\(_finBalanceOwner/, '재무상태표에 소유주 탭 제공')
+assert.doesNotMatch(financeSource, /function cbRenderBalanceSheet\(/, '도달 불가였던 재무상태표 렌더러 제거')
+assert.doesNotMatch(financeSource, /function finNetWorthBridge\(/, '그릴 화면이 없는 순자산 브리지 제거')
+assert.match(financeSource, /function finInvestTrendCard\(/, '추이는 투자자산 기준 카드가 대신한다')
+assert.match(scriptSource, /balanceSheet:window\._balanceSheet/, '저장된 부동산·부채 값은 그대로 보존한다')
 assert.match(financeSource, /function cbRenderPlan\([\s\S]*cbOwnerBtns\(_finPlanOwner/, '목표·리밸런싱에 소유주 탭 제공')
 assert.match(financeSource, /function finNwChartSvg\(/, '순자산 추이 차트 렌더러 제공')
 assert.match(financeSource, /function cbRenderPlan\([\s\S]*목표 비중과 리밸런싱[\s\S]*월 DCA 보정안[\s\S]*계좌 배치 진단/, '목표·리밸런싱·DCA 보정·계좌 배치 진단 제공')
@@ -97,7 +100,7 @@ const context = {
 }
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
-vm.runInContext(`const FIN_ASSET_CATS=['부동산','예·적금','기타 자산']; const FIN_LIABILITY_CATS=['주택담보대출','기타 부채']; const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finBalanceEdit=null; let _finGoalEdit=null; let _finBalanceOwner='전체'; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
+vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
 for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
@@ -147,7 +150,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finBalanceKey', 'finBalanceFind', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotNet', 'finSnapshotOwnerNet', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finMonthCashflow', 'finNetWorthBridge', 'cbRenderBalanceSheet', 'finGoalCurrent', 'finGoalPace', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -158,11 +161,8 @@ const negativeChart = context.finNwChartSvg([
 ], 1100, 210)
 assert.match(negativeChart, /class="fin-nw-chart-scroll"/, '모바일 차트 가독성을 위한 스크롤 래퍼')
 assert.doesNotMatch(negativeChart, /NaN|Infinity/, '음수 순자산 차트 좌표도 유효')
-context.cbRenderBalanceSheet()
 context.cbRenderPlan()
 context.cbRenderDataStatus()
-assert.match(elements['cb-balance2'].innerHTML, /순자산[\s\S]*순자산 추이[\s\S]*순자산 변화 분석[\s\S]*현금 안전판/, '재무상태표 빈 상태 렌더')
-assert.match(elements['cb-balance2'].innerHTML, /fin-mobile-note/, '모바일 조회 전용 안내 노출')
 assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*새 목표 추가/, '목표 탭 렌더')
 assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 비중과 리밸런싱/, '목표 탭은 리밸런싱과 분리')
 elements['view-rebal2']={classList:{contains:()=>true}}
@@ -220,40 +220,6 @@ const isaDiagnostics = context.finAccountDiagnostics()
 assert.equal(Math.round(isaDiagnostics.reduce((sum, row) => sum + row.withheld, 0)), 99_000, '계좌 진단의 ISA 예상세액도 소유주별 200만원 공제를 한 번만 적용')
 context.cbAllRows = originalAllRows
 
-// ── 순자산 변화 분석: 스냅샷 스키마와 저축/투자 제외 ─────────────────
-// v1 스냅샷은 total 에 투자자산만 담았다. 재무상태표(기타자산 3억·부채 1억)가 있는 지금
-// 그대로 빼면 그 차액이 통째로 잔차로 잡히므로 비교에서 제외돼야 한다.
-context.window._netWorthHistory = [
-  { date: '2026-08-01', total: 1_000_000_000 },                    // v1 → 제외
-  { date: '2026-08-20', schemaV: 2, total: 1_150_000_000 },        // v2 → 비교 대상
-]
-context.cfData = [
-  { date: '2026-08-22', type: '수입', cat: '급여', amt: 5_000_000 },
-  { date: '2026-08-23', type: '지출', cat: '식비', amt: 1_000_000 },
-  { date: '2026-08-24', type: '지출', cat: '저축/투자', amt: 9_000_000 },   // 자산 이동 → 제외
-  { date: '2026-07-01', type: '지출', cat: '식비', amt: 7_000_000 },        // 기준일 이전 → 제외
-]
-const bridge = context.finNetWorthBridge()
-assert.equal(bridge.prior.date, '2026-08-20', '정의가 같은 최신 스냅샷을 기준으로 삼음')
-assert.equal(bridge.skipped, 1, '정의가 다른 v1 스냅샷 건수를 보고')
-assert.equal(bridge.previous, 1_150_000_000, 'v2 스냅샷의 순자산을 그대로 사용')
-assert.equal(bridge.change, 50_000_000, '현재 순자산과의 차이')
-assert.equal(bridge.cashflow, 4_000_000, '저축/투자와 기준일 이전 기록을 뺀 순현금흐름')
-assert.equal(bridge.residual, 46_000_000, '잔차 = 변화 − 순현금흐름')
-
-// 재무상태표가 비어 있으면 v1 스냅샷도 현재 정의와 같으므로 비교에 쓸 수 있다
-context.window._balanceSheet.assets = []
-context.window._balanceSheet.liabilities = []
-context.window._netWorthHistory = [{ date: '2026-08-01', total: 900_000_000 }]
-const legacyBridge = context.finNetWorthBridge()
-assert.equal(legacyBridge.prior.date, '2026-08-01', '재무상태표가 비면 v1 스냅샷도 비교 가능')
-assert.equal(legacyBridge.skipped, 0, '이 경우 제외 건수 없음')
-
-// schemaV가 없더라도 nonInvestmentAssets 필드가 있으면 배포 중간 버전의 전체 순자산 스냅샷이다.
-assert.equal(context.finSnapshotNet({ total:800_000_000, portfolio:800_000_000, nonInvestmentAssets:0, liabilities:0 }, false), 800_000_000, 'schema-less 전체 순자산 스냅샷을 버리지 않음')
-assert.equal(context.finSnapshotNet({ schemaV:1, total:800_000_000 }, false), null, '재무상태표가 있는 범위에서는 명시적 v1 투자자산 스냅샷 제외')
-assert.equal(context.finSnapshotNet({ schemaV:1, total:800_000_000 }, true), 800_000_000, '재무상태표가 빈 범위에서는 명시적 v1도 호환')
-assert.equal(context.finSnapshotOwnerNet({ total:800_000_000, nonInvestmentAssets:0 }, '본인', false), null, '소유주 합계가 없는 전체 스냅샷을 임의 배분하지 않음')
 
 // ── 투자자산 기준 추이 ────────────────────────────────────────────────
 // 부동산·부채는 대시보드에서 관리하지 않으므로 추이는 투자자산만 그린다.

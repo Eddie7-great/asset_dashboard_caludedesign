@@ -294,6 +294,13 @@ GitHub 의 예약 실행(`schedule`)은 공용 스케줄러라 **몇 시간씩 �
 
 검증: `test_etf_history.py`, `test_etf_explorer.mjs`, `test_foreign_sources.py`, `test_risk_page.mjs`, 기존 룩스루 소유주·리스크 테스트. 공식 출처 연결, 예약 배치 경고, 모바일 레이아웃과 막대 선택은 별도 실행·화면 확인이 필요합니다.
 
+## 도달 불가 코드 정리 (2026-09-16)
+
+- **화면을 지웠으면 구현도 함께 지웁니다.** 메뉴를 7개로 통합하면서 라우팅 계층에서만 화면을 닫아 두는 바람에, 구현·CSS·테스트·배치가 모두 문 뒤에서 계속 돌고 있었습니다. 이번에 한눈에 보기(`cbRenderSnap`)와 가족 재무상태표(`cbRenderBalanceSheet`)의 전용 의존 트리, 사이드바 4그룹 접기 일체, 빈 함수(`renderTargetRebalView`), 호출부 없는 no-op(`applyPendingDCA`·`renderPortFxPanel`), 어드바이저 잔해와 `data/peers.json`, 영구 false 분기(`_netWorthHistoryChart`)를 지웠습니다. 약 655줄입니다.
+- **남겨야 할 것과 구분합니다.** `window._balanceSheet` 의 **값**은 살아 있는 화면이 계속 씁니다 — `finBalanceTotals`/`finSum` 이 목표(`finGoalCurrent`)와 현금 안전판(`finCashSafety`)에 들어갑니다. 지운 것은 그 값을 **편집하던 UI** 이고, 저장·로드 경로와 스냅샷 배치는 그대로입니다. `cbSnapDivCoverage` 도 홈 종목 요약이 쓰므로 남겼습니다.
+- **`navResolve` 의 옛 링크 매핑은 남깁니다.** `snap`·`balance2` 는 계속 홈으로 보냅니다 — 저장해 둔 북마크가 깨지지 않게 하기 위해서입니다.
+- **죽은 화면을 고정하던 테스트도 함께 지웁니다.** `test_snapshot_page.mjs`(18.8KB)와 `cbRenderBalanceSheet` 단정이 남아 있으면 정리 자체가 막힙니다. 대신 '그 함수가 없어야 한다'는 단정으로 바꿔 되살아나는 것을 막습니다.
+
 ## 리스크 지표 보강 (2026-09-16)
 
 - **레버리지를 변동성에 반영합니다.** `CB_VOL` 은 자산군 상수라 QLD(2배 QQQ)도 일반 미국 ETF와 똑같이 22% 로 잡혀 위험이 과소평가됐습니다. `cbLeveragedInverseMeta` 가 이미 배수를 알고 있으므로(상품명의 배수 → 티커 표 → 레버리지 2배·인버스 1배) 그만큼 기여분을 키웁니다. 인버스는 방향이 아니라 변동 폭만 쓰므로 절대값 배수입니다. 종목별 실제 변동성과 상관관계는 여전히 반영하지 않으며, 툴팁이 그 한계를 밝힙니다.

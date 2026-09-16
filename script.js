@@ -1869,38 +1869,6 @@ function toggleSidebar() {
 }
 // 첫 방문 기본값 — 자주 여는 '요약'·'분석'만 펼쳐 둔다. 4그룹을 모두 펼치면
 // 항목이 13개라 접기의 이점이 사라진다. 이후에는 사용자가 접은 상태를 그대로 따른다.
-const MENU_GROUP_DEFAULT_COLLAPSED = { planning:true, records:true };
-function _menuGroupState(){
-  try{ return JSON.parse(localStorage.getItem('menuGroupState')||'{}')||{}; }
-  catch(e){ return {}; }
-}
-function _setMenuGroup(group, collapsed, persist){
-  if(!group) return;
-  group.classList.toggle('collapsed', collapsed);
-  group.querySelector('.menu-group-title')?.setAttribute('aria-expanded', String(!collapsed));
-  if(!persist) return;
-  // 화면과 저장 상태가 어긋나면 접어둔 그룹이 새로고침마다 다시 열려 혼란스럽다.
-  // 자동 펼침도 저장해 localStorage 가 항상 화면과 같은 값을 갖게 한다.
-  const state=_menuGroupState(); state[group.dataset.menuGroup]=collapsed;
-  try{ localStorage.setItem('menuGroupState',JSON.stringify(state)); }catch(e){}
-}
-function toggleMenuGroup(key, btn){
-  const group=document.querySelector(`.menu-group[data-menu-group="${key}"]`); if(!group) return;
-  _setMenuGroup(group, !group.classList.contains('collapsed'), true);
-}
-function initMenuGroups(){
-  const state=_menuGroupState();
-  document.querySelectorAll('.menu-group').forEach(group=>{
-    const key=group.dataset.menuGroup;
-    const collapsed = (state[key]===undefined) ? !!MENU_GROUP_DEFAULT_COLLAPSED[key] : state[key]===true;
-    _setMenuGroup(group, collapsed, false);
-  });
-  expandActiveMenuGroup(document.querySelector('.menu-btn.active'));
-}
-function expandActiveMenuGroup(btn){
-  const group=btn?.closest?.('.menu-group'); if(!group) return;
-  if(group.classList.contains('collapsed')) _setMenuGroup(group, false, true);
-}
 // 활성 뷰의 모든 Chart.js 인스턴스를 컨테이너 크기에 재맞춤
 // — display:none 상태에서 생성/갱신된 캔버스가 잘못된 크기로 남는 문제 보정 (잘림/여백 방지)
 function _fitActiveCharts() {
@@ -1962,7 +1930,6 @@ function switchView(viewId, btn) {
     b.removeAttribute('aria-current');
   });
   if(btn){btn.classList.add('active');btn.setAttribute('aria-current','page');}
-  expandActiveMenuGroup(btn);
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active')); viewEl.classList.add('active');
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
@@ -2009,7 +1976,6 @@ function switchView(viewId, btn) {
     _holdingsBrokerFilter = '전체';
     renderPortfolio(hOwner);
   }
-  if (viewId==='target_rebal'){renderTargetRebalView();}
   if (viewId==='bubble'){
     // 현재 owner 와 버블 view 의 owner 탭 active 상태 동기화
     _bubbleOwner = currentOwner || '전체';
@@ -2922,14 +2888,7 @@ function portfolioSortData(values){
 }
 
 
-async function applyPendingDCA() {
-  // DCA는 각 증권사에 등록된 외부 자동주문 규칙이다.
-  // 실제 주문/체결 내역을 수신하지 않는 대시보드가 보유수량·평균단가·체결일을
-  // 임의로 변경하지 않도록 과거 자동 반영 엔진을 무변경 호환 함수로 남긴다.
-  return { applied: 0, mode: 'schedule-only' };
-}
-
-function toggleCostUnknown() {
+async function toggleCostUnknown() {
   const checked=!!document.getElementById('add-cost-unknown')?.checked;
   const avg=document.getElementById('add-avgp');
   if(!avg) return;
@@ -3115,7 +3074,6 @@ function changeOwner(owner, btn, isRefresh=false) {
   }
   const trActive = document.getElementById('view-target_rebal')?.classList.contains('active');
   if (trActive) {
-    if (typeof renderTargetRebalView === 'function') renderTargetRebalView();
   }
 }
 
@@ -3373,11 +3331,6 @@ function renderPortfolio(owner) {
   });
   document.getElementById('portfolio-tables').innerHTML=html;
   if(typeof cbAssetMobile==='function'&&isMobileLayout())cbAssetMobile();
-}
-
-
-function renderPortFxPanel() {
-  // 환율 스트레스 테스트 위젯 제거됨 — renderFxExposure로 대체 (호출부 호환용 no-op)
 }
 
 
@@ -4525,7 +4478,6 @@ async function liveRefresh() {
       }
     });
     syncDivHistory();changeOwner(currentOwner,null,true);
-    renderPortFxPanel();
     const stale=pfolioData.filter(i=>i&&i._priceStale).length;
     const partial=failedChunks>0?` · 요청 ${chunks.length}건 중 ${failedChunks}건 실패`:'';
     return {ok:stale===0&&failedChunks===0,stale,failedChunks,
@@ -4537,7 +4489,6 @@ async function liveRefresh() {
 }
 
 // DCA는 증권사 외부 서비스이므로 이 앱에서 체결을 생성하지 않는다.
-// applyPendingDCA()는 과거 호출과의 호환을 위한 무변경 함수이며,
 // 일정 표시는 cobalt.js의 시장·증권사별 계산만 사용한다.
 
 // =============================================
@@ -4558,7 +4509,6 @@ window._kvLoadState = window._kvLoadState || {assets:'pending',ext:'pending'};
 // 순자산 장기 추이
 // =============================================
 window._netWorthHistory = window._netWorthHistory || [];
-window._netWorthHistoryChart = null;
 
 // 오늘 순자산 스냅샷을 메모리에서 갱신한다. 저장 여부는 호출자가 결정한다.
 // 재무상태표 CRUD 직후에도 이 함수를 호출해 KPI와 차트 마지막 점을 일치시킨다.
@@ -5013,13 +4963,6 @@ function initDashboard(){
     // 순자산 일별 스냅샷 저장 (하루 1회)
     if(assetsResult?.ok&&extResult?.ok) await saveNetWorthSnapshot();
     else console.warn('[initDashboard] 원본 KV 로드 실패로 순자산 스냅샷 저장을 건너뜁니다.');
-    // 순자산 추이 차트 갱신 — 사용자가 이미 탭을 열어둔 경우에만
-    // (탭이 닫힌 상태에서 차트를 새로 만들면 캔버스가 0x0으로 초기화되어
-    //  이후 탭을 열어도 스케일이 갱신되지 않음. 닫힌 상태면 switchDashTab이
-    //  탭 클릭 시점에 보이는 캔버스에서 정상 초기화함.)
-    if (window._netWorthHistoryChart) {
-      (document.querySelector('.nwh-tf-btn.active') || document.querySelector('.nwh-tf-btn'))?.click();
-    }
     // 국내 시세 보완은 refreshMarketPrices에서 주 시세 API와 함께 최종 판정한다.
     if(assetsResult?.ok) fetchDivData();
   })();
@@ -5045,7 +4988,6 @@ async function startTrustedLayoutPreview(){
 
 window.onload = async function() {
   initAmountPrivacy();
-  initMenuGroups();
   try { sessionStorage.removeItem('_dashAuth'); } catch(e) {}
   if(await startTrustedLayoutPreview()) return;
   // 페이지를 열 때마다(새로고침 포함) 비밀번호를 다시 받는다.
@@ -5474,17 +5416,7 @@ function renderDripSimulator() {
 window._targetAlloc = window._targetAlloc || null;  // {groups, region, threshold} — UI 제거, KV 페이로드만 보존
 
 
-function renderTargetRebalView() {
-}
-
 // =============================================
-// 포트폴리오 어드바이저 (한·미·일 종목 — 섹터 분산 + 피어 비교)
-// =============================================
-window._advisorPeerDB = window._advisorPeerDB || null;     // 캐시된 peers.json
-window._advisorInited = window._advisorInited || false;
-window._advisorLast = window._advisorLast || null;          // 마지막 선택 {ticker, name, market, sector}
-window._advisorFundCache = window._advisorFundCache || {};  // 펀더멘털 응답 캐시 (세션 한정)
-window._advisorSearchTimer = null;
 
 
 
@@ -7101,7 +7033,6 @@ async function liveRefreshDomesticEtfs() {
 
   if (updatedTickers.size > 0) {
     try { changeOwner(currentOwner, null, true); } catch (_) {}
-    try { renderPortFxPanel && renderPortFxPanel(); } catch (_) {}
     console.log(`[DomesticEtfLive] ${updatedTickers.size}종목 실시간 가격 반영 완료`);
   }
   const stale=items.filter(i=>i&&i._priceStale).length;

@@ -46,7 +46,6 @@ function navSync(id){
   });
   if(group){
     document.getElementById('main-title').textContent=group.title;
-    expandActiveMenuGroup(document.getElementById('menu-'+group.menu));
   }
   if(id==='holdings')document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>{
     const active=b.textContent.trim()===currentOwner;
