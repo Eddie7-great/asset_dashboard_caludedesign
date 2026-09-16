@@ -26,7 +26,10 @@ assert.match(html, /<nav\b[^>]*id="sidebar-menu"[^>]*aria-label="[^"]+"/);
 assert.match(html, /id="menu-dashboard"[^>]*aria-current="page"/);
 assert.match(cobalt, /removeAttribute\('aria-current'\)/, '화면 전환 시 이전 메뉴의 현재 페이지 상태 제거');
 assert.match(cobalt, /setAttribute\('aria-current','page'\)/, '화면 전환 시 새 메뉴에 현재 페이지 상태 설정');
-assert.match(cobalt, /cb-snap-month[^`]+tabindex="0"[^`]+role="img"[^`]+aria-label=/, '월별 배당 막대 키보드·스크린리더 지원');
+// 한눈에 보기 페이지가 사라지면서 월별 배당 막대도 함께 없어졌다. 같은 역할을 하는
+// 살아 있는 위젯은 배당 관리의 월별 배당 캘린더다.
+assert.match(cobalt, /function cbDivCalendarSvg\([\s\S]*?tabindex="0"[\s\S]*?role="button"[\s\S]*?aria-label="\$\{cbEsc\(monthLabel\)\}/, '월별 배당 캘린더의 각 달이 키보드로 선택 가능');
+assert.match(cobalt, /function cbDivCalendarSvg\([\s\S]*?role="group" aria-label="월별 배당 캘린더\./, '월별 배당 캘린더 전체에 스크린리더 설명');
 assert.match(script, /addEventListener\('focusin',[\s\S]*showTableFloatTip/, '키보드 포커스에서도 설명 툴팁 표시');
 assert.match(script, /addEventListener\('focusout',[\s\S]*hideTableFloatTip/, '키보드 포커스 이탈 시 설명 툴팁 닫기');
 // 터치 기기에는 hover 도 focus 도 없다. 탭으로 열고 바깥 탭으로 닫히지 않으면

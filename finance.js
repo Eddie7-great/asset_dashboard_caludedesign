@@ -13,6 +13,7 @@ let _finGoalEdit=null;
 let _finBalanceOwner='전체';
 let _finPlanOwner='전체';
 let _finNwTf='6M';
+let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성과 페이지는 자체 소유주 필터가 없다)
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
 function finNewId(){ return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
@@ -150,6 +151,26 @@ function finSnapshotOwnerNet(entry,owner,balanceSheetEmpty){
     return finSnapshotNumber((entry.netByOwner||{})[owner]);
   }
   if(!balanceSheetEmpty) return null;
+  return finSnapshotNumber((entry.portfolioByOwner||{})[owner]);
+}
+// 스냅샷에서 '투자자산'만 뽑는다 — 부동산·부채는 대시보드에서 관리하지 않으므로 추이에서도 뺀다.
+// schemaV 1 은 total 자체가 투자자산이던 시절이고, 2 부터 portfolio 가 따로 있다.
+// 순자산 기준과 달리 두 형식이 바로 비교되므로 재무상태표 유무로 버릴 기록이 없다 — 커버리지가 더 넓다.
+function finSnapshotInvestment(entry){
+  const kind=finSnapshotKind(entry);
+  if(!kind) return null;
+  if(kind==='investment') return finSnapshotNumber(entry?.total);
+  const direct=finSnapshotNumber(entry?.portfolio);
+  if(direct!=null) return direct;
+  // portfolio 를 안 남긴 과거 '전체 순자산' 항목은 구성요소로 되돌린다(정확한 역산이다).
+  // 구성요소마저 없으면 total 이 투자자산인지 순자산인지 알 수 없으므로 버린다.
+  const total=finSnapshotNumber(entry?.total);
+  const other=finSnapshotNumber(entry?.nonInvestmentAssets), debt=finSnapshotNumber(entry?.liabilities);
+  if(total==null||(other==null&&debt==null)) return null;
+  return total-(other||0)+(debt||0);
+}
+function finSnapshotOwnerInvestment(entry,owner){
+  if(!finSnapshotKind(entry)||!owner) return null;
   return finSnapshotNumber((entry.portfolioByOwner||{})[owner]);
 }
 function finNetWorthBridge(){
@@ -339,7 +360,10 @@ function finBalanceSubmit(){
 }
 function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(cbRenderBalanceSheet); }
 function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
-function finNwTf(tf){ _finNwTf=tf; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-balance2','data-nw-tf',tf); }
+// 투자자산 추이 카드는 투자 분석 > 성과 페이지 안에 있다. 이 페이지에는 소유주 필터가 없으므로
+// (소유주별 수익률을 라인으로 동시에 보여주는 화면이다) 카드가 자기 소유주 상태를 따로 기억한다.
+function finNwTf(tf){ _finNwTf=tf; if(typeof cbRenderPerf==='function') cbRenderPerf(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-perf2','data-nw-tf',tf); }
+function finNwOwner(o){ _finNwOwner=o; if(typeof cbRenderPerf==='function') cbRenderPerf(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-perf2','data-nw-owner',o); }
 
 // ── 순자산 추이 ─────────────────────────────────────────
 // _netWorthHistory 는 앱을 열 때마다 하루 1건씩 쌓이고 있었지만 그리는 화면이 없었다.
@@ -351,14 +375,11 @@ function finNwSeries(ownerF,tf){
   const hist=(window._netWorthHistory||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   const tfKey=tf===undefined?_finNwTf:tf;
   const days=FIN_NW_TFS[tfKey]!==undefined?FIN_NW_TFS[tfKey]:180;
+  // 'YYYY-MM-DD' 만 넘기면 UTC 로 읽혀 KST 에서 하루 밀린다 — 기간 경계에서 하루가 들쭉날쭉해진다.
   const cutoff=days?Date.now()-days*86400000:null;
-  const picked=hist.filter(h=>!cutoff||new Date(h.date).getTime()>=cutoff);
-  const scopeTotals=finBalanceTotals(ownerF);
-  const balanceSheetEmpty=scopeTotals.otherAssets===0&&scopeTotals.liabilities===0;
+  const picked=hist.filter(h=>!cutoff||new Date(String(h.date)+'T00:00:00').getTime()>=cutoff);
   return picked.map(h=>{
-    const v=ownerF
-      ? finSnapshotOwnerNet(h,ownerF,balanceSheetEmpty)
-      : finSnapshotNet(h,balanceSheetEmpty);
+    const v=ownerF?finSnapshotOwnerInvestment(h,ownerF):finSnapshotInvestment(h);
     return {date:h.date,v};
   }).filter(p=>p.v!=null);
 }
@@ -399,7 +420,7 @@ function finNwStats(series){
     min:Math.min(...values), max:Math.max(...values)};
 }
 function finNwChartSvg(series,w,h){
-  if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때마다 하루 1건씩 자동으로 쌓입니다. (현재 ${series.length}건)</div>`;
+  if(series.length<2) return `<div class="fin-empty">추이를 그리려면 스냅샷이 2일치 이상 필요합니다. 앱을 열 때와 매일 자동 기록 배치가 하루 1건씩 쌓습니다. (현재 ${series.length}건)</div>`;
   const vals=series.map(p=>p.v);
   const mn=Math.min(...vals), mx=Math.max(...vals), span=(mx-mn)||Math.abs(mx)||1;
   const step=cbNiceStep(span*1.2/4);
@@ -427,7 +448,7 @@ function finNwChartSvg(series,w,h){
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
   }).join('');
   window._finNwHover=series;
-  const chartLabel=`순자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
+  const chartLabel=`투자자산 추이. ${series[0].date} ${cbDisp(series[0].v)}에서 ${series[series.length-1].date} ${cbDisp(series[series.length-1].v)}까지`;
   return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
     ${grid}
@@ -443,7 +464,7 @@ function finNwHover(ev,idx){
   const p=series[idx], prev=series[idx-1];
   const delta=prev?p.v-prev.v:null;
   t.innerHTML=`<div style="font-size:12px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
-    <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">순자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
+    <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">투자자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
     ${delta!=null?`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">전일 대비</span><b class="cb-num" style="${cbUpDn(delta)}">${cbSignDisp(delta)}</b></div>`:''}`;
   t.style.display='block';
   const r=t.getBoundingClientRect(), pad=16;
@@ -453,6 +474,36 @@ function finNwHover(ev,idx){
   t.style.left=Math.max(8,x)+'px'; t.style.top=Math.max(8,yy)+'px';
 }
 function finNwHide(){ const t=document.getElementById('cb-perf-tip'); if(t) t.style.display='none'; }
+
+// 투자자산 추이 카드 — 성과 비교 페이지(perf2)에 들어간다.
+// 같은 페이지 위쪽의 수익률 차트는 '지금 비중을 과거에 소급한 백캐스트'라 실제 금액 추이가 아니다.
+// 이 카드가 그 각주가 가리키는 대상이다: 매일 기록된 스냅샷의 실제 평가액.
+// 부동산·부채는 대시보드에서 관리하지 않으므로 순자산이 아니라 투자자산만 그린다.
+function finInvestTrendCard(){
+  finEnsureState();
+  const ownerF=finOwnerF(_finNwOwner);
+  const scope=ownerF?cbEsc(ownerF):'가구 전체';
+  const series=finNwSeries(ownerF);
+  const st=finNwStats(series);
+  const cov=finNwCoverage(series,_finNwTf);
+  const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${cbEsc(tf)}" onclick="finNwTf('${cbEsc(tf)}')" aria-pressed="${tf===_finNwTf}">${cbEsc(tf)}</button>`).join('');
+  const ownerBtns=['전체',...OWNERS].map(o=>`<button class="owner-btn${_finNwOwner===o?' active':''}" data-nw-owner="${cbEsc(o)}" onclick="finNwOwner('${cbEsc(o)}')" aria-pressed="${_finNwOwner===o}">${cbEsc(o)}</button>`).join('');
+  return `<div class="cb-panel fin-section" style="margin-top:12px">
+    <div class="fin-section-head">
+      <span>투자자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope} · <span data-tip="위 수익률 차트와 달리 소급 가정이 없습니다. 매일 기록된 실제 평가액이라 그 사이의 매수·매도·입금이 그대로 반영됩니다.">실제 기록 금액</span></span></span>
+      <div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">${ownerBtns}${tfBtns}</div>
+    </div>
+    ${st?`<div class="fin-nw-stats">
+      <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
+      <div><small><span data-tip="선택 기간 중 고점 대비 최대 하락폭입니다. 수익률이 아니라 실제 평가액 기준이므로 추가 입금·출금도 함께 반영됩니다.">최대 낙폭(MDD)</span></small><b class="${st.mdd!=null&&st.mdd<0?'down':''}">${st.mdd==null?'—':st.mdd.toFixed(1)+'%'}</b></div>
+      <div><small>기간 최고 / 최저</small><b>${cbDisp(st.max)} / ${cbDisp(st.min)}</b></div>
+      <div><small>스냅샷</small><b>${series.length}일</b></div>
+    </div>`:''}
+    ${finNwCoverageNote(cov)}
+    ${finNwChartSvg(series,1100,200)}
+    <small class="fin-callout">주식·ETF·가상화폐·금·현금 평가액 합계입니다. 부동산·부채는 포함하지 않습니다 · 증감에는 시세 변동과 추가 입금이 함께 섞여 있어 수익률이 아닙니다 · 기록은 앱을 연 날과 매일 자동 기록 배치(평일·주말 KST 16:40)가 남깁니다</small>
+  </div>`;
+}
 
 function cbRenderBalanceSheet(){
   finEnsureState(); const el=document.getElementById('cb-balance2'); if(!el)return;

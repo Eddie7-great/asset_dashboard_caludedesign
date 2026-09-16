@@ -556,7 +556,7 @@ function _setDivFetchCoverage(tickers, verified, status, error='') {
   };
   return window._divFetchCoverage;
 }
-// 한눈에 보기(cbVerifySnapshotDividendData)와 배당 관리(cbVerifyDividendDataOnOpen)가
+// 배당 관리(cbVerifyDividendDataOnOpen)와 홈 종목 요약이
 // 각자 페이지 진입 때 이 조회를 부른다. 두 화면을 빠르게 오가면 같은 요청이 중복으로 나가고,
 // 나중 호출이 맨 앞에서 찍는 'pending' 이 먼저 끝난 호출의 완료 상태를 덮어써 화면의
 // "배당 데이터 확인 중" 배너가 깜빡인다. → 진행 중인 조회를 재사용한다.
