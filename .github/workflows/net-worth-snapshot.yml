@@ -7,12 +7,16 @@ on:
   schedule:
     # UTC 07:40 = KST 16:40 — 한국 장 마감(15:30 KST) 이후, 매일.
     #
-    # 늦추지 말 것. GitHub 의 예약 실행은 공용 스케줄러라 몇 시간씩 밀린다
-    # (첫 실행은 3시간 24분 밀려 KST 22:04 에 돌았다). 기록하는 날짜는 실행 시각의
-    # KST 날짜이므로, 지연이 KST 자정(= UTC 15:00)을 넘기면 그날 항목이 다음 날짜로
-    # 찍히고 다음 날 실행이 그것을 덮어써 **하루가 통째로 빈다** — 이 배치가 없애려던
-    # 공백이 그대로 생긴다. 16:40 은 그 경계까지 7시간 20분의 여유를 둔 값이다.
-    # ETF 수집(KST 18:30)과는 의존 관계가 없다. 이 배치는 KV 만 읽고 시세는 직접 받는다.
+    # 늦추지 말 것. GitHub 의 예약 실행은 공용 스케줄러라 몇 시간씩 밀린다.
+    # 실측 10회(2026-09-06~15) 지연은 중앙값 약 4시간 56분, 최악 6시간 44분이었다
+    # (09-14 는 UTC 14:24 = KST 23:24 로, 자정 경계까지 36분밖에 남지 않았다).
+    # 16:40 은 그 경계까지 7시간 20분의 여유를 둔 값이다.
+    #
+    # 여유만으로는 부족해서, 예약 실행은 아래 --anchor-utc 로 '직전 예정 시각의 KST 날짜'를
+    # 기준일로 쓴다. 실행 시각의 KST 날짜를 그대로 쓰면 지연이 KST 자정(= UTC 15:00)을
+    # 넘기는 순간 그날 항목이 다음 날짜로 찍히고, 다음 날 실행이 그것을 덮어써
+    # **하루가 통째로 빈다** — 이 배치가 없애려던 공백이 그대로 생긴다.
+    # ETF 수집(평일 KST 07:30)과는 의존 관계가 없다. 이 배치는 KV 만 읽고 시세는 직접 받는다.
     #
     # 주말에도 돌린다: 주식은 직전 종가로 유지되지만 가상화폐는 계속 움직이고,
     # 빈 날짜가 생기면 기간 버튼이 다시 무의미해진다.
@@ -60,8 +64,17 @@ jobs:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
         run: |
+          # 예약 실행만 앵커를 넘긴다. 앵커가 있으면 기준일이 '실행 시각'이 아니라
+          # '직전 예정 시각(UTC 07:40)의 KST 날짜'가 되어, 몇 시간이 밀려 KST 자정을
+          # 넘겨도 그날 항목이 다음 날짜로 찍히지 않는다.
+          # 수동 실행은 앵커 없이 현재 KST 날짜를 쓴다 — 손으로 돌렸는데 어제 날짜가
+          # 찍히면 더 혼란스럽다.
+          ANCHOR=""
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            ANCHOR="--anchor-utc 07:40"
+          fi
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            uv run --frozen python scripts/net_worth_snapshot.py --dry-run
+            uv run --frozen python scripts/net_worth_snapshot.py --dry-run $ANCHOR
           else
-            uv run --frozen python scripts/net_worth_snapshot.py
+            uv run --frozen python scripts/net_worth_snapshot.py $ANCHOR
           fi

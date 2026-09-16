@@ -116,6 +116,11 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   - 쓰기는 `api/kv.ts` 와 **같은 CAS 프로토콜**(개정번호)로 하고 충돌 시 최대 3회 재시도한다 — 사용자가 앱에서 저장 중인 내용을 덮어쓰지 않는다.
   - 시세를 못 받은 종목은 **0 이 아니라 저장된 직전 값을 유지한다**(가짜 급락 방지). USD 환율 조회에 실패하면 아예 기록하지 않는다.
   - 날짜는 **KST 기준**이다 — 러너는 UTC라 그대로 쓰면 하루 밀려 같은 날이 두 건이 된다.
+  - **예약 실행은 '실행 시각'이 아니라 '직전 예정 시각(UTC 07:40)의 KST 날짜'를 기준일로 쓴다**
+    (`scheduled_kst_date`, 워크플로가 `--anchor-utc 07:40` 을 예약 실행에만 넘긴다).
+    실측 지연이 중앙값 4시간 56분·최악 6시간 44분(KST 23:24, 경계까지 36분)이라 여유만으로는
+    언젠가 자정을 넘긴다. 수동 실행은 앵커 없이 현재 KST 날짜를 쓴다.
+    `build_entry` 는 날짜를 인자로 받으므로 이 규칙은 계산을 건드리지 않는다 — 앱과의 대조 테스트는 그대로 유효하다.
 
 ### Cross-cutting domain rules baked into the code
 

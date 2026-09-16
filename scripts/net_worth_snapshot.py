@@ -335,12 +335,51 @@ def run_once(api, date_str, dry_run=False):
     raise RuntimeError('KV 개정번호 충돌이 3회 반복돼 기록하지 못했습니다')
 
 
+def scheduled_kst_date(anchor_utc, now_utc=None):
+    """예약 시각 기준 KST 날짜. anchor_utc 는 'HH:MM'(워크플로 cron 과 같은 UTC 시각).
+
+    GitHub 의 예약 실행은 공용 스케줄러라 몇 시간씩 밀린다. 실측 10회에서 중앙값 약 4시간 56분,
+    최악 6시간 44분(2026-09-14, UTC 14:24 = KST 23:24)이었다. 실행 시각의 KST 날짜를 그대로 쓰면
+    지연이 KST 자정(UTC 15:00)을 넘기는 순간 그날 항목이 다음 날짜로 찍히고, 다음 날 실행이
+    그것을 덮어써 **하루가 통째로 빈다** — 이 배치가 없애려던 공백이 그대로 생긴다.
+
+    그래서 '지금 시각 이하의 가장 최근 예정 시각'을 기준으로 삼는다. 20시간이 밀려도 날짜가 맞는다.
+    수동 실행은 이 함수를 쓰지 않는다 — 손으로 돌렸는데 어제 날짜가 찍히면 더 혼란스럽다.
+    """
+    hour, minute = (int(x) for x in str(anchor_utc).split(':'))
+    now = now_utc or datetime.datetime.now(datetime.timezone.utc)
+    anchor = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if anchor > now:
+        anchor -= datetime.timedelta(days=1)
+    return anchor.astimezone(KST).strftime('%Y-%m-%d'), now - anchor
+
+
+def _arg_value(name):
+    for i, a in enumerate(sys.argv):
+        if a == name and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+        if a.startswith(name + '='):
+            return a.split('=', 1)[1]
+    return None
+
+
 def main():
     dry_run = '--dry-run' in sys.argv
     # 날짜는 반드시 KST 기준 — 러너는 UTC라서 그대로 쓰면 하루 밀린다
     # (script.js `_cfLocalDateKey`가 남기는 로컬 날짜와 어긋나면 같은 날이 두 건이 된다).
-    date_str = datetime.datetime.now(KST).strftime('%Y-%m-%d')
-    log('시작 · 기준일 %s (KST)%s' % (date_str, ' · dry-run' if dry_run else ''))
+    anchor = _arg_value('--anchor-utc')
+    delay = None
+    if anchor:
+        date_str, delay = scheduled_kst_date(anchor)
+    else:
+        date_str = datetime.datetime.now(KST).strftime('%Y-%m-%d')
+    log('시작 · 기준일 %s (KST)%s%s' % (
+        date_str,
+        (' · 예정 %s UTC 기준 · 지연 %s' % (anchor, str(delay).split('.')[0])) if anchor else '',
+        ' · dry-run' if dry_run else ''))
+    # 지연이 커지면 앵커가 없을 때 날짜가 밀릴 위험 구간이므로 로그에 드러낸다.
+    if delay is not None and delay > datetime.timedelta(hours=6):
+        log('경고: 예약 실행이 6시간 넘게 밀렸습니다 — 앵커가 없었다면 날짜가 어긋날 수 있는 구간입니다')
     api = load_dashboard_module()
     if not getattr(api, 'YF_OK', False):
         log('yfinance를 불러오지 못했습니다')
