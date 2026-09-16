@@ -449,8 +449,10 @@ assert.match(styleSource, /@media \(max-width: 768px\) \{[\s\S]*\.cb-gift-field\
 assert.match(cobaltSource, /const field = \(label, input\) => `<label class="cb-gift-field"/, '증여 입력 라벨이 폭 상한 클래스를 단다')
 assert.match(styleSource, /\.cb-scroll\{[^}]*padding:0 6px 24px 0\}/, '본문 하단 데드 스페이스 축소')
 assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '재무 카드 내부·바깥 여백 압축')
-assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*fin-target-actions[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '목표 비중·편차·저장·조정표를 비교 자료와 분리된 좌측 작업 영역에 배치')
-assert.match(workspaceSource, /\.fin-rebal-main\{min-width:0\}[\s\S]*\.fin-target-actions\{[^}]*justify-content:flex-end/, '리밸런싱 저장 도구가 좌측 작업 영역 경계를 넘지 않게 정렬')
+assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*label class="threshold"[\s\S]*finSaveTarget\(\)[\s\S]*<\/div>[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '자산군·허용 편차·목표 저장을 한 그리드에 두고 조정표를 좌측 작업 영역에 배치')
+assert.doesNotMatch(financeSource, /fin-target-actions/, '별도 저장 줄은 없앴다 — 한 줄이 통째로 여백이었다')
+assert.doesNotMatch(workspaceSource, /\.fin-target-actions/, '도달 불가 CSS 도 함께 제거한다')
+assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(156px,1fr\)\)/, '자산군·편차·저장이 폭에 맞춰 한 줄로 흐른다')
 // 고정비 등록 줄의 세로 정렬 — 세 값은 항상 같아야 한다
 {
   const h = [...styleSource.matchAll(/(?:\.btn-submit\{[^}]*|\.cf-fixed-form \.form-input\{[^}]*|\.cf-fixed-check\{[^}]*)height:(\d+)px/g)].map(m => m[1])
