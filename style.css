@@ -1036,6 +1036,14 @@
     .cb-risk-insight-value{margin-top:7px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:7px;color:var(--dim);font-size:10px;line-height:1.4}
     .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* 현금 안전판 목표 개월수 입력 — 유일한 조작 지점이라 카드 안에 둔다.
+       인라인 폭을 주면 미디어쿼리가 덮지 못해 좁은 화면에서 카드를 넘친다. */
+    .cb-risk-insight-control{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:11px;color:var(--mut)}
+    .cb-risk-insight-control label{white-space:nowrap}
+    .cb-risk-insight-control input{width:58px;min-width:0;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;font-family:'IBM Plex Mono',monospace}
+    .cb-risk-insight-control button{padding:3px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--inner-bg);color:var(--t1);font-size:11px;cursor:pointer}
+    .cb-risk-insight-control button:hover{border-color:var(--acc);color:var(--acc)}
+    .cb-risk-insight-control small{flex-basis:100%;color:var(--warn);font-size:10px}
     /* 종목 집중도(ETF 룩스루) 행 — 고정 폭 합계가 542px 라 인라인으로 두면 좁은 화면에서
        마지막 '직접/ETF' 칸이 화면 밖으로 밀려 잘린다. 클래스로 빼서 폭을 조절한다. */
     .cb-lt-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px}

@@ -302,6 +302,18 @@ assert.match(cobaltSource, /function cbRenderPerf\(/, '성과 페이지 렌더�
 assert.match(cobaltSource, /finInvestTrendCard==='function'\?finInvestTrendCard\(\)/, '성과 페이지가 투자자산 추이 카드를 렌더')
 assert.doesNotMatch(cobaltSource, /가족 재무상태표 &gt; 순자산 추이에서 확인하세요/, '없는 화면으로 안내하지 않는다')
 
+// ── 현금 안전판 목표 개월수 ────────────────────────────────────────────
+// 재무상태표 화면이 사라지면서 이 값을 바꿀 자리가 없어져 저장된 값에 굳어 있었다.
+// 값 자체는 살아 있는 리스크 진단·투자 계획이 계속 쓰므로 조작 지점이 반드시 있어야 한다.
+assert.match(financeSource, /function finSaveCashTarget\(\)\{[\s\S]*Math\.max\(1,Math\.min\(36,/, '목표 개월수는 1~36 으로 조인다')
+assert.match(financeSource, /function finSaveCashTarget\(\)\{[\s\S]*cbRenderRisk/, '저장 후 리스크 진단 화면을 다시 그린다')
+assert.doesNotMatch(financeSource, /function finSaveCashTarget\(\)\{[^}]*cbRenderBalanceSheet/, '사라진 재무상태표 렌더러를 부르지 않는다')
+assert.match(cobaltSource, /id:'liquidity-coverage'[\s\S]*?finSaveCashTarget\(\)/, '현금 유동성 커버리지 카드에 저장 버튼이 있다')
+assert.match(cobaltSource, /id:'liquidity-coverage'[\s\S]*?finMobileNote\('현금 안전판 목표'\)/, '모바일에서는 읽기 전용 안내를 렌더')
+assert.match(cobaltSource, /control:\(typeof finSaveCashTarget!=='function'\) \? ''/, 'finance.js 미로드 시에는 동작하지 않는 버튼을 그리지 않는다')
+assert.match(cobaltSource, /cb-risk-insight-detail[\s\S]{0,240}\$\{card\.control\|\|''\}/, '인사이트 카드가 컨트롤 슬롯을 렌더')
+assert.match(styleSource, /\.cb-risk-insight-control\{/, '컨트롤 폭은 인라인이 아니라 클래스로 준다')
+
 // 재무상태표 변경 저장은 오늘 스냅샷을 먼저 갱신하고 KV는 한 번만 쓴다.
 const saveOrder=[]
 context.window._kvLoadState = { assets:'ready', ext:'ready' }

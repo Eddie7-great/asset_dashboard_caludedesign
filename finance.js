@@ -358,7 +358,10 @@ function finBalanceSubmit(){
   else window._balanceSheet[finBalanceKey(kind)].push(row);
   _finBalanceEdit=null; return finSaveAndRender(cbRenderBalanceSheet,true);
 }
-function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(cbRenderBalanceSheet); }
+// 목표 개월수는 리스크 진단의 '현금 유동성 커버리지' 카드에서 바꾼다.
+// (재무상태표 화면이 사라지면서 이 값만 바꿀 수 있는 자리가 없어졌었다.)
+// 1~36 범위로 조이고, 값이 비어 있거나 숫자가 아니면 기본 6개월로 되돌린다.
+function finSaveCashTarget(){ const n=Math.max(1,Math.min(36,Number(document.getElementById('fin-cash-target')?.value)||6)); window._balanceSheet.cashTargetMonths=n; finSaveAndRender(typeof cbRenderRisk==='function'?cbRenderRisk:null); }
 function finBalanceOwner(o){ _finBalanceOwner=o; _finBalanceEdit=null; cbRenderBalanceSheet(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
 // 투자자산 추이 카드는 투자 분석 > 성과 페이지 안에 있다. 이 페이지에는 소유주 필터가 없으므로
 // (소유주별 수익률을 라인으로 동시에 보여주는 화면이다) 카드가 자기 소유주 상태를 따로 기억한다.
