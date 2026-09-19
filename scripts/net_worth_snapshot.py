@@ -150,16 +150,37 @@ def strip_ticker(t):
 
 
 def fetch_rates(api):
-    """RATES = {USD, JPY, KRW:1}. script.js가 /api/dashboard?type=rates로 받는 값과 같다."""
+    """RATES = {USD, JPY, AUD, KRW:1}. script.js가 /api/dashboard?type=rates로 받는 값과 같다."""
     rates = {'KRW': 1.0}
     payload = api.get_rates().get('rates', {})
     usd = payload.get('usd_krw')
     jpy100 = payload.get('jpy100_krw')
+    aud = payload.get('aud_krw')
     if isinstance(usd, (int, float)) and usd > 0:
         rates['USD'] = float(usd)
     if isinstance(jpy100, (int, float)) and jpy100 > 0:
         rates['JPY'] = float(jpy100) / 100.0   # 프런트의 RATES.JPY는 1엔당 원화
+    if isinstance(aud, (int, float)) and aud > 0:
+        rates['AUD'] = float(aud)
     return rates
+
+
+def missing_rate_currencies(assets, rates):
+    """보유 자산이 실제로 쓰는 통화 중 환율을 못 받은 것.
+
+    asset_value_krw 는 모르는 통화를 1 로 본다(앱의 `RATES[cur]||1` 과 같은 규칙이라
+    여기서 바꾸면 양쪽 계산이 갈린다). 그래서 계산 규칙은 그대로 두고, 기록 직전에
+    이 함수로 막는다 — A$1 을 ₩1 로 적은 스냅샷이 영구 이력에 남는 것이 더 나쁘다.
+    금은 curP 가 이미 원화라 환율을 쓰지 않으므로 제외한다.
+    """
+    missing = set()
+    for item in assets or []:
+        if item.get('grp') == '금':
+            continue
+        cur = (item.get('cur') or 'KRW').upper()
+        if cur != 'KRW' and cur not in rates:
+            missing.add(cur)
+    return sorted(missing)
 
 
 def fetch_gold_per_gram(api):
@@ -309,6 +330,9 @@ def run_once(api, date_str, dry_run=False):
     rates = fetch_rates(api)
     if 'USD' not in rates:
         raise RuntimeError('USD 환율 조회 실패 — 평가액을 신뢰할 수 없어 중단합니다')
+    missing = missing_rate_currencies(assets, rates)
+    if missing:
+        raise RuntimeError('환율 조회 실패(%s) — 1:1로 환산된 값을 기록하지 않습니다' % ', '.join(missing))
     gold_per_gram = fetch_gold_per_gram(api)
     stale = refresh_prices(api, assets, rates, gold_per_gram)
     if stale:

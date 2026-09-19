@@ -1,0 +1,23 @@
+{
+  "_readme": "운용사 공식 보유명세 파일. scripts/etf_sources.py 가 읽는다. 갱신은 같은 경로에 새 파일을 덮어쓰고 expect 를 맞추면 된다 — 검증에 실패하면 수집기가 조용히 기존 체인으로 폴백한다.",
+  "sources": {
+    "1629": {
+      "file": "1629_brd_data.xlsx",
+      "format": "nextfunds_xlsx",
+      "label": "NEXT FUNDS",
+      "expect": { "id": "1629", "minRows": 100 }
+    },
+    "SPYM": {
+      "file": "spym_holdings.xlsx",
+      "format": "spdr_xlsx",
+      "label": "State Street",
+      "expect": { "id": "SPYM", "minRows": 400 }
+    },
+    "DRAM": {
+      "file": "dram_holdings.pdf",
+      "format": "tema_pdf",
+      "label": "Tema",
+      "expect": { "id": "DRAM", "minRows": 10 }
+    }
+  }
+}

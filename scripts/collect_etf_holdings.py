@@ -7,7 +7,7 @@ HTTP 어댑터를 재사용하며 원장이나 이력 파일을 쓰지 않는다
 수집 우선순위
   1순위  FunETF 전체 PDF 구성종목 → KRX 내부 JSON API (국내 ETF)
   2순위  운용사 공식 어댑터(지원 운용사) / ZEROIN(그 외 국내 ETF)
-  3순위  네이버(국내) / yfinance·stockanalysis(해외)
+  3순위  운용사 공식 보유명세 파일(data/etf_sources) → 네이버(국내) / yfinance(해외)
   4순위  Playwright 헤드리스 브라우저 (앞선 소스가 모두 실패한 ETF만)
 
 사용법
@@ -38,6 +38,7 @@ from etf_common import (  # noqa: E402
     http_json, is_equity_row, is_kr_code, merge_holdings,
     norm_holding_code, parse_krx_pdf,
 )
+from etf_sources import fetch_local_source  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_PATH = os.path.join(ROOT, 'data', 'etf_holdings.json')
@@ -892,6 +893,9 @@ def collect_one(code, name, lookup=None):
         h, eq, as_of = fetch_zeroin(code)
         if h:
             return h, eq, as_of, 'zeroin', True
+        lh, l_as_of, l_full, label = fetch_local_source(code)
+        if lh:
+            return lh, round(sum(x['w'] for x in lh), 2), l_as_of, 'file:' + (label or 'local'), l_full
         h = fetch_naver(code)
         if h:
             return h, round(sum(x['w'] for x in h), 2), None, 'naver', False
@@ -908,8 +912,15 @@ def collect_one(code, name, lookup=None):
         # SPYM·1629 가 10종목으로 굳어 룩스루 간접 노출이 통째로 축소됐다.
         # 국내 분기(FunETF → KRX → …)와 같은 원칙 — 완전한 출처를 먼저 쓰고 부분 출처는 폴백으로 둔다.
         h, as_of, full = fetch_stockanalysis(lookup)
+        if h and full:
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'stockanalysis', True
+        # 운용사 공식 보유명세 파일 — 완전한 목록이 있으면 부분 목록(stockanalysis 상위 N개·
+        # yfinance top_holdings)보다 먼저다. 반대로 신선한 전체 바스켓을 받았다면 그쪽이 우선이다.
+        lh, l_as_of, l_full, label = fetch_local_source(code)
+        if lh:
+            return lh, round(sum(x['w'] for x in lh), 2), l_as_of, 'file:' + (label or 'local'), l_full
         if h:
-            return h, round(sum(x['w'] for x in h), 2), as_of, 'stockanalysis', full
+            return h, round(sum(x['w'] for x in h), 2), as_of, 'stockanalysis', False
         h = fetch_yfinance(lookup)
         if h:
             return h, round(sum(x['w'] for x in h), 2), None, 'yfinance', False

@@ -261,8 +261,29 @@ assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 �
 assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
 assert.match(scriptSource, /ownerLabelWeights[\s\S]*ownerWeight>=20\?15:\(ownerWeight>=10\?13:11\)[\s\S]*showOwnerDot=ownerWeight>=10/, '비중 차트의 작은 소유주 조각은 라벨과 점을 줄여 잘림 방지')
 assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax\(300px,320px\) minmax\(0,1fr\)/, '리스크 점수 카드를 넓히고 우측 진단 카드에 남은 폭 배분')
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '현금흐름 입력을 전체 폭에 두고 내역과 차트를 하단 2열로 분리')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1\/-1/, '현금흐름 우측 차트 최소 폭과 전체 폭 입력 행 보장')
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-month-summary" class="glass-panel cf-summary-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '입력부 옆에 선택 달 요약을 두고 내역과 차트를 하단 2열로 분리')
+assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;[\s\S]*\.cf-summary-panel\{grid-column:2/, '입력부는 좌측 열만 쓰고 우측 첫 행은 요약 카드가 채운다')
+assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
+// 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
+// (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
+{
+  const summaryContext = {
+    cfYear: 2026, cfMonth: 9, _cfOwner: '전체',
+    FIN_SAVING_CATS: ['저축/투자'],
+    finMonthlyFixedCost: () => ({ monthly: 0, pendingCount: 2, pendingMonthly: 330000 }),
+    document: { getElementById: () => null },
+  }
+  summaryContext._cfEsc = v => String(v == null ? '' : v)
+  vm.createContext(summaryContext)
+  vm.runInContext(extractFunction(scriptSource, 'cfMonthSummaryHtml'), summaryContext)
+  const html = summaryContext.cfMonthSummaryHtml(5_000_000, 3_000_000, { 식비: 1_000_000, '저축/투자': 2_000_000 })
+  assert.match(html, /순현금흐름[\s\S]*?\+₩2,000,000/, '순현금흐름은 통장에 남은 돈')
+  assert.match(html, /저축률[\s\S]*?80\.0%/, "저축률은 '저축/투자' 400만을 소비에서 되돌려 계산")
+  assert.match(html, /자동이체 2건<\/b>이 고정비로 분류되지 않았습니다/, '미분류 자동이체를 그 자리에서 안내')
+  assert.match(html, /2026년 9월 요약/, '선택한 달을 제목에 표시')
+  const noIncome = summaryContext.cfMonthSummaryHtml(0, 120000, { 식비: 120000 })
+  assert.match(noIncome, /저축률[\s\S]*?—/, '수입이 없으면 저축률을 내지 않는다')
+}
 assert.match(financeSource, /fin-data-card-main[\s\S]*fin-data-card-meta[\s\S]*fin-data-support-grid/, '데이터 상태 카드와 안내 패널을 컴팩트 가로형으로 구성')
 assert.match(scriptSource, /표시할 자산이 없습니다\./, '비중 차트 빈 상태도 테마 글꼴과 한글 문구 사용')
 assert.match(indexSource, /toggleAmountPrivacy\(\)[\s\S]*id="sidebar-privacy-btn"[\s\S]*금액 가리기/, '좌하단에 전역 금액 가리기 버튼 추가')
@@ -408,7 +429,7 @@ assert.equal(safetyProbe.pendingCount, 1, '미분류 자동이체는 합산하�
 assert.equal(safetyProbe.committed, 200, '월 약정액 = 필수지출 + DCA')
 const riskInsights = riskInsightContext.cbRiskInsights('본인',{fxPct:40})
 const riskInsightById = Object.fromEntries(Array.from(riskInsights, card=>[card.id,card]))
-assert.equal(riskInsights.length, 9, '리스크 보조 진단 위젯 9개 생성 (ETF 간 중복도 추가)')
+assert.equal(riskInsights.length, 8, '리스크 보조 진단 위젯 8개 (현금 유동성 커버리지는 투자 계획 > 목표로 이동)')
 // 카드가 늘어도 그리드가 조용히 버리지 않아야 한다 — 예전에는 4행 고정이라 9번째가 안 보였다.
 assert.match(cobaltSource, /const gridRows=Math\.max\(/, '리스크 카드 행 수는 카드 개수를 따른다')
 assert.ok(riskInsights.some(c=>c.id==='etf-cross-overlap'), 'ETF 간 중복도 위젯 존재')
@@ -427,7 +448,7 @@ assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 �
 assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')
 assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 집중도 계산')
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
-assert.equal(riskInsightById['liquidity-coverage'].value, '1.5개월', '현금 대비 월 DCA·정기지출 커버리지 계산')
+assert.ok(!('liquidity-coverage' in riskInsightById), '현금 유동성 커버리지 카드는 리스크 진단에 없다')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
 assert.doesNotMatch(cobaltSource, /cbHomeTrend\(ownerF\)|cbHomeTotals\(ownerF\)/, '홈의 중복 요약과 추이 제거')
 assert.match(cobaltSource, /const riskGridCards=Array\.from\(\{length:gridRows\}[\s\S]*r\.cards\.slice\(row\*2,row\*2\+2\)[\s\S]*insights\.slice\(row\*2,row\*2\+2\)[\s\S]*class="cb-risk-card-grid"/, '규칙 카드와 보조 진단을 같은 행 흐름으로 교차 배치하되 행 수는 카드 개수를 따른다')
@@ -449,8 +470,10 @@ assert.match(styleSource, /@media \(max-width: 768px\) \{[\s\S]*\.cb-gift-field\
 assert.match(cobaltSource, /const field = \(label, input\) => `<label class="cb-gift-field"/, '증여 입력 라벨이 폭 상한 클래스를 단다')
 assert.match(styleSource, /\.cb-scroll\{[^}]*padding:0 6px 24px 0\}/, '본문 하단 데드 스페이스 축소')
 assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '재무 카드 내부·바깥 여백 압축')
-assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*fin-target-actions[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '목표 비중·편차·저장·조정표를 비교 자료와 분리된 좌측 작업 영역에 배치')
-assert.match(workspaceSource, /\.fin-rebal-main\{min-width:0\}[\s\S]*\.fin-target-actions\{[^}]*justify-content:flex-end/, '리밸런싱 저장 도구가 좌측 작업 영역 경계를 넘지 않게 정렬')
+assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*label class="threshold"[\s\S]*finSaveTarget\(\)[\s\S]*<\/div>[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '자산군·허용 편차·목표 저장을 한 그리드에 두고 조정표를 좌측 작업 영역에 배치')
+assert.doesNotMatch(financeSource, /fin-target-actions/, '별도 저장 줄은 없앴다 — 한 줄이 통째로 여백이었다')
+assert.doesNotMatch(workspaceSource, /\.fin-target-actions/, '도달 불가 CSS 도 함께 제거한다')
+assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(156px,1fr\)\)/, '자산군·편차·저장이 폭에 맞춰 한 줄로 흐른다')
 // 고정비 등록 줄의 세로 정렬 — 세 값은 항상 같아야 한다
 {
   const h = [...styleSource.matchAll(/(?:\.btn-submit\{[^}]*|\.cf-fixed-form \.form-input\{[^}]*|\.cf-fixed-check\{[^}]*)height:(\d+)px/g)].map(m => m[1])

@@ -17,9 +17,21 @@ import etf_common
 
 FULL = [{'t': 'NVDA', 'n': 'NVIDIA', 'w': 8.0}, {'t': 'AAPL', 'n': 'Apple', 'w': 6.0}]
 TOP10 = [{'t': 'NVDA', 'n': 'NVIDIA', 'w': 8.0}]
+# 이 클래스들은 **원격 체인의 순서**만 본다. DRAM·SPYM 은 data/etf_sources 에 공식
+# 보유명세 파일이 있어 그대로 두면 파일이 먼저 채택돼 원격 순서를 검증할 수 없다.
+# 파일 쪽 동작은 test_etf_sources.py 가 따로 고정한다.
+NO_LOCAL = ([], None, False, None)
 
 
-class ForeignSourceOrderTests(unittest.TestCase):
+class _RemoteChainCase(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(collector, 'fetch_local_source', return_value=NO_LOCAL)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+
+class ForeignSourceOrderTests(_RemoteChainCase):
     def test_stockanalysis_is_tried_before_yfinance(self):
         with patch.object(collector, 'fetch_proshares', return_value=([], None)), \
              patch.object(collector, 'fetch_invesco', return_value=([], None)), \
@@ -65,7 +77,7 @@ class ForeignSourceOrderTests(unittest.TestCase):
         self.assertTrue(full)
 
 
-class CoverageEvidenceTests(unittest.TestCase):
+class CoverageEvidenceTests(_RemoteChainCase):
     """coverage 는 출처 이름이 아니라 '전부 받았다는 근거'로 정해진다."""
 
     def test_partial_source_never_reports_full_coverage(self):

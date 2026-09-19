@@ -269,16 +269,19 @@ assert.match(cobaltSource, /finInvestTrendCard==='function'\?finInvestTrendCard\
 assert.doesNotMatch(cobaltSource, /가족 재무상태표 &gt; 순자산 추이에서 확인하세요/, '없는 화면으로 안내하지 않는다')
 
 // ── 현금 안전판 목표 개월수 ────────────────────────────────────────────
-// 재무상태표 화면이 사라지면서 이 값을 바꿀 자리가 없어져 저장된 값에 굳어 있었다.
 // 값 자체는 살아 있는 리스크 진단·투자 계획이 계속 쓰므로 조작 지점이 반드시 있어야 한다.
+// 자리는 투자 계획 > 목표다 — 그 화면이 이미 같은 값을 '현금 안전판 · 월 필수지출 기준'으로 보여준다.
 assert.match(financeSource, /function finSaveCashTarget\(\)\{[\s\S]*Math\.max\(1,Math\.min\(36,/, '목표 개월수는 1~36 으로 조인다')
-assert.match(financeSource, /function finSaveCashTarget\(\)\{[\s\S]*cbRenderRisk/, '저장 후 리스크 진단 화면을 다시 그린다')
+assert.match(financeSource, /function finSaveCashTarget\(\)\{[\s\S]*cbRenderPlan/, '저장 후 투자 계획 화면을 다시 그린다')
 assert.doesNotMatch(financeSource, /function finSaveCashTarget\(\)\{[^}]*cbRenderBalanceSheet/, '사라진 재무상태표 렌더러를 부르지 않는다')
-assert.match(cobaltSource, /id:'liquidity-coverage'[\s\S]*?finSaveCashTarget\(\)/, '현금 유동성 커버리지 카드에 저장 버튼이 있다')
-assert.match(cobaltSource, /id:'liquidity-coverage'[\s\S]*?finMobileNote\('현금 안전판 목표'\)/, '모바일에서는 읽기 전용 안내를 렌더')
-assert.match(cobaltSource, /control:\(typeof finSaveCashTarget!=='function'\) \? ''/, 'finance.js 미로드 시에는 동작하지 않는 버튼을 그리지 않는다')
-assert.match(cobaltSource, /cb-risk-insight-detail[\s\S]{0,240}\$\{card\.control\|\|''\}/, '인사이트 카드가 컨트롤 슬롯을 렌더')
-assert.match(styleSource, /\.cb-risk-insight-control\{/, '컨트롤 폭은 인라인이 아니라 클래스로 준다')
+assert.match(financeSource, /function finGoalContext\([\s\S]*?finSaveCashTarget\(\)/, '목표 화면의 현금 안전판 패널에 저장 버튼이 있다')
+assert.match(financeSource, /function finGoalContext\([\s\S]*?finMobileNote\('현금 안전판 목표'\)/, '모바일에서는 읽기 전용 안내를 렌더')
+assert.match(styleSource, /\.fin-cash-target\{/, '컨트롤 폭은 인라인이 아니라 클래스로 준다')
+// 리스크 진단에서는 뺐다 — 보조 진단 카드가 한 줄을 통째로 쓰고 있었고, 같은 숫자를
+// 투자 계획 > 목표가 더 넓은 맥락과 함께 보여준다.
+assert.doesNotMatch(cobaltSource, /liquidity-coverage/, '현금 유동성 커버리지 카드는 제거됐다')
+assert.doesNotMatch(cobaltSource, /card\.control/, '쓰는 카드가 없어진 컨트롤 슬롯도 함께 제거한다')
+assert.doesNotMatch(styleSource, /\.cb-risk-insight-control/, '도달 불가 CSS 도 함께 제거한다')
 
 // 재무상태표 변경 저장은 오늘 스냅샷을 먼저 갱신하고 KV는 한 번만 쓴다.
 const saveOrder=[]

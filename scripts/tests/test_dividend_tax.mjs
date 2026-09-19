@@ -300,6 +300,8 @@ assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 �
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
 assert.match(scriptSource, /async function autoAddDividendCashFlow[\s\S]*allocateDividendTax\(annualLots\)[\s\S]*await saveExtDataToKV\(\)/, '자동 현금흐름도 공통 연간 세금 엔진과 원격 저장 사용')
 assert.match(scriptSource, /function _normalizePyDividendInfo[\s\S]*annualDps\/payoutCount/, 'Python 연간 DPS를 회당 지급액으로 정규화')
-assert.doesNotMatch(scriptSource.replace(/^.*예전에는.*$/m, ''), /\['2025','2026'\]/, '연도 하드코딩 제거')
+// 옛 동작을 설명하는 주석은 예외다. 플래그가 /m 뿐이면 **첫 줄 하나만** 지워져,
+// 앞쪽에 '예전에는' 주석이 하나 더 생기는 순간 정작 대상 줄이 남아 엉뚱하게 실패한다.
+assert.doesNotMatch(scriptSource.replace(/^.*예전에는.*$/gm, ''), /\['2025','2026'\]/, '연도 하드코딩 제거')
 
 console.log('PASS 배당 세후·금융소득종합과세')

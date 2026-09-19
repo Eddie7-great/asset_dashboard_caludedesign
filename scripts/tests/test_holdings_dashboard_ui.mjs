@@ -186,9 +186,18 @@ assert.doesNotMatch(cobaltSource, /width:44px;text-align:right">관리<\/span>/,
 assert.match(scriptSource, /holdings-broker-filter-inline/, '주식 종목 수 옆에 증권사·계좌 필터 배치')
 assert.match(scriptSource, /classList\.toggle\('holdings-owner-tabs', viewId==='holdings'\)/, '자산 내역 소유주 탭 전용 여백 적용')
 assert.match(styleSource, /#view-holdings \.pt-table th\.sortable\{position:sticky\}/, '수량부터 수익률까지 정렬 헤더도 스크롤 중 고정')
-assert.match(cobaltSource, /home-holdings-layout"><div class="home-table-column"><div class="cb-dash-table-toolbar"/, '홈 검색 도구를 우측 요약이 아닌 보유 목록 칼럼 안에 배치')
-assert.match(cobaltSource, /<th>소유주<\/th><th>종목명 · 티커<\/th><th>수량<\/th><th>평가금액<\/th><th>평가손익<\/th><th>수익률<\/th>/, '홈 보유 목록은 중복 없는 핵심 6개 칼럼 유지')
-assert.match(workspaceSource, /\.cb-home-holdings thead th\{position:sticky;top:0/, '홈 보유 목록 헤더를 목록 스크롤 중 고정')
+assert.match(cobaltSource, /home-holdings-layout">`\s*\+`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"/, '홈 검색 도구를 우측 요약이 아닌 보유 목록 칼럼 안에 배치')
+// 내역과 상세는 서로 다른 위젯이다 — 한 패널 안에서 border-left 로만 나뉘어 있었다.
+assert.match(cobaltSource, /<section class="cb-panel home-table-column"/, '보유 목록은 독립 패널')
+assert.match(cobaltSource, /<aside class="cb-panel home-stock-summary"/, '선택 종목 요약도 독립 패널')
+// 선택은 행 전체가 받는다. 종목명만 감싼 버튼은 티커·수량·금액 칸을 죽은 영역으로 만들었다.
+assert.match(cobaltSource, /<tr class="\$\{r\.key===_cdashSel\?'is-selected':''\}" role="button" tabindex="0"[\s\S]{0,120}data-key="\$\{cbEsc\(r\.key\)\}" onclick="cbDashPick\(this\.dataset\.key\)"/, '행 전체가 선택 대상이며 키는 data-key 로만 전달')
+assert.doesNotMatch(cobaltSource, /home-stock-pick/, '중첩 버튼 제거 — 남기면 클릭이 두 번 발생')
+assert.match(cobaltSource, /<th>소유주<\/th><th>종목명 · 티커<\/th><th>수량<\/th><th>매입금액<\/th><th>평가금액<\/th><th>평가손익<\/th><th>수익률<\/th>/, '홈 보유 목록 7개 칼럼 (매입금액 포함)')
+assert.match(cobaltSource, /colspan="7"/, '빈 상태 colspan 이 칼럼 수와 일치')
+// cbCostKRW 는 취득가 미상일 때 0 을 돌려준다 — 그대로 그리면 ₩0 이 찍힌다.
+assert.match(cobaltSource, /\$\{r\.i\.costUnknown\?'—':cbDisp\(r\.cost\)\}/, '취득가 미상 매입금액은 0원이 아니라 —')
+assert.match(workspaceSource, /\.home-table-column thead th\{position:sticky;top:0/, '홈 보유 목록 헤더를 목록 스크롤 중 고정')
 assert.match(workspaceSource, /\.home-stock-summary\{position:sticky;top:12px[^}]*max-height:[^}]*overflow:auto/, '홈 종목 요약은 화면을 따라가며 긴 내용도 잘리지 않게 자체 스크롤')
 
 console.log('PASS 자산 DCA 칼럼 분리·대시보드 실제 계좌 수 집계')
