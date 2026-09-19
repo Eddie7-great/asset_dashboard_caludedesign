@@ -880,6 +880,8 @@
     /* 증여 패널의 min-width 를 인라인으로 두면 미디어쿼리가 못 덮어, 390px 화면에서 패널이
        뷰포트를 넘고 .content-area 의 overflow-x:hidden 에 잘려 금액이 '200,000'→'200' 으로 보였다 */
     .cb-gift-panel{flex:1;min-width:430px;padding:16px 18px}
+    /* 선택한 소유주가 증여 당사자가 아닐 때 — 빈 화면 대신 이유를 밝힌다 */
+    .cb-gift-empty{flex-basis:100%;min-width:0;color:var(--mut);font-size:12.5px;line-height:1.6}
     .cb-gift-field{max-width:216px}
     select.cb-input option{background:var(--panelSolid);color:var(--tx)}
     .cb-hrow{border-radius:9px;transition:background .12s}
