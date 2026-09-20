@@ -7,6 +7,7 @@ import vm from 'node:vm'
 const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
 const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
 const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
+const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
   const asyncStart = source.indexOf(`async function ${name}(`)
@@ -98,6 +99,25 @@ assert.equal(verified.excess, 7_000_000, '기존 1500만원과 신규 계획 120
 assert.match(cobaltSource, /공제 자동 갱신일이 아닙니다/, '고정 연령대·계획 구간이 공제 리셋이 아님을 명시')
 assert.match(cobaltSource, /각 증여일 이전 10년/, 'rolling 10년 기준을 화면에 명시')
 assert.match(cobaltSource, /판정 보류[\s\S]*최근 10년 실제 증여 합계/, '실제 내역이 없으면 결과를 보류하는 안내 제공')
+
+// ── 증여: 소유주 탭은 다른 화면처럼 유지되고, 당사자인 계획만 추린다 ────
+// 예전에는 cbSetHead 를 위젯 없이 불러 탭이 통째로 사라졌고, 그 폭만큼 세부 메뉴
+// 링크가 오른쪽으로 324px 튀었다(실측). 탭은 살리되 금액을 다시 계산하지는 않는다 —
+// 증여 계획은 자녀 한 명·배우자 한 명의 가구 공통 값이라 소유주별로 나뉘지 않는다.
+vm.runInContext(extractFunction(cobaltSource, 'cbGiftOwnerScope'), giftContext)
+const scope = o => giftContext.cbGiftOwnerScope(o)
+assert.deepEqual([scope('전체').child, scope('전체').spouse], [true, true], '전체는 두 계획 모두')
+assert.deepEqual([scope('본인').child, scope('본인').spouse], [true, true], '본인은 두 계획 모두의 증여자')
+assert.deepEqual([scope('아내').child, scope('아내').spouse], [false, true], '아내는 부부 증여만')
+assert.deepEqual([scope('자녀1').child, scope('자녀1').spouse], [true, false], '자녀1은 자녀 증여만')
+assert.deepEqual([scope('아버지').child, scope('아버지').spouse], [false, false], '아버지는 등록된 증여의 당사자가 아님')
+assert.match(cobaltSource, /cbSetHead\('자녀 정기증여와 부부 증여 계획[^']*',\s*\n?\s*cbOwnerBtns\(_cbTaxOwner,'cbTaxOwner'\)\)/,
+  '가족 증여도 소유주 탭을 렌더하고 세금 화면과 같은 상태를 공유한다')
+assert.match(cobaltSource, /function cbTaxOwner\(o\)\{[\s\S]*view-gift2[\s\S]*cbRenderGift\(\)[\s\S]*else cbRenderTax\(\)/,
+  '소유주를 바꾸면 지금 열린 화면을 다시 그린다')
+assert.match(cobaltSource, /giftScope\.child\|\|giftScope\.spouse\?'':/, '당사자가 아닌 소유주에게는 이유를 밝힌다')
+assert.doesNotMatch(cobaltSource, /cbSetHead\('자녀 정기증여와 부부 증여 계획'\);/, '위젯 없이 헤더를 비우지 않는다')
+assert.match(styleSource, /\.cb-gift-empty\{/, '빈 상태 문구 폭은 인라인이 아니라 클래스로 준다')
 
 // ── 데이터 상태: ext_data와 독립된 키에 저장·최신 타임스탬프 병합 ──
 const kvCalls = []

@@ -2087,6 +2087,17 @@ const CB_GIFT_SPOUSE_LIMIT=_taxRuleValue('gift.spouseDeductionKrw',600_000_000);
 const CB_GIFT_SPOUSE_COLOR   = '#4ecdc4';
 const CB_GIFT_GREY           = '#94a3c8';
 
+// 증여 계획은 소유주별로 나뉜 값이 아니라 가구 공통 계획 하나다(자녀 한 명, 배우자 한 명).
+// 그래서 소유주 탭은 금액을 다시 계산하지 않고 **그 소유주가 당사자인 계획만** 남긴다.
+// 소유주 enum 이 본인/아내/자녀1/아버지로 고정이므로 당사자 판정이 확정적이다 —
+// 부부 증여는 본인↔아내, 자녀 증여는 본인→자녀1 이다.
+function cbGiftOwnerScope(owner){
+  const o = String(owner||'전체');
+  if (o==='전체' || o==='본인') return { child:true,  spouse:true,  key:o==='전체'?'all':'giver' };
+  if (o==='아내')               return { child:false, spouse:true,  key:'spouse' };
+  if (o==='자녀1')              return { child:true,  spouse:false, key:'child' };
+  return { child:false, spouse:false, key:'none' };   // 등록된 증여 계획의 당사자가 아님
+}
 // ── 설정값 접근 ──────────────────────────────────────────────
 function cbGiftCfg(){ return (window._giftActual = window._giftActual || {}); }
 function cbGiftSave(){
@@ -2318,7 +2329,11 @@ function cbRenderGift(){
   const spouseReview=cbGiftDeductionReview(spousePrior,spouse[0]?.total||0,CB_GIFT_SPOUSE_LIMIT);
   const num = 'font-family:\'Manrope\',\'Noto Sans KR\',sans-serif';
 
-  cbSetHead('자녀 정기증여와 부부 증여 계획');
+  // 같은 메뉴 가족(실현손익·세금 ↔ 가족 증여)은 소유주 선택을 공유한다 —
+  // 탭을 옮길 때 소유주 탭이 사라지지도, 선택이 풀리지도 않는다.
+  const giftScope = cbGiftOwnerScope(_cbTaxOwner);
+  cbSetHead('자녀 정기증여와 부부 증여 계획 · 금액은 가구 공통이며 소유주 탭은 당사자인 계획만 추립니다',
+    cbOwnerBtns(_cbTaxOwner,'cbTaxOwner'));
 
   // 입력 필드 (라벨 + 인풋)
   const field = (label, input) => `<label class="cb-gift-field" style="flex:1;min-width:132px;display:flex;flex-direction:column;gap:5px">
@@ -2354,6 +2369,8 @@ function cbRenderGift(){
   el.innerHTML = `
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
 
+      ${giftScope.child||giftScope.spouse?'':`<div class="cb-panel cb-gift-panel cb-gift-empty" role="status">${cbEsc(_cbTaxOwner)} 님이 당사자인 증여 계획이 없습니다. 이 화면은 본인·아내 사이의 부부 증여와 본인이 자녀1에게 하는 자녀 증여만 다룹니다.</div>`}
+      ${!giftScope.child?'':`
       <!-- ── 자녀 증여 ── -->
       <div class="cb-panel cb-gift-panel">
         <div style="font-size:14px;font-weight:800">자녀 증여</div>
@@ -2389,8 +2406,8 @@ function cbRenderGift(){
             ${Array.from({length:years},(_,k)=>`<div style="flex:1;cursor:crosshair" onmousemove="cbGiftChildHover(event,${k})"></div>`).join('')}
           </div>
         </div>
-      </div>
-
+      </div>`}
+      ${!giftScope.spouse?'':`
       <!-- ── 부부 증여 ── -->
       <div class="cb-panel cb-gift-panel">
         <div style="font-size:14px;font-weight:800">부부 증여</div>
@@ -2423,7 +2440,7 @@ function cbRenderGift(){
             ${Array.from({length:years},(_,k)=>`<div style="flex:1;cursor:crosshair" onmousemove="cbGiftSpouseHover(event,${k})"></div>`).join('')}
           </div>
         </div>
-      </div>
+      </div>`}
     </div>
     <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6">
       ※ 공제는 고정된 연령대·결혼 후 10년 구간마다 자동으로 새로 생기는 것이 아니라, 원칙적으로 각 증여일 이전 10년 동안 동일인에게 받은 증여를 합산해 검토합니다.
@@ -2926,7 +2943,14 @@ function cbRenderTax(){
 }
 function cbTaxYear(y){ _cbTaxYear = y; cbRenderTax(); }
 // 소유주 탭 — 요약 카드·차트·내역이 모두 list 파생이라 필터만 바꾸면 전부 갱신된다
-function cbTaxOwner(o){ _cbTaxOwner = o; _cbTaxDraft.owner = ''; cbRenderTax(); }
+// 세금·증여 가족의 두 화면이 같은 소유주 상태를 쓰므로, 지금 열린 화면을 다시 그린다
+// (투자 계획 가족의 finPlanOwner 와 같은 방식).
+function cbTaxOwner(o){
+  _cbTaxOwner = o; _cbTaxDraft.owner = '';
+  if (document.getElementById('view-gift2')?.classList.contains('active')) cbRenderGift();
+  else cbRenderTax();
+  if (typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-head-widgets','data-owner',o);
+}
 function cbTaxMonthPick(m){
   const month = Number(m);
   _cbTaxMonthFilter = (_cbTaxMonthFilter===month ? null : month);
