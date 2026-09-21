@@ -559,6 +559,26 @@ function cbEtfCrossOverlap(ownerFilter){
   };
 }
 
+// 직접 보유 중인 개별 주식(ETF 제외)을 정규화 티커로 찾아보는 표.
+// ownerFilter 가 없거나 '전체' 면 가구 전체, 아니면 그 소유주 것만 센다.
+//
+// cbLookThrough 와 etfExposure 는 이 표로 대체하지 않는다 — 둘은 '소유주별 누적 금액'이
+// 필요해 모양이 다르고, 기존 테스트가 그 동작을 고정하고 있다. 이 함수는 ETF 탐색의
+// '직접 보유만 보기' 필터와 '직접 보유 겹침' 카드가 **함께 쓰는 하나의 출처**다.
+function cbDirectStockMap(ownerFilter){
+  const scope = (!ownerFilter || ownerFilter==='전체') ? null : ownerFilter;
+  const map = new Map();
+  cbAllRows().forEach(r=>{
+    if (scope && r.i.owner!==scope) return;
+    if (r.i.grp!=='주식' || cbIsEtf(r.i)) return;     // 개별 주식만. ETF 는 겹침의 대상이 아니라 경로다
+    const t = cbStrip(r.i.tkr); if(!t) return;
+    const cur = map.get(t) || { tkr:t, title:r.title, val:0 };
+    cur.val += r.val;
+    map.set(t, cur);
+  });
+  return map;
+}
+
 function cbLookThrough(ownerFilter){
   const doc = cbEtfDoc();
   const rows = cbAllRows().filter(r=>!ownerFilter || r.i.owner===ownerFilter);
