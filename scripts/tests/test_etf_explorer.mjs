@@ -102,11 +102,18 @@ const explorerCss=fs.readFileSync('etf-explorer.css','utf8');
 // 진입 시 etfRefreshOnOpen 이 이미 돌므로(cobalt.js CB_VIEWS) 같은 일을 하는 버튼은 없앴다.
 assert.doesNotMatch(explorerSource,/자료 다시 확인/,'툴바의 재확인 버튼은 제거됐다');
 assert.match(cobalt,/if\(id==='etf2'\)etfRefreshOnOpen\(\)/,'페이지 진입이 조회 경로를 대신한다');
-// '비중 변화' 를 누를 때마다 드롭다운이 아래에 새로 생겨 화면이 통째로 밀렸다.
-// 같은 줄에 두고, 다른 모드에서는 자리만 유지한다(포커스는 받지 않게 disabled).
-assert.match(explorerSource,/class="etf-tabs">[\s\S]*etfMode\('\$\{id\}'\)[\s\S]*class="etf-compare\$\{_etfMode==='changes'\?'':' is-hidden'\}"/,'비교 기준을 탭과 같은 줄에 둔다');
-assert.match(explorerSource,/etf-compare[\s\S]{0,200}\$\{_etfMode==='changes'\?'':' disabled tabindex="-1"'\}/,'숨긴 상태에서는 키보드 포커스도 받지 않는다');
-assert.match(explorerCss,/\.etf-tabs \.etf-compare\.is-hidden\{visibility:hidden\}/,'display:none 이 아니라 자리를 유지한다');
+// 구성종목 / 비중 변화 두 모드를 버튼으로 오가던 구조를 없앴다 — 한 표에 비중과 변화를
+// 함께 싣는다. 모드가 사라졌으므로 비교 기준을 숨겼다 폈다 할 이유도 없다.
+assert.doesNotMatch(explorerSource,/_etfMode|etfMode\(/,'모드 상태와 토글 함수가 사라졌다');
+assert.doesNotMatch(explorerSource,/etf-tabs/,'구성종목·비중 변화 탭 줄이 사라졌다');
+assert.doesNotMatch(explorerCss,/etf-tabs|is-changes/,'탭과 diff 표 변형 CSS 도 함께 지웠다');
+assert.doesNotMatch(explorerSource,/is-hidden/,'비교 기준을 숨기는 삼항이 없다 — 항상 보인다');
+assert.match(explorerSource,/class="etf-filters">[\s\S]{0,600}class="etf-compare">비교 기준/,'비교 기준은 검색과 같은 필터 줄에 상시 표시한다');
+// 표는 항상 종목·비중·변화 3열. 변화는 비교 기준 스냅샷과의 차이를 티커로 붙인다.
+assert.match(explorerSource,/<span>종목<\/span><span>비중<\/span><span>변화<\/span>/,'변화 칼럼을 상시 포함한다');
+assert.match(explorerSource,/const deltas=new Map\(diff\.rows\.map/,'변화는 비교 스냅샷을 티커로 찾아 붙인다');
+// 점검 ETF 는 본문을 가리지 않게 페이지 하단, 출처 바로 위로 내렸다.
+assert.match(explorerSource,/id="etf-network"><\/section>\s*\$\{etfInspectionHtml\(m\.funds\)\}\s*<details class="cb-panel etf-method">/,'점검 위젯은 소유주별 비중 뒤, 출처 앞이다');
 assert.match(explorerCss,/\.etf-fund-value\{display:flex;flex-direction:row/,'선택 ETF 평가액은 라벨과 값을 나란히 놓는다');
 // 점검 위젯은 '왜 점검인지'만 남긴다 — 소스 시도 이력은 툴바의 role="status" 줄에 계속 있다.
 assert.doesNotMatch(explorerSource,/state\?\.attempts\|\|\[\]/,'점검 행에서 소스 시도 이력을 빼 사유를 앞세운다');
@@ -114,5 +121,40 @@ assert.match(explorerSource,/etf-inspection-row[\s\S]{0,400}\$\{cbEsc\(q\.label\
 // 총 노출이 100%를 넘는 구조(담보 위 스왑)를 숫자 옆에서 설명한다. 재정규화하지 않는다.
 assert.equal(ctx.etfWeightSum([h('A',59.11),h('B',41.08)]).toFixed(2),'100.19','비중 합은 그대로 더한다');
 assert.match(explorerSource,/etfWeightSum\(q\.rows\)>100\?' 합계가 100%를 넘는 것은/,'100% 초과를 설명하는 문구를 붙인다');
+
+// ── 직접 보유 판정은 새 필터와 겹침 카드가 공유하는 하나뿐이다 ──────────
+// 예전에는 cbLookThrough 와 etfExposure 가 같은 판정을 각자 인라인으로 갖고 있었다.
+// 새로 생기는 두 곳(체크박스·겹침 카드)은 cbDirectStockMap 하나만 쓴다.
+const cobaltSrc=fs.readFileSync('cobalt.js','utf8');
+const directCtx=vm.createContext({
+  Map,
+  cbStrip:t=>String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,''),
+  cbIsEtf:i=>!!i.isEtf,
+  cbAllRows:()=>[
+    {i:{owner:'본인',grp:'주식',tkr:'005930.KS'},title:'삼성전자',val:100},
+    {i:{owner:'본인',grp:'주식',tkr:'005930'},   title:'삼성전자',val:50},   // 같은 종목, 다른 계좌
+    {i:{owner:'아내',grp:'주식',tkr:'NVDA'},     title:'NVIDIA',  val:70},
+    {i:{owner:'본인',grp:'주식',tkr:'QQQ',isEtf:true},title:'QQQ',val:900},  // ETF 는 제외
+    {i:{owner:'본인',grp:'현금',tkr:'KRW'},      title:'예수금',  val:300},  // 주식 아님
+  ],
+});
+vm.runInContext(cobaltSrc.slice(cobaltSrc.indexOf('function cbDirectStockMap('),cobaltSrc.indexOf('function cbLookThrough(')),directCtx);
+const allDirect=directCtx.cbDirectStockMap('전체');
+assert.deepEqual([...allDirect.keys()].sort(),['005930','NVDA'],'개별 주식만, 정규화 티커로 모은다');
+assert.equal(allDirect.get('005930').val,150,'같은 종목의 여러 계좌를 합산한다');
+assert.ok(!allDirect.has('QQQ'),'ETF 는 겹침의 대상이 아니라 경로다');
+assert.ok(!allDirect.has('KRW'),'현금은 주식이 아니다');
+const mine=directCtx.cbDirectStockMap('본인');
+assert.deepEqual([...mine.keys()],['005930'],'소유주를 고르면 그 사람 것만 센다');
+assert.equal(directCtx.cbDirectStockMap().size,2,'소유주 미지정은 가구 전체');
+
+// 체크박스는 검색과 AND 로 걸리고, 누를 때마다 1페이지로 돌아간다.
+assert.match(explorerSource,/function etfDirectOnly\(on\)\{_etfDirectOnly=!!on;_etfPage=0;etfRefreshResults\(\);\}/,'직접 보유 토글은 목록만 다시 그린다');
+assert.match(explorerSource,/\.filter\(h=>!_etfQuery\|\|[\s\S]{0,160}\)\s*\.filter\(h=>!direct\|\|direct\.has\(cbStrip\(h\.t\)\)\)/,'검색과 직접 보유 필터가 AND 로 겹친다');
+assert.match(explorerSource,/const direct=_etfDirectOnly\?cbDirectStockMap\(_etfOwner\):null/,'필터도 공용 판정을 쓰고 소유주 범위를 따른다');
+// 겹침 카드는 잠정 자료를 '겹치는 종목 없음'으로 단정하지 않는다.
+assert.match(explorerSource,/function etfOverlapHtml\(m\)\{[\s\S]*cbDirectStockMap\(_etfOwner\)/,'겹침 카드도 같은 판정을 쓴다');
+assert.match(explorerSource,/const provisional=!m\.quality\.reliable/,'구성종목이 잠정이면 그 사실을 표시한다');
+assert.match(explorerSource,/겹치는 종목이 더 있을 수 있습니다/,'잠정 자료로 0 건을 단정하지 않는다');
 
 console.log('PASS ETF freshness, company labels, owner portfolio denominators, direct/indirect exposure, incomplete-data safeguards and explorer layout contracts');

@@ -183,8 +183,6 @@
 /* ETF verification stays readable on a single status line. */
 .etf-toolbar .etf-status{display:flex;flex-direction:row;align-items:center;gap:8px;white-space:nowrap;max-width:100%;overflow-x:auto}
 .etf-status>span,.etf-status>b{flex-shrink:0;margin:0}
-@media(min-width:1101px){.etf-toolbar{grid-template-columns:minmax(180px,1.4fr) minmax(160px,1fr) auto}.etf-toolbar .etf-status{grid-column:1/-1;grid-row:2}.etf-toolbar>button{grid-column:3;grid-row:1}}
-@media(max-width:1100px){.etf-toolbar .etf-status{grid-column:1/-1}}
 .etf-inspection{margin:9px 0;padding:10px 13px;font-size:12px}.etf-inspection summary{cursor:pointer;font-weight:700}.etf-inspection-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(160px,1.6fr) auto;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}.etf-inspection-row small{display:block;color:var(--lab);margin-top:3px}.etf-inspection p{color:var(--lab)}
 #cb-perf2 .cb-perf-detail-panel{min-height:0;flex:0 0 auto;padding:10px 12px!important}
 #cb-perf2 .cb-perf-detail-grid{flex:0 0 auto;align-items:start}
