@@ -38,7 +38,7 @@ from etf_common import (  # noqa: E402
     http_json, is_equity_row, is_kr_code, merge_holdings,
     norm_holding_code, parse_krx_pdf,
 )
-from etf_sources import fetch_local_source  # noqa: E402
+from etf_sources import fetch_local_source, load_index  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_PATH = os.path.join(ROOT, 'data', 'etf_holdings.json')
@@ -989,6 +989,13 @@ def preserve_history(entry, old):
     return entry
 
 
+# etf-explorer.js 의 ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS 와 반드시 같은 값이어야
+# 한다 — 프런트(etfQuality)가 권위이고 이쪽은 그 판정을 따라간다. 월 1회만 공시하는
+# 상품(entry['disclosure']=='monthly', 예: 1629 NEXT FUNDS)은 5평일로 재면 매달
+# 대부분의 날짜가 '지연'이 된다. 통상적인 월간 주기(약 21평일) + 약 2주 공시 유예.
+ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS = 35
+
+
 def snapshot_stale(entry, today):
     try:
         day = datetime.date.fromisoformat(entry.get('asOf') or '')
@@ -997,6 +1004,8 @@ def snapshot_stale(entry, today):
     if day > today:
         return True
     age = sum((day + datetime.timedelta(days=i)).weekday() < 5 for i in range(1, (today-day).days+1))
+    if entry.get('disclosure') == 'monthly':
+        return age > ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS
     active = entry.get('active') or re.search(r'액티브|\bACTIVE\b', entry.get('name') or '', re.I)
     return age > (2 if active else 5)
 
@@ -1046,6 +1055,12 @@ def run(targets, dry_run=False):
                           'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                           'lastAttempt': today, 'retained': False,
                           'active': bool(re.search(r'액티브|\bACTIVE\b', name, re.I))}
+            # 운용사가 월 1회만 공시하는 상품은 etfQuality/snapshot_stale 이 넓은 임계값을
+            # 쓰도록 스냅샷에 함께 적는다(data/etf_sources/index.json 이 유일한 출처).
+            # 프런트는 이 JSON만 읽으므로 index.json 자체를 내려받지 않는다 — 여기서 옮겨 적는다.
+            disclosure = (load_index().get(code) or {}).get('disclosure')
+            if disclosure:
+                etfs[code]['disclosure'] = disclosure
             summary['complete' if coverage == 'full' else 'partial'] += 1
             print('  %-8s %-28s %4d종목  주식비중 %5.1f%%  (%s, %s)'
                   % (code, name[:28], len(holdings), eq, source, as_of))

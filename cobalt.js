@@ -300,6 +300,13 @@ function cbMergeRows(rows){
   });
 }
 
+// 시세를 못 받은 행 판정. 병합된 행은 원본 계좌 중 하나라도 미조회면 미조회다.
+// 시세가 없으면 script.js 의 정규화가 현재가를 매입가로 메우므로 평가손익이 정확히
+// 0 이 된다 — 그 상태를 '변동 없음'으로 순위에 흘려보내면 종목이 조용히 사라진다.
+function cbRowPriceStale(r){
+  return (r&&Array.isArray(r._items)?r._items:[r&&r.i]).some(i=>i&&i._priceStale===true);
+}
+
 // 보유 자산 내역 공통 정렬: 소유주 → 자산군 → 국가 → 종목명 오름차순 (대시보드·가족 자산 등 전 페이지 공통)
 function cbCtryLabel(r){ return r.cls==='kr' ? '한국' : r.cls==='us' ? '미국' : r.cls==='jp' ? '일본' : ''; }
 function cbSortOwnerNameVal(rows){
@@ -446,6 +453,12 @@ function cbIsEtf(i){
   const db = window._krStocksDB;
   const meta = db && db.byCode && typeof db.byCode.get==='function' ? db.byCode.get(code) : null;
   if (meta && String(meta.market || '').toUpperCase()==='ETF') return true;
+  // 구성종목 수집이 실패한 단일종목 레버리지 ETF는 위 어느 경로에도 걸리지 않는다
+  // (market 정규화 allow-list 에 'ETF' 가 없고, _etfHoldings.etfs 에도 없다).
+  // 상품명만으로 기초자산·배수가 확정되는 상품은 그 해석 성공을 ETF 근거로 쓴다 —
+  // 이게 없으면 룩스루와 레버리지·인버스 노출도가 둘 다 이 종목을 통째로 놓친다.
+  // cbSyntheticEtfHoldings 는 cbIsEtf 를 부르지 않으므로 순환 호출이 아니다.
+  if (typeof cbSyntheticEtfHoldings==='function' && cbSyntheticEtfHoldings(i)) return true;
   return typeof _gicsSector==='function' && /ETF$/.test(_gicsSector(i)||'');
 }
 
@@ -969,17 +982,27 @@ function cbRenderDash(){
   const q=(_cdashQ||'').trim().toLowerCase();
   const filtered = q ? mergedRows.filter(r=>((r.i.tkr||'')+' '+(r.i.name||'')+' '+r.cl.label+' '+(r.i.owner||'')).toLowerCase().includes(q)) : mergedRows;
   const held = cbSortOwnerNameVal(filtered);
-  const rankedMovers = mergedRows.filter(r=>r.gainPct!=null && Number.isFinite(r.gainPct));
+  // 시세 미조회 종목은 순위에서 빼되 그 사실을 카드에 적는다. 예전에는 이런 종목이
+  // 평가손익 0 이라 gainPct>0 / gainPct<0 어느 쪽에도 들지 못해 아무 설명 없이
+  // 양쪽 순위에서 동시에 사라졌다(액면병합된 BMNU 가 그렇게 보이지 않았다).
+  const moverStaleRows = mergedRows.filter(r=>r.i.grp!=='현금' && cbRowPriceStale(r));
+  const rankedMovers = mergedRows.filter(r=>r.gainPct!=null && Number.isFinite(r.gainPct) && !cbRowPriceStale(r));
   const topGainers = rankedMovers.filter(r=>r.gainPct>0).sort((a,b)=>b.gainPct-a.gainPct).slice(0,5);
   const topLosers = rankedMovers.filter(r=>r.gainPct<0).sort((a,b)=>a.gainPct-b.gainPct).slice(0,5);
+  const moverStaleNote = moverStaleRows.length
+    ? `<div class="cb-mover-stale">시세 미조회 ${moverStaleRows.length}종목 제외 · ${cbEsc(moverStaleRows.slice(0,3).map(r=>r.title).join(', '))}${moverStaleRows.length>3?` 외 ${moverStaleRows.length-3}종목`:''}</div>`
+    : '';
   // 수익률 순위가 작은 보유액을 과대평가하지 않도록 실제 원화 평가손익의 절대 기여도를 별도로 비교한다.
   const contributionRows = mergedRows
-    .filter(r=>r.i.grp!=='현금' && Number.isFinite(r.gain) && Math.abs(r.gain)>0)
+    .filter(r=>r.i.grp!=='현금' && !cbRowPriceStale(r) && Number.isFinite(r.gain) && Math.abs(r.gain)>0)
     .sort((a,b)=>Math.abs(b.gain)-Math.abs(a.gain))
     .slice(0,6);
   const contributionMax = Math.max(1,...contributionRows.map(r=>Math.abs(r.gain)));
-  const contributionGain = mergedRows.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
-  const contributionLoss = mergedRows.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
+  // 합계도 목록과 같은 stale 제외를 적용한다 — 안 그러면 목록엔 없는 시세 미조회
+  // 종목의 손익이 상단 '이익/손실 기여' 배지에는 섞여 두 숫자가 서로 다른 기준이 된다.
+  const contributionEligible = mergedRows.filter(r=>r.i.grp!=='현금' && !cbRowPriceStale(r));
+  const contributionGain = contributionEligible.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
+  const contributionLoss = contributionEligible.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
   const moverCard = (title, list, tone, empty) => `
     <div class="cb-panel cb-mover-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px;margin-bottom:5px">
@@ -994,6 +1017,7 @@ function cbRenderDash(){
           </span>
           <span class="cb-num" style="font-weight:800;flex-shrink:0;color:${tone}">${cbPct(r.gainPct)}</span>
         </div>`).join('') || `<div style="padding:18px 2px;text-align:center;color:var(--dim);font-size:12px">${empty}</div>`}
+      ${moverStaleNote}
     </div>`;
   const contributionCard = `
     <div class="cb-panel cb-dash-contrib-card">

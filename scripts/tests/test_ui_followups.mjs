@@ -261,8 +261,12 @@ assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 �
 assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
 assert.match(scriptSource, /ownerLabelWeights[\s\S]*ownerWeight>=20\?15:\(ownerWeight>=10\?13:11\)[\s\S]*showOwnerDot=ownerWeight>=10/, '비중 차트의 작은 소유주 조각은 라벨과 점을 줄여 잘림 방지')
 assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax\(300px,320px\) minmax\(0,1fr\)/, '리스크 점수 카드를 넓히고 우측 진단 카드에 남은 폭 배분')
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-month-summary" class="glass-panel cf-summary-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '입력부 옆에 선택 달 요약을 두고 내역과 차트를 하단 2열로 분리')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;[\s\S]*\.cf-summary-panel\{grid-column:2/, '입력부는 좌측 열만 쓰고 우측 첫 행은 요약 카드가 채운다')
+// 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 열의 첫
+// 카드(수입/지출 구성) 하단에 붙는다 — 총수입/지출/순현금흐름이 두 위젯에 중복
+// 표시되던 것을 없앴고, 차트 열이 그 행까지 통째로 차지해 세로 폭이 커진다.
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cfDonutChart"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
+assert.doesNotMatch(indexSource, /id="cf-tot-in"|id="cf-tot-out"|id="cf-tot-net"/, '차트 카드의 총수입·총지출·순현금흐름 중복 표시를 없앤다 — cfMonthSummaryHtml 이 유일한 출처')
+assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:2[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/3/, '차트 열이 입력부+요약 두 행 높이를 모두 차지해 세로로 커진다')
 assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
 // 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
 // (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
@@ -473,7 +477,9 @@ assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '�
 assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*label class="threshold"[\s\S]*finSaveTarget\(\)[\s\S]*<\/div>[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '자산군·허용 편차·목표 저장을 한 그리드에 두고 조정표를 좌측 작업 영역에 배치')
 assert.doesNotMatch(financeSource, /fin-target-actions/, '별도 저장 줄은 없앴다 — 한 줄이 통째로 여백이었다')
 assert.doesNotMatch(workspaceSource, /\.fin-target-actions/, '도달 불가 CSS 도 함께 제거한다')
-assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(156px,1fr\)\)/, '자산군·편차·저장이 폭에 맞춰 한 줄로 흐른다')
+assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '자산군 6개 + 허용 편차 + 목표 저장을 4개씩 2줄로 고정 배치')
+assert.match(workspaceSource, /\.fin-rebal-table>div>span:not\(:first-child\)\{text-align:right\}/, '리밸런싱 표의 숫자 칼럼(현재·목표·편차·조정액·DCA)을 우측 정렬한다')
+assert.match(financeSource, /비교용 예시이며 맞춤 추천이 아닙니다\.<br>왼쪽은 상장시장별/, "'아닙니다.' 뒤에서 줄바꿈해 대표 자산 배분 비교 문장을 두 줄로 나눈다")
 // 고정비 등록 줄의 세로 정렬 — 세 값은 항상 같아야 한다
 {
   const h = [...styleSource.matchAll(/(?:\.btn-submit\{[^}]*|\.cf-fixed-form \.form-input\{[^}]*|\.cf-fixed-check\{[^}]*)height:(\d+)px/g)].map(m => m[1])

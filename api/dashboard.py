@@ -334,8 +334,12 @@ def get_prices(tickers):
                 if resolved:
                     tkr = resolved
             
-            is_kr = tkr.isdigit() and len(tkr) == 6
-            is_crypto = tkr.upper() in CRYPTO_TICKERS
+            # KRX 단축코드는 숫자 6자리만이 아니다 — 0117V0 처럼 영숫자도 발급된다.
+            # isdigit() 으로 재면 그런 코드를 미국 주식으로 오인해 yfinance 로 보내고
+            # 조회가 통째로 실패한다. get_dividends 와 같은 규칙을 쓴다.
+            t_up = tkr.upper()
+            is_kr = len(t_up) == 6 and all(c.isdigit() or ('A' <= c <= 'Z') for c in t_up)
+            is_crypto = t_up in CRYPTO_TICKERS
 
             if is_kr:
                 # 한국 주식 – pykrx 우선, yfinance fallback

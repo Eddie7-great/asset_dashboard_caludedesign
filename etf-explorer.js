@@ -79,9 +79,15 @@ function etfBusinessAge(asOf,now=new Date()){
   let age=0;for(let t=start.getTime()+86400000;t<=end.getTime();t+=86400000){const d=new Date(t).getUTCDay();if(d!==0&&d!==6)age++;}
   return age;
 }
+// 월 1회만 공시하는 상품(entry.disclosure==='monthly')은 5평일 기준을 쓰면 매달
+// 대부분의 날짜가 '지연'으로 찍힌다(1629 실측 — 월말 공시가 2주 전만 지나도 지연).
+// 통상적인 월간 주기(약 21평일)에 약 2주의 공시 유예를 더한 값. snapshot_stale
+// (scripts/collect_etf_holdings.py)이 이 값과 동일해야 한다 — 프런트가 권위다.
+const ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS=35;
 function etfQuality(entry,now=new Date()){
   const rows=etfStockRows(entry),active=entry?.active||/액티브|\bACTIVE\b/i.test(entry?.name||'');
-  const age=etfBusinessAge(entry?.asOf,now),limit=active?2:5;
+  const age=etfBusinessAge(entry?.asOf,now);
+  const limit=entry?.disclosure==='monthly'?ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS:(active?2:5);
   const full=entry?.coverage==='full'&&rows.length===entry?.holdings?.length;
   const stale=age!==null&&age>limit, reasons=[];
   if(!rows.length)reasons.push('미조회');
@@ -135,11 +141,14 @@ function etfIdentity(holding){
       .replace(new RegExp('^'+escaped+'(?:\\.(?:KS|KQ))?\\s*[·|:/-]\\s*','i'),'').trim();
   }
   if(kr&&(!name||cbStrip(name)===ticker))name=owned?.name||'회사명 미확인';
-  return {ticker,name:name||ticker,showTicker:!kr&&!!name&&name!==ticker};
+  return {ticker,name:name||ticker,kr,showTicker:!kr&&!!name&&name!==ticker};
 }
+// 국내 종목은 회사명을 주값으로 보여준다. 해외 종목은 한글 병기가 필요 없어
+// 티커를 주값으로 쓰고, 회사명은 title 속성(마우스 오버)에만 남긴다.
 function etfIdentityHtml(holding){
   const id=etfIdentity(holding);
-  return `<span class="etf-company" title="${cbEsc(id.name)}"><b>${cbEsc(id.name)}</b>${id.showTicker?`<small>${cbEsc(id.ticker)}</small>`:''}</span>`;
+  const primary=id.kr?id.name:id.ticker;
+  return `<span class="etf-company" title="${cbEsc(id.name)}"><b>${cbEsc(primary)}</b></span>`;
 }
 function etfExposure(ticker,rows=cbAllRows(),doc=cbEtfDoc(),owner=_etfOwner,now=new Date()){
   // Denominator: the same owner's complete investment portfolio, including cash, gold and crypto.
@@ -226,18 +235,14 @@ function cbRenderEtfExplorer(){
   if(_etfSelected==='')_etfSelected=cbStrip(q.rows[0]?.t);
   const focus=document.activeElement?.id,selection=document.activeElement?.selectionStart;
   const counts=m.funds.reduce((a,f)=>{const q=etfQuality(cbEtfDoc()?.etfs?.[f.code]);a[q.reliable?'ok':'check']++;return a;},{ok:0,check:0});
-  // 선택 ETF 의 평가액·매입금액·평가손익. cbRow 가 val/cost/gain 을 이미 채워 주므로 합산만 한다.
-  // 취득가 미상이 한 건이라도 섞이면 매입금액·손익을 '—' 로 둔다 — cbCostKRW 가 그때 0 을
-  // 돌려주므로 그대로 더하면 ₩0 과 가짜 손익이 찍힌다(홈 보유 목록과 같은 규칙).
   const fundRows=etfHeldRows().filter(r=>cbStrip(r.i.tkr)===_etfCode);
-  const fundValue=fundRows.reduce((sum,r)=>sum+r.val,0);
-  const costKnown=fundRows.length>0&&fundRows.every(r=>!r.i.costUnknown);
-  const fundCost=costKnown?fundRows.reduce((sum,r)=>sum+r.cost,0):null;
-  const fundGain=costKnown?fundRows.reduce((sum,r)=>sum+r.gain,0):null;
-  const fundGainPct=costKnown&&fundCost>0?fundGain/fundCost*100:null;
+  const {fundValue,fundCost,fundGain,fundGainPct,fundQty,fundAvgPrice,fundUnit}=etfFundStats(fundRows);
+  const fundPortfolioPct=etfPortfolioPct(fundValue,cbAllRows(),_etfOwner);
   root.innerHTML=`
     <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
-    <div class="etf-fund-value"><span>평가액</span><b>${cbDisp(fundValue)}</b><span>매입금액</span><b>${fundCost==null?'—':cbDisp(fundCost)}</b><span>평가손익</span><b style="${fundGain==null?'':cbUpDn(fundGain)}">${fundGain==null?'—':cbSignDisp(fundGain)+(fundGainPct==null?'':` <em>${(fundGainPct>=0?'+':'')+fundGainPct.toFixed(1)}%</em>`)}</b></div><div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(_cbEtfLoading?'자료 확인 중…':etfLiveMessage(_etfCode))}</span></div><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(etfWeightSum(q.rows)):'미확인'}</span></div></div>
+    <div class="etf-fund-value"><span>평가액</span><b>${cbDisp(fundValue)}</b><span>매입금액</span><b>${fundCost==null?'—':cbDisp(fundCost)}</b><span>평가손익</span><b style="${fundGain==null?'':cbUpDn(fundGain)}">${fundGain==null?'—':cbSignDisp(fundGain)+(fundGainPct==null?'':` <em>${(fundGainPct>=0?'+':'')+fundGainPct.toFixed(1)}%</em>`)}</b></div>
+    <div class="etf-fund-stats"><span>보유 수량</span><b>${fundQty.toLocaleString(undefined,{maximumFractionDigits:4})}${cbEsc(fundUnit)}</b><span>평균 매입단가</span><b>${fundAvgPrice==null?'—':cbDisp(fundAvgPrice)}</b><span>포트 비중</span><b>${fundPortfolioPct==null?'—':etfPct(fundPortfolioPct)}</b></div>
+    <div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(_cbEtfLoading?'자료 확인 중…':etfLiveMessage(_etfCode))}</span></div><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(etfWeightSum(q.rows)):'미확인'}</span></div></div>
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
     ${m.funds.length?'': '<p class="etf-notice">선택한 구성원에게 보유 ETF가 없습니다.</p>'}
     <div class="etf-layout"><section class="cb-panel etf-visual-card"><div class="etf-section-title"><b>구성 비중 분포</b><span>상위 12종목 · 막대를 눌러 상세 확인</span></div>
@@ -255,6 +260,31 @@ function cbRenderEtfExplorer(){
   if(focus){const el=document.getElementById(focus);el?.focus({preventScroll:true});if(typeof selection==='number'&&el?.type==='search')el.setSelectionRange(selection,selection);}
 }
 function etfWeightSum(rows){ return (rows||[]).reduce((sum,h)=>sum+(Number(h.w)||0),0); }
+// 선택 ETF 의 평가액·매입금액·평가손익·보유 수량·평균 매입단가. cbRow 가 val/cost/gain
+// 을 이미 채워 주므로 합산만 한다. 취득가 미상이 한 건이라도 섞이면 매입금액·손익·
+// 평균단가를 '—'(null) 로 둔다 — cbCostKRW 가 그때 0 을 돌려주므로 그대로 더하면
+// ₩0 과 가짜 손익이 찍힌다(홈 보유 목록과 같은 규칙). 평균 매입단가는 여러 계좌를
+// 하나로 합친 원화 환산 기준(Σ매입금액/Σ수량)이다 — 평가액·매입금액과 같은 단위다.
+function etfFundStats(fundRows){
+  fundRows=fundRows||[];
+  const fundValue=fundRows.reduce((sum,r)=>sum+r.val,0);
+  const costKnown=fundRows.length>0&&fundRows.every(r=>!r.i.costUnknown);
+  const fundCost=costKnown?fundRows.reduce((sum,r)=>sum+r.cost,0):null;
+  const fundGain=costKnown?fundRows.reduce((sum,r)=>sum+r.gain,0):null;
+  const fundGainPct=costKnown&&fundCost>0?fundGain/fundCost*100:null;
+  const fundQty=fundRows.reduce((sum,r)=>sum+(r.i.qty||0),0);
+  const fundAvgPrice=costKnown&&fundQty>0?fundCost/fundQty:null;
+  const fundUnit=fundRows[0]?.i.unit||'주';
+  return {fundValue,costKnown,fundCost,fundGain,fundGainPct,fundQty,fundAvgPrice,fundUnit};
+}
+// 이 ETF가 선택 소유주의 전체 투자 포트폴리오에서 차지하는 비중. 분모는
+// etfExposureHtml 각주와 같은 정의다 — 그 소유주의 주식·ETF·가상화폐·금·현금
+// 평가액 합계(부동산·부채 제외).
+function etfPortfolioPct(fundValue,rows,owner){
+  const total=(rows||[]).filter(r=>owner==='전체'||r.i.owner===owner)
+    .reduce((sum,r)=>sum+(Number.isFinite(r.val)&&r.val>0?r.val:0),0);
+  return total>0?fundValue/total*100:null;
+}
 function etfRankChart(rows){
   const top=rows.slice().sort((a,b)=>b.w-a.w).slice(0,12),max=Math.max(1,...top.map(h=>h.w)),axis=Math.ceil(max/5)*5;
   return `<div class="etf-rank-chart"><div class="etf-rank-axis"><span>ETF 순자산 대비 비중</span><span>0 — ${axis}%</span></div><div class="etf-rank-list">${top.map(h=>`<button class="etf-rank-row" data-etf-ticker="${cbEsc(cbStrip(h.t))}" onclick="etfSelect(this.dataset.etfTicker)" aria-pressed="${cbStrip(h.t)===_etfSelected}">${etfIdentityHtml(h)}<span class="etf-rank-track"><i style="width:${h.w/axis*100}%"></i></span><strong>${h.w.toFixed(2)}%</strong></button>`).join('')||'<p class="sim-empty">조회된 구성종목이 없습니다.</p>'}</div></div>`;
@@ -278,7 +308,10 @@ function etfRefreshResults(){
   const note=`${rows.length}종목${_etfDirectOnly?' · 직접 보유만':''} · ${m.quality.label} · ${changeNote}`;
   root.innerHTML=`<p class="etf-caption" role="status">${cbEsc(note)}</p><div class="etf-table"><div class="etf-table-head"><span>종목</span><span>비중</span><span>변화</span></div>${rows.slice(_etfPage*ETF_PAGE_SIZE,(_etfPage+1)*ETF_PAGE_SIZE).map(h=>{
     const d=deltas.get(cbStrip(h.t));
-    return `<button class="etf-table-row${cbStrip(h.t)===_etfSelected?' selected':''}" data-etf-ticker="${cbEsc(cbStrip(h.t))}" onclick="etfSelect(this.dataset.etfTicker)" aria-pressed="${cbStrip(h.t)===_etfSelected}"><span class="etf-table-identity">${etfIdentityHtml(h)}${d?`<small class="etf-change-kind">${cbEsc(d.kind)}</small>`:''}</span><span>${h.w.toFixed(2)}%</span>${d?`<strong class="${d.delta>0?'etf-increase':'etf-decrease'}">${d.delta>0?'+':''}${d.delta.toFixed(2)}p</strong>`:'<strong class="etf-flat">—</strong>'}</button>`;
+    // 편입·편출은 숫자만으로 구분되지 않으므로 라벨을 남긴다. 비중 증가/감소는
+    // 옆의 %p 값이 이미 말해 주므로 라벨을 찍지 않는다.
+    const kindLabel=d&&(d.kind==='편입'||d.kind==='편출')?`<small class="etf-change-kind">${cbEsc(d.kind)}</small>`:'';
+    return `<button class="etf-table-row${cbStrip(h.t)===_etfSelected?' selected':''}" data-etf-ticker="${cbEsc(cbStrip(h.t))}" onclick="etfSelect(this.dataset.etfTicker)" aria-pressed="${cbStrip(h.t)===_etfSelected}"><span class="etf-table-identity">${etfIdentityHtml(h)}${kindLabel}</span><span>${h.w.toFixed(2)}%</span>${d?`<strong class="${d.delta>0?'etf-increase':'etf-decrease'}">${d.delta>0?'+':''}${d.delta.toFixed(2)}p</strong>`:'<strong class="etf-flat">—</strong>'}</button>`;
   }).join('')||`<p class="sim-empty">${_etfDirectOnly?'직접 보유 중인 구성종목이 없습니다.':'표시할 종목이 없습니다.'}</p>`}</div><div class="etf-pager"><button class="cb-btn" onclick="etfPage(-1)"${_etfPage===0?' disabled':''}>이전</button><span>${_etfPage+1} / ${pages} · ${rows.length}종목</span><button class="cb-btn" onclick="etfPage(1)"${_etfPage>=pages-1?' disabled':''}>다음</button></div>`;
   document.querySelectorAll('.etf-rank-row').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.etfTicker===_etfSelected)));
   const network=document.getElementById('etf-network');if(!network)return;

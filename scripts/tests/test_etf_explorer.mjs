@@ -16,6 +16,19 @@ assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-09-03'}),now).stale,false)
 assert.equal(ctx.etfBusinessAge('2026-09-04',new Date('2026-09-07T03:00:00Z')),1);
 assert.equal(ctx.etfQuality(s([{t:'ESU6',n:'S&P500 EMINI FUT SEPT2026',w:8}]),now).rows.length,0);
 assert.equal(ctx.etfQuality(s([h('A',NaN)]),now).reliable,false);
+
+// 월 1회 공시 상품(disclosure:'monthly')은 5평일이 아니라 35평일 기준을 쓴다 —
+// 1629(NEXT FUNDS)가 월말 공시 2주 뒤에도 '지연'으로 찍히던 걸 고친 값이다.
+// snapshot_stale(scripts/collect_etf_holdings.py)이 이 숫자와 반드시 같아야 한다.
+const monthlyNow=new Date('2026-09-22T04:00:00Z');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-08-31',disclosure:'monthly'}),monthlyNow).stale,false,
+  '월간 공시 상품은 16평일 경과로는 지연이 아니다');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-08-31'}),monthlyNow).stale,true,
+  '같은 기준일도 disclosure가 없으면(일반 5평일 규칙) 지연이다');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-06-30',disclosure:'monthly'}),monthlyNow).stale,true,
+  '월간 공시 상품도 두 달 이상 갱신이 없으면 지연이다');
+// 최상위 const는 vm 컨텍스트 프로퍼티가 아니라 코드 문자열로 읽는다.
+assert.equal(vm.runInContext('ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS',ctx),35);
 const old=s([h('A',30),h('B',20)]),current=s([h('A',35),h('C',10)],{asOf:'2026-09-08'});
 let d=ctx.etfCompareSnapshots(current,old);
 assert.equal(d.complete,true);assert.equal(d.rows.find(x=>x.t==='B').kind,'편출');assert.equal(d.rows.find(x=>x.t==='C').kind,'편입');
@@ -32,12 +45,15 @@ ctx.cbDisp=value=>'₩'+value;
 assert.equal(ctx.etfIdentity({t:'005930.KS',n:'SAMSUNG (005930)'}).name,'삼성전자');
 assert.equal(ctx.etfIdentity({t:'005935',n:'SAMSUNG'}).name,'삼성전자우','Distinct Korean share classes keep their own company names');
 assert.equal(ctx.etfIdentity({t:'005930',n:'삼성전자'}).showTicker,false);
+// 해외 종목은 한글 병기가 필요 없다 — 티커를 주값(<b>)으로 쓰고 회사명은
+// title 속성에만 남긴다. <small> 보조 티커는 더 이상 렌더하지 않는다.
 for(const name of ['NVIDIA (NVDA)','NVIDIA · NVDA','NVIDIA NVDA']){
   const html=ctx.etfIdentityHtml({t:'NVDA',n:name}),$=load(html);
-  assert.equal($('.etf-company b').text(),'NVIDIA');
-  assert.equal($('.etf-company small').text(),'NVDA');
-  assert.equal(($.text().match(/NVDA/g)||[]).length,1,'Ticker is rendered once beside the company');
+  assert.equal($('.etf-company b').text(),'NVDA');
+  assert.equal($('.etf-company small').length,0,'해외 종목은 보조 <small> 티커를 렌더하지 않는다');
+  assert.equal($('.etf-company').attr('title'),'NVIDIA','회사명은 title 속성에만 남는다');
 }
+assert.equal(load(ctx.etfIdentityHtml({t:'005930',n:'SAMSUNG (005930)'}))('.etf-company b').text(),'삼성전자','국내 종목은 여전히 회사명을 주값으로 쓴다');
 assert.equal(load(ctx.etfIdentityHtml({t:'X',n:'<img src=x onerror=alert(1)>'}))('img').length,0);
 const bars=load(ctx.etfRankChart([h('A',5),h('B',20),h('C',10)]));
 assert.equal(bars('.etf-rank-row').first().attr('data-etf-ticker'),'B');
@@ -156,5 +172,32 @@ assert.match(explorerSource,/const direct=_etfDirectOnly\?cbDirectStockMap\(_etf
 assert.match(explorerSource,/function etfOverlapHtml\(m\)\{[\s\S]*cbDirectStockMap\(_etfOwner\)/,'겹침 카드도 같은 판정을 쓴다');
 assert.match(explorerSource,/const provisional=!m\.quality\.reliable/,'구성종목이 잠정이면 그 사실을 표시한다');
 assert.match(explorerSource,/겹치는 종목이 더 있을 수 있습니다/,'잠정 자료로 0 건을 단정하지 않는다');
+
+// 툴바의 보유 수량·평균 매입단가·포트 비중 (etfFundStats/etfPortfolioPct).
+const fundRow=(owner,tkr,val,cost,gain,qty,costUnknown=false,unit='주')=>
+  ({i:{owner,tkr,qty,unit,costUnknown},val,cost,gain});
+{
+  const stats=ctx.etfFundStats([fundRow('본인','BMNU',1000,800,200,10),fundRow('아내','BMNU',500,400,100,5)]);
+  assert.equal(stats.fundValue,1500);
+  assert.equal(stats.fundCost,1200,'여러 계좌의 매입금액을 합산한다');
+  assert.equal(stats.fundQty,15,'여러 계좌의 수량을 합산한다');
+  assert.equal(stats.fundAvgPrice,80,'평균 매입단가 = Σ매입금액/Σ수량 (1200/15)');
+  assert.equal(stats.fundGainPct,25,'평가손익률 = 300/1200*100');
+}
+{
+  // 취득가 미상이 한 건이라도 섞이면 매입금액·평균단가를 '—'(null)로 둔다 —
+  // 그대로 더하면 cbCostKRW 가 0을 돌려줘 가짜 평균단가가 찍힌다.
+  const stats=ctx.etfFundStats([fundRow('본인','BMNU',1000,800,200,10),fundRow('아내','BMNU',500,0,0,5,true)]);
+  assert.equal(stats.fundCost,null);
+  assert.equal(stats.fundAvgPrice,null);
+  assert.equal(stats.fundValue,1500,'평가액 자체는 취득가 미상과 무관하게 합산된다');
+}
+assert.equal(ctx.etfFundStats([]).fundAvgPrice,null,'보유가 없으면 0으로 나누지 않고 null');
+{
+  const rows=[fundRow('본인','BMNU',1000,800,200,10),fundRow('아내','QQQ',3000,0,0,1),fundRow('본인','KRW',6000,0,0,0)];
+  assert.equal(ctx.etfPortfolioPct(1000,rows,'전체'),10,'분모는 소유주 전체 포트폴리오 합계 (1000/10000*100)');
+  assert.equal(ctx.etfPortfolioPct(1000,rows,'본인'),1000/7000*100,'소유주를 고르면 그 사람 포트만 분모로 쓴다(1000/7000, KRW 예수금 6000 포함)');
+  assert.equal(ctx.etfPortfolioPct(1000,[],'전체'),null,'포트폴리오 합계가 0이면 0으로 나누지 않고 null');
+}
 
 console.log('PASS ETF freshness, company labels, owner portfolio denominators, direct/indirect exposure, incomplete-data safeguards and explorer layout contracts');

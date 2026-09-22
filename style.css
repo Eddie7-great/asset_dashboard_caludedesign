@@ -670,10 +670,12 @@
       height: 100%;
       min-width: 0;
     }
-    .cf-entry-panel{grid-column:1;padding:12px 14px;min-width:0}
+    .cf-entry-panel{grid-column:1;grid-row:1;padding:12px 14px;min-width:0}
     /* 좁아진 열에서 입력 줄은 가로 스크롤 대신 접힌다 — 스크롤은 필드가 있는지조차 안 보인다 */
     #cf-input-panel .cf-entry-form{flex-wrap:wrap!important;overflow-x:visible!important}
-    .cf-summary-panel{grid-column:2;min-width:0;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+    /* 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 카드
+       하단에 붙는다 — 총 수입/지출/순현금흐름이 거기서 중복 표시되던 것을 없애고,
+       차트 열이 예전 요약 패널의 행까지 통째로 차지해(grid-row:1/3) 세로 폭이 커진다. */
     .cf-summary-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--t2)}
     .cf-summary-row>b{font-family:'IBM Plex Mono','Manrope',monospace;font-size:.92rem;font-weight:800;color:var(--t1);white-space:nowrap}
     .cf-summary-row.is-net{padding-top:8px;border-top:1px dashed var(--border-dark)}
@@ -685,8 +687,9 @@
     .cf-summary-pending b{color:var(--warn)}
     .cf-summary-pending button{border:1px solid var(--border-dark);background:transparent;color:var(--t2);border-radius:7px;padding:4px 9px;font:650 .66rem 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
     .cf-summary-pending button:hover{border-color:var(--acc);color:var(--acc)}
-    .cf-detail-panel{min-width:0;min-height:0;overflow-y:auto}
-    .cf-chart-column{min-width:0;overflow-y:auto}
+    .cf-detail-panel{grid-column:1;grid-row:2;min-width:0;min-height:0;overflow-y:auto}
+    .cf-chart-column{grid-column:2;grid-row:1/3;min-width:0;overflow-y:auto}
+    .cf-chart-summary{margin-top:auto;padding-top:10px;border-top:1px dashed var(--border-dark);flex-shrink:0;display:flex;flex-direction:column;gap:6px}
     #cf-input-panel .cf-entry-form{max-width:none;display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:2px}
     #cf-input-panel .cf-entry-form .form-group{flex:0 0 auto;min-width:0;gap:4px}
     #cf-input-panel .cf-entry-form .form-input{width:100%;height:36px;box-sizing:border-box;padding:7px 8px;white-space:nowrap}
@@ -718,7 +721,18 @@
     .cf-fixed-form .form-input{width:100%;height:36px;box-sizing:border-box;padding:8px 9px}
     .cf-fixed-check{height:36px;align-items:center;gap:5px;margin-top:auto;color:var(--t2);font-size:.72rem;font-weight:650;white-space:nowrap}
     .cf-fixed-check input{accent-color:var(--acc)}
-    .cf-fixed-table-panel{flex:1;min-height:210px;padding:0;overflow:hidden}
+    /* 내역 표와 분포 시각화를 나란히 둔다 — 표 혼자 쓰던 행 높이를 컴팩트하게
+       반으로 줄이고, 그만큼 생긴 옆 여백에 카테고리별 분포를 그린다. */
+    .cf-fixed-bottom-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(200px,1fr);gap:10px;flex:1;min-height:105px;align-items:stretch}
+    .cf-fixed-table-panel{min-height:0;padding:0;overflow:hidden}
+    .cf-fixed-dist-panel{min-height:0;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+    .cf-fixed-dist-legend{display:flex;flex-direction:column;gap:7px}
+    .cf-fixed-dist-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:.74rem}
+    .cf-fixed-dist-item>i{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+    .cf-fixed-dist-item>span{color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cf-fixed-dist-item>b{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--t1)}
+    .cf-fixed-dist-item>small{color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .cf-fixed-dist-empty{font-size:.76rem;color:var(--t3);line-height:1.6}
     .cf-fixed-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px 10px;background:var(--panelSolid);border-radius:12px 12px 0 0;position:sticky;top:0;z-index:4}
     .cf-fixed-review-note{margin-top:4px;font-size:.65rem;color:var(--t3);word-break:keep-all}
     .cf-fixed-toolbar-actions{display:flex;align-items:center;gap:12px}
@@ -776,7 +790,7 @@
       /* 자식의 인라인 grid-row/column 배치 해제 — 1열 축소 시 암시적 컬럼(빈 슬리버) 생성 방지 */
 
       .cf-grid { grid-template-columns: 1fr; height: auto; }
-      .cf-entry-panel,.cf-summary-panel{grid-column:1}
+      .cf-entry-panel,.cf-detail-panel,.cf-chart-column{grid-column:1;grid-row:auto}
       .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .cf-fixed-form{grid-template-columns:repeat(4,minmax(0,1fr))}
       .cf-fixed-desc-field{grid-column:span 2}
@@ -1291,6 +1305,9 @@
          넘쳐 우측 '수입/지출 구성' 도넛 위에 페인트되던 문제 → flex 세로 스택으로 전환해
          각 컬럼을 콘텐츠 높이로 */
       #view-cashflow .cf-grid{display:flex!important;flex-direction:column!important;height:auto!important}
+      /* 고정비 탭 전환 시 인라인 display:none이 위 !important에 밀려 두 섹션이 겹쳐 보이던 문제 —
+         클래스는 셀렉터 특이성으로 이기므로 소스 순서와 무관하게 항상 적용된다 */
+      #view-cashflow .cf-grid.cf-section-hidden{display:none!important}
       #view-cashflow .cf-grid > .f-col{flex:0 0 auto!important;height:auto!important;overflow:visible!important}
       #view-cashflow .cf-grid .glass-panel{overflow-x:auto}
       /* 인라인 flex:2/flex:1(basis 0)이 min-content로 붕괴해 패널 내부 세로 스크롤을 만들던 문제 */
@@ -1304,7 +1321,10 @@
       .cf-fixed-summary-value{font-size:1rem}
       .cf-fixed-summary-note{font-size:.6rem}
       .cf-fixed-form-panel{display:none!important}
+      /* 모바일은 표와 분포를 나란히 두기엔 너무 좁다 — 한 줄에 하나씩 쌓는다 */
+      .cf-fixed-bottom-row{display:flex!important;flex-direction:column!important;flex:0 0 auto!important;min-height:0}
       .cf-fixed-table-panel{flex:0 0 auto!important;overflow:hidden!important}
+      .cf-fixed-dist-panel{flex:0 0 auto!important}
       .cf-fixed-table-toolbar{position:static;align-items:flex-start;flex-direction:column;gap:6px}
       .cf-fixed-toolbar-actions{width:100%;justify-content:space-between}
       .cf-fixed-table-wrap{max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}

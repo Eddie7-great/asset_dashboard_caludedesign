@@ -37,12 +37,13 @@ const context = {
   _cfOwner: '전체',
   _effectiveAutoTransferAmt: at => at.amt,
   autoTransferData: [],
+  _cfEsc: v => String(v == null ? '' : v),
   Intl,
 }
 vm.createContext(context)
 // 은행 영업일 판정은 _krHolidaySet(연도) 계산기 하나에만 의존한다.
 // 예전에는 테스트가 2026년 공휴일을 손으로 넣었지만, 그러면 실제 판정 로직을 건너뛴다.
-for (const line of ['_MARKET_HOLIDAY_CACHE', '_KR_ONE_OFF_HOLIDAYS']) {
+for (const line of ['_MARKET_HOLIDAY_CACHE', '_KR_ONE_OFF_HOLIDAYS', 'cfColors']) {
   vm.runInContext(extractConstLine(line), context)
 }
 for (const name of [
@@ -63,6 +64,8 @@ for (const name of [
   '_autoTransferOccursOn',
   '_nextFixedCostDate',
   '_fixedCostOwnerMatches',
+  '_fixedCostDistribution',
+  '_fixedCostDistributionHtml',
 ]) vm.runInContext(extractFunction(name), context)
 
 const monthly = { owner:'본인', amt:300_000, cycle:'monthly', dayOfMonth:25, startMonth:'2026-01', isFixedCost:true }
@@ -104,5 +107,30 @@ assert.doesNotMatch(source,/_KR_BANK_HOLIDAYS/, '연도별 공휴일 하드코�
 assert.match(source,/businessDayRule:'next'[\s\S]*scheduleMonth:ym/, '자동이체 실제 예정일과 약정 월 저장')
 assert.match(source,/at\.isFixedCost===true[\s\S]*at\.isFixedCost==null[\s\S]*at\.isFixedCost===false/,'합산·검토·제외 상태 분리')
 assert.match(css,/@media \(max-width: 768px\)[\s\S]*cf-fixed-summary-grid[\s\S]*cf-fixed-secondary/,'모바일 고정비 핵심 칼럼 구성')
+
+// 카테고리별 고정비 분포 — 새 계산 없이 표와 같은 _autoTransferMonthlyEquivalent 를 가중치로 쓴다.
+{
+  const rent={owner:'본인',cat:'주거/통신',amt:1_000_000,cycle:'monthly',dayOfMonth:25,startMonth:'2026-01',isFixedCost:true}
+  const food1={owner:'본인',cat:'식비',amt:300_000,cycle:'monthly',dayOfMonth:5,startMonth:'2026-01',isFixedCost:true}
+  const food2={owner:'아내',cat:'식비',amt:200_000,cycle:'monthly',dayOfMonth:5,startMonth:'2026-01',isFixedCost:true}
+  const dist=context._fixedCostDistribution([rent,food1,food2],2026,8)
+  // vm 컨텍스트(별도 realm) 배열이라 프로토타입이 달라 deepStrictEqual 이 실패한다 — 복제 후 비교.
+  assert.deepEqual(Array.from(dist).map(d=>d.cat),['주거/통신','식비'],'금액 내림차순 · 카테고리별로 묶는다(같은 카테고리 여러 건 합산)')
+  assert.equal(dist.find(d=>d.cat==='식비').amount,500_000,'같은 카테고리의 여러 자동이체를 합산')
+  assert.equal(Math.round(dist.find(d=>d.cat==='주거/통신').pct*10)/10,66.7,'비중은 합산액 대비 백분율')
+  assert.equal(context._fixedCostDistribution([],2026,8).length,0,'합산된 고정비가 없으면 빈 배열')
+
+  const distHtml=context._fixedCostDistributionHtml([rent,food1,food2],2026,8)
+  assert.match(distHtml,/class="sim-stack"/,'차트 라이브러리 없이 sim-stack 누적 막대 패턴을 재사용')
+  assert.match(distHtml,/class="cf-fixed-dist-legend"/,'범례 목록을 함께 렌더')
+  // 최상위 const는 vm 컨텍스트 프로퍼티가 아니라 코드 문자열로 읽는다.
+  const rentColor=vm.runInContext("cfColors['주거/통신']",context)
+  assert.match(distHtml,new RegExp('background:'+rentColor.replace('#','\\#')),'cfColors 와 같은 카테고리 색을 쓴다(현금흐름 차트와 동일)')
+  assert.match(context._fixedCostDistributionHtml([],2026,8),/합산된 고정비가 없어/,'빈 상태 안내')
+}
+
+assert.match(html,/cf-fixed-bottom-row[\s\S]*cf-fixed-table-panel[\s\S]*cf-fixed-dist-panel[\s\S]*id="cf-fixed-dist"/,'내역 표와 분포 시각화를 한 행에 나란히 둔다')
+assert.match(css,/\.cf-fixed-bottom-row\{display:grid;grid-template-columns:minmax\(0,1\.4fr\) minmax\(200px,1fr\)/,'표는 컴팩트하게, 분포는 옆 여백에 — 표 단독 사용 대비 폭을 나눈다')
+assert.match(source,/const distEl=document\.getElementById\('cf-fixed-dist'\);if\(distEl\)distEl\.innerHTML=_fixedCostDistributionHtml\(included,y,m\)/,'renderFixedCostView 가 표와 같은 included 목록으로 분포를 그린다')
 
 console.log('PASS 현금 흐름 고정비 관리')

@@ -18,10 +18,19 @@ import datetime
 import json
 import os
 import re
+import tempfile
+import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
 
-from etf_common import is_equity_row, merge_holdings, norm_holding_code
+from etf_common import UA, is_equity_row, merge_holdings, norm_holding_code
+
+# 운용사 다운로드 응답 대기 상한. 국내 사이트가 막혀도 전체 배치가 오래 붙들리지
+# 않도록 EXTERNAL_SOURCE_TIMEOUT(12s, collect_etf_holdings.py)과 같은 자리수로 둔다.
+DOWNLOAD_TIMEOUT = 12
+# 커밋된 파일과 같은 형식이어야 파서가 읽으므로 저장 확장자를 맞춘다.
+_FORMAT_SUFFIX = {'nextfunds_xlsx': '.xlsx', 'spdr_xlsx': '.xlsx', 'tema_pdf': '.pdf'}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE_DIR = os.path.join(ROOT, 'data', 'etf_sources')
@@ -358,39 +367,91 @@ def load_index(path=INDEX_PATH):
         return {}
 
 
+def _download_source(url, timeout=DOWNLOAD_TIMEOUT):
+    """URL → 바이트. 실패하면 조용히 None(호출부가 커밋된 파일로 폴백)."""
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.read()
+    except (urllib.error.URLError, ValueError, OSError):
+        return None
+
+
+def _parse_and_validate(parser, path, expect, code):
+    """파일 하나를 파싱하고 검증한다. 실패하면 예외를 던진다(호출부가 잡는다)."""
+    rows, as_of, complete = parser(path, expect.get('id') or code)
+    # 반올림 후 0.0000% 인 행은 버린다 — SPDR 표의 'CONTRA …'(합병 대기 자리표시자)처럼
+    # 티커는 있지만 경제적 노출이 없는 행이 구성종목 목록에 섞이는 것을 막는다.
+    holdings = [h for h in merge_holdings(rows) if h['w'] > 0]
+    min_rows = int(expect.get('minRows') or 1)
+    if len(holdings) < min_rows:
+        raise ValueError('행 수 부족: %d < %d' % (len(holdings), min_rows))
+    if not as_of:
+        raise ValueError('기준일 없음')
+    datetime.date.fromisoformat(as_of)
+    return holdings, as_of, complete
+
+
 def fetch_local_source(code, verbose=True):
     """→ (holdings, asOf, complete, label). 등록·검증 실패는 조용히 ([], None, False, None).
 
     검증에 하나라도 걸리면 기존 수집 체인으로 폴백한다 — 지금보다 나빠지지 않는다.
+
+    `url` 이 등록돼 있으면 매 수집 때 운용사 사이트에서 새 파일을 내려받아 먼저 써 본다
+    (SPYM·DRAM 처럼 일일 공시라 고정 파일이 며칠 만에 낡는 상품용). 다운로드·파싱·검증
+    중 하나라도 실패하면 조용히 리포에 커밋된 파일로 내려간다 — url 이 없거나 깨져도
+    지금보다 나빠지지 않는다. 검증 기준(식별자·기준일·헤더·비중 합계·행 수)은 다운로드본과
+    커밋된 파일에 동일하게 적용한다.
     """
     spec = load_index().get(str(code).upper()) or load_index().get(str(code))
     if not spec:
         return [], None, False, None
     parser = PARSERS.get(spec.get('format'))
-    path = os.path.join(SOURCE_DIR, spec.get('file') or '')
-    if not parser or not os.path.isfile(path):
+    if not parser:
         return [], None, False, None
     expect = spec.get('expect') or {}
+    label = spec.get('label') or 'file'
+
+    url = spec.get('url')
+    if url:
+        raw = _download_source(url)
+        if raw:
+            suffix = _FORMAT_SUFFIX.get(spec.get('format'), '')
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                    tmp.write(raw)
+                    tmp_path = tmp.name
+                holdings, as_of, complete = _parse_and_validate(parser, tmp_path, expect, code)
+                if verbose:
+                    print('[file] %s: %s %d종목 (기준일 %s, 주식비중 %.2f%%, %s, 다운로드)'
+                          % (code, label, len(holdings), as_of,
+                             sum(h['w'] for h in holdings), '전체' if complete else '부분'))
+                return holdings, as_of, complete, label
+            except Exception as e:
+                if verbose:
+                    print('[file] %s: 다운로드본 사용 불가 → 커밋된 파일로 폴백 (%s)' % (code, e))
+            finally:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+
+    path = os.path.join(SOURCE_DIR, spec.get('file') or '')
+    if not os.path.isfile(path):
+        return [], None, False, None
     try:
-        rows, as_of, complete = parser(path, expect.get('id') or code)
-        # 반올림 후 0.0000% 인 행은 버린다 — SPDR 표의 'CONTRA …'(합병 대기 자리표시자)처럼
-        # 티커는 있지만 경제적 노출이 없는 행이 구성종목 목록에 섞이는 것을 막는다.
-        holdings = [h for h in merge_holdings(rows) if h['w'] > 0]
-        min_rows = int(expect.get('minRows') or 1)
-        if len(holdings) < min_rows:
-            raise ValueError('행 수 부족: %d < %d' % (len(holdings), min_rows))
-        if not as_of:
-            raise ValueError('기준일 없음')
-        datetime.date.fromisoformat(as_of)
+        holdings, as_of, complete = _parse_and_validate(parser, path, expect, code)
     except Exception as e:
         if verbose:
             print('[file] %s: 공식 보유명세 파일 사용 불가 → 기존 체인으로 폴백 (%s)' % (code, e))
         return [], None, False, None
     if verbose:
         print('[file] %s: %s %d종목 (기준일 %s, 주식비중 %.2f%%, %s)'
-              % (code, spec.get('label') or 'file', len(holdings), as_of,
+              % (code, label, len(holdings), as_of,
                  sum(h['w'] for h in holdings), '전체' if complete else '부분'))
-    return holdings, as_of, complete, spec.get('label')
+    return holdings, as_of, complete, label
 
 
 if __name__ == '__main__':
