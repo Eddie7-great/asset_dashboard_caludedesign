@@ -1539,6 +1539,34 @@ function _fixedCostIncomeForMonth(y,m) {
   return income;
 }
 
+// 합산된(included) 고정비를 카테고리로 접어 비중을 낸다. 이미 표에서 도는
+// _autoTransferMonthlyEquivalent 를 그대로 가중치로 쓴다 — 새 계산 없음.
+function _fixedCostDistribution(included, y, m) {
+  const byCat = new Map();
+  included.forEach(at => {
+    const cat = at.cat || '기타';
+    const amt = _autoTransferMonthlyEquivalent(at, y, m);
+    byCat.set(cat, (byCat.get(cat) || 0) + amt);
+  });
+  const total = [...byCat.values()].reduce((s, v) => s + v, 0);
+  return [...byCat.entries()]
+    .map(([cat, amount]) => ({ cat, amount, pct: total > 0 ? amount / total * 100 : 0 }))
+    .sort((a, b) => b.amount - a.amount);
+}
+// 색은 cfColors(월별 현금흐름 차트와 같은 정의) 를 그대로 쓴다 — 카테고리별 색이
+// 화면마다 달라지지 않는다. 차트 라이브러리 없이 .sim-stack(100% 누적 막대) 패턴을
+// 재사용한다.
+function _fixedCostDistributionHtml(included, y, m) {
+  const dist = _fixedCostDistribution(included, y, m);
+  if (!dist.length) return '<p class="cf-fixed-dist-empty">합산된 고정비가 없어 분포를 표시할 수 없습니다.</p>';
+  const bar = `<div class="sim-stack" role="img" aria-label="카테고리별 고정비 비중">${dist.map(d =>
+    `<span style="width:${d.pct.toFixed(2)}%;background:${cfColors[d.cat] || '#94a3c8'}" title="${_cfEsc(d.cat)} ${d.pct.toFixed(1)}%"></span>`
+  ).join('')}</div>`;
+  const legend = `<div class="cf-fixed-dist-legend">${dist.map(d =>
+    `<div class="cf-fixed-dist-item"><i style="background:${cfColors[d.cat] || '#94a3c8'}"></i><span>${_cfEsc(d.cat)}</span><b>₩${Math.round(d.amount).toLocaleString()}</b><small>${d.pct.toFixed(1)}%</small></div>`
+  ).join('')}</div>`;
+  return bar + legend;
+}
 function renderFixedCostView() {
   const body=document.getElementById('cf-fixed-table-body');
   if(!body) return;
@@ -1564,6 +1592,7 @@ function renderFixedCostView() {
   const review=document.getElementById('cf-fixed-review-note');if(review)review.textContent=pending.length?`기존 자동이체 ${pending.length}건은 소유주와 고정비 여부를 확인해야 합계에 반영됩니다.`:'분류가 완료된 고정비만 합산합니다.';
   const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
   const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
+  const distEl=document.getElementById('cf-fixed-dist');if(distEl)distEl.innerHTML=_fixedCostDistributionHtml(included,y,m);
 
   const rows=visible.slice().sort((a,b)=>{
     const ap=a.isFixedCost===true?0:(a.isFixedCost==null?1:2),bp=b.isFixedCost===true?0:(b.isFixedCost==null?1:2);

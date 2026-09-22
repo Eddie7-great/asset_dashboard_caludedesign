@@ -265,17 +265,23 @@
           </div>
         </div>
 
-        <div class="glass-panel cf-fixed-table-panel">
-          <div class="cf-fixed-table-toolbar">
-            <div><div class="cb-label">고정비 내역</div><div id="cf-fixed-review-note" class="cf-fixed-review-note"></div></div>
-            <div class="cf-fixed-toolbar-actions"><div class="cf-fixed-legend"><span><i class="cf-fixed-dot is-included"></i>합산</span><span><i class="cf-fixed-dot is-pending"></i>분류 필요</span></div><button id="cf-fixed-excluded-toggle" class="cf-fixed-toggle-btn" type="button" onclick="toggleExcludedFixedCosts()" style="display:none"></button></div>
+        <div class="cf-fixed-bottom-row">
+          <div class="glass-panel cf-fixed-table-panel">
+            <div class="cf-fixed-table-toolbar">
+              <div><div class="cb-label">고정비 내역</div><div id="cf-fixed-review-note" class="cf-fixed-review-note"></div></div>
+              <div class="cf-fixed-toolbar-actions"><div class="cf-fixed-legend"><span><i class="cf-fixed-dot is-included"></i>합산</span><span><i class="cf-fixed-dot is-pending"></i>분류 필요</span></div><button id="cf-fixed-excluded-toggle" class="cf-fixed-toggle-btn" type="button" onclick="toggleExcludedFixedCosts()" style="display:none"></button></div>
+            </div>
+            <div class="cf-fixed-table-wrap">
+              <table id="cf-fixed-table" class="pt-table">
+                <colgroup><col style="width:90px"><col style="width:105px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:112px"></colgroup>
+                <thead><tr><th class="text-left">소유주</th><th class="text-left cf-fixed-secondary">카테고리</th><th class="text-left">항목</th><th class="text-left">결제 주기</th><th class="text-right">월 환산액</th><th class="text-right cf-fixed-secondary">연간 금액</th><th>관리</th></tr></thead>
+                <tbody id="cf-fixed-table-body"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="cf-fixed-table-wrap">
-            <table id="cf-fixed-table" class="pt-table">
-              <colgroup><col style="width:90px"><col style="width:105px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:112px"></colgroup>
-              <thead><tr><th class="text-left">소유주</th><th class="text-left cf-fixed-secondary">카테고리</th><th class="text-left">항목</th><th class="text-left">결제 주기</th><th class="text-right">월 환산액</th><th class="text-right cf-fixed-secondary">연간 금액</th><th>관리</th></tr></thead>
-              <tbody id="cf-fixed-table-body"></tbody>
-            </table>
+          <div class="glass-panel cf-fixed-dist-panel">
+            <div class="cb-label">카테고리별 고정비 분포</div>
+            <div id="cf-fixed-dist"></div>
           </div>
         </div>
       </div>
