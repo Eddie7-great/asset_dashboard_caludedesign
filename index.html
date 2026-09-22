@@ -200,7 +200,6 @@
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>
         </div>
-        <div id="cf-month-summary" class="glass-panel cf-summary-panel" aria-live="polite"></div>
         <div class="glass-panel cf-detail-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">
               <span>상세 내역 리스트 (전체)</span>
@@ -233,11 +232,7 @@
               </div>
             </div>
             <div class="chart-container" style="flex:1"><canvas id="cfDonutChart" role="img" aria-label="현금 흐름 수입과 지출 구성 차트">현금 흐름 수입과 지출 구성 차트입니다.</canvas></div>
-            <div style="margin-top:auto;padding-top:10px;border-top:1px dashed var(--border-dark);flex-shrink:0">
-              <div class="gain-row f-between" style="font-size:0.8rem"><span>총 수입</span><span class="c-up" id="cf-tot-in">₩0</span></div>
-              <div class="gain-row f-between" style="font-size:0.8rem"><span>총 지출</span><span class="c-dn" id="cf-tot-out">-₩0</span></div>
-              <div class="gain-row f-between" style="font-weight:bold;margin-top:4px;font-size:0.95rem"><span>순현금흐름</span><span id="cf-tot-net">₩0</span></div>
-            </div>
+            <div id="cf-month-summary" class="cf-chart-summary" aria-live="polite"></div>
           </div>
           <div class="glass-panel f-col" style="flex:1;min-height:0">
             <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:.68rem;color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>

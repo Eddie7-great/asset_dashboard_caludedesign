@@ -4228,9 +4228,6 @@ function renderCashFlow() {
   });
   const emptyColspan = '8';
   document.getElementById('cf-table-body').innerHTML=html||`<tr><td colspan="${emptyColspan}" style="text-align:center;padding:20px">내역이 없습니다.</td></tr>`;
-  document.getElementById('cf-tot-in').innerText=`₩${tIn.toLocaleString()}`;document.getElementById('cf-tot-out').innerText=`-₩${tOut.toLocaleString()}`;
-  const net=tIn-tOut,nEl=document.getElementById('cf-tot-net');
-  nEl.innerText=net===0?'₩0':(net<0?'-₩':'+₩')+Math.abs(net).toLocaleString();nEl.className=net>0?'c-up':(net<0?'c-dn':'');
   const titleEl=document.getElementById('cf-widget-title-text');if(titleEl)titleEl.textContent=`수입/지출 구성 (${cfMonth}월)`;
   if(window.cfDonutChartInst){
     const incLabels=Object.keys(incomeByCat);const expLabels=Object.keys(expByCat);

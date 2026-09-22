@@ -670,10 +670,12 @@
       height: 100%;
       min-width: 0;
     }
-    .cf-entry-panel{grid-column:1;padding:12px 14px;min-width:0}
+    .cf-entry-panel{grid-column:1;grid-row:1;padding:12px 14px;min-width:0}
     /* 좁아진 열에서 입력 줄은 가로 스크롤 대신 접힌다 — 스크롤은 필드가 있는지조차 안 보인다 */
     #cf-input-panel .cf-entry-form{flex-wrap:wrap!important;overflow-x:visible!important}
-    .cf-summary-panel{grid-column:2;min-width:0;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+    /* 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 카드
+       하단에 붙는다 — 총 수입/지출/순현금흐름이 거기서 중복 표시되던 것을 없애고,
+       차트 열이 예전 요약 패널의 행까지 통째로 차지해(grid-row:1/3) 세로 폭이 커진다. */
     .cf-summary-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--t2)}
     .cf-summary-row>b{font-family:'IBM Plex Mono','Manrope',monospace;font-size:.92rem;font-weight:800;color:var(--t1);white-space:nowrap}
     .cf-summary-row.is-net{padding-top:8px;border-top:1px dashed var(--border-dark)}
@@ -685,8 +687,9 @@
     .cf-summary-pending b{color:var(--warn)}
     .cf-summary-pending button{border:1px solid var(--border-dark);background:transparent;color:var(--t2);border-radius:7px;padding:4px 9px;font:650 .66rem 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
     .cf-summary-pending button:hover{border-color:var(--acc);color:var(--acc)}
-    .cf-detail-panel{min-width:0;min-height:0;overflow-y:auto}
-    .cf-chart-column{min-width:0;overflow-y:auto}
+    .cf-detail-panel{grid-column:1;grid-row:2;min-width:0;min-height:0;overflow-y:auto}
+    .cf-chart-column{grid-column:2;grid-row:1/3;min-width:0;overflow-y:auto}
+    .cf-chart-summary{margin-top:auto;padding-top:10px;border-top:1px dashed var(--border-dark);flex-shrink:0;display:flex;flex-direction:column;gap:6px}
     #cf-input-panel .cf-entry-form{max-width:none;display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:2px}
     #cf-input-panel .cf-entry-form .form-group{flex:0 0 auto;min-width:0;gap:4px}
     #cf-input-panel .cf-entry-form .form-input{width:100%;height:36px;box-sizing:border-box;padding:7px 8px;white-space:nowrap}
@@ -776,7 +779,7 @@
       /* 자식의 인라인 grid-row/column 배치 해제 — 1열 축소 시 암시적 컬럼(빈 슬리버) 생성 방지 */
 
       .cf-grid { grid-template-columns: 1fr; height: auto; }
-      .cf-entry-panel,.cf-summary-panel{grid-column:1}
+      .cf-entry-panel,.cf-detail-panel,.cf-chart-column{grid-column:1;grid-row:auto}
       .cf-fixed-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .cf-fixed-form{grid-template-columns:repeat(4,minmax(0,1fr))}
       .cf-fixed-desc-field{grid-column:span 2}

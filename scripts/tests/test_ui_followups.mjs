@@ -261,8 +261,12 @@ assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 �
 assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
 assert.match(scriptSource, /ownerLabelWeights[\s\S]*ownerWeight>=20\?15:\(ownerWeight>=10\?13:11\)[\s\S]*showOwnerDot=ownerWeight>=10/, '비중 차트의 작은 소유주 조각은 라벨과 점을 줄여 잘림 방지')
 assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax\(300px,320px\) minmax\(0,1fr\)/, '리스크 점수 카드를 넓히고 우측 진단 카드에 남은 폭 배분')
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-month-summary" class="glass-panel cf-summary-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"/, '입력부 옆에 선택 달 요약을 두고 내역과 차트를 하단 2열로 분리')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;[\s\S]*\.cf-summary-panel\{grid-column:2/, '입력부는 좌측 열만 쓰고 우측 첫 행은 요약 카드가 채운다')
+// 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 열의 첫
+// 카드(수입/지출 구성) 하단에 붙는다 — 총수입/지출/순현금흐름이 두 위젯에 중복
+// 표시되던 것을 없앴고, 차트 열이 그 행까지 통째로 차지해 세로 폭이 커진다.
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cfDonutChart"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
+assert.doesNotMatch(indexSource, /id="cf-tot-in"|id="cf-tot-out"|id="cf-tot-net"/, '차트 카드의 총수입·총지출·순현금흐름 중복 표시를 없앤다 — cfMonthSummaryHtml 이 유일한 출처')
+assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:2[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/3/, '차트 열이 입력부+요약 두 행 높이를 모두 차지해 세로로 커진다')
 assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
 // 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
 // (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
