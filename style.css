@@ -1305,6 +1305,9 @@
          넘쳐 우측 '수입/지출 구성' 도넛 위에 페인트되던 문제 → flex 세로 스택으로 전환해
          각 컬럼을 콘텐츠 높이로 */
       #view-cashflow .cf-grid{display:flex!important;flex-direction:column!important;height:auto!important}
+      /* 고정비 탭 전환 시 인라인 display:none이 위 !important에 밀려 두 섹션이 겹쳐 보이던 문제 —
+         클래스는 셀렉터 특이성으로 이기므로 소스 순서와 무관하게 항상 적용된다 */
+      #view-cashflow .cf-grid.cf-section-hidden{display:none!important}
       #view-cashflow .cf-grid > .f-col{flex:0 0 auto!important;height:auto!important;overflow:visible!important}
       #view-cashflow .cf-grid .glass-panel{overflow-x:auto}
       /* 인라인 flex:2/flex:1(basis 0)이 min-content로 붕괴해 패널 내부 세로 스크롤을 만들던 문제 */

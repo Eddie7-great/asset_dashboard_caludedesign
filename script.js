@@ -1446,7 +1446,7 @@ function switchCashFlowSection(section, btn) {
   _cfSection = section === 'fixed' ? 'fixed' : 'monthly';
   const monthly = document.getElementById('cf-monthly-section');
   const fixed = document.getElementById('cf-fixed-section');
-  if (monthly) monthly.style.display = _cfSection === 'monthly' ? '' : 'none';
+  if (monthly) { monthly.style.display = _cfSection === 'monthly' ? '' : 'none'; monthly.classList.toggle('cf-section-hidden', _cfSection !== 'monthly'); }
   if (fixed) fixed.style.display = _cfSection === 'fixed' ? 'flex' : 'none';
   document.querySelectorAll('.cf-section-tab').forEach(tab => {
     const active = tab === btn || tab.id === `cf-section-tab-${_cfSection}`;
