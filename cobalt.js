@@ -998,8 +998,11 @@ function cbRenderDash(){
     .sort((a,b)=>Math.abs(b.gain)-Math.abs(a.gain))
     .slice(0,6);
   const contributionMax = Math.max(1,...contributionRows.map(r=>Math.abs(r.gain)));
-  const contributionGain = mergedRows.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
-  const contributionLoss = mergedRows.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
+  // 합계도 목록과 같은 stale 제외를 적용한다 — 안 그러면 목록엔 없는 시세 미조회
+  // 종목의 손익이 상단 '이익/손실 기여' 배지에는 섞여 두 숫자가 서로 다른 기준이 된다.
+  const contributionEligible = mergedRows.filter(r=>r.i.grp!=='현금' && !cbRowPriceStale(r));
+  const contributionGain = contributionEligible.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
+  const contributionLoss = contributionEligible.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
   const moverCard = (title, list, tone, empty) => `
     <div class="cb-panel cb-mover-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px;margin-bottom:5px">
