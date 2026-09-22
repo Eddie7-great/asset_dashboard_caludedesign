@@ -135,7 +135,7 @@
 .fin-rebal-table>div{min-width:0}.cb-dash-sector-card{word-break:keep-all}
 .fin-rebal-table>div{grid-template-columns:minmax(76px,1fr) 52px 52px 60px minmax(90px,1fr) minmax(90px,1fr)!important;gap:6px!important;font-size:11px;padding:8px 2px!important}.fin-rebal-table>div>span:not(:first-child){text-align:right}
 .fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:12px}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
-.fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.fin-goal-context>.cb-panel{padding:12px}.fin-goal-context b{display:block;margin-top:6px;font-size:19px}.fin-goal-context small{color:var(--lab)}
+.fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;align-items:stretch}.fin-goal-context>.cb-panel{padding:12px;display:flex;flex-direction:column}.fin-goal-context b{display:block;margin-top:6px;font-size:19px}.fin-goal-context small{color:var(--lab)}
 #fin-goal-form .fin-form-grid{display:flex;gap:9px;flex-wrap:wrap;align-items:end}#fin-goal-form .fin-form-grid>label{flex:1 1 145px}#fin-goal-form .fin-form-actions{flex:0 0 auto;margin:0;align-self:end}#fin-goal-form button{white-space:nowrap}
 .fin-goal-gap{font-size:12px;color:var(--lab);grid-column:1/-1;margin:0}
 .form-row:has(#btn-cf-submit){gap:7px}.form-row:has(#btn-cf-submit)>.form-group{min-width:0!important}#btn-cf-submit{flex:0 0 auto;min-width:58px;white-space:nowrap;width:auto!important}
@@ -213,3 +213,19 @@
 @media(max-width:900px){.split-notice-row{grid-template-columns:minmax(0,1fr) auto}.split-notice-calc{grid-column:1/-1}.split-notice-act{grid-column:1/-1;justify-content:flex-start}}
 @media(max-width:768px){.split-notice{margin:10px 12px 0;padding:10px 12px}}
 .cb-mover-stale{margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);font-size:10.5px;color:var(--lab);line-height:1.45}
+
+/* 목표 연결 자산군 도넛. cbDonutSvg 를 그대로 쓰고 중앙에 합계만 오버레이한다. */
+.fin-goal-alloc-card{padding:12px}
+.fin-goal-alloc-body{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:4px}
+.fin-goal-alloc-donut{position:relative;flex-shrink:0;width:116px;height:116px}
+.fin-goal-alloc-donut svg{display:block}
+.fin-goal-alloc-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;pointer-events:none}
+.fin-goal-alloc-center>b{font:800 15px Manrope,sans-serif;letter-spacing:-.02em;color:var(--tx)}
+.fin-goal-alloc-center>span{font-size:9.5px;color:var(--lab)}
+.fin-goal-alloc-legend{display:flex;flex-direction:column;gap:7px;flex:1;min-width:160px}
+.fin-goal-alloc-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:12px}
+.fin-goal-alloc-item>i{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.fin-goal-alloc-item>span{color:var(--lab);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fin-goal-alloc-item>b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-goal-alloc-item>small{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:768px){.fin-goal-alloc-body{gap:14px}.fin-goal-alloc-donut{width:96px;height:96px}}

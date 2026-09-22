@@ -526,6 +526,42 @@ function finGoalPace(goal,current,now=new Date()){
   const months=Math.max(1,Math.ceil(days/30.4375));
   return `남은 금액 ${cbDisp(gap)} · ${months}개월간 월 ${cbDisp(gap/months)} 필요 (수익률 0% 가정)`;
 }
+// 목표에 연결된 자산군 버킷. linkClass 가 CB_CLS 키(crypto/us/kr/jp/gold/cash)면
+// 그 자산군으로, net/investment/manual 은 각각 순자산·투자자산·직접 입력 버킷으로
+// 묶는다 — finGoalCurrent 가 이미 그 규칙으로 금액을 계산해 주므로 그대로 합산만
+// 한다. 목표는 가구 공통이라(소유주 필드가 없다) 오너 필터를 받지 않는다.
+const FIN_GOAL_BUCKET_META = {
+  net:{label:'전체 순자산',color:'#94a3c8'},
+  investment:{label:'가족 투자자산',color:'#7aa2ff'},
+  manual:{label:'직접 입력',color:'#b48ead'},
+};
+function finGoalAllocation(){
+  const buckets=new Map();
+  (goalData||[]).forEach(g=>{
+    const link=g.linkClass||'investment';
+    const meta=FIN_GOAL_BUCKET_META[link]||CB_CLS[link];
+    if(!meta)return;
+    const cur=Math.max(0,Number(finGoalCurrent(g))||0);
+    if(cur<=0)return;
+    const b=buckets.get(link)||{key:link,label:meta.label,color:meta.color,value:0,goalCount:0};
+    b.value+=cur;b.goalCount++;
+    buckets.set(link,b);
+  });
+  return [...buckets.values()].sort((a,b)=>b.value-a.value);
+}
+// clickFn 을 넘기지 않는다 — onclick 이 붙으면 test_layout_guards.mjs 가
+// role="button" tabindex="0" 을 요구한다. 이 도넛은 정보 표시용이라 상호작용이 없다.
+function finGoalAllocationCard(){
+  const buckets=finGoalAllocation();
+  if(!buckets.length)return '';
+  const total=buckets.reduce((s,b)=>s+b.value,0);
+  const segs=buckets.map(b=>({pct:total>0?b.value/total*100:0,color:b.color}));
+  return `<div class="cb-panel fin-goal-alloc-card"><div class="fin-section-head standalone"><span>목표 연결 자산군</span><small>목표에 연결된 자산 ${buckets.reduce((s,b)=>s+b.goalCount,0)}건 · 합계 ${cbDisp(total)}</small></div>
+    <div class="fin-goal-alloc-body">
+      <div class="fin-goal-alloc-donut">${cbDonutSvg(segs,116)}<div class="fin-goal-alloc-center"><b>${cbDisp(total)}</b><span>연결 자산 합계</span></div></div>
+      <div class="fin-goal-alloc-legend">${buckets.map(b=>`<div class="fin-goal-alloc-item"><i style="background:${b.color}"></i><span>${cbEsc(b.label)}</span><b>${cbDisp(b.value)}</b><small>${total>0?(b.value/total*100).toFixed(1):'0.0'}%</small></div>`).join('')}</div>
+    </div></div>`;
+}
 function finGoalContext(ownerF){
   const a=finTargetAnalysis(ownerF),cash=finCashSafety(ownerF);
   // 모바일은 재무 입력이 읽기 전용이라 저장 버튼 대신 현재 목표만 보여준다.
@@ -536,7 +572,11 @@ function finGoalContext(ownerF){
       + `<input id="fin-cash-target" type="number" min="1" max="36" step="1" value="${cash.targetMonths}" aria-label="현금 안전판 목표 개월수">`
       + `<button onclick="finSaveCashTarget()">저장</button>`
       + `${cash.shortage>0?`<small>목표까지 ${cbDisp(cash.shortage)} 부족</small>`:''}</div>`;
-  return `<div class="fin-goal-context"><div class="cb-panel"><small>목표에 연결할 투자자산 · ${cbEsc(ownerF||'가구 전체')}</small><b>${cbDisp(a.total)}</b></div><div class="cb-panel"><small>현재 월 적립식 매수액</small><b>${cbDisp(a.monthlyDca)}</b></div><div class="cb-panel"><small>현금 안전판 · 월 필수지출 기준</small><b>${cash.runway==null?'고정비 등록 필요':cash.runway.toFixed(1)+'개월'}</b>${ctl}</div></div>`;
+  // ctl(목표 개월 입력·저장·부족액)을 <b> 앞으로 둔다 — 뒤에 두면 style.css 의
+  // margin-top/border-top 이 행 높이를 키워, 옆 두 패널엔 없는 '3번째 층'이
+  // 카드 맨 아래에 덩그러니 떠 보인다. 패널을 flex-column 으로 두어 순서 그대로
+  // 위에서부터 쌓이게 한다.
+  return `<div class="fin-goal-context"><div class="cb-panel"><small>목표에 연결할 투자자산 · ${cbEsc(ownerF||'가구 전체')}</small><b>${cbDisp(a.total)}</b></div><div class="cb-panel"><small>현재 월 적립식 매수액</small><b>${cbDisp(a.monthlyDca)}</b></div><div class="cb-panel"><small>현금 안전판 · 월 필수지출 기준</small>${ctl}<b>${cash.runway==null?'고정비 등록 필요':cash.runway.toFixed(1)+'개월'}</b></div></div>`;
 }
 function cbRenderPlan(){
   finEnsureState();const rebalance=document.getElementById('view-rebal2')?.classList.contains('active');
@@ -553,7 +593,7 @@ function cbRenderPlan(){
   const goalCards=(goalData||[]).map(g=>{const cur=finGoalCurrent(g),pct=Math.max(0,Math.min(100,g.targetAmount?cur/g.targetAmount*100:0)),days=g.targetDate?Math.ceil((new Date(g.targetDate)-Date.now())/86400000):null,safeId=cbEsc(String(g.id||''));return`<div class="cb-panel fin-goal-card"><div><small>${cbEsc(g.targetDate||'목표일 미정')}${days!=null?` · ${days>=0?'D-'+days:'기한 경과'}`:''}</small><strong>${cbEsc(g.name)}</strong><span>${cbDisp(cur)} / ${cbDisp(g.targetAmount)}</span></div><b>${pct.toFixed(1)}%</b><div class="fin-meter"><i style="width:${pct}%"></i></div><p class="fin-goal-gap">${finGoalPace(g,cur)}</p><div class="fin-row-actions"><button data-id="${safeId}" onclick="finGoalEdit(this.dataset.id)">수정</button><button data-id="${safeId}" onclick="finGoalDelete(this.dataset.id)">삭제</button></div></div>`;}).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
   el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>`<div class="${Math.abs(x.drift)>=ta.threshold?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span class="${x.drift>=0?'up':'down'}">${x.drift>=0?'+':''}${x.drift.toFixed(1)}%p</span><span class="${x.diff>=0?'up':'down'}">${x.diff>=0?'매수 ':'축소 '}${cbDisp(Math.abs(x.diff))}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
     <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div><div class="fin-account-table"><div class="head"><span>소유주 · 증권사 · 계좌</span><span>평가액</span><span>비중</span><span>진단</span></div>${accounts.map(x=>`<div><span><b>${cbEsc(x.key)}</b><small>${x.count}개 자산 · ${cbEsc(x.status)} · ${cbEsc(x.taxLabel)}</small></span><span>${cbDisp(x.value)}</span><span>${x.share.toFixed(1)}%</span><span>${cbEsc(x.finding)}</span></div>`).join('')||'<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>'}</div></div>`:`
-    ${finGoalContext(ownerF)}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 목표는 가구 공통입니다</small></div><div class="fin-goal-grid">${goalCards}</div>
+    ${finGoalContext(ownerF)}${finGoalAllocationCard()}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 목표는 가구 공통입니다</small></div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
     <div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
       <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="number" min="0" step="10000" value="${Number.isFinite(Number(ge?.targetAmount))?Number(ge.targetAmount):''}"></label><label>목표일<input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"></label>

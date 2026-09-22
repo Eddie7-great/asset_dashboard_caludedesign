@@ -92,6 +92,7 @@ const context = {
     { cls: 'kr', val: 200_000_000, i: { owner: '아내', broker: '삼성증권', acc: 'ISA', div: 4_000_000 } },
     { cls: 'cash', val: 200_000_000, i: { owner: '본인', broker: '미래에셋증권', acc: '일반' } },
   ],
+  cbDonutSvg: (segs) => `<svg data-segs="${segs.map(s => s.pct.toFixed(2)).join(',')}"></svg>`,
   cbDcaPerMonthKRW: () => 0,
   _autoTransferActiveInMonth: () => true,
   _autoTransferMonthlyEquivalent: row => row.amt,
@@ -100,6 +101,7 @@ const context = {
 }
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
+vm.runInContext(`const FIN_GOAL_BUCKET_META=${JSON.stringify({ net: { label: '전체 순자산', color: '#94a3c8' }, investment: { label: '가족 투자자산', color: '#7aa2ff' }, manual: { label: '직접 입력', color: '#b48ead' } })};`, context)
 vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
 for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
@@ -150,7 +152,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalAllocation', 'finGoalAllocationCard', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -165,6 +167,26 @@ context.cbRenderPlan()
 context.cbRenderDataStatus()
 assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*새 목표 추가/, '목표 탭 렌더')
 assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 비중과 리밸런싱/, '목표 탭은 리밸런싱과 분리')
+
+// 목표 연결 자산군 도넛 — linkClass별 버킷 분리와 금액이 finGoalCurrent 와 같은 소스인지.
+context.goalData = [
+  { id: 'g1', name: '미국 목표', linkClass: 'us', targetAmount: 1 },
+  { id: 'g2', name: '한국 목표', linkClass: 'kr', targetAmount: 1 },
+  { id: 'g3', name: '직접 입력 목표', linkClass: 'manual', currentAmount: 5_000_000, targetAmount: 1 },
+  { id: 'g4', name: '투자자산 목표', linkClass: 'investment', targetAmount: 1 },
+]
+const allocation = context.finGoalAllocation()
+// vm 컨텍스트(별도 realm)의 배열이라 프로토타입이 달라 deepStrictEqual 이 실패한다 — 복제 후 비교.
+assert.deepEqual(Array.from(allocation).map(b => b.key), ['investment', 'us', 'kr', 'manual'], '금액 내림차순 정렬 · linkClass별 버킷 분리')
+assert.equal(allocation.find(b => b.key === 'us').value, 600_000_000, 'CB_CLS 자산군 버킷은 finGoalCurrent 와 같은 금액(직접 재계산하지 않음)')
+assert.equal(allocation.find(b => b.key === 'manual').value, 5_000_000, '직접 입력 버킷은 currentAmount 를 그대로 쓴다')
+assert.equal(allocation.find(b => b.key === 'investment').value, 1_000_000_000, '투자자산 버킷은 finBalanceTotals().investment')
+context.cbRenderPlan()
+assert.match(elements['cb-plan2'].innerHTML, /목표 연결 자산군[\s\S]*fin-goal-alloc-donut[\s\S]*fin-goal-alloc-legend/, '목표에 연결된 자산이 있으면 도넛 카드를 렌더')
+context.goalData = []
+context.cbRenderPlan()
+assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 연결 자산군/, '연결된 목표가 없으면 도넛을 렌더하지 않는다')
+
 elements['view-rebal2']={classList:{contains:()=>true}}
 elements['cb-rebal2']={innerHTML:''}
 context.cbRenderPlan()
