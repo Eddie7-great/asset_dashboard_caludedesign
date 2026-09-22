@@ -473,7 +473,9 @@ assert.match(styleSource, /\.fin-section\{padding:13px 16px;margin-top:9px/, '�
 assert.match(financeSource, /fin-rebal-comparison"><div class="fin-rebal-main"><div class="fin-target-inputs"[\s\S]*label class="threshold"[\s\S]*finSaveTarget\(\)[\s\S]*<\/div>[\s\S]*fin-rebal-table[\s\S]*finPortfolioReferences/, '자산군·허용 편차·목표 저장을 한 그리드에 두고 조정표를 좌측 작업 영역에 배치')
 assert.doesNotMatch(financeSource, /fin-target-actions/, '별도 저장 줄은 없앴다 — 한 줄이 통째로 여백이었다')
 assert.doesNotMatch(workspaceSource, /\.fin-target-actions/, '도달 불가 CSS 도 함께 제거한다')
-assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(156px,1fr\)\)/, '자산군·편차·저장이 폭에 맞춰 한 줄로 흐른다')
+assert.match(workspaceSource, /\.fin-target-inputs\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '자산군 6개 + 허용 편차 + 목표 저장을 4개씩 2줄로 고정 배치')
+assert.match(workspaceSource, /\.fin-rebal-table>div>span:not\(:first-child\)\{text-align:right\}/, '리밸런싱 표의 숫자 칼럼(현재·목표·편차·조정액·DCA)을 우측 정렬한다')
+assert.match(financeSource, /비교용 예시이며 맞춤 추천이 아닙니다\.<br>왼쪽은 상장시장별/, "'아닙니다.' 뒤에서 줄바꿈해 대표 자산 배분 비교 문장을 두 줄로 나눈다")
 // 고정비 등록 줄의 세로 정렬 — 세 값은 항상 같아야 한다
 {
   const h = [...styleSource.matchAll(/(?:\.btn-submit\{[^}]*|\.cf-fixed-form \.form-input\{[^}]*|\.cf-fixed-check\{[^}]*)height:(\d+)px/g)].map(m => m[1])

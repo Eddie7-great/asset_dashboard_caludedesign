@@ -130,10 +130,10 @@
 .home-table-column input{width:240px;max-width:50%;min-width:0;padding:7px 10px;border:1px solid var(--bd);background:var(--inner);color:var(--tx);border-radius:8px}
 .home-table-wrap{overflow:auto}.home-table-column table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap}
 .home-table-column td,.home-table-column th{padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right}.home-table-column td:nth-child(-n+2),.home-table-column th:nth-child(-n+2){text-align:left}
-.fin-target-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(156px,1fr));gap:7px;align-items:stretch;margin-bottom:8px}.fin-target-inputs>label{width:auto}.fin-target-inputs>label.threshold span{color:var(--lab)}.fin-rebal-main{min-width:0}
+.fin-target-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;align-items:stretch;margin-bottom:8px}.fin-target-inputs>label{width:auto}.fin-target-inputs>label.threshold span{color:var(--lab)}.fin-rebal-main{min-width:0}
 .fin-rebal-comparison{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);gap:14px;align-items:start}
 .fin-rebal-table>div{min-width:0}.cb-dash-sector-card{word-break:keep-all}
-.fin-rebal-table>div{grid-template-columns:minmax(80px,1fr) 45px 45px 55px minmax(85px,1fr) minmax(85px,1fr)!important;gap:5px!important;font-size:11px;padding:8px 2px!important}
+.fin-rebal-table>div{grid-template-columns:minmax(76px,1fr) 52px 52px 60px minmax(90px,1fr) minmax(90px,1fr)!important;gap:6px!important;font-size:11px;padding:8px 2px!important}.fin-rebal-table>div>span:not(:first-child){text-align:right}
 .fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:12px}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
 .fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.fin-goal-context>.cb-panel{padding:12px}.fin-goal-context b{display:block;margin-top:6px;font-size:19px}.fin-goal-context small{color:var(--lab)}
 #fin-goal-form .fin-form-grid{display:flex;gap:9px;flex-wrap:wrap;align-items:end}#fin-goal-form .fin-form-grid>label{flex:1 1 145px}#fin-goal-form .fin-form-actions{flex:0 0 auto;margin:0;align-self:end}#fin-goal-form button{white-space:nowrap}

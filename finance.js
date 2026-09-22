@@ -515,7 +515,7 @@ function finAccountDiagnostics(ownerF){
 }
 function finPortfolioReferences(){
   const models=[['전통적 균형형 · 60/40',60,'글로벌 주식 60% · 채권 40%','성장과 채권 소득을 함께 추구하는 구성.','https://workplace.vanguard.com/assets/corp/fund_communications/pdf_publish/us-products/fact-sheet/F0914.pdf'],['Vanguard 성장형 · 80/20',80,'글로벌 주식 80% · 채권 20%','주식 비중을 높여 장기 성장에 무게를 둔 구성.','https://advisors.vanguard.com/investments/products/vasgx/vanguard-lifestrategy-8020-fund'],['Buffett의 신탁 지침 · 90/10',90,'S&P 500 90% · 단기 국채 10%','2013년 주주서한의 가족 신탁 지침. 주식 변동에 크게 노출됩니다.','https://www.berkshirehathaway.com/letters/2013ltr.pdf']];
-  return `<aside class="fin-reference"><h4>대표 자산 배분 비교</h4>${models.map(([name,w,mix,desc,url])=>`<article><b>${name}</b><div class="sim-stack" role="img" aria-label="${mix}"><span style="width:${w}%;background:var(--acc)"></span><span style="width:${100-w}%;background:var(--acc2)"></span></div><p>${mix}<br>${desc}</p><a href="${url}" target="_blank" rel="noopener noreferrer">원문 기준 ↗</a></article>`).join('')}<p>비교용 예시이며 맞춤 추천이 아닙니다. 왼쪽은 상장시장별 자산 분류로, 채권 ETF도 포함될 수 있어 이 배분을 목표값에 자동 대입하지 않습니다.</p></aside>`;
+  return `<aside class="fin-reference"><h4>대표 자산 배분 비교</h4>${models.map(([name,w,mix,desc,url])=>`<article><b>${name}</b><div class="sim-stack" role="img" aria-label="${mix}"><span style="width:${w}%;background:var(--acc)"></span><span style="width:${100-w}%;background:var(--acc2)"></span></div><p>${mix}<br>${desc}</p><a href="${url}" target="_blank" rel="noopener noreferrer">원문 기준 ↗</a></article>`).join('')}<p>비교용 예시이며 맞춤 추천이 아닙니다.<br>왼쪽은 상장시장별 자산 분류로, 채권 ETF도 포함될 수 있어 이 배분을 목표값에 자동 대입하지 않습니다.</p></aside>`;
 }
 function finGoalPace(goal,current,now=new Date()){
   const gap=Math.max(0,Number(goal.targetAmount)-current);
