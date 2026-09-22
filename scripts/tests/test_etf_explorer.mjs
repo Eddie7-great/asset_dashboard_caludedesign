@@ -16,6 +16,19 @@ assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-09-03'}),now).stale,false)
 assert.equal(ctx.etfBusinessAge('2026-09-04',new Date('2026-09-07T03:00:00Z')),1);
 assert.equal(ctx.etfQuality(s([{t:'ESU6',n:'S&P500 EMINI FUT SEPT2026',w:8}]),now).rows.length,0);
 assert.equal(ctx.etfQuality(s([h('A',NaN)]),now).reliable,false);
+
+// 월 1회 공시 상품(disclosure:'monthly')은 5평일이 아니라 35평일 기준을 쓴다 —
+// 1629(NEXT FUNDS)가 월말 공시 2주 뒤에도 '지연'으로 찍히던 걸 고친 값이다.
+// snapshot_stale(scripts/collect_etf_holdings.py)이 이 숫자와 반드시 같아야 한다.
+const monthlyNow=new Date('2026-09-22T04:00:00Z');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-08-31',disclosure:'monthly'}),monthlyNow).stale,false,
+  '월간 공시 상품은 16평일 경과로는 지연이 아니다');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-08-31'}),monthlyNow).stale,true,
+  '같은 기준일도 disclosure가 없으면(일반 5평일 규칙) 지연이다');
+assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-06-30',disclosure:'monthly'}),monthlyNow).stale,true,
+  '월간 공시 상품도 두 달 이상 갱신이 없으면 지연이다');
+// 최상위 const는 vm 컨텍스트 프로퍼티가 아니라 코드 문자열로 읽는다.
+assert.equal(vm.runInContext('ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS',ctx),35);
 const old=s([h('A',30),h('B',20)]),current=s([h('A',35),h('C',10)],{asOf:'2026-09-08'});
 let d=ctx.etfCompareSnapshots(current,old);
 assert.equal(d.complete,true);assert.equal(d.rows.find(x=>x.t==='B').kind,'편출');assert.equal(d.rows.find(x=>x.t==='C').kind,'편입');

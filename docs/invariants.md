@@ -343,6 +343,15 @@ GitHub 의 예약 실행(`schedule`)은 공용 스케줄러라 **몇 시간씩 �
 
 검증: `test_etf_sources.py`(커밋한 파일 자체를 픽스처로 — 종목 수·기준일·스왑 합산·비주식 제외·접미사·손상 파일 폴백), `test_foreign_sources.py`(원격 체인 순서).
 
+## ETF '기준일 지연' 표시를 실제로 줄이기 (2026-09-22)
+
+- **'고정 파일이라 기준일이 멈춘다'는 두 가지 서로 다른 문제를 하나로 묶어 말한 것이었습니다.** 하나는 파일이 일일 공시 상품(SPYM·DRAM)인데 갱신을 안 한 것 — 이건 그냥 오래된 파일 문제입니다. 다른 하나는 상품 자체가 월 1회만 공시하는데(1629 NEXT FUNDS) 평일 5일 기준으로 재는 것 — 이건 **모델이 틀린 것**이라 파일을 아무리 새로 받아도 매달 대부분의 날짜가 지연으로 찍힙니다. 둘을 섞어서 "체념"하면 후자도 고칠 수 있는데 안 고치게 됩니다.
+- **공시 주기 자체를 모델에 넣었습니다.** `data/etf_sources/index.json` 에 `disclosure:'monthly'` 를 등록하면(1629 가 해당), `collect_etf_holdings.py` 의 `run()` 이 그 값을 스냅샷 엔트리(`data/etf_holdings.json`)에 옮겨 적습니다 — 프런트는 그 JSON만 읽으므로 `index.json` 자체는 전달되지 않고, 이렇게 한 번 실어 보내야 합니다. `etfQuality`(etf-explorer.js) 는 그 항목에 5평일 대신 `ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS`(35평일 — 월간 주기 약 21평일 + 공시 유예 약 2주)를 씁니다. **이건 기준을 느슨하게 하는 게 아니라 정확하게 만드는 겁니다** — 8월말 자료가 9월 22일에 '정상'인 건 사실이 그렇기 때문입니다. `snapshot_stale`(Python)도 같은 상수를 써야 하고, `test_threshold_matches_frontend_etfquality` 가 두 파일에서 숫자를 각각 읽어 대조합니다.
+- **일일 공시 상품은 다운로드로 해결합니다.** `data/etf_sources/index.json` 항목에 `url` 을 채우면 `fetch_local_source` 가 매 수집 때 그 주소에서 새 파일을 먼저 받아 기존과 **똑같은 검증**(식별자·기준일·헤더·비중 합계 97~103%·기대 행 수)을 거칩니다. 다운로드·파싱·검증 중 하나라도 실패하면 조용히 커밋된 파일로 내려갑니다 — `url` 을 잘못 넣어도 지금보다 나빠지지 않습니다. **다만 SPYM·DRAM 의 실제 운용사 다운로드 URL은 이 저장소에서 검증하지 못했습니다** — 이 환경의 아웃바운드 네트워크 정책이 `ssga.com`·`roundhillinvestments.com` 을 막아 실제 파일 다운로드 링크를 확인할 방법이 없었습니다. 그래서 `url` 필드는 비워 뒀고(동작은 지금과 동일), 인프라만 다운로드+검증+폴백을 테스트로 고정해 뒀습니다. 실제 링크를 넣는 건 그 두 사이트에 접근 가능한 곳에서 사람이 확인해 채우는 일로 남습니다.
+- **기존 4-튜플 반환 형태를 바꾸지 않았습니다.** `fetch_local_source` 를 직접 4-튜플로 언패킹하는 기존 테스트가 여러 개라(`self.h, self.as_of, self.full, self.label = ...`), `url`/다운로드 로직은 그 함수 **안에서만** 분기하고 반환 형태는 그대로 뒀습니다. `disclosure` 도 같은 이유로 `collect_one`/`fetch_local_source` 의 반환값에 얹지 않고, `run()` 이 `load_index()` 를 따로 조회해 엔트리에 옮겨 적습니다.
+
+검증: `test_etf_sources.py` 의 `DownloadTests`(다운로드 성공/실패/검증 실패 시 폴백, url 없으면 다운로드 시도 자체를 안 함), `MonthlyDisclosureThresholdTests`(월간 임계값 계산과 JS·Python 상수 대조), `DisclosureStampingTests`(`run()` 이 `index.json` 의 `disclosure` 를 엔트리에 옮겨 적는지). `test_etf_explorer.mjs` 의 `etfQuality` monthly 케이스.
+
 ## 성과·리스크 화면 정리 (2026-09-16)
 
 - **서로 다른 필터를 한 덩어리로 붙이지 않습니다.** 투자자산 추이의 소유주 버튼과 기간 버튼이 한 `.owner-tabs` 안에 이어 붙어 있어서 `전체 본인 아내 자녀1 아버지 1M 3M 6M 1Y 전체` 가 한 줄로 흐르고 **'전체'가 두 번** 나왔습니다. 이제 `.fin-trend-tabs` 안의 별도 그룹 둘이고 사이에 구분선이 있습니다.

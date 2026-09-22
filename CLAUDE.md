@@ -111,6 +111,18 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   - `005930 KS` 같은 Bloomberg 접미사는 **알려진 거래소 목록에 한해서만** 뗀다. 공백 뒤를 무조건 버리지 않는다.
   - **한계: 파일이 고정이라 기준일이 멈춘다.** `etfQuality` 기준을 넘기면 '기준일 지연'으로 표시되는데
     그게 사실 그대로다. 갱신은 같은 경로에 새 파일을 덮어쓰고 `expect` 를 맞추면 된다.
+    등록에 `url` 을 채우면 `fetch_local_source` 가 매 수집 때 그 주소에서 새 파일을 먼저 받아
+    검증하고, 실패(네트워크·형식·검증 모두 포함)하면 조용히 커밋된 파일로 내려간다 — 일일
+    공시 상품(SPYM·DRAM)은 이 경로로 고정 기준일 문제 자체를 없앨 수 있다. `url` 없이 두면
+    지금처럼 커밋된 파일만 쓴다(동작 변화 없음).
+  - **월 1회만 공시하는 상품은 `disclosure:'monthly'` 로 등록한다.** 1629(NEXT FUNDS)처럼 월말에만
+    구성종목을 공시하는 상품을 평일 5일 기준으로 재면 매달 대부분의 날짜가 '지연'이 된다 — 파일을
+    갱신해도 구조적으로 반복된다. `scripts/collect_etf_holdings.py` 의 `run()` 이 `index.json` 의
+    `disclosure` 를 스냅샷 엔트리에 옮겨 적고(프런트는 `data/etf_holdings.json` 만 읽으므로
+    `index.json` 자체는 전달되지 않는다), `etfQuality`(etf-explorer.js) 와 `snapshot_stale`
+    (collect_etf_holdings.py) 이 그 항목엔 5평일 대신 `ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS`
+    (35평일 — 월간 주기 약 21평일 + 공시 유예 약 2주)를 쓴다. **두 상수는 반드시 같은 값이어야
+    한다** — 프런트가 권위이고 Python 쪽이 이를 따라간다.
 - **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `parse_tema_pdf` 안에서만.**
   QLD 금지 규칙은 스왑 바스켓 내용을 **알 수 없어서** 둔 것이라 여기에 해당하지 않는다. 근거는 이름
   추측이 아니라 운용사가 쓴 식별자다 — 스왑 행 Identifier 의 첫 토큰이 기초자산의 CUSIP/SEDOL 이고

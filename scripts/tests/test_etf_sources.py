@@ -4,6 +4,7 @@
 그래서 운용사 공시 파일을 고정 자료로 넣었고, 여기서 그 파일이 실제로 무엇을 내놓는지
 숫자로 못 박는다 — 파일을 갱신하다 형식이 바뀌면 조용히 부분 목록으로 되돌아가지 않도록.
 """
+import datetime
 import shutil
 import sys
 import tempfile
@@ -197,6 +198,115 @@ class ValidationTests(unittest.TestCase):
         for code, spec in etf_sources.load_index().items():
             self.assertIn(spec['format'], etf_sources.PARSERS, code)
             self.assertTrue((SRC / spec['file']).is_file(), code)
+
+
+class DownloadTests(unittest.TestCase):
+    """url 이 등록된 소스는 매 수집 때 새 파일을 먼저 시도하고, 실패하면 커밋된
+    파일로 조용히 내려간다 — SPYM·DRAM 처럼 일일 공시라 고정 파일이 낡는 상품용.
+
+    fetch_local_source 는 load_index() 를 인자 없이 호출하므로(내부에서 INDEX_PATH
+    기본값을 쓴다), index.json 내용 자체를 바꿔 보려면 load_index 를 patch 하는 쪽이
+    INDEX_PATH 전역을 patch 하는 것보다 안전하다 — 후자는 함수 정의 시점에 이미
+    바인딩된 기본 인자라 patch 가 반영되지 않는다.
+    """
+
+    def _spec_with_url(self, url='https://example.invalid/spym.xlsx'):
+        return {'SPYM': {
+            'file': 'spym_holdings.xlsx', 'format': 'spdr_xlsx', 'label': 'State Street',
+            'expect': {'id': 'SPYM', 'minRows': 400}, 'url': url,
+        }}
+
+    def test_successful_download_is_used(self):
+        real_bytes = (SRC / 'spym_holdings.xlsx').read_bytes()
+        with patch.object(etf_sources, 'load_index', return_value=self._spec_with_url()), \
+             patch.object(etf_sources, '_download_source', return_value=real_bytes) as dl:
+            holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
+        dl.assert_called_once_with('https://example.invalid/spym.xlsx')
+        self.assertEqual(len(holdings), 503)
+        self.assertEqual(as_of, '2026-09-14')
+        self.assertTrue(complete)
+        self.assertEqual(label, 'State Street')
+
+    def test_download_failure_falls_back_to_committed_file(self):
+        with patch.object(etf_sources, 'load_index', return_value=self._spec_with_url()), \
+             patch.object(etf_sources, '_download_source', return_value=None):
+            holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
+        # 다운로드가 실패해도 커밋된 파일로 내려가 지금과 같은 결과를 낸다.
+        self.assertEqual(len(holdings), 503)
+        self.assertEqual(as_of, '2026-09-14')
+        self.assertTrue(complete)
+
+    def test_downloaded_file_failing_validation_falls_back_to_committed_file(self):
+        with patch.object(etf_sources, 'load_index', return_value=self._spec_with_url()), \
+             patch.object(etf_sources, '_download_source', return_value=b'not a valid xlsx file'):
+            holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
+        # 다운로드는 됐지만 파싱/검증에 실패 → 커밋된 파일로 내려간다.
+        self.assertEqual(len(holdings), 503)
+        self.assertEqual(as_of, '2026-09-14')
+
+    def test_no_url_never_attempts_download(self):
+        # 등록에 url 이 없으면(지금의 1629·DRAM처럼) 다운로드 코드 경로를 아예 타지 않는다.
+        with patch.object(etf_sources, '_download_source') as dl:
+            etf_sources.fetch_local_source('1629', verbose=False)
+        dl.assert_not_called()
+
+
+class MonthlyDisclosureThresholdTests(unittest.TestCase):
+    """snapshot_stale 은 etfQuality(JS)와 같은 35평일 임계값을 disclosure='monthly'에 쓴다.
+
+    1629(NEXT FUNDS)는 월 1회만 공시하므로 5평일 규칙으로는 매달 대부분의 날짜가
+    지연으로 찍힌다 — 공시 주기 자체를 모델에 넣어 해결한다.
+    """
+
+    def test_monthly_disclosure_uses_wider_limit(self):
+        today = datetime.date(2026, 9, 22)
+        entry = {'asOf': '2026-08-31', 'disclosure': 'monthly', 'name': 'NEXT FUNDS'}
+        self.assertFalse(collector.snapshot_stale(entry, today), '16평일 경과는 월간 기준으로 지연이 아니다')
+
+    def test_same_date_without_disclosure_flag_is_stale(self):
+        today = datetime.date(2026, 9, 22)
+        entry = {'asOf': '2026-08-31', 'name': 'NEXT FUNDS'}
+        self.assertTrue(collector.snapshot_stale(entry, today), 'disclosure 표식이 없으면 일반 5평일 규칙을 쓴다')
+
+    def test_monthly_disclosure_still_flags_two_missed_cycles(self):
+        today = datetime.date(2026, 9, 22)
+        entry = {'asOf': '2026-06-30', 'disclosure': 'monthly', 'name': 'NEXT FUNDS'}
+        self.assertTrue(collector.snapshot_stale(entry, today), '두 달 이상 갱신이 없으면 월간 기준도 지연이다')
+
+    def test_threshold_matches_frontend_etfquality(self):
+        js = Path(__file__).resolve().parents[2] / 'etf-explorer.js'
+        m = __import__('re').search(r'ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS=(\d+)', js.read_text(encoding='utf-8'))
+        self.assertIsNotNone(m, 'etf-explorer.js에서 상수를 찾지 못함')
+        self.assertEqual(collector.ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS, int(m.group(1)),
+                          'etfQuality(JS)와 snapshot_stale(Python)의 임계값이 어긋나면 같은 화면이 서로 다른 기준으로 판정한다')
+
+
+class DisclosureStampingTests(unittest.TestCase):
+    """수집기는 index.json의 disclosure를 스냅샷 엔트리에 옮겨 적어야 프런트가 읽을 수 있다."""
+
+    def test_run_stamps_disclosure_from_index_for_file_sourced_etf(self):
+        holdings = [{'t': 'A', 'n': 'A', 'w': 10.0}]
+        with patch.object(collector, 'is_kr_code', return_value=False), \
+             patch.object(collector, 'fetch_proshares', return_value=([], None)), \
+             patch.object(collector, 'fetch_invesco', return_value=([], None)), \
+             patch.object(collector, 'fetch_stockanalysis', return_value=([], None, False)), \
+             patch.object(collector, 'fetch_local_source', return_value=(holdings, '2026-08-31', True, 'NEXT FUNDS')), \
+             patch.object(collector, 'load_index', return_value={'1629': {'disclosure': 'monthly'}}), \
+             patch.object(collector, 'load_previous', return_value={'etfs': {}}):
+            doc = collector.run([('1629', 'NEXT FUNDS 종합리츠', None)], dry_run=True)
+        self.assertEqual(doc['etfs']['1629'].get('disclosure'), 'monthly')
+
+    def test_run_omits_disclosure_when_not_registered(self):
+        holdings = [{'t': 'A', 'n': 'A', 'w': 10.0}]
+        with patch.object(collector, 'is_kr_code', return_value=False), \
+             patch.object(collector, 'fetch_proshares', return_value=([], None)), \
+             patch.object(collector, 'fetch_invesco', return_value=([], None)), \
+             patch.object(collector, 'fetch_stockanalysis', return_value=([], None, False)), \
+             patch.object(collector, 'fetch_local_source', return_value=(holdings, '2026-09-14', True, 'State Street')), \
+             patch.object(collector, 'load_index', return_value={}), \
+             patch.object(collector, 'load_previous', return_value={'etfs': {}}):
+            doc = collector.run([('SPYM', 'SPDR Portfolio S&P 500', None)], dry_run=True)
+        self.assertNotIn('disclosure', doc['etfs']['SPYM'])
 
 
 if __name__ == '__main__':

@@ -1,11 +1,12 @@
 {
-  "_readme": "운용사 공식 보유명세 파일. scripts/etf_sources.py 가 읽는다. 갱신은 같은 경로에 새 파일을 덮어쓰고 expect 를 맞추면 된다 — 검증에 실패하면 수집기가 조용히 기존 체인으로 폴백한다.",
+  "_readme": "운용사 공식 보유명세 파일. scripts/etf_sources.py 가 읽는다. 갱신은 같은 경로에 새 파일을 덮어쓰고 expect 를 맞추면 된다 — 검증에 실패하면 수집기가 조용히 기존 체인으로 폴백한다. `disclosure`:'monthly' 는 그 상품이 월 1회만 구성종목을 공시한다는 뜻이고 etfQuality/snapshot_stale 이 더 넓은 임계값(35평일)을 쓰게 한다 — 파일을 못 갱신해서가 아니라 공시 주기 자체가 그렇다. `url` 을 채우면 매 수집 때 그 주소에서 새 파일을 먼저 받아 보고(검증 실패·네트워크 실패 시 조용히 이 파일로 폴백), 일일 공시 상품(SPYM·DRAM)의 고정 기준일 문제를 없앤다.",
   "sources": {
     "1629": {
       "file": "1629_brd_data.xlsx",
       "format": "nextfunds_xlsx",
       "label": "NEXT FUNDS",
-      "expect": { "id": "1629", "minRows": 100 }
+      "expect": { "id": "1629", "minRows": 100 },
+      "disclosure": "monthly"
     },
     "SPYM": {
       "file": "spym_holdings.xlsx",

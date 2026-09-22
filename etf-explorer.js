@@ -79,9 +79,15 @@ function etfBusinessAge(asOf,now=new Date()){
   let age=0;for(let t=start.getTime()+86400000;t<=end.getTime();t+=86400000){const d=new Date(t).getUTCDay();if(d!==0&&d!==6)age++;}
   return age;
 }
+// 월 1회만 공시하는 상품(entry.disclosure==='monthly')은 5평일 기준을 쓰면 매달
+// 대부분의 날짜가 '지연'으로 찍힌다(1629 실측 — 월말 공시가 2주 전만 지나도 지연).
+// 통상적인 월간 주기(약 21평일)에 약 2주의 공시 유예를 더한 값. snapshot_stale
+// (scripts/collect_etf_holdings.py)이 이 값과 동일해야 한다 — 프런트가 권위다.
+const ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS=35;
 function etfQuality(entry,now=new Date()){
   const rows=etfStockRows(entry),active=entry?.active||/액티브|\bACTIVE\b/i.test(entry?.name||'');
-  const age=etfBusinessAge(entry?.asOf,now),limit=active?2:5;
+  const age=etfBusinessAge(entry?.asOf,now);
+  const limit=entry?.disclosure==='monthly'?ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS:(active?2:5);
   const full=entry?.coverage==='full'&&rows.length===entry?.holdings?.length;
   const stale=age!==null&&age>limit, reasons=[];
   if(!rows.length)reasons.push('미조회');
