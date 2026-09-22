@@ -6,7 +6,7 @@ const MAX_TICKERS = 25;
 const MAX_TICKER_LENGTH = 24;
 const MAX_CONCURRENCY = 5;
 const ALLOWED_TYPES = new Set([
-  'price', 'dividend', 'dividend_history', 'sector', 'ohlcv',
+  'price', 'dividend', 'dividend_history', 'splits', 'sector', 'ohlcv',
   'search', 'krsearch', 'macro', 'news', 'heatmap',
 ]);
 
@@ -427,6 +427,70 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return res.status(200).json({ success: true, result, verifiedTickers });
     }
 
+    // ── 액면분할·병합 이력 ─────────────────────────────────────
+    //   Yahoo Finance chart events=split, range=5y
+    //   응답: { success, result:{ [tkr]: [{date,num,den,ratio}] }, verifiedTickers }
+    //
+    //   num/den 은 Yahoo 의 numerator/denominator 를 그대로 옮긴 값이다.
+    //   2:1 분할이면 num=2,den=1 → 수량 ×2, 단가 ÷2. 1:10 병합이면 num=1,den=10
+    //   → 수량 ×0.1, 단가 ×10. 클라이언트가 취득원가(수량×단가)를 보존하는 데 쓴다.
+    //   verifiedTickers 는 종목 단위 확인 근거다 — HTTP 200 만으로 확인 완료로 적지
+    //   않는다. 응답에 없는 종목은 '분할 없음'이 아니라 '미확인'이다.
+    if (type === 'splits') {
+      if (!tickers.length) return res.status(200).json({ success: true, result: {}, verifiedTickers: [] });
+
+      async function yahooSplits(rawSym: string) {
+        const upper = rawSym.trim().toUpperCase();
+        const krMatch = upper.match(/^([0-9A-Z]{6})(\.(KS|KQ))?$/i);
+        const symbols = krMatch
+          ? (krMatch[2] ? [upper] : [`${krMatch[1]}.KS`, `${krMatch[1]}.KQ`])
+          : [upper];
+        for (const sym of symbols) {
+          try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=5y&events=split`;
+            const r = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (!r.ok) continue;
+            const d = await r.json();
+            const result = d?.chart?.result?.[0];
+            if (!result) continue;
+            const splitEvents = result.events?.splits || {};
+            const events = Object.values(splitEvents)
+              .map((e: any) => {
+                const num = Number(e.numerator || 0);
+                const den = Number(e.denominator || 0);
+                const seconds = Number(e.date || 0);
+                if (!(num > 0) || !(den > 0) || !(seconds > 0)) return null;
+                return {
+                  date: new Date(seconds * 1000).toISOString().slice(0, 10),
+                  num,
+                  den,
+                  ratio: num / den,
+                };
+              })
+              .filter((e: any) => e && e.ratio !== 1)
+              .sort((a: any, b: any) => a.date.localeCompare(b.date));
+            return events;
+          } catch (e) {}
+        }
+        return null;
+      }
+
+      const result: Record<string, any> = {};
+      const verifiedTickers: string[] = [];
+      await mapWithConcurrency(tickers, async (raw) => {
+        const requested = raw.trim().toUpperCase();
+        const tkr = requested.replace(/\.(KS|KQ)$/, '');
+        if (!tkr) return;
+        const events = await yahooSplits(requested);
+        // 빈 배열도 '분할 없음'을 서버가 확인한 결과이므로 verified 다. null 만 미확인.
+        if (events) {
+          result[tkr] = events;
+          verifiedTickers.push(requested);
+        }
+      });
+      return res.status(200).json({ success: true, result, verifiedTickers });
+    }
+
     // ── 섹터 조회 ───────────────────────────────────────────
     if (type === 'sector') {
       const t = singleQuery(req.query.tkr).trim().toUpperCase();
@@ -741,9 +805,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       ADA:'ADA-USD', AVAX:'AVAX-USD',
     };
 
-    const krRaw = tickers.filter(t => /^\d{6}(\.KS|\.KQ)?$/.test(t));
+    // KRX 단축코드는 숫자 6자리만이 아니다 — 0117V0 처럼 영숫자도 발급된다.
+    // \d{6} 으로 재면 그런 코드가 해외 티커로 분류돼 Yahoo 에 맨코드로 나가 조회가
+    // 통째로 실패한다. 판정 형태는 CLAUDE.md 의 KR ticker shape(^[0-9A-Z]{6}$)를 따른다.
+    const KR_CODE_RE = /^[0-9A-Z]{6}(\.KS|\.KQ)?$/;
+    const krRaw = tickers.filter(t => KR_CODE_RE.test(t));
     const krTickers = krRaw.map(t => t.replace(/\.(KS|KQ)$/, ''));
-    const foreignTickers = tickers.filter(t => !/^\d{6}(\.KS|\.KQ)?$/.test(t));
+    const foreignTickers = tickers.filter(t => !KR_CODE_RE.test(t));
     const quoteResults: Record<string,{price:number;prevClose:number}> = {};
 
     // 해외주식 & 가상화폐: Yahoo Finance
