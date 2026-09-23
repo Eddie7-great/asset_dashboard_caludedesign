@@ -1003,7 +1003,7 @@ function cbRenderDash(){
   const moverCard = (title, list, tone, empty) => `
     <div class="cb-panel cb-mover-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px;margin-bottom:5px">
-        <span style="font-size:12px;letter-spacing:.08em;color:var(--lab);font-weight:700">${title}</span>
+        <span class="cb-panel-title">${title}</span>
         <span style="font-size:12px;color:var(--dim)">${ownerF?cbEsc(ownerF):'전체 소유주'}</span>
       </div>
       ${list.map((r,n)=>`
@@ -1019,7 +1019,7 @@ function cbRenderDash(){
   const contributionCard = `
     <div class="cb-panel cb-dash-contrib-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px">
-        <span data-tip="각 종목의 평가손익 원화 금액을 절대값 순으로 비교합니다. 막대 길이는 가장 큰 손익 대비 상대 크기이며 전체 비율은 아닙니다." style="font-size:12px;letter-spacing:.08em;color:var(--lab);font-weight:700">평가손익 기여도</span>
+        <span data-tip="각 종목의 평가손익 원화 금액을 절대값 순으로 비교합니다. 막대 길이는 가장 큰 손익 대비 상대 크기이며 전체 비율은 아닙니다." class="cb-panel-title">평가손익 기여도</span>
         <span style="font-size:12px;color:var(--dim);white-space:nowrap">${ownerF?cbEsc(ownerF):'전체 소유주'}</span>
       </div>
       <div class="cb-contrib-summary">
@@ -1079,7 +1079,7 @@ function cbRenderDash(){
 
     <div class="cb-dash-insight-grid">
       <div class="cb-panel" style="min-width:0;padding:16px 18px">
-        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);margin-bottom:10px">자산 배분 <span style="color:var(--dim)">· 차트/항목 클릭 시 종목 표시</span></div>
+        <div class="cb-panel-title" style="margin-bottom:10px">자산 배분 <span style="color:var(--dim)">· 차트/항목 클릭 시 종목 표시</span></div>
         <div class="cb-allocation-visual" data-allocation="${cbEsc(JSON.stringify(alloc))}" data-selected="${cbEsc(_cdashAllocOpen||'')}"><div class="cb-allocation-fallback">${cbDonutSvg(alloc,176,'cbDashAllocToggle')}</div></div>
         ${alloc.map(c=>{
           const open = _cdashAllocOpen===c.key;
@@ -1096,7 +1096,7 @@ function cbRenderDash(){
       </div>
 
       <div class="cb-panel cb-dash-sector-card" style="min-width:0;padding:16px 18px">
-        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다. 가상화폐는 Crypto로 별도 분류하며, 비중은 비중 차트와 동일하게 현금·금까지 포함한 전체 포트폴리오를 기준으로 계산합니다.">섹터 집중도</span> <span style="color:var(--dim)">· 전체 포트폴리오 기준 · 막대 클릭 시 종목 표시</span></div>
+        <div class="cb-panel-title" style="margin-bottom:11px"><span data-tip="보유 주식을 섹터로 분류해 편중도를 점검합니다. 가상화폐는 Crypto로 별도 분류하며, 비중은 비중 차트와 동일하게 현금·금까지 포함한 전체 포트폴리오를 기준으로 계산합니다.">섹터 집중도</span> <span style="color:var(--dim)">· 전체 포트폴리오 기준 · 막대 클릭 시 종목 표시</span></div>
         ${secs.map((s,n)=>{
           const open = _cdashSecOpen===s.label;
           const items = open ? mergedByVal.filter(r=> s.label==='Crypto' ? r.cls==='crypto'
@@ -1177,7 +1177,7 @@ function cbHomeSummary(sel,nw){
         ${cell('섹터', cbEsc(sector), 'font-size:12px;font-weight:600;white-space:nowrap', '', 'grid-column:1/-1')}
       </div>
       <div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--bd)">
-        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);margin-bottom:7px">배당 정보</div>${divBox}${d&&divState.state!=='ready'?`<p class="cb-div-status ${divState.state}">${cbEsc(divState.text)} · 이전 조회값 표시</p>`:''}
+        <div class="cb-panel-title" style="margin-bottom:7px">배당 정보</div>${divBox}${d&&divState.state!=='ready'?`<p class="cb-div-status ${divState.state}">${cbEsc(divState.text)} · 이전 조회값 표시</p>`:''}
       </div>`;
   }
 
@@ -1455,7 +1455,7 @@ function cbRenderFam(){
     <div class="cb-family-detail-grid">
     <div class="cb-panel cb-table-panel cb-family-table-panel" style="padding:14px 16px">
       <div class="cb-family-table-toolbar" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab)">${_famKey==='all'?'전체 투자자산':cbEsc(_famKey)+' 투자자산'} · ${held.length}종목</div>
+        <div class="cb-panel-title">${_famKey==='all'?'전체 투자자산':cbEsc(_famKey)+' 투자자산'} · ${held.length}종목</div>
         <div style="display:flex;align-items:center;gap:7px;background:var(--inner);border:1px solid var(--bd2);border-radius:9px;padding:6px 11px;width:220px">
           <span style="color:var(--dim);font-size:12px">⌕</span>
           <input value="${cbEsc(_famQ)}" oninput="cbFamSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:'Noto Sans KR',sans-serif;font-size:12px;width:100%;outline:none" />
@@ -1588,7 +1588,7 @@ function cbLookThroughPanel(ownerFilter){
   return `
     <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-size:12px;letter-spacing:.08em;color:var(--lab)"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 투자자산 대비':'전체 투자자산 대비'}</span></span>
+        <span class="cb-panel-title"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 투자자산 대비':'전체 투자자산 대비'}</span></span>
         <div style="display:flex;gap:12px;font-size:12px;color:var(--mut);margin-left:auto;flex-wrap:wrap">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_DIR}"></span>직접 보유</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${C_VIA}"></span>ETF 간접 보유</span>
@@ -1966,16 +1966,18 @@ function cbRenderDiv(){
   );
   el.innerHTML = `
     <div class="cb-div-summary-grid">
-      <div class="cb-panel cb-div-summary-card"><div style="font-size:12px;color:var(--lab)">연간 배당 수입 · ${basisLabel}${ownerF?' · '+cbEsc(ownerF):''}</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div>${netBasis?`<div style="font-size:12px;color:var(--dim);margin-top:2px">세전 ${cbDisp(divGrossAnnual)} · 세금 ${cbDisp(divTaxAnnual)}</div>`:''}</div>
-      <div class="cb-panel cb-div-summary-card"><div style="font-size:12px;color:var(--lab)">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
-      <div class="cb-panel cb-div-summary-card"><div style="font-size:12px;color:var(--lab)">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">연간 배당 수입</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div><div class="cb-div-history-status">${basisLabel}${ownerF?' · '+cbEsc(ownerF):''}${netBasis?` · 세전 ${cbDisp(divGrossAnnual)} · 세금 ${cbDisp(divTaxAnnual)}`:''}</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결연도 배당 이력이 2개 이상인 종목만 계산에 포함합니다.">배당성장률</span> <span class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">(${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`})</span></div>
+        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결연도 배당 이력이 2개 이상인 종목만 계산에 포함합니다.">배당성장률</span></div>
         <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
+        <div class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div>
       </div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span> <span class="cb-div-history-status">(상위 3종목)</span></div>
+        <div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div>
         <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
+        <div class="cb-div-history-status">상위 3종목 합계</div>
       </div>
       <div class="cb-panel cb-div-summary-card cb-div-top3-card">
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
@@ -2013,7 +2015,7 @@ function cbRenderDiv(){
     </div>
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:12px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
+        <span class="cb-panel-title">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
         <span style="margin-left:auto;font-size:12px;color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
       ${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}
@@ -2021,7 +2023,7 @@ function cbRenderDiv(){
     <div class="cb-div-detail-grid">
     <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
       <div class="cb-div-table-toolbar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:12px;letter-spacing:.08em;color:var(--lab)">배당 종목 내역</span>
+        <span class="cb-panel-title">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:12px">${_cbDivMonthFilter+1}월 ${cal.actual?'지급':'예상'} 종목 · 전체 보기 ×</button>`:''}
       </div>
       <div class="cb-thead cb-div-head" style="display:flex;font-size:12px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1110px">
@@ -2391,7 +2393,7 @@ function cbRenderGift(){
     </div>`;
 
   el.innerHTML = `
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
+    <div class="cb-gift-row">
 
       ${giftScope.child||giftScope.spouse?'':`<div class="cb-panel cb-gift-panel cb-gift-empty" role="status">${cbEsc(_cbTaxOwner)} 님이 당사자인 증여 계획이 없습니다. 이 화면은 본인·아내 사이의 부부 증여와 본인이 자녀1에게 하는 자녀 증여만 다룹니다.</div>`}
       ${!giftScope.child?'':`
@@ -2886,7 +2888,7 @@ function cbRenderTax(){
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
     <div class="cb-panel" style="margin-top:12px;padding:16px 18px 10px">
       <div style="display:flex;gap:14px;margin-bottom:8px;font-size:12px;color:var(--mut);flex-wrap:wrap">
-        <span style="font-size:12px;letter-spacing:.08em;color:var(--lab)">${year}년 월별 실현손익 · 누적 추이 <span style="color:var(--dim)">· 소유주별 세액 합산 · 호버: 상세 · 클릭/Enter: 하단 내역 필터</span></span>
+        <span class="cb-panel-title">${year}년 월별 실현손익 · 누적 추이 <span style="color:var(--dim)">· 소유주별 세액 합산 · 호버: 상세 · 클릭/Enter: 하단 내역 필터</span></span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><span style="width:10px;height:10px;border-radius:2px;background:#4ecdc4"></span>국내주식</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--acc)"></span>해외주식</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:0;border-top:2px dashed #4ecdc4"></span>국내 누적손익</span>
@@ -2900,7 +2902,7 @@ function cbRenderTax(){
     <div class="cb-tax-bottom-grid">
       <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <div style="font-size:12px;letter-spacing:.08em;color:var(--lab)">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
+          <div class="cb-panel-title">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
           ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:12px">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
         </div>
         <div class="cb-tax-entry-form">
@@ -2936,7 +2938,7 @@ function cbRenderTax(){
         </div></div>
       </div>
       <div class="cb-panel cb-tax-saving-panel" style="padding:15px 16px;min-width:0">
-        <div style="font-size:12px;letter-spacing:.08em;color:var(--lab);font-weight:800">연말 절세 여력${ownerSuffix}</div>
+        <div class="cb-panel-title">연말 절세 여력${ownerSuffix}</div>
         <div style="font-size:12px;color:var(--dim);margin-top:3px">해외 일반계좌 · ${year}년 실현손익 기준</div>
         <div style="margin-top:14px">
           <div style="font-size:12px;color:var(--mut)">세금 없이 추가 실현 가능한 순이익</div>
@@ -3236,6 +3238,7 @@ function cbRenderDca(){
     </div>
     <div class="cb-dca-detail-grid">
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
+      <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>
       <div class="cb-thead cb-dca-head" style="display:flex;font-size:12px;color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:942px">
         <span style="width:62px">소유주</span><span style="flex:1;box-sizing:border-box;padding-left:35px">종목</span><span class="cb-mobile-secondary" style="width:92px;text-align:right">회당 금액</span><span style="width:92px;text-align:right">주기</span><span style="width:88px;text-align:right">다음 매수</span><span class="cb-mobile-secondary" style="width:132px;text-align:right"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary" style="width:82px;text-align:right"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary" style="width:96px;text-align:right">계좌</span><span style="width:100px;text-align:right">월 환산</span><span style="width:46px;text-align:right">관리</span>
       </div>

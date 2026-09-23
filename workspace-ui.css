@@ -12,9 +12,6 @@
 .form-group .form-input{width:100%}.form-label,.fin-form-grid label{font-size:12px;line-height:1.5}
 .fin-form-grid label{gap:6px}
 .fin-section-head{gap:10px;flex-wrap:wrap}.fin-section-head>small{line-height:1.5}
-.fin-target-inputs{grid-template-columns:repeat(auto-fit,minmax(168px,200px));align-items:center;gap:10px}
-.fin-target-inputs label{grid-template-columns:minmax(0,1fr) 55px 22px;min-width:0}.fin-target-inputs label span{font-size:12px}.fin-target-inputs input{min-width:0;height:32px}
-.fin-target-inputs>button{justify-self:stretch;align-self:stretch;min-height:34px;white-space:nowrap}
 #cf-input-panel .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(144px,170px));gap:10px;align-items:end;justify-content:start;max-width:none}
 #cf-input-panel .form-row>.form-group{min-width:0!important;gap:5px}#cf-input-panel .form-row>.btn-submit{height:36px;justify-self:start;white-space:nowrap}
 .cf-fixed-form{grid-template-columns:repeat(auto-fit,minmax(132px,180px));gap:12px;align-items:end}.cf-fixed-form button{height:36px;white-space:nowrap;justify-self:start}
@@ -42,7 +39,7 @@
   .page-sections{padding:8px 12px;min-height:38px;gap:3px}.page-sections a{padding:9px 11px}
   .view-section.active:has(>.cb-scroll){flex:0 0 auto}.view-section>.cb-scroll{flex:none;overflow:visible!important}
 
-  .fin-target-inputs{grid-template-columns:1fr}.fin-target-inputs label{grid-template-columns:minmax(0,1fr) 62px 24px}.fin-form-grid{grid-template-columns:1fr}
+  .fin-form-grid{grid-template-columns:1fr}
   .cb-gift-field{flex:1 1 140px!important;max-width:none}.dca-rule-actions{display:none!important}
   .sim-layout{grid-template-columns:1fr;gap:14px}.sim-controls{padding:18px}.sim-weights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px}.sim-weight{grid-template-columns:minmax(0,1fr) 48px 10px;gap:4px}.sim-weight label{font-size:11px;gap:4px}.sim-weight i{width:5px;height:5px}.sim-weight-total{grid-column:1/-1}
   .sim-kpis{grid-template-columns:1fr}.sim-kpis>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.sim-kpis b{margin:0;font-size:22px}.sim-comparison,.sim-breakdown{padding:18px}.sim-row{grid-template-columns:minmax(90px,1fr) minmax(100px,1fr)}.sim-table-head{display:none}.sim-row>span:nth-child(3){grid-column:1;text-align:left;color:var(--mut)}.sim-row>span:last-child:before{content:'목표 ';color:var(--lab)}.sim-gap b{font-size:22px}
@@ -70,10 +67,10 @@
 @media(max-width:768px){
   .page-sections{padding:4px 10px;min-height:36px}.page-sections a{padding:8px 10px}
   .content-area:has(#view-divm.active) #cb-head-widgets .owner-tabs:nth-child(2){order:-1;flex-basis:100%;justify-content:center}
-  .fin-data-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.fin-data-card{padding:11px}.fin-data-card>div{flex-wrap:wrap}.fin-data-card>strong{margin-top:8px;font-size:12px}.fin-data-card button{margin-top:7px}
+  /* 데이터 상태 카드는 휴대폰에서 한 줄에 하나 — 2열이면 제목·상태·출처가 전부 말줄임표로 잘렸다. */
+  .fin-data-grid{grid-template-columns:1fr;gap:8px}.fin-data-card{padding:11px}.fin-data-card>div{flex-wrap:wrap}.fin-data-card>strong{margin-top:8px;font-size:12px}.fin-data-card button{margin-top:7px}
   .sim-controls{padding:14px}.sim-kpis b{margin:0}.sim-comparison,.sim-breakdown{padding:14px}.cb-gift-panel{padding:13px!important}
 }
-@media(max-width:360px){.fin-data-grid{grid-template-columns:1fr!important}}
 /* Compact overview: allocation, concentration, contribution and both rankings. */
 #cb-cdash .cb-dash-insight-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}
 #cb-cdash .cb-dash-insight-grid>.cb-panel{padding:12px!important;min-width:0}
@@ -118,10 +115,14 @@
 .home-table-column input{width:240px;max-width:50%;min-width:0;padding:7px 10px;border:1px solid var(--bd);background:var(--inner);color:var(--tx);border-radius:8px}
 .home-table-wrap{overflow:auto}.home-table-column table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap}
 .home-table-column td,.home-table-column th{padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right}.home-table-column td:nth-child(-n+2),.home-table-column th:nth-child(-n+2){text-align:left}
-.fin-target-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;align-items:stretch;margin-bottom:8px}.fin-target-inputs>label{width:auto}.fin-target-inputs>label.threshold span{color:var(--lab)}.fin-rebal-main{min-width:0}
+/* 리밸런싱 목표 입력 — 규칙은 여기 한 곳만 둔다(예전엔 두 파일 네 곳이 서로 덮어써 라벨이 '가상화'처럼 잘렸다).
+   6개 자산군 + 허용 편차 + 목표 저장 = 4칸×2줄. 라벨은 이름 줄과 '입력|단위' 줄의 2단이라 칸이 좁아도 이름이 잘리지 않는다. */
+.fin-target-inputs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;align-items:stretch;margin-bottom:8px}.fin-target-inputs>label{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 6px;min-width:0;width:auto;padding:7px 9px;background:var(--inner);border-radius:8px}.fin-target-inputs>label>span{grid-column:1/-1;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-target-inputs>label.threshold>span{color:var(--lab)}.fin-target-inputs label i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}.fin-target-inputs input{min-width:0;height:30px;padding:5px 7px;text-align:right}.fin-target-inputs em{font-style:normal;font-size:11px;color:var(--dim)}.fin-target-inputs>button{justify-self:stretch;align-self:stretch;min-height:34px;white-space:nowrap}.fin-rebal-main{min-width:0}
 .fin-rebal-comparison{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);gap:14px;align-items:start}
 .fin-rebal-table>div{min-width:0}.cb-dash-sector-card{word-break:keep-all}
 .fin-rebal-table>div{grid-template-columns:minmax(76px,1fr) 52px 52px 60px minmax(90px,1fr) minmax(90px,1fr)!important;gap:6px!important;font-size:11px;padding:8px 2px!important}.fin-rebal-table>div>span:not(:first-child){text-align:right}
+/* 계좌 배치 진단의 평가액·비중도 숫자 열이므로 헤더까지 오른쪽 정렬 — 다른 표와 기준선을 맞춘다. */
+.fin-account-table>div>span:nth-child(2),.fin-account-table>div>span:nth-child(3){text-align:right}
 .fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:12px}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
 .fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;align-items:stretch}.fin-goal-context>.cb-panel{padding:12px;display:flex;flex-direction:column}.fin-goal-context b{display:block;margin-top:6px;font-size:19px}.fin-goal-context small{color:var(--lab)}
 #fin-goal-form .fin-form-grid{display:flex;gap:9px;flex-wrap:wrap;align-items:end}#fin-goal-form .fin-form-grid>label{flex:1 1 145px}#fin-goal-form .fin-form-actions{flex:0 0 auto;margin:0;align-self:end}#fin-goal-form button{white-space:nowrap}
@@ -129,7 +130,9 @@
 .form-row:has(#btn-cf-submit){gap:7px}.form-row:has(#btn-cf-submit)>.form-group{min-width:0!important}#btn-cf-submit{flex:0 0 auto;min-width:58px;white-space:nowrap;width:auto!important}
 .cb-tax-bottom-grid{grid-template-columns:1fr!important}.cb-tax-entry-form{grid-template-columns:65px 88px 80px 75px minmax(110px,1fr) minmax(90px,1fr) auto;gap:7px}.cb-tax-entry-form:has(>button:nth-child(8)){grid-template-columns:65px 88px 80px 75px minmax(110px,1fr) minmax(90px,1fr) auto auto}.cb-tax-entry-form select,.cb-tax-entry-form input{font-size:12px;padding:5px 7px}.cb-tax-head-grid{display:block;width:auto;white-space:nowrap}.cb-tax-history-panel .cb-thead>span{flex-shrink:0}
 @media(max-width:1100px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1fr}.fin-rebal-comparison{grid-template-columns:1fr}.fin-reference{border-left:0;padding-left:0}}
-@media(max-width:768px){#page-sections{order:2;flex-basis:100%;justify-content:flex-start;margin:0;overflow-x:auto;flex-wrap:nowrap}#cb-head-widgets,#owner-tabs-container{margin-left:auto!important}.cb-tax-entry-form,.cb-tax-entry-form:has(>button:nth-child(8)){grid-template-columns:repeat(2,minmax(0,1fr))}.fin-goal-context{grid-template-columns:1fr}.fin-target-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-rebal-table{overflow-x:auto}.fin-rebal-table>div{min-width:500px}}
+@media(max-width:768px){#page-sections{order:2;flex-basis:100%;justify-content:flex-start;margin:0;overflow-x:auto;flex-wrap:nowrap}#cb-head-widgets,#owner-tabs-container{margin-left:auto!important}.cb-tax-entry-form,.cb-tax-entry-form:has(>button:nth-child(8)){grid-template-columns:repeat(2,minmax(0,1fr))}.fin-goal-context{grid-template-columns:1fr}.fin-target-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-target-inputs input{pointer-events:none;opacity:.7}.fin-rebal-table{overflow-x:auto}.fin-rebal-table>div{min-width:500px}
+/* 좁은 화면에서는 표를 옆으로 밀어 보므로 자산군 칸을 고정해 어느 행인지 잃지 않게 한다. */
+.fin-rebal-table>div>span:first-child{position:sticky;left:0;z-index:1;background:var(--panelSolid)}.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(var(--dnSoft),var(--dnSoft)),var(--panelSolid)}.fin-rebal-table::before{content:'옆으로 밀어 필요 조정액·월 DCA 보정안 보기 →';position:sticky;left:0;display:block;padding:0 2px 6px;font-size:11px;color:var(--dim)}}
 @media(max-width:520px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}.home-table-column .cb-dash-table-toolbar{flex-wrap:wrap}.home-table-column input{max-width:100%;width:100%}}
 .bt-panel{padding:18px;min-width:0}.bt-search-feedback{display:flex;align-items:center;gap:10px;min-height:32px;margin:6px 0 2px;font-size:12px;color:var(--lab)}.bt-search-feedback>span{white-space:nowrap}.bt-search-feedback #bt-candidates{min-width:0}.bt-search-feedback #bt-candidates:empty{display:none}
 @media(max-width:768px){#page-sections{grid-column:1/-1;width:100%;box-sizing:border-box}}
@@ -156,7 +159,7 @@
 #cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:8px;font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;white-space:nowrap}
 .home-holdings-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}.home-table-column{min-width:0}
 .home-table-wrap{max-height:clamp(360px,56vh,620px);overscroll-behavior:contain}.home-table-column thead th{position:sticky;top:0;z-index:2;background:var(--panelSolid);box-shadow:0 1px 0 var(--bd)}
-.home-stock-summary{position:sticky;top:12px;box-sizing:border-box;max-height:clamp(360px,calc(100vh - 150px),620px);overflow:auto;overscroll-behavior:contain;padding:12px;min-width:0;white-space:normal}
+.home-stock-summary{position:sticky;top:12px;box-sizing:border-box;max-height:clamp(360px,calc(100vh - 150px),620px);overflow:auto;overscroll-behavior:contain;padding:14px 16px;min-width:0;white-space:normal}
 .home-table-column tbody tr{cursor:pointer}
 .home-table-column tbody tr:hover{background:var(--inner)}
 .home-table-column tr.is-selected{background:var(--accSoft)}

@@ -1965,8 +1965,6 @@ window.addEventListener('popstate',ev=>{
 // 뷰 전환
 // =============================================
 function switchView(viewId, btn) {
-  // 삭제된 뷰 리다이렉트
-  if (viewId==='goal') { switchView('dashboard', document.getElementById('menu-dashboard')); return; }
   if (!btn) btn=document.getElementById('menu-'+viewId);
   const viewEl = document.getElementById('view-'+viewId);
   if (!viewEl) return;
@@ -1983,17 +1981,17 @@ function switchView(viewId, btn) {
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active')); viewEl.classList.add('active');
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
-  if (viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal') {
+  // 이 함수가 직접 그리는 화면은 holdings·cashflow·bubble 뿐이다(나머지는 cobalt.js 가 감싸 처리).
+  if (viewId==='holdings') {
     document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>b.classList.remove('active'));
     const allBtn=document.querySelector('#owner-tabs-container .owner-btn');
     if(allBtn)allBtn.classList.add('active');
     currentOwner='전체';
   }
   const dispOwner = currentOwner==='전체'?'통합':currentOwner;
-  const baseTitles={'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역','dividend':'배당 현황 상세','cashflow':'현금 흐름 관리 (가계부)','gift':'유기정기금 증여 현황','family':'가족 자산 현황','analysis':'세금 & 배당 분석','target_rebal':'목표 & 리밸런싱'};
+  const baseTitles={'holdings':' 자산 내역','cashflow':'현금 흐름 관리 (가계부)'};
   let title;
-  if (viewId==='portfolio') title=`${currentOwner} 자산`;
-  else if (viewId==='dashboard'||viewId==='holdings') title=dispOwner+(baseTitles[viewId]||'');
+  if (viewId==='holdings') title=dispOwner+baseTitles.holdings;
   else if (viewId==='bubble') {
     const _o = _bubbleOwner || currentOwner || '전체';
     const suffix = (_o === '전체') ? '전체 소유주의 포트폴리오 비중 차트' : `${_o}의 포트폴리오 비중 차트`;
@@ -2002,7 +2000,7 @@ function switchView(viewId, btn) {
   else title=baseTitles[viewId]||viewId;
   document.getElementById('main-title').textContent = title;
   const ownerTabsEl = document.getElementById('owner-tabs-container');
-  ownerTabsEl.style.display=(viewId==='dashboard'||viewId==='portfolio'||viewId==='holdings'||viewId==='target_rebal')?'flex':'none';
+  ownerTabsEl.style.display=(viewId==='holdings')?'flex':'none';
   ownerTabsEl.classList.toggle('holdings-owner-tabs', viewId==='holdings');
   const cfBar = document.getElementById('cf-owner-bar');
   if (cfBar) cfBar.style.display = (viewId==='cashflow') ? 'flex' : 'none';
@@ -2038,7 +2036,6 @@ function switchView(viewId, btn) {
       setTimeout(()=>renderBubbleChart('weight'), 300);
     }));
   }
-  if (viewId==='dashboard'){}
   // 뷰 활성화 직후 차트들을 새 컨테이너 크기에 재맞춤 (렌더 함수들이 다음 프레임에 캔버스를 만들 수 있어 2회)
   requestAnimationFrame(() => _fitActiveCharts());
   setTimeout(_fitActiveCharts, 350);
@@ -2725,7 +2722,7 @@ function getDcaCellHtml(item){
 function getDcaAmountCellHtml(item){
   if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
   const isQty = item.dcaMode === 'qty';
-  const sym = item.dcaCur === 'USD' ? '$' : '₩';
+  const sym = curSymbol(item.dcaCur || 'KRW');  // 통화 기호는 CURRENCY_META 단일 출처
   const unit = item.grp === '가상화폐' ? '개' : '주';
   const amt = isQty
     ? (Number(item.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4}) + unit
@@ -3050,12 +3047,7 @@ function changeOwner(owner, btn, isRefresh=false) {
   const mainTitleEl = document.getElementById('main-title');
   if (mainTitleEl) {
     const activeViewEl = document.querySelector('.view-section.active');
-    const activeViewId = activeViewEl ? activeViewEl.id.replace('view-','') : 'dashboard';
-    const baseTitles = {'dashboard':' 자산 관리','portfolio':' 포트폴리오','holdings':' 자산 내역'};
-    if (baseTitles[activeViewId] !== undefined) {
-      if (activeViewId==='portfolio') mainTitleEl.textContent = `${owner} 자산`;
-      else mainTitleEl.textContent = dispOwnerTitle + baseTitles[activeViewId];
-    }
+    if (activeViewEl && activeViewEl.id==='view-holdings') mainTitleEl.textContent = dispOwnerTitle + ' 자산 내역';
   }
 
   // holdings 소유주 필터 동기화
@@ -4132,7 +4124,7 @@ function renderCashFlow() {
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
     const cycleDisp=i.isAuto?`<span style="font-size:.65rem;color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:.65rem;color:var(--t3)">일회성</span>`;
     const ownerCell=`<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
-    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
+    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
   // 자동이체 가상 행: 각 자동이체별로 해당 월의 실제/레거시 [자동] 항목이 없으면 예정 행 표시
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();

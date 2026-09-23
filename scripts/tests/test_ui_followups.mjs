@@ -222,8 +222,9 @@ assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-
 assert.match(styleSource, /@media \(min-width:1580px\)\{[\s\S]*cb-div-detail-grid[\s\S]*290px/, '배당 표가 충분히 넓을 때만 일정 위젯을 우측 배치')
 assert.match(cobaltSource, /cb-family-table-toolbar[\s\S]*전체 투자자산[\s\S]*cb-family-head/, '가족 투자자산 표 제목·검색줄과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(cobaltSource, /cb-div-table-toolbar[\s\S]*배당 종목 내역[\s\S]*cb-div-head/, '배당 내역 제목과 칼럼 헤더에 연속 고정 클래스 적용')
-assert.match(styleSource, /\.cb-family-table-toolbar,\.cb-div-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*top:45px/, '표 제목줄 아래 칼럼 헤더가 겹치지 않게 고정')
-assert.match(styleSource, /\.cb-family-mix-card\{position:sticky;top:0\}[\s\S]*\.cb-div-upcoming-card\{position:sticky;top:0\}/, '가족 자산·배당 우측 보조 위젯을 스크롤 중 고정')
+assert.match(styleSource, /\.cb-family-table-toolbar,\.cb-div-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*top:43px/, '표 제목줄 아래 칼럼 헤더가 겹치지 않게 고정')
+assert.match(styleSource, /\.cb-family-mix-card\{position:sticky;top:0;align-self:start\}[\s\S]*\.cb-div-upcoming-card\{position:sticky;top:0;align-self:start\}/, '가족 자산·배당 우측 보조 위젯을 스크롤 중 고정(sticky 는 늘어나면 동작하지 않으므로 위쪽 정렬)')
+assert.match(styleSource, /\.cb-family-detail-grid,\.cb-dca-detail-grid,\.cb-div-detail-grid\{[^}]*align-items:stretch\}/, '표와 보조 위젯 2열은 바닥선을 맞춘다')
 const upcomingContext = { cbStrip: ticker => String(ticker || '').toUpperCase() }
 vm.createContext(upcomingContext)
 vm.runInContext(extractFunction(scriptSource, '_defaultMonthsForCycle'), upcomingContext)

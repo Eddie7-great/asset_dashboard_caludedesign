@@ -27,6 +27,8 @@ function extractFunction(source, name) {
 
 const dcaContext = {}
 vm.createContext(dcaContext)
+// 통화 기호는 CURRENCY_META 단일 출처에서 온다 — 정의부를 그대로 가져온다.
+vm.runInContext(scriptSource.slice(scriptSource.indexOf('const CURRENCY_META'), scriptSource.indexOf('function curRateKnown(')), dcaContext)
 for (const name of [
   'getDcaCycleLabel',
   'getDcaCellHtml',
@@ -51,6 +53,8 @@ const weeklyDca = {
 assert.match(dcaContext.getDcaCellHtml(weeklyDca), /매주 월·수/, 'DCA 칼럼에는 주기만 표시')
 assert.doesNotMatch(dcaContext.getDcaCellHtml(weeklyDca), /dca-tag|>DCA<|₩500,000/, 'DCA 배지와 금액을 주기 칼럼에서 제거')
 assert.match(dcaContext.getDcaAmountCellHtml(weeklyDca), /₩500,000/, '회당 금액을 별도 칼럼에 표시')
+assert.match(dcaContext.getDcaAmountCellHtml({ ...weeklyDca, dcaCur: 'JPY', dcaAmt: 30_000 }), /¥30,000/, '엔화 적립식 금액은 ₩ 가 아니라 ¥ 로 표시')
+assert.match(dcaContext.getDcaAmountCellHtml({ ...weeklyDca, dcaCur: 'USD', dcaAmt: 100 }), /\$100/, '달러 적립식 금액은 $ 로 표시')
 assert.match(
   dcaContext.getDcaAmountCellHtml({ ...weeklyDca, dcaMode: 'qty', dcaQty: 0.5 }),
   /0\.5주/,
