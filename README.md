@@ -80,7 +80,6 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 | `SESSION_SECRET` | HttpOnly 로그인 세션 서명 키 — 충분히 긴 무작위 값 사용 |
 | `INTERNAL_API_TOKEN` | Node 서버리스 함수가 Python 내부 API를 호출할 때만 쓰는 별도 무작위 토큰 |
 | `INTERNAL_API_ORIGIN` | (선택) 내부 API 호출용 고정 HTTPS origin. 미설정 시 Vercel 배포 URL 사용 |
-| `GNEWS_API_KEY` | (선택) 뉴스 헤드라인 |
 
 기존 배포와 같은 Upstash 인스턴스를 연결하면 기존 자산 데이터가 그대로 표시됩니다.
 과거 `AUTH_TOKEN` bearer는 더 이상 허용하지 않습니다. 무중단 업그레이드를 위해 `SESSION_SECRET`이
