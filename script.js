@@ -3203,6 +3203,8 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
     if(!isNaN(newValue)&&newValue!==originalValue){
       item[field]=newValue;
       if(isCash){item.curP=1;item.avgP=1;}
+      // 수량·매입가를 직접 고쳤으면 그 값이 오늘 기준이다 — 이전 분할을 다시 곱하지 않는다.
+      if(field==='qty'||field==='avgP') item.splitCheckedAt=finLocalDateKey(new Date());
       syncDivHistory();changeOwner(currentOwner,null,true);await saveAssetsToKV();
     } else {el.innerHTML=originalHTML;}
   };
@@ -3618,7 +3620,9 @@ function submitAddModal() {
   const initialCurP=costUnknown
     ? ((editingItem&&editingItem.curP>0)?editingItem.curP:(window._GOLD_G_KRW||0)*goldUnitFactor)
     : avgP;
-  const newData={grp,owner,broker,acc,name,tkr,qty,unit,avgP,curP:initialCurP,cur,market:savedMarket,costUnknown,dca:isDca,dcaCycle,dcaAmt,dcaCur,dcaMode,dcaQty,dcaDays,dcaDay:dcaDayVal};
+  // splitCheckedAt: 사용자가 지금 값을 입력했으므로 오늘이 분할 기준일이다. 빠뜨리면
+  // 수정할 때마다 기준일이 사라져 등록 전 분할까지 자동 반영 대상이 된다.
+  const newData={grp,owner,broker,acc,name,tkr,qty,unit,avgP,curP:initialCurP,cur,market:savedMarket,costUnknown,dca:isDca,dcaCycle,dcaAmt,dcaCur,dcaMode,dcaQty,dcaDays,dcaDay:dcaDayVal,splitCheckedAt:finLocalDateKey(new Date())};
   if(ownerMode&&tkrMode){
     // 수정 모드: 편집 시작 시 기록한 인덱스를 owner/tkr로 재검증 후 사용, 무효하면 폴백
     const savedIdx=parseInt(document.getElementById('edit-mode-idx').value);
@@ -4463,8 +4467,8 @@ async function manualRefresh(source='all') {
     if(wants('prices')){
       if(assetsReady){
         results.prices=await refreshMarketPrices();
-        // 분할 이력도 같이 다시 본다. 감지 결과는 배너로만 알리고 저장하지 않으므로
-        // 새로고침 성공 판정(results)에는 넣지 않는다.
+        // 분할 이력도 같이 다시 본다. 기준일 이후 분할은 자동 반영·저장되며, 시세
+        // 새로고침과는 별개 작업이라 성공 판정(results)에는 넣지 않는다.
         checkSplitAdjustments(true);
       }
       else markAssetBlocked('prices','시장 시세','시장별 시세 API');
@@ -4583,36 +4587,36 @@ async function liveRefresh() {
 }
 
 // =============================================
-// 액면분할 · 병합 감지
+// 액면분할 · 병합 자동 반영
 // =============================================
 // 이 앱에는 매수일 필드가 없고 취득원가는 qty×avgP 로만 파생된다. 그래서 병합 후
 // 수량만 고치고 매입가를 그대로 두면 취득원가가 배수만큼 줄어 손실 종목이 큰 수익
 // 종목으로 뒤집힌다(BMNU 가 실제로 그랬다).
 //
-// **감지는 자동, 적용은 수동이다.** 자동 저장하지 않는 이유는 셋이고 전부 실제 위험이다.
-//  1) 매 진입마다 무조건 적용하면 체크포인트 저장이 한 번 실패하는 순간 avgP 가
-//     배수로 누적 곱해진다.
-//  2) 분할 '후에' 매수한 포지션에 적용하면 오히려 원가가 망가진다. 매수일이 없어
-//     코드가 판단할 수 없으므로 분할 일자를 보여 주고 사람이 고른다.
-//  3) Yahoo 가 중복·오류 분할 이벤트를 내는 경우가 있다.
-let _splitPending = [];
+// **사용자에게 묻지 않는다.** 판단 근거는 항목의 `splitCheckedAt` 하나다 — "이 날짜
+// 기준으로 수량·매입가가 맞다"는 기준일이고, 등록·수정 모달 저장과 수량/매입가 인라인
+// 수정이 오늘 날짜로 찍는다. 그 **이후** 분할만 자동으로 반영한다. 등록 전 분할은
+// 사용자가 이미 분할 후 값으로 입력한 것이므로 건드리지 않는다(예전 배너가 5년치 분할을
+// 전부 띄워 사기 전의 분할까지 반영하라고 했다).
+//  - 값과 기준일(=분할일)이 같은 저장에 함께 들어가므로 같은 분할이 두 번 곱해지지 않는다.
+//  - 저장이 실패하면 메모리 변경을 전부 되돌린다 — 다음 진입에서 같은 계산을 다시 한다.
+//  - 기준일이 빈 레거시 항목은 오늘로 한 번 백필한다(현재 값이 맞다고 본다).
+// 일회성 보정: 사용자가 증권사 기준 값을 직접 확인해 준 건. 병합 공시일(after) 이전
+// 기준일인 행이 정확히 하나일 때만 적용하고, 적용하면 기준일이 오늘이 되어 다시 돌지 않는다.
+const SPLIT_ONE_TIME_FIXES = [
+  // T-REX 2X Long BMNR(BMNU) 1:10 병합, 2026-07-13 병합 기준 거래 시작(REX Shares 공시).
+  { tkr:'BMNU', after:'2026-07-13', qty:11, avgP:233.8 },
+];
 function _splitCacheKey(){ return 'splitCache_'+finLocalDateKey(new Date()); }
-function _splitFmtNum(v){
-  const n=Number(v)||0;
-  return n.toLocaleString(undefined,{maximumFractionDigits:n<100?4:2});
-}
-function _splitFmtQty(v){ return (Number(v)||0).toLocaleString(undefined,{maximumFractionDigits:8}); }
 // 보유 행은 id 가 없어 배열 인덱스로는 안전하게 가리킬 수 없다(재로드·정렬로 어긋난다).
 // 소유주·티커·계좌 조합으로 찾는다 — 같은 종목을 여러 계좌에 나눠 담은 경우도 구분된다.
 function _splitRowKey(item){
   return [item.owner||'',String(item.tkr||'').toUpperCase(),item.acc||'',item.broker||''].join('\u001f');
 }
-function _splitFindItem(entry){
-  return pfolioData.find(i=>i&&i.grp==='주식'&&_splitRowKey(i)===entry.key)||null;
-}
+function _splitIsStock(i){ return !!(i&&i.grp==='주식'&&(i.qty||0)>0&&i.tkr); }
 // 분할 이력 조회. 하루치는 localStorage 에 캐시해 화면 전환마다 재조회하지 않는다.
 async function fetchSplitEvents(force=false){
-  const tickers=[...new Set(pfolioData.filter(i=>i&&i.grp==='주식'&&(i.qty||0)>0&&i.tkr).map(i=>i.tkr))];
+  const tickers=[...new Set(pfolioData.filter(_splitIsStock).map(i=>i.tkr))];
   if(!tickers.length) return {ok:true,skipped:true,events:{},verified:[]};
   const key=_splitCacheKey();
   if(!force){
@@ -4637,100 +4641,97 @@ async function fetchSplitEvents(force=false){
   try{ localStorage.setItem(key,JSON.stringify({events,verified})); }catch(e){}
   return {ok:failed===0,events,verified,failedChunks:failed};
 }
-// 항목별 미적용 분할 목록. splitCheckedAt 이후 분할만 후보다(비어 있으면 전체 범위).
+// 항목별 미반영 분할 목록. 기준일(splitCheckedAt) '이후' 분할만 후보다.
+// 기준일이 비어 있으면 후보가 없다 — 등록 시점을 모르는 항목에 과거 분할을 곱하지 않는다.
 function splitPendingList(events){
   const out=[];
   pfolioData.forEach(item=>{
-    if(!item||item.grp!=='주식'||!((item.qty||0)>0)||!item.tkr) return;
+    if(!_splitIsStock(item)) return;
+    const since=item.splitCheckedAt||'';
+    if(!since) return;
     const upper=String(item.tkr).toUpperCase();
     const list=events[upper.replace(/\.(?:KS|KQ)$/,'')]||events[upper];
     if(!Array.isArray(list)||!list.length) return;
-    const since=item.splitCheckedAt||'';
     list.forEach(ev=>{
-      if(!ev||!(ev.num>0)||!(ev.den>0)||ev.ratio===1) return;
-      if(since&&ev.date<=since) return;
-      out.push({key:_splitRowKey(item),name:item.name||item.tkr,tkr:item.tkr,owner:item.owner,
+      if(!ev||!(ev.num>0)||!(ev.den>0)||!(ev.ratio>0)||ev.ratio===1||!ev.date) return;
+      if(ev.date<=since) return;
+      out.push({item,key:_splitRowKey(item),tkr:item.tkr,owner:item.owner,
         date:ev.date,num:ev.num,den:ev.den,ratio:ev.ratio});
     });
   });
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
-function renderSplitNotice(){
-  const host=document.getElementById('split-notice');
-  if(!host) return;
-  if(!_splitPending.length){ host.hidden=true; host.innerHTML=''; return; }
-  host.hidden=false;
-  host.innerHTML=`<div class="split-notice-head"><b>액면분할·병합 감지 ${_splitPending.length}건</b>
-    <span>수량과 매입가를 함께 환산해 <b>취득원가(수량×매입가)를 그대로 보존</b>합니다. 분할 뒤에 매수한 포지션이면 '이미 반영됨'을 누르세요.</span></div>
-    ${_splitPending.map((p,n)=>{
-      const item=_splitFindItem(p)||{};
-      const qty=Number(item.qty||0),avg=Number(item.avgP||0);
-      const kind=p.ratio<1?'병합':'분할';
-      return `<div class="split-notice-row"><span class="split-notice-name"><b>${_cfEsc(p.name)}</b><small>${_cfEsc(p.tkr)} · ${_cfEsc(p.owner||'')}</small></span>
-        <span class="split-notice-ev">${_cfEsc(p.date)} · ${kind} ${p.num}:${p.den}</span>
-        <span class="split-notice-calc">${_splitFmtQty(qty)}주 × ${_splitFmtNum(avg)} → <b>${_splitFmtQty(qty*p.ratio)}주 × ${_splitFmtNum(p.ratio>0?avg/p.ratio:avg)}</b></span>
-        <span class="split-notice-act"><button class="cb-btn" type="button" onclick="applySplitAdjustment(${n})">반영</button>
-        <button class="cb-btn" type="button" onclick="dismissSplitAdjustment(${n})">이미 반영됨</button></span></div>`;
-    }).join('')}`;
+// 일회성 보정 대상. 같은 티커 주식 행이 둘 이상이면 어느 쪽인지 모르므로 적용하지 않는다.
+function splitOneTimeFixTargets(){
+  const out=[];
+  SPLIT_ONE_TIME_FIXES.forEach(fix=>{
+    const rows=pfolioData.filter(i=>i&&i.grp==='주식'&&String(i.tkr||'').toUpperCase()===fix.tkr);
+    if(rows.length!==1) return;
+    const item=rows[0];
+    if((item.splitCheckedAt||'')>=fix.after) return;
+    out.push({item,fix});
+  });
+  return out;
 }
-// 수량 ×(num/den), 매입가 ÷(num/den) → 취득원가 보존. 저장 실패 시 메모리를 되돌린다.
-async function applySplitAdjustment(n){
-  const p=_splitPending[n];
-  if(!p) return;
-  const item=_splitFindItem(p);
-  if(!item){ _splitPending=_splitPending.filter(x=>x!==p); renderSplitNotice(); return; }
-  if(window._kvLoadState?.assets!=='ready'){
-    showSaveError('⚠️ 자산 원장을 불러오기 전에는 분할을 반영할 수 없습니다. 데이터 상태에서 다시 확인해 주세요.');
-    return;
+let _splitRunning=null;
+async function checkSplitAdjustments(force=false){
+  if(_splitRunning) return _splitRunning;
+  _splitRunning=(async()=>{
+    try{ return await _checkSplitAdjustmentsOnce(force); }
+    catch(e){
+      console.error('[checkSplitAdjustments]',e);
+      return {ok:false,error:e?.message||'분할 조회 실패'};
+    }finally{ _splitRunning=null; }
+  })();
+  return _splitRunning;
+}
+async function _checkSplitAdjustmentsOnce(force){
+  // 원장을 제대로 불러오기 전에는 판단도 쓰기도 하지 않는다(빈 기본값을 덮어쓰지 않는다).
+  if(window._kvLoadState?.assets!=='ready') return {ok:false,blocked:true,applied:[]};
+  const today=finLocalDateKey(new Date());
+  const backup=new Map();
+  const remember=item=>{ if(!backup.has(item)) backup.set(item,{qty:item.qty,avgP:item.avgP,splitCheckedAt:item.splitCheckedAt}); };
+  const applied=[];
+  // ① 일회성 보정
+  splitOneTimeFixTargets().forEach(({item,fix})=>{
+    remember(item);
+    item.qty=fix.qty; item.avgP=fix.avgP; item.splitCheckedAt=today;
+    applied.push({tkr:item.tkr,owner:item.owner,kind:'fix',qty:fix.qty,avgP:fix.avgP});
+  });
+  // ② 기준일이 빈 레거시 항목 백필 — 숫자는 그대로 두고 기준일만 오늘로.
+  pfolioData.forEach(item=>{
+    if(_splitIsStock(item)&&!item.splitCheckedAt){ remember(item); item.splitCheckedAt=today; }
+  });
+  // ③ 기준일 이후 분할 자동 반영. 분할 조회가 실패해도 ①② 는 저장한다.
+  let fetchOk=true;
+  const r=await fetchSplitEvents(force);
+  if(!r.skipped){
+    fetchOk=r.ok;
+    splitPendingList(r.events||{}).forEach(p=>{
+      const item=p.item;
+      if((item.splitCheckedAt||'')>=p.date) return;
+      remember(item);
+      // 수량 ×(num/den), 매입가 ÷(num/den) → 취득원가(qty×avgP) 보존.
+      item.qty=Number(item.qty||0)*p.ratio;
+      item.avgP=Number(item.avgP||0)/p.ratio;
+      item.splitCheckedAt=p.date;
+      applied.push({tkr:item.tkr,owner:item.owner,kind:p.ratio<1?'병합':'분할',date:p.date,num:p.num,den:p.den});
+    });
   }
-  const before={qty:item.qty,avgP:item.avgP,splitCheckedAt:item.splitCheckedAt};
-  item.qty=Number(item.qty||0)*p.ratio;
-  item.avgP=p.ratio>0?Number(item.avgP||0)/p.ratio:item.avgP;
-  item.splitCheckedAt=finLocalDateKey(new Date());
+  if(!backup.size) return {ok:fetchOk,applied};
   let saved=null;
   try{ saved=await saveAssetsToKV(); }
-  catch(e){ console.error('[applySplitAdjustment]',e); }
+  catch(e){ console.error('[checkSplitAdjustments] 저장 실패',e); }
   if(!saved||!saved.ok){
-    Object.assign(item,before);
-    renderSplitNotice();
-    showSaveError('⚠️ 저장에 실패해 분할 반영을 되돌렸습니다. 잠시 후 다시 시도해 주세요.');
-    return;
+    backup.forEach((v,item)=>Object.assign(item,v));
+    return {ok:false,error:'분할 반영 저장 실패',applied:[]};
   }
-  _splitPending=_splitPending.filter(x=>x.key!==p.key);
-  renderSplitNotice();
-  changeOwner(currentOwner,null,true);
-}
-// 숫자는 건드리지 않고 확인 날짜만 올린다 — 분할 뒤 매수한 포지션용.
-async function dismissSplitAdjustment(n){
-  const p=_splitPending[n];
-  if(!p) return;
-  const item=_splitFindItem(p);
-  if(item){
-    if(window._kvLoadState?.assets!=='ready'){
-      showSaveError('⚠️ 자산 원장을 불러오기 전에는 저장할 수 없습니다.');
-      return;
-    }
-    const before=item.splitCheckedAt;
-    item.splitCheckedAt=finLocalDateKey(new Date());
-    let saved=null;
-    try{ saved=await saveAssetsToKV(); }
-    catch(e){ console.error('[dismissSplitAdjustment]',e); }
-    if(!saved||!saved.ok){ item.splitCheckedAt=before; showSaveError(); return; }
+  window._splitAutoResult={applied,at:today};
+  if(applied.length){
+    console.info('[액면분할·병합 자동 반영]',applied);
+    changeOwner(currentOwner,null,true);
   }
-  _splitPending=_splitPending.filter(x=>x.key!==p.key);
-  renderSplitNotice();
-}
-async function checkSplitAdjustments(force=false){
-  try{
-    const r=await fetchSplitEvents(force);
-    if(r.skipped) return {ok:true,skipped:true,pending:0};
-    _splitPending=splitPendingList(r.events||{});
-    renderSplitNotice();
-    return {ok:r.ok,pending:_splitPending.length};
-  }catch(e){
-    console.error('[checkSplitAdjustments]',e);
-    return {ok:false,error:e?.message||'분할 조회 실패'};
-  }
+  return {ok:fetchOk,applied};
 }
 
 // DCA는 증권사 외부 서비스이므로 이 앱에서 체결을 생성하지 않는다.
@@ -5210,7 +5211,7 @@ function initDashboard(){
     else console.warn('[initDashboard] 원본 KV 로드 실패로 순자산 스냅샷 저장을 건너뜁니다.');
     // 국내 시세 보완은 refreshMarketPrices에서 주 시세 API와 함께 최종 판정한다.
     if(assetsResult?.ok) fetchDivData();
-    // 액면분할·병합 감지. 조회만 하고 저장은 사용자가 배너에서 누를 때만 일어난다.
+    // 액면분할·병합 자동 반영 — 각 항목의 기준일(splitCheckedAt) 이후 분할만 반영한다.
     if(assetsResult?.ok) checkSplitAdjustments();
   })();
 }
