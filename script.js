@@ -263,11 +263,15 @@ function fmtMoney(v, cur='KRW'){
 }
 // 손익 계산: { profit, pct }
 function calcProfit(cur, inv){ const p = cur - inv; return { profit: p, pct: inv > 0 ? (p/inv)*100 : 0 }; }
+// 시세·배당 응답 매칭 키: 앞뒤 공백 제거 + 대문자. 서버(api/price.ts)가 요청 티커를 이렇게
+// 바꿔 응답 키로 쓰므로, 저장된 티커(`bmnu`, ` NVDA`)를 그대로 찾으면 가격을 받고도
+// '미조회'가 된다. 이름이 같으면 대소문자·공백과 무관하게 같은 종목이다.
+const quoteKey = t => String(t==null?'':t).trim().toUpperCase();
 // 티커 정규화: 대문자화 + .KS/.KQ 접미사 제거
-const normTkr = t => (t||'').toUpperCase().replace(/\.(KS|KQ)$/i, '');
+const normTkr = t => quoteKey(t).replace(/\.(KS|KQ)$/i, '');
 // 배당 캐시는 화면(Cobalt cbStrip)과 동일하게 한국·일본 거래소 접미사를 제거해 조회한다.
 // API 요청 심볼은 .T를 유지해야 Yahoo가 일본 종목을 찾으므로 요청 목록에는 normDivTkr를 쓰지 않는다.
-const normDivTkr = t => (t||'').toUpperCase().replace(/\.(KS|KQ|T)$/i, '');
+const normDivTkr = t => quoteKey(t).replace(/\.(KS|KQ|T)$/i, '');
 // fetch 타임아웃 헬퍼: { signal, done() }
 function fetchTimeout(ms=20000){
   const c = new AbortController();
@@ -3278,7 +3282,7 @@ function renderPortfolio(owner) {
           // 환율은 반드시 RATES 를 거친다. 지원 통화가 아니면 1:1 이 되어 평가액이 수백 배 어긋나므로
           // curRateKnown 으로 확인하고, 확인되지 않으면 시세 미확인으로 표시한다.
           const krwRate=RATES[i.cur]||1;
-          if(!curRateKnown(i.cur)) i._priceStale=true;
+          i._priceStale=!curRateKnown(i.cur);
           const cashKRW=Math.round(i.qty*krwRate);
           const symCur=curSymbol(i.cur);
           const fBal=symCur+(Number(i.qty)||0).toLocaleString();
@@ -4514,7 +4518,7 @@ function _chunkTickers(list, size = API_TICKER_CHUNK) {
 
 async function liveRefresh() {
   const tickers=new Set();
-  pfolioData.forEach(i=>{if(i.grp==='주식'||i.grp==='가상화폐')tickers.add(i.tkr);});
+  pfolioData.forEach(i=>{if((i.grp==='주식'||i.grp==='가상화폐')&&quoteKey(i.tkr))tickers.add(quoteKey(i.tkr));});
   if(!tickers.size)return {ok:true,skipped:true,stale:0,detail:'조회할 시세 자산 없음'};
   try {
     // 청크별로 요청하고 병합한다. 일부 청크가 실패해도 성공한 청크의 시세는 반영하고,
@@ -4560,12 +4564,17 @@ async function liveRefresh() {
         if(window._GOLD_G_KRW){
           const gm = i.unit==='돈'?3.75:(i.unit==='kg'?1000:1);
           i.curP = window._GOLD_G_KRW * gm;
+          // 켜기만 하고 끄지 않으면 KV 에 저장된 표시가 영구 빨간불로 남는다.
+          i._priceStale = false;
         }
+      } else if(i.grp==='현금'){
+        i._priceStale = !curRateKnown(i.cur);
       } else if(i.grp==='주식'||i.grp==='가상화폐'){
         // interval=1d는 완성된 일봉만 반환 → closes[last]가 마지막 거래일 확정 종가
-        const t6=i.tkr.replace(/\.(?:KS|KQ)$/,'');
+        const key=quoteKey(i.tkr);
+        const t6=normTkr(i.tkr);
         const quotes=data.quotes||{};
-        const q=quotes[i.tkr]||quotes[t6]||quotes[t6+'.KS']||quotes[t6+'.KQ'];
+        const q=quotes[key]||quotes[t6]||quotes[t6+'.KS']||quotes[t6+'.KQ'];
         const price=Number(q?.price||q?.prevClose);
         if(q&&price>0){
           i.curP = price;i._priceStale=false;
@@ -7439,8 +7448,8 @@ async function fetchPyPrices(tickers) {
   let updated = false;
   pfolioData.forEach(i => {
     if (i.grp !== '주식' && i.grp !== '가상화폐') return;
-    const tkr6 = i.tkr.replace(/\.(KS|KQ)$/, '');
-    const q = qmap[i.tkr] || qmap[tkr6];
+    const tkr6 = normTkr(i.tkr);
+    const q = qmap[quoteKey(i.tkr)] || qmap[tkr6] || qmap[i.tkr];
     if (q && q.price !== '미조회' && typeof q.price === 'number') {
       if (!i.curP || i._priceStale) {
         i.curP = q.price;
@@ -7568,7 +7577,8 @@ async function refreshPyData(options={}) {
   const staleTickers = [...new Set(
     pfolioData
       .filter(i => (i.grp==='주식'||i.grp==='가상화폐') && i._priceStale)
-      .map(i => i.tkr.replace(/\.(KS|KQ)$/,''))
+      .map(i => normTkr(i.tkr))
+      .filter(Boolean)
   )];
   if (staleTickers.length) await fetchPyPrices(staleTickers);
   return {
