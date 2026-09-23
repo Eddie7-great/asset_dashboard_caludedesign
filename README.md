@@ -93,7 +93,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `script.js` — 데이터 엔진 + 기존 기능 뷰 (~7,600줄, 모듈 시스템 없음)
 - `finance.js` — 목표·리밸런싱·투자자산 추이·데이터 상태. `script.js`의 저장 엔진과 `cobalt.js`의 표시 헬퍼를 재사용
 - `navigation.js` — 일곱 개 메뉴(`APP_NAV`)와 세부 링크, 옛 링크 해석, 메뉴 간 소유주 범위 유지
-- `backtest.js` / `simulator.js` / `dca-editor.js` / `etf-explorer.js` — 백테스트·추가 투자 배분·적립식 편집·ETF 탐색. 모두 Cobalt 가 렌더할 때까지 함수만 정의합니다
+- `backtest.js` / `simulator.js` / `etf-explorer.js` — 백테스트·추가 투자 배분·ETF 탐색. 모두 Cobalt 가 렌더할 때까지 함수만 정의합니다
 - `workspace-ui.css` / `etf-explorer.css` — `style.css` 뒤에 로드되어 통합 워크스페이스와 ETF 탐색 레이아웃을 덮어씁니다
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
 - `allocation-3d.js` — 자산 배분 차트의 선택적 WebGL 렌더러. `vendor/`의 Three.js 0.180.0 모듈과 MIT 라이선스를 함께 배포하며, 화면에 필요할 때만 불러옵니다.
@@ -103,7 +103,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `docs/invariants.md` — **건드리면 안 되는 것.** 실제로 사고가 났던 자리와 그 증상, `npm test` 로는 확인되지 않는 영역(워크플로·모바일 레이아웃·CDN 실패·터치)을 정리했습니다. 수정 작업을 맡기기 전에 이 문서를 먼저 읽게 하세요
 - `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 
-> 스크립트 로드 순서는 `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `dca-editor.js` → `etf-explorer.js` → `cobalt.js` 로 고정입니다.
+> 스크립트 로드 순서는 `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `cobalt.js` 로 고정입니다.
 > `cobalt.js`가 `CB_VIEWS`에서 다른 파일의 렌더 함수를 참조하고 전역 함수들을 감싸기 때문에 데이터·페이지 스크립트 중 마지막에 와야 합니다. 선택적 `allocation-3d.js`는 그 뒤에 로드합니다. 스타일시트는 `style.css` → `workspace-ui.css` → `etf-explorer.css` 순입니다.
 
 자세한 개발 규칙은 `CLAUDE.md`(기계가 읽는 판본)와 `docs/invariants.md`(사람이 읽는 판본)를 참고하세요.
