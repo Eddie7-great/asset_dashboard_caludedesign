@@ -9,9 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=56">
-  <link rel="stylesheet" href="workspace-ui.css?v=5">
-<link rel="stylesheet" href="etf-explorer.css?v=2">
+  <link rel="stylesheet" href="style.css?v=57">
+  <link rel="stylesheet" href="workspace-ui.css?v=6">
+<link rel="stylesheet" href="etf-explorer.css?v=3">
 </head>
 <body>
 
@@ -109,13 +109,6 @@
         <button class="owner-btn" id="sunburst-owner-자녀1" onclick="setBubbleOwnerX('자녀1',this)">자녀1</button>
         <button class="owner-btn" id="sunburst-owner-아버지" onclick="setBubbleOwnerX('아버지',this)">아버지</button>
       </div>
-      <div id="analysis-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
-        <button class="owner-btn active" id="analysis-owner-전체" onclick="setAnalysisOwner('전체',this)">전체</button>
-        <button class="owner-btn" id="analysis-owner-본인" onclick="setAnalysisOwner('본인',this)">본인</button>
-        <button class="owner-btn" id="analysis-owner-아내" onclick="setAnalysisOwner('아내',this)">아내</button>
-        <button class="owner-btn" id="analysis-owner-자녀1" onclick="setAnalysisOwner('자녀1',this)">자녀1</button>
-        <button class="owner-btn" id="analysis-owner-아버지" onclick="setAnalysisOwner('아버지',this)">아버지</button>
-      </div>
       <div class="owner-tabs" id="owner-tabs-container" style="margin-left:auto">
         <button class="owner-btn active" onclick="changeOwner('전체',this)">전체</button>
         <button class="owner-btn" onclick="changeOwner('본인',this)">본인</button>
@@ -125,10 +118,6 @@
       </div>
       </div>
     </div>
-
-    <!-- 액면분할·병합 감지 알림 (renderSplitNotice). 취득원가를 덮어쓰는
-         유일한 경로이므로 자동 저장하지 않고 사용자가 누를 때만 적용한다. -->
-    <div id="split-notice" class="split-notice" role="status" hidden></div>
 
     <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
@@ -492,14 +481,13 @@
 </div>
 
 <script defer src="tax-rules.js?v=2"></script>
-<script defer src="script.js?v=53"></script>
-<script defer src="finance.js?v=15"></script>
+<script defer src="script.js?v=54"></script>
+<script defer src="finance.js?v=16"></script>
 <script defer src="navigation.js?v=3"></script>
 <script defer src="backtest.js?v=2"></script>
 <script defer src="simulator.js?v=1"></script>
-<script defer src="dca-editor.js?v=1"></script>
 <script defer src="etf-explorer.js?v=2"></script>
-<script defer src="cobalt.js?v=33"></script>
+<script defer src="cobalt.js?v=34"></script>
 <script defer src="allocation-3d.js?v=1"></script>
 </body>
 </html>

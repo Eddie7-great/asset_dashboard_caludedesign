@@ -25,7 +25,7 @@ SESSION_TTL_SECONDS = 8 * 60 * 60
 MAX_TICKERS = 25
 MAX_QUERY_LENGTH = 2048
 TICKER_PATTERN = re.compile(r'^[A-Z0-9.^=_-]{1,24}$')
-ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'fundamentals', 'resolve', 'etf_holdings'}
+ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'resolve', 'etf_holdings'}
 
 
 def get_live_etf(code):
@@ -742,86 +742,6 @@ def get_benchmark(p_tkrs=None, p_weights=None):
     return {'success': True, 'benchmark': result, 'unresolved': unresolved}
 
 
-# ── 8. 뉴스 (Google News RSS) ──────────────────
-# ── 종목별 펀더멘털 (PER / PBR / ROE / 성장률 / 1Y·3Y 수익률 / 목표가) ─────
-# Portfolio Advisor 용 — yfinance Ticker.info + 3년 history 한 번 호출.
-# 필드별 try/except, 실패 시 None. 배치 호출은 직렬 (yfinance rate-limit 보호).
-_FUND_FIELDS = ['trailingPE', 'priceToBook', 'dividendYield', 'returnOnEquity',
-                'revenueGrowth', 'earningsGrowth', 'targetMeanPrice', 'currentPrice']
-
-def _get_one_fundamental(sym):
-    out = {k: None for k in _FUND_FIELDS}
-    out['return1y'] = None
-    out['return3y'] = None
-    if not YF_OK or not sym:
-        return out
-    try:
-        t = yf.Ticker(sym)
-    except Exception:
-        return out
-    # Ticker.info — 일부 필드는 None 또는 NaN 가능, 필드별 try
-    try:
-        info = t.info or {}
-    except Exception:
-        info = {}
-    for k in _FUND_FIELDS:
-        try:
-            v = info.get(k)
-            if v is None:
-                continue
-            if isinstance(v, (int, float)):
-                if v != v or v == float('inf') or v == float('-inf'):  # NaN/inf
-                    continue
-                out[k] = float(v)
-            else:
-                # 가끔 문자열로 오는 경우 float 변환 시도
-                try:
-                    out[k] = float(v)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    # 3년 history → 1Y/3Y 수익률 (한 번 호출)
-    try:
-        h = t.history(period='3y')
-        if h is not None and not h.empty:
-            closes = h['Close'].dropna()
-            if len(closes) >= 2:
-                last = float(closes.iloc[-1])
-                first = float(closes.iloc[0])
-                if first > 0:
-                    out['return3y'] = last / first - 1
-                # 1Y: 마지막 ~252거래일 전
-                if len(closes) > 252:
-                    one_y_ago = float(closes.iloc[-252])
-                    if one_y_ago > 0:
-                        out['return1y'] = last / one_y_ago - 1
-                else:
-                    # 1년치 데이터 부족 — 전체 기간 환산 (252거래일 가정)
-                    if first > 0:
-                        out['return1y'] = (last / first) ** (252 / max(1, len(closes) - 1)) - 1
-            # currentPrice 보조 (info에 없을 때)
-            if out['currentPrice'] is None and len(closes) > 0:
-                out['currentPrice'] = float(closes.iloc[-1])
-    except Exception:
-        pass
-    return out
-
-
-def get_fundamentals(tickers):
-    """배치 펀더멘털 조회 — 직렬, 청크 길이는 호출자 측에서 제한."""
-    data = {}
-    for raw in (tickers or []):
-        sym = (raw or '').strip()
-        if not sym:
-            continue
-        try:
-            data[sym] = _get_one_fundamental(sym)
-        except Exception:
-            data[sym] = {k: None for k in (_FUND_FIELDS + ['return1y', 'return3y'])}
-    return {'success': True, 'data': data}
-
-
 # ── Vercel Python Serverless Handler ───────────────────────────
 class handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args): pass
@@ -884,11 +804,6 @@ class handler(BaseHTTPRequestHandler):
                     ','.join(benchmark_tickers),
                     ','.join(str(weight) for weight in weights),
                 )
-            elif qtype == 'fundamentals':
-                single = params.get('ticker', [''])[0].strip()
-                batch_raw = params.get('tickers', [''])[0]
-                tlist = _parse_tickers(batch_raw or single, 8)
-                data = get_fundamentals(tlist)
             elif qtype == 'resolve':
                 name = params.get('name', [''])[0].strip()
                 if not name or len(name) > 80 or any(ord(char) < 32 for char in name):

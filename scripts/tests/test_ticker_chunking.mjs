@@ -69,9 +69,12 @@ assert.match(CHUNK_DECL, /const BENCH_TICKER_LIMIT = 20/, '벤치마크 상한�
 }
 
 // ─────────────────────────── liveRefresh ───────────────────────────
-function makeLiveRefreshCtx(responder) {
+// quoteKey·normTkr·normDivTkr 선언부(연속 3개 const)를 그대로 가져온다.
+const TICKER_KEY_DECL = source.slice(source.indexOf('const quoteKey = '), source.indexOf('\n', source.indexOf('const normDivTkr = ')))
+assert.match(TICKER_KEY_DECL, /const normTkr = /, 'quoteKey 와 normTkr 는 붙어 있어야 한다')
+function makeLiveRefreshCtx(responder, rows) {
   const calls = []
-  const pfolioData = Array.from({ length: 30 }, (_, i) => ({ tkr: 'T' + i, grp: '주식', cur: 'USD', qty: 1 }))
+  const pfolioData = rows || Array.from({ length: 30 }, (_, i) => ({ tkr: 'T' + i, grp: '주식', cur: 'USD', qty: 1 }))
   const ctx = baseContext({
     pfolioData,
     currentOwner: '전체',
@@ -86,6 +89,8 @@ function makeLiveRefreshCtx(responder) {
     flash: noop,
   })
   vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext(TICKER_KEY_DECL, ctx)
+  vm.runInContext(extractFunction('curRateKnown'), ctx)
   vm.runInContext(extractFunction('liveRefresh'), ctx)
   return { ctx, calls, pfolioData }
 }
@@ -128,6 +133,45 @@ const okResponse = (list) => ({
   const result = await vm.runInContext('liveRefresh()', ctx)
   assert.equal(result.ok, false, '전부 실패하면 실패')
   assert.ok(result.error, '오류 메시지를 반환한다')
+}
+
+{
+  // 서버는 티커를 trim+대문자로 바꿔 응답 키로 쓴다. 저장된 모양이 달라도 이름이 같으면 조회돼야 한다.
+  const rows = [
+    { tkr: 'bmnu', grp: '주식', cur: 'USD', qty: 11, _priceStale: true },
+    { tkr: ' BMNU ', grp: '주식', cur: 'USD', qty: 1, owner: '아내', _priceStale: true },
+    { tkr: 'nvda', grp: '주식', cur: 'USD', qty: 5, _priceStale: true },
+    { tkr: '005930.ks', grp: '주식', cur: 'KRW', qty: 1, _priceStale: true },
+    { tkr: 'MISS', grp: '주식', cur: 'USD', qty: 1 },
+    { tkr: 'GOLD_1', grp: '금', unit: 'g', cur: 'KRW', qty: 10, _priceStale: true },
+    { tkr: 'USD_1', grp: '현금', cur: 'USD', qty: 100, _priceStale: true },
+    { tkr: 'CHF_1', grp: '현금', cur: 'CHF', qty: 100 },
+  ]
+  const responder = (list) => ({
+    ok: true,
+    json: async () => ({
+      success: true,
+      // 서버처럼 대문자 키로만 답한다. MISS 는 서버가 가격을 못 준 종목.
+      quotes: Object.fromEntries(list.filter(t => t !== 'MISS').map(t => [t.replace(/\.KS$/, ''), { price: 24.06, prevClose: 20.39 }])),
+      rates: { USD: 1300, JPY: 9, USDJPY: 144, GOLD_G_KRW: 100000 },
+    }),
+  })
+  const { ctx, calls, pfolioData } = makeLiveRefreshCtx(responder, rows)
+  await vm.runInContext('liveRefresh()', ctx)
+  const sent = calls.flat()
+  assert.deepEqual(sent.filter(t => t === 'BMNU').length, 1, 'bmnu · " BMNU " 는 한 번만 요청한다')
+  assert.ok(sent.every(t => t === t.trim().toUpperCase()), '요청 티커는 trim+대문자')
+  const by = (t, owner) => pfolioData.find(i => i.tkr === t && (!owner || i.owner === owner))
+  assert.equal(by('bmnu').curP, 24.06, '소문자로 저장된 티커도 대문자 응답과 매칭')
+  assert.equal(by('bmnu')._priceStale, false)
+  assert.equal(by(' BMNU ', '아내')._priceStale, false, '앞뒤 공백이 있어도 매칭')
+  assert.equal(by('nvda')._priceStale, false)
+  assert.equal(by('005930.ks')._priceStale, false, '소문자 거래소 접미사도 매칭')
+  assert.equal(by('MISS')._priceStale, true, '서버가 가격을 안 준 종목은 여전히 미조회(가짜 초록 금지)')
+  assert.equal(by('GOLD_1')._priceStale, false, '금 시세를 받으면 금 행의 미조회 표시를 지운다')
+  assert.equal(by('USD_1')._priceStale, false, '환율이 확인된 현금은 미조회 표시를 지운다')
+  assert.equal(by('CHF_1')._priceStale, true, '환율이 없는 통화 현금은 미조회로 드러낸다')
+  assert.equal(by('bmnu').tkr, 'bmnu', '저장된 티커 문자열은 바꾸지 않는다')
 }
 
 // ─────────────────────────── fetchDivData ───────────────────────────

@@ -50,9 +50,6 @@ for (const name of ['_cfEsc', 'holdingsEsc', 'cbEsc']) {
 // Cobalt 대시보드 키는 JS 문자열에 삽입하지 않고 data 속성에서 읽는다.
 assert.doesNotMatch(cobaltSource, /cbDashPick\(\s*['"`]\s*\$\{/, '대시보드 키를 동적 인라인 JS 문자열에 삽입하지 않음')
 assert.doesNotMatch(extractFunction(cobaltSource,'cbRenderDash'), /data-dash-key|cbDashPick/, '홈에서 제거한 상세 표는 동적 키를 렌더하지 않음')
-const dcaSource=fs.readFileSync(new URL('../../dca-editor.js',import.meta.url),'utf8')
-assert.match(dcaSource, /cbEsc\(\[x\.i\.owner,x\.i\.name\|\|x\.i\.tkr,x\.i\.broker,x\.i\.acc\]/, '새 규칙 선택기의 원격 자산명·계좌는 이스케이프')
-assert.match(dcaSource, /cbEsc\(item\.name\|\|item\.tkr\)/, '규칙 편집 제목의 종목명은 이스케이프')
 
 // 재무 목표 ID도 동일하게 data 속성을 사용해 따옴표 탈출 경로를 차단한다.
 assert.doesNotMatch(financeSource, /finGoal(?:Edit|Delete)\(\s*['"`]\s*\$\{/, '재무 목표 ID를 동적 인라인 JS 문자열에 삽입하지 않음')
@@ -83,7 +80,6 @@ for (const [pattern, message] of [
 assert.doesNotMatch(cobaltSource, /\$\{(?!cb|_)[a-zA-Z_][\w.]*\.(?:name|tkr|memo)\}/,
   'Cobalt 템플릿에 저장소 문자열 원문 삽입 금지')
 
-assert.match(scriptSource, /document\.createElement\(['"]option['"]\)[\s\S]*option\.textContent=[\s\S]*replaceChildren\(\.\.\.options\)/, 'DRIP 종목 옵션은 DOM textContent로 생성')
 assert.match(scriptSource, /safeId=Number\.isSafeInteger\(Number\(at\.id\)\)/, '자동이체 ID는 인라인 핸들러 삽입 전 안전한 숫자로 제한')
 
 // 저장소 경계에서 모든 주요 레코드 유형을 정규화해야 한다.

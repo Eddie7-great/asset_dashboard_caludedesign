@@ -6,8 +6,7 @@ const MAX_TICKERS = 25;
 const MAX_TICKER_LENGTH = 24;
 const MAX_CONCURRENCY = 5;
 const ALLOWED_TYPES = new Set([
-  'price', 'dividend', 'dividend_history', 'splits', 'sector', 'ohlcv',
-  'search', 'krsearch', 'macro', 'news', 'heatmap',
+  'price', 'dividend', 'dividend_history', 'splits', 'ohlcv',
 ]);
 
 function singleQuery(value: string | string[] | undefined): string {
@@ -70,7 +69,7 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1000
 }
 
 // ── Yahoo Finance 마지막 거래일 종가 조회 ─────────────────────
-async function yahooScrapePrevClose(symbol: string): Promise<{ price: number; prevClose: number; change1D: number } | null> {
+async function yahooScrapePrevClose(symbol: string): Promise<{ price: number; prevClose: number } | null> {
   try {
     const encodedSym = encodeURIComponent(symbol);
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=1d&range=5d`;
@@ -82,8 +81,7 @@ async function yahooScrapePrevClose(symbol: string): Promise<{ price: number; pr
     // 마지막 거래일 종가
     const prevClose = closes.length >= 2 ? closes[closes.length - 2] : closes[closes.length - 1];
     const price = closes[closes.length - 1];
-    const change1D = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
-    return { price: parseFloat(price.toFixed(4)), prevClose: parseFloat(prevClose.toFixed(4)), change1D: parseFloat(change1D.toFixed(2)) };
+    return { price: parseFloat(price.toFixed(4)), prevClose: parseFloat(prevClose.toFixed(4)) };
   } catch (e) { console.error(`[Yahoo Scrape] ${symbol}:`, e); return null; }
 }
 
@@ -491,15 +489,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return res.status(200).json({ success: true, result, verifiedTickers });
     }
 
-    // ── 섹터 조회 ───────────────────────────────────────────
-    if (type === 'sector') {
-      const t = singleQuery(req.query.tkr).trim().toUpperCase();
-      if (!t || t.length > MAX_TICKER_LENGTH || !/^[A-Z0-9.^=_-]+$/.test(t)) {
-        return res.status(400).json({ error: 'Invalid ticker' });
-      }
-      return res.status(200).json({ sector: getSectorForTicker(t) });
-    }
-
     // ── OHLCV 시계열 (추세 분석 어드바이저 전용) ───────────────
     //   ?type=ohlcv&tkr=TSLA&range=1y
     //   - Yahoo Finance v8/chart 에서 OHLCV 전체 + ^GSPC / ^KS11 종가 동봉
@@ -620,166 +609,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           sector: benchMap['sector'] || [],
         },
       });
-    }
-
-    // ── 검색 (get-stock.js로 이전됨) ───────────────────────
-    if (type === 'search' || type === 'krsearch') {
-      return res.status(200).json({ result: [] });
-    }
-
-    // ── 거시 투자 지표 ─────────────────────────────────────
-    if (type === 'macro') {
-      const macro: Record<string, number | null> = {};
-
-      // 1. F&G US → Python API(alternative.me)에서 실제 값 수신, 여기서는 null
-      macro.fngUS = null;
-
-      // 2. F&G Crypto (alternative.me)
-      try {
-        const r = await fetchWithTimeout('https://api.alternative.me/fng/', { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) { const d = await r.json(); macro.fngCrypto = parseInt(d?.data?.[0]?.value) || null; }
-      } catch(e) { macro.fngCrypto = null; }
-
-      // 3. DXY (Yahoo Finance DX-Y.NYB)
-      try {
-        const r = await fetchWithTimeout('https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=5d',
-          { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) {
-          const d = await r.json();
-          const cur = d?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-          macro.dxy = cur ? parseFloat(cur.toFixed(2)) : null;
-          const closes = (d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter((v:any) => v != null);
-          if (closes.length >= 2) macro.dxyChange = parseFloat(((closes[closes.length-1]/closes[closes.length-2]-1)*100).toFixed(2));
-        }
-      } catch(e) { console.error('[Macro DXY]', e); }
-
-      // 4. 미 국채 수익률 커브 10Y-2Y (Treasury.gov)
-      try {
-        const now2 = new Date();
-        const ym = `${now2.getFullYear()}${String(now2.getMonth()+1).padStart(2,'0')}`;
-        const r = await fetchWithTimeout(
-          `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/all/${ym}?type=daily_treasury_yield_curve&field_tdr_date_value_month=${ym}&download=true`
-        );
-        if (r.ok) {
-          const csv = await r.text();
-          const lines = csv.trim().split('\n').filter((l:string) => l.trim());
-          if (lines.length >= 2) {
-            const headers = lines[0].split(',').map((h:string) => h.trim().replace(/"/g,''));
-            const last = lines[lines.length-1].split(',').map((v:string) => v.trim().replace(/"/g,''));
-            const i2 = headers.findIndex((h:string) => h.includes('2 Yr'));
-            const i10 = headers.findIndex((h:string) => h.includes('10 Yr'));
-            if (i2 >= 0 && i10 >= 0) {
-              const y2 = parseFloat(last[i2]), y10 = parseFloat(last[i10]);
-              if (!isNaN(y2) && !isNaN(y10) && y2 > 0 && y10 > 0) {
-                macro.yield2Y = y2; macro.yield10Y = y10;
-                macro.yieldSpread = parseFloat((y10 - y2).toFixed(2));
-              }
-            }
-          }
-        }
-      } catch(e) { console.error('[Macro Yield]', e); }
-
-      // 5. S&P500 vs 200MA (SPY Yahoo Finance)
-      try {
-        const r = await fetchWithTimeout('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1y',
-          { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) {
-          const d = await r.json();
-          const cl = (d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter((v:any) => v != null);
-          if (cl.length >= 50) {
-            const slice = cl.slice(-Math.min(200, cl.length));
-            const ma200 = slice.reduce((a:number,b:number)=>a+b,0)/slice.length;
-            const cur = cl[cl.length-1];
-            macro.sp500 = parseFloat(cur.toFixed(2));
-            macro.sp500MA200 = parseFloat(ma200.toFixed(2));
-            macro.sp500VsMA = parseFloat(((cur-ma200)/ma200*100).toFixed(2));
-          }
-        }
-      } catch(e) { console.error('[Macro SP500]', e); }
-
-      // 6. KOSPI vs 200MA (^KS11 Yahoo Finance)
-      try {
-        const r = await fetchWithTimeout('https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&range=1y',
-          { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) {
-          const d = await r.json();
-          const cl = (d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter((v:any) => v != null);
-          if (cl.length >= 50) {
-            const slice = cl.slice(-Math.min(200, cl.length));
-            const ma200 = slice.reduce((a:number,b:number)=>a+b,0)/slice.length;
-            const cur = cl[cl.length-1];
-            macro.kospi = Math.round(cur);
-            macro.kospiMA200 = Math.round(ma200);
-            macro.kospiVsMA = parseFloat(((cur-ma200)/ma200*100).toFixed(2));
-          }
-        }
-      } catch(e) { console.error('[Macro KOSPI]', e); }
-
-      // 7. BTC 도미넌스 (CoinGecko 무료)
-      try {
-        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/global',
-          { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (r.ok) {
-          const d = await r.json();
-          const pct = d?.data?.market_cap_percentage?.btc;
-          macro.btcDominance = pct ? parseFloat(pct.toFixed(1)) : null;
-        }
-      } catch(e) { console.error('[Macro BTC Dom]', e); }
-
-      return res.status(200).json({ success: true, macro });
-    }
-
-    // ── GNews 뉴스 피드 ──────────────────────────────────────
-    if (type === 'news') {
-      const GNEWS_API_KEY = process.env.GNEWS_API_KEY || '';
-      if (!GNEWS_API_KEY) return res.status(200).json({ success: false, error: 'No GNews API key', articles: [] });
-      const categories = [
-        { cat: '증시', q: 'stock market investing S&P500' },
-        { cat: '경제', q: 'global economy macro finance' },
-        { cat: '원자재', q: 'commodities gold oil price' },
-        { cat: '암호화폐', q: 'bitcoin cryptocurrency market' },
-        { cat: '기술주', q: 'tech stocks NASDAQ semiconductor' },
-      ];
-      const articles: Array<{cat:string;title:string;link:string;timeStr:string}> = [];
-      await Promise.all(categories.map(async (c) => {
-        try {
-          const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(c.q)}&lang=en&max=3&sortby=publishedAt&token=${GNEWS_API_KEY}`;
-          const r = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (!r.ok) return;
-          const d = await r.json();
-          const items: any[] = d.articles || [];
-          items.slice(0, 2).forEach((a: any) => {
-            const pubDate = new Date(a.publishedAt || Date.now());
-            const diff = Math.floor((Date.now() - pubDate.getTime()) / 1000);
-            let timeStr = '방금 전';
-            if (diff > 86400) timeStr = `${Math.floor(diff/86400)}일 전`;
-            else if (diff > 3600) timeStr = `${Math.floor(diff/3600)}시간 전`;
-            else if (diff > 60) timeStr = `${Math.floor(diff/60)}분 전`;
-            articles.push({ cat: c.cat, title: a.title || '', link: a.url || '#', timeStr });
-          });
-        } catch(e) { console.error(`[GNews ${c.cat}]`, e); }
-      }));
-      return res.status(200).json({ success: true, articles });
-    }
-
-    // ── 히트맵 (Yahoo Finance로 섹터 ETF 조회) ─────────────
-    if (type === 'heatmap') {
-      const usSectors = [
-        {tkr:'XLK',name:'Technology',marketCap:4200},{tkr:'XLV',name:'Healthcare',marketCap:2100},
-        {tkr:'XLF',name:'Financials',marketCap:2300},{tkr:'XLY',name:'Cons Disc',marketCap:1600},
-        {tkr:'XLP',name:'Cons Staples',marketCap:1000},{tkr:'XLE',name:'Energy',marketCap:900},
-        {tkr:'XLI',name:'Industrials',marketCap:1400},{tkr:'XLB',name:'Materials',marketCap:500},
-        {tkr:'XLRE',name:'Real Estate',marketCap:400},{tkr:'XLU',name:'Utilities',marketCap:400},
-      ];
-      const fetchS = async(tkr:string) => {
-        const q = await yahooScrapePrevClose(tkr);
-        return {'1D': q ? parseFloat(q.change1D.toFixed(2)) : 0, '5D':0,'1M':0,'3M':0,'6M':0,'YTD':0};
-      };
-      const [usR, krR] = await Promise.all([
-        Promise.all(usSectors.map(async s => ({...s, returns: await fetchS(s.tkr)}))),
-        Promise.all([{tkr:'EWY',name:'Korea ETF',marketCap:500}].map(async s => ({...s, returns: await fetchS(s.tkr)}))),
-      ]);
-      return res.status(200).json({ success: true, heatmap: {us: usR, kr: krR} });
     }
 
     // ── 일반 시세 (마지막 거래일 종가) ───────────────────────

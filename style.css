@@ -46,8 +46,6 @@
 }
 
 /* ===== 재무계획·그룹 메뉴 (finance.js) ===== */
-/* 항목이 13개라 세로가 짧은 화면에서는 스크롤된다 — .menu-list 가 감춘 스크롤바를
-   그룹 메뉴에서는 다시 노출해 아래에 더 있다는 단서를 남긴다. */
 
 /* 사이드바 푸터의 데이터 상태 진입점 (예전 '데이터 상태' 메뉴 자리) */
 .footer-status-btn{display:flex;align-items:center;gap:6px;width:100%;padding:5px 3px;border:0;background:transparent;color:var(--dim);font:500 10px 'Noto Sans KR',sans-serif;cursor:pointer;text-align:left;border-radius:7px}
@@ -104,42 +102,31 @@
 .fin-section-head.standalone{margin:12px 1px 7px}
 .fin-section-head>span{font-size:11px;letter-spacing:.08em;color:var(--lab);font-weight:750}
 .fin-section-head>small{font-size:10.5px;color:var(--dim);text-align:right}
-.fin-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
-.fin-kpi{padding:13px 15px;min-width:0}
-.fin-kpi small,.fin-kpi span{display:block;color:var(--lab);font-size:10.5px}
-.fin-kpi strong{display:block;font:800 22px/1.25 'Manrope','Noto Sans KR',sans-serif;margin:7px 0 5px;white-space:nowrap}
-.fin-kpi.liability strong{color:var(--dn)}
-.fin-kpi.net{box-shadow:inset 0 0 0 1px var(--acc)}
-.fin-kpi.net strong{color:var(--acc)}
+
 .fin-row-actions{display:flex!important;gap:4px;overflow:visible!important}
-.fin-row-actions button,.fin-form-actions button,.fin-inline-form button,.fin-target-inputs>button,.fin-data-hero button,.fin-data-card button{border:1px solid var(--bd2);background:var(--inner);color:var(--mut);border-radius:7px;padding:5px 8px;font:650 10.5px 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
-.fin-row-actions button:hover,.fin-form-actions button:hover,.fin-inline-form button:hover,.fin-target-inputs>button:hover,.fin-data-hero button:hover,.fin-data-card button:hover{border-color:var(--acc);color:var(--tx)}
+.fin-row-actions button,.fin-form-actions button,.fin-target-inputs>button,.fin-data-hero button,.fin-data-card button{border:1px solid var(--bd2);background:var(--inner);color:var(--mut);border-radius:7px;padding:5px 8px;font:650 10.5px 'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap}
+.fin-row-actions button:hover,.fin-form-actions button:hover,.fin-target-inputs>button:hover,.fin-data-hero button:hover,.fin-data-card button:hover{border-color:var(--acc);color:var(--tx)}
 .fin-empty{padding:22px 10px;text-align:center;color:var(--dim);font-size:11.5px}
 .fin-callout{display:block;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--inner);color:var(--mut)}.fin-callout.warn{color:var(--dn);background:var(--dnSoft)}.fin-callout.ok{color:var(--up);background:var(--upSoft)}
 /* 입력란은 트랙 상한(208px)까지만 늘어난다 — 1fr 3열이면 FHD에서 한 칸이 530px가 된다 */
 .fin-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,192px));gap:12px;justify-content:start;align-items:end}
 .fin-form-grid label{display:flex;flex-direction:column;gap:5px;color:var(--lab);font-size:10.5px}
-.fin-form-grid input,.fin-form-grid select,.fin-inline-form input,.fin-target-inputs input{box-sizing:border-box;width:100%;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);padding:8px 9px;font:500 12px 'Noto Sans KR',sans-serif;outline:none}
-.fin-form-grid input:focus,.fin-form-grid select:focus,.fin-inline-form input:focus,.fin-target-inputs input:focus{border-color:var(--acc)}
+.fin-form-grid input,.fin-form-grid select,.fin-target-inputs input{box-sizing:border-box;width:100%;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);padding:8px 9px;font:500 12px 'Noto Sans KR',sans-serif;outline:none}
+.fin-form-grid input:focus,.fin-form-grid select:focus,.fin-target-inputs input:focus{border-color:var(--acc)}
 .fin-form-actions{display:flex;gap:7px;justify-content:flex-start;margin-top:10px}.fin-form-actions button{padding:7px 13px}.fin-form-actions button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
 
-.fin-dashboard-priority{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.8fr);gap:12px;margin-top:10px}
-.fin-action-panel{padding:15px 17px;min-width:0}.fin-action-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
-.fin-action-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:9px;text-align:left;border:1px solid transparent;background:var(--inner);color:var(--tx);padding:9px 10px;border-radius:9px;cursor:pointer;font-family:inherit;min-width:0}
-.fin-action-row:hover{border-color:var(--bd2)}.fin-action-row b,.fin-action-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fin-action-row b{font-size:11.5px}.fin-action-row small{font-size:10px;color:var(--dim);margin-top:2px}.fin-action-dot{width:7px;height:7px;border-radius:50%;background:var(--acc)}.fin-action-row.warn .fin-action-dot{background:var(--dn)}.fin-action-row.ok .fin-action-dot{background:var(--up)}.fin-action-go{font-size:17px;color:var(--dim)}
-.fin-priority-side{display:grid;grid-template-columns:1fr;gap:8px}.fin-focus-card{display:block;width:100%;border:0;text-align:left;padding:13px 15px;color:var(--tx);cursor:pointer;font-family:inherit}.fin-focus-card:hover{box-shadow:inset 0 0 0 1px var(--bd2)}.fin-focus-card strong{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:16px}.fin-focus-card strong em{font-style:normal;font-size:11px;color:var(--mut)}.fin-focus-card p{margin:6px 0 0;font-size:10px;color:var(--dim)}
 .fin-meter{height:6px;border-radius:4px;background:var(--inner);overflow:hidden;margin-top:9px}.fin-meter i{display:block;height:100%;border-radius:4px;background:var(--acc)}.fin-meter.cash i{background:var(--up)}
 
 .fin-goal-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.fin-goal-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;padding:14px 15px}.fin-goal-card>div:first-child{min-width:0}.fin-goal-card small,.fin-goal-card strong,.fin-goal-card span{display:block}.fin-goal-card small{font-size:9.5px;color:var(--dim)}.fin-goal-card strong{margin:3px 0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fin-goal-card span{font-size:10.5px;color:var(--mut)}.fin-goal-card>b{font-size:15px}.fin-goal-card>.fin-meter,.fin-goal-card>.fin-row-actions{grid-column:1/-1;margin-top:0}.fin-goal-card>.fin-row-actions{justify-content:flex-end}
-.fin-target-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,232px));justify-content:start;gap:7px;margin-bottom:13px}.fin-target-inputs label{display:grid;grid-template-columns:minmax(0,1fr) 58px auto;align-items:center;gap:5px;padding:7px 8px;background:var(--inner);border-radius:8px}.fin-target-inputs label span{font-size:10.5px;color:var(--mut);white-space:nowrap}.fin-target-inputs label i,.fin-rebal-table i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}.fin-target-inputs input{padding:5px 6px;text-align:right}.fin-target-inputs em{font-style:normal;font-size:10px;color:var(--dim)}
+.fin-rebal-table i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}
 .fin-rebal-table,.fin-account-table{overflow-x:auto}.fin-rebal-table>div{display:grid;grid-template-columns:minmax(105px,1fr) 70px 70px 75px minmax(130px,1.1fr) minmax(110px,1fr);gap:8px;align-items:center;min-width:650px;padding:8px 9px;border-bottom:1px solid var(--bd);font-size:11px}.fin-rebal-table>div.warn{background:var(--dnSoft)}.fin-rebal-table .head,.fin-account-table .head{color:var(--dim);font-size:9.5px;font-weight:700;letter-spacing:.04em}.fin-rebal-table .up{color:var(--up)}.fin-rebal-table .down{color:var(--dn)}.fin-disclaimer{display:block;margin-top:10px;color:var(--dim);font-size:9.5px;line-height:1.55}
 .fin-account-table>div{display:grid;grid-template-columns:minmax(220px,1.2fr) 110px 65px minmax(230px,1.4fr);gap:9px;align-items:center;min-width:690px;padding:9px;border-bottom:1px solid var(--bd);font-size:11px}.fin-account-table b,.fin-account-table small{display:block}.fin-account-table small{font-size:9.5px;color:var(--dim);margin-top:2px}
 
 .fin-data-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 16px;margin-top:10px}.fin-data-hero small,.fin-data-hero strong,.fin-data-hero span{display:block}.fin-data-hero small{color:var(--lab);font-size:10px;letter-spacing:.08em}.fin-data-hero strong{font:800 25px 'Manrope','Noto Sans KR',sans-serif;margin:2px 0}.fin-data-hero span{color:var(--mut);font-size:11px}.fin-data-hero button{padding:8px 12px}
-.fin-data-grid{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:8px;margin-top:8px}.fin-data-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;padding:10px 11px}.fin-data-card-main{min-width:0}.fin-data-card-head{display:flex;align-items:center;gap:6px;min-width:0}.fin-data-card-head b{min-width:0;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-head em{font-style:normal;font-size:9px;color:var(--up);margin-left:auto;white-space:nowrap}.fin-data-card.warn .fin-data-card-head em{color:var(--dn)}.fin-data-card.pending .fin-data-card-head em{color:var(--lab)}.fin-status-dot{width:7px;height:7px;flex-shrink:0;border-radius:50%;background:var(--up)}.fin-data-card.warn .fin-status-dot{background:var(--dn)}.fin-data-card.pending .fin-status-dot{background:var(--lab)}.fin-data-card.pending{opacity:.82}.fin-data-card-main>strong{display:block;min-width:0;margin:5px 0 3px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-meta{display:flex;align-items:center;gap:5px;min-width:0;color:var(--dim);font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-meta span{min-width:0;overflow:hidden;text-overflow:ellipsis}.fin-data-card button{align-self:center;margin:0}.fin-data-support-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:8px;margin-top:8px;align-items:start}.fin-data-support-grid .fin-section{margin-top:0;padding:11px 13px}.fin-price-actions{display:flex;gap:6px;flex-wrap:nowrap}.fin-price-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.fin-price-steps>span{padding:6px 7px;border-radius:7px;background:var(--inner);font-size:10px;line-height:1.4;color:var(--mut);word-break:keep-all}.fin-price-steps b{display:block;margin-bottom:2px;color:var(--tx)}.fin-price-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.72fr);gap:7px;align-items:stretch}.fin-price-issues,.fin-price-note{min-width:0;padding:6px 7px;border-radius:7px;background:var(--inner)}.fin-price-issues>p,.fin-price-note{margin:0;font-size:10px;line-height:1.45;color:var(--mut);word-break:keep-all}.fin-guidance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 8px;font-size:10px;color:var(--mut);line-height:1.4}.fin-guidance p{margin:0;padding:6px 7px;border-radius:7px;background:var(--inner);word-break:keep-all}.fin-guidance b{color:var(--tx)}
+.fin-data-grid{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:8px;margin-top:8px}.fin-data-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;padding:10px 11px}.fin-data-card-main{min-width:0}.fin-data-card-head{display:flex;align-items:center;gap:6px;min-width:0}.fin-data-card-head b{min-width:0;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-head em{font-style:normal;font-size:9px;color:var(--up);margin-left:auto;white-space:nowrap}.fin-data-card.warn .fin-data-card-head em{color:var(--dn)}.fin-data-card.pending .fin-data-card-head em{color:var(--lab)}.fin-status-dot{width:7px;height:7px;flex-shrink:0;border-radius:50%;background:var(--up)}.fin-data-card.warn .fin-status-dot{background:var(--dn)}.fin-data-card.pending .fin-status-dot{background:var(--lab)}.fin-data-card.pending{opacity:.82}.fin-data-card-main>strong{display:block;min-width:0;margin:5px 0 3px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-meta{display:flex;align-items:center;gap:5px;min-width:0;color:var(--dim);font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-data-card-meta span{min-width:0;overflow:hidden;text-overflow:ellipsis}.fin-data-card button{align-self:center;margin:0}.fin-data-support-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:8px;margin-top:8px;align-items:stretch}.fin-data-support-grid .fin-section{margin-top:0;padding:11px 13px}.fin-data-support-grid .fin-section-head{min-height:34px;align-items:center}.fin-price-actions{display:flex;gap:6px;flex-wrap:nowrap}.fin-price-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.fin-price-steps>span{padding:6px 7px;border-radius:7px;background:var(--inner);font-size:10px;line-height:1.4;color:var(--mut);word-break:keep-all}.fin-price-steps b{display:block;margin-bottom:2px;color:var(--tx)}.fin-price-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.72fr);gap:7px;align-items:stretch}.fin-price-issues,.fin-price-note{min-width:0;padding:6px 7px;border-radius:7px;background:var(--inner)}.fin-price-issues>p,.fin-price-note{margin:0;font-size:10px;line-height:1.45;color:var(--mut);word-break:keep-all}.fin-guidance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 8px;font-size:10px;color:var(--mut);line-height:1.4}.fin-guidance p{margin:0;padding:6px 7px;border-radius:7px;background:var(--inner);word-break:keep-all}.fin-guidance b{color:var(--tx)}
 
-@media (max-width:1100px){.fin-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-dashboard-priority{grid-template-columns:1fr}.fin-priority-side{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-goal-grid,.fin-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-data-support-grid{grid-template-columns:1fr}}
-@media (max-width:768px){.fin-summary-grid,.fin-balance-grid,.fin-goal-grid,.fin-data-grid,.fin-priority-side{grid-template-columns:1fr}.fin-kpi strong{font-size:19px}.fin-action-list{grid-template-columns:1fr}.fin-form-grid{grid-template-columns:1fr}.fin-target-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-target-inputs input{pointer-events:none;opacity:.7}.fin-owner-table small{grid-column:1/-1}.fin-data-hero{align-items:flex-start;flex-direction:column}.fin-data-card{grid-template-columns:minmax(0,1fr) auto}.fin-guidance,.fin-price-steps,.fin-price-bottom{grid-template-columns:1fr}.fin-price-actions{flex-wrap:wrap}.fin-section{padding:14px}.fin-nw-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-nw-stats>div:nth-child(3){grid-column:1/-1}
+@media (max-width:1100px){.fin-goal-grid,.fin-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-data-support-grid{grid-template-columns:1fr}}
+@media (max-width:768px){.fin-goal-grid,.fin-data-grid{grid-template-columns:1fr}.fin-form-grid{grid-template-columns:1fr}.fin-data-hero{align-items:flex-start;flex-direction:column}.fin-data-card{grid-template-columns:minmax(0,1fr) auto}.fin-guidance,.fin-price-steps,.fin-price-bottom{grid-template-columns:1fr}.fin-price-actions{flex-wrap:wrap}.fin-section{padding:14px}.fin-nw-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-nw-stats>div:nth-child(3){grid-column:1/-1}
   /* 모바일은 조회 전용 — 폼과 편집 버튼을 감추는 대신 왜 안 보이는지 안내를 띄운다 */
   #fin-goal-form,.fin-form-actions,.fin-row-actions,.fin-target-inputs>button{display:none!important}
   .fin-mobile-note{display:block}}
@@ -236,7 +223,6 @@
     .page-sub-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     #sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1290}
     .menu-col{padding:12px 10px;display:flex;flex-direction:column;height:100%}
-    .logo{display:flex;align-items:center;gap:9px;padding:0 8px 14px;flex-shrink:0}
 
     /* 세로 스크롤은 허용하되 스크롤바는 표시하지 않음 (사이드메뉴 요구사항) */
     .menu-list{flex:1;overflow:hidden;padding-right:0;display:flex;flex-direction:column;gap:4px;min-height:0;scrollbar-width:none}
@@ -291,7 +277,6 @@
     .api-btn:hover{background:var(--hover-bg)}
     .owner-tabs{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
 
-    .gain-row{margin-top:6px;font-size:.8rem}
     /* 공통 결과/정보 패널 (인라인 스타일 통합) */
     .result-panel{background:var(--inner-bg);border:1px solid var(--border-light);border-radius:8px}
     .tf-btns{display:flex;gap:4px;flex-wrap:wrap}
@@ -300,8 +285,6 @@
     .chart-container{position:relative;width:100%;flex:1;display:flex;justify-content:center;align-items:center;min-height:0;min-width:0}
     .c-up{color:var(--up);font-weight:600}.c-dn{color:var(--dn);font-weight:600}
     .card-title{font-size:.85rem;font-weight:700;color:var(--t2);margin-bottom:8px;flex-shrink:0}
-
-    .hm-btn.active{background:var(--modal-bg);color:var(--acc);box-shadow:0 2px 4px rgba(0,0,0,.05)}
 
     .pt-group{margin-bottom:12px;border:1px solid var(--border-dark);border-radius:10px;background:var(--glass);box-shadow:0 2px 8px rgba(0,0,0,.02);flex-shrink:0}
     .pt-group-header{padding:12px 16px;background:var(--header-bg);cursor:pointer;transition:.2s;border-bottom:1px solid var(--border-light);border-radius:10px 10px 0 0;overflow:hidden}
@@ -520,31 +503,6 @@
       color: #f8fafc;
     }
 
-    /* ── 미조회 뱃지 ──────────────────────────────────────────── */
-
-    /* ── 대시보드 차트 탭 ──────────────────────────────────────── */
-
-    .dash-chart-tab.active {
-      background: var(--acc);
-      color: #fff;
-    }
-    .nwh-tf-btn {
-      padding: 2px 8px;
-      font-size: .7rem;
-      font-weight: 600;
-      border: 1px solid var(--border-light);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--t3);
-      cursor: pointer;
-      transition: background .2s, color .2s;
-    }
-    .nwh-tf-btn.active {
-      background: var(--acc);
-      color: #fff;
-      border-color: var(--acc);
-    }
-
     /* ── 반응형: 창 폭이 좁아질 때 레이아웃 보호 ── */
 
     @media (max-width: 1100px) {
@@ -632,33 +590,12 @@
       color: var(--dn);
     }
 
-    /* === 배당 심화 / 공용 작은 버튼 (구 분석+ 페이지에서 분리된 잔여 스타일) === */
-
-    .rsk-tf-btn.active { background: var(--acc); color: #fff; border-color: var(--acc); }
-
-    .rsk-owner-pill.active { background: var(--acc); color: #fff; border-color: var(--acc); }
-
-    /* 목표 & 리밸런싱 view: 패널 헤더의 info-tip 은 외부 overflow-y:auto 래퍼에
-       의해 위쪽이 잘리므로 아래쪽으로 펼치도록 override. */
-
-    /* === 목표 & 리밸런싱 View === */
-
-    /* === 포트폴리오 어드바이저 === */
-    /* view-target_rebal 내부 panel 들은 flex shrink 비활성화 — 합산 컨텐츠가
-       뷰포트보다 클 때 panel 압축이 아니라 wrapper 스크롤이 동작하도록. */
-
     /* =================================================== */
     /* === 반응형 위생 (모든 view 공통) ================== */
     /* =================================================== */
 
     /* Group 1: 그리드/플렉스 자식이 부모를 뚫지 않도록 */
     .f-col, .f-row, .f-between { min-width: 0; }
-
-    /* 종목명 셀 공통 — 동적 렌더 td/span에 .name-cell 부여 */
-
-    /* inner-scroll 안 테이블 가로 스크롤 허용 */
-
-    /* 큰 KRW 값 안전장치 — 좁은 화면에서 카드 안에 들어가도록 */
 
     /* Group 2: 고정 비율 그리드 클래스 — 인라인 style 대체 */
 
@@ -761,7 +698,6 @@
     .cf-fixed-actions{white-space:nowrap!important}
     .cf-fixed-actions .btn-action{margin:0 1px}
     .cf-fixed-empty{text-align:center!important;padding:32px 12px!important;color:var(--t3)}
-    /* 증여 좌측 패널: 폼그룹 grow 방지 — 콘텐츠를 상단으로 정렬(빈 여백 제거) */
 
     /* 2x2 납입액 입력칸이 셀 폭에 맞게 축소되도록(min-width:auto면 안 줄어 겹침) */
 
@@ -808,7 +744,6 @@
     }
 
     /* Group 3: 신규 view 마이크로 조정 */
-    /* target_rebal: top5-row — 좁으면 종목명에 더 양보 */
 
     /* DRIP 입력/카드 그리드 — 768px에서 1열 */
     @media (max-width: 768px) {
@@ -839,43 +774,6 @@
       }
     }
 
-    /* === DRIP 카드 — 텍스트 오버플로우 방지 === */
-    .drip-card {
-      background: var(--inner-bg);
-      border-radius: 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--border-light);
-      min-width: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .drip-card-label {
-      font-size: .75rem;
-      color: var(--t3);
-      font-weight: 600;
-    }
-    .drip-card-val {
-      font-size: clamp(1rem, 1.6vw, 1.3rem);
-      font-weight: 700;
-      font-family: 'IBM Plex Mono', 'DM Sans', sans-serif;
-      line-height: 1.3;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .drip-card-sub {
-      font-size: .7rem;
-      color: var(--t3);
-      margin-top: 2px;
-      line-height: 1.35;
-      word-break: keep-all;
-      overflow-wrap: break-word;
-      white-space: normal;
-    }
-    /* === 전문 용어 도움말 (HHI, 샤프 비율 등) === */
-
     /* ── 메인 페이지 공통 컴포넌트 ─────────────────────── */
     /* padding-top 을 0 으로 두는 것이 중요하다 — 오버플로 클립은 패딩 박스 상단에서 일어나는데
        sticky 고정 지점은 콘텐츠 박스 상단(= 패딩 아래)이라, 상단 패딩이 있으면 그 띠에서
@@ -893,6 +791,7 @@
     /* 증여 페이지 입력 라벨 — 한 줄에 2칸만 남을 때 폭이 벌어지지 않게 상한을 둔다(모바일에선 해제) */
     /* 증여 패널의 min-width 를 인라인으로 두면 미디어쿼리가 못 덮어, 390px 화면에서 패널이
        뷰포트를 넘고 .content-area 의 overflow-x:hidden 에 잘려 금액이 '200,000'→'200' 으로 보였다 */
+    .cb-gift-row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
     .cb-gift-panel{flex:1;min-width:430px;padding:16px 18px}
     /* 선택한 소유주가 증여 당사자가 아닐 때 — 빈 화면 대신 이유를 밝힌다 */
     .cb-gift-empty{flex-basis:100%;min-width:0;color:var(--mut);font-size:12.5px;line-height:1.6}
@@ -905,7 +804,7 @@
     .cb-asset-ticker{flex-shrink:0;color:var(--lab);font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500}
     .cost-unknown-badge{display:inline-flex;padding:2px 6px;border-radius:5px;background:var(--inner-bg);border:1px solid var(--border-light);color:var(--t2);font-size:.68rem;font-weight:700;white-space:nowrap}
     .cost-unknown-note{color:var(--t3);font-size:.7rem;font-weight:650;white-space:nowrap}
-    .cb-account-badge{font-size:9px;font-weight:700;color:var(--lab);background:var(--accSoft);padding:1px 5px;border-radius:4px;flex-shrink:0}
+
     /* 성과 비교 라인 차트 — 렌더 시 자연스러운 드로잉/페이드 인 */
     @keyframes cbLineDraw{to{stroke-dashoffset:0}}
     @keyframes cbLineFade{from{opacity:0}to{opacity:var(--o,1)}}
@@ -958,8 +857,9 @@
     .cb-div-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(118px,1fr)) minmax(320px,2fr);gap:9px;align-items:stretch}
     .cb-div-summary-card{min-height:86px;padding:12px 14px;display:flex;flex-direction:column}
     .cb-div-summary-value{flex:1;display:flex;align-items:center;font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800}
-    .cb-div-summary-title{display:flex;align-items:baseline;gap:4px;min-width:0;font-size:11px;color:var(--lab);white-space:nowrap}
-    .cb-div-history-status{font-size:9.5px;color:var(--dim);font-weight:500;overflow:hidden;text-overflow:ellipsis}
+    /* 배당 KPI 6장의 라벨은 한 모양·한 줄. 보조 상태(산출 n/m, 상위 3종목)는 값 아래 줄로 내려 라벨이 잘리지 않고 값의 높이도 카드끼리 같다. */
+.cb-div-summary-title{display:flex;align-items:baseline;gap:4px;min-width:0;font-size:12px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-div-history-status{margin-top:2px;font-size:11px;color:var(--dim);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-div-top3-list{display:flex;flex-direction:column;justify-content:center;gap:4px;flex:1;min-height:0;margin-top:4px}
     .cb-div-top3-card{min-width:0}
     .cb-div-top3-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0;font-size:10.5px}
@@ -968,10 +868,14 @@
     .cb-div-top3-metrics{display:flex;align-items:baseline;justify-content:flex-end;gap:4px;line-height:1;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
     .cb-div-top3-metrics>b{font-size:10.5px;color:var(--tx)}
     .cb-div-top3-metrics>span{font-size:9.5px;color:var(--mut);font-weight:700}
-    .cb-insight-title{font-size:11px;letter-spacing:.07em;color:var(--lab);font-weight:800}
+    /* 패널 제목은 이 한 가지 모양만 쓴다. 예전엔 인라인 12px(굵기 제각각)과 11px 굵은 제목이 섞여 옆 카드끼리 제목 무게가 달랐다. */
+    .cb-panel-title,.cb-insight-title{font-size:12px;letter-spacing:.06em;color:var(--lab);font-weight:800}
+    /* 제목 뒤에 붙는 보조 설명(· 소유주별 …)은 제목보다 가볍게 */
+    .cb-panel-title [style*="color:var(--dim)"],.cb-insight-title [style*="color:var(--dim)"]{font-weight:500;letter-spacing:.02em}
     .cb-insight-empty{padding:18px 4px;text-align:center;color:var(--dim);font-size:11px;line-height:1.6}
     .cb-insight-more{margin-top:8px;text-align:right;color:var(--dim);font-size:10px}
-    .cb-family-detail-grid,.cb-dca-detail-grid,.cb-div-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;align-items:start}
+    /* 표 + 보조 위젯 2열은 바닥선을 맞춘다(stretch). start 로 두면 짧은 쪽이 떠서 옆 카드와 아래 끝이 20~100px 어긋났다. */
+    .cb-family-detail-grid,.cb-dca-detail-grid,.cb-div-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;align-items:stretch}
     /* 구성원 카드 5장 — 인라인 그리드로 두면 미디어쿼리가 못 덮어 좁은 화면에서 금액이 잘린다 */
     .cb-fam-card-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
     .cb-fam-card{min-width:0;padding:12px;cursor:pointer}
@@ -984,10 +888,15 @@
     .cb-fam-card-track{height:4px;border-radius:2px;background:var(--inner);margin-top:8px;overflow:hidden}
     .cb-fam-card-track>i{display:block;height:100%}
     .cb-fam-card-foot{margin-top:4px;font-size:10px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb-family-table-toolbar,.cb-div-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
+    /* 표 제목 줄과 옆 카드 제목 줄은 같은 높이(내용 34px)로 둔다 — 검색칸이 있는 줄만 키가 커져 제목이 5~7px 내려가던 것을 막는다. */
+    .cb-family-table-toolbar,.cb-div-table-toolbar,.cb-dca-table-toolbar{min-height:43px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
+    .cb-dca-table-toolbar{display:flex;align-items:center;gap:8px}
+    /* 표 옆 카드의 제목 줄을 표 제목 줄(36px − 아래 여백 9px)과 같은 높이로 맞춰 두 제목이 한 줄에 선다. */
+    .cb-family-mix-card>.cb-insight-title,.cb-div-upcoming-card>.cb-insight-title,.cb-dca-allocation-card>.cb-insight-title{display:flex;align-items:center;min-height:34px}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}
     .cb-dca-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px}
-    .cb-dca-summary-card{min-height:82px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+    /* 라벨·값이 옆 카드와 같은 높이에서 시작하도록 위쪽 정렬(center 면 보조 줄이 있는 카드만 라벨이 올라간다). */
+.cb-dca-summary-card{min-height:82px;padding:12px 14px;display:flex;flex-direction:column;justify-content:flex-start;min-width:0}
     .cb-dca-summary-label{font-size:11px;color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dca-summary-value{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:22px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dca-summary-value>span{font-size:13px;color:var(--lab);margin-left:2px}
@@ -995,7 +904,8 @@
     .cb-dca-timing-cell{display:flex;flex-direction:column;justify-content:center;gap:1px;box-sizing:border-box;padding-left:8px;color:var(--mut);white-space:nowrap;line-height:1.2}
     .cb-dca-timing-cell b{font-size:11px;color:var(--txt);font-weight:750}
     .cb-dca-timing-cell small{font-size:9.5px;color:var(--dim);font-weight:600}
-    .cb-dca-remaining-card{border-top:3px solid var(--acc)}
+    /* 강조는 테두리 두께 대신 안쪽 그림자로 — 두꺼운 윗테두리가 내용을 2px 밀어 옆 카드와 줄이 어긋났다. */
+.cb-dca-remaining-card{box-shadow:inset 0 3px 0 var(--acc)}
     .cb-family-mix-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
     .cb-family-mix-owner{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);border-radius:8px;padding:7px 8px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s,border-color .15s}
     .cb-family-mix-owner:hover{background:var(--hover)}
@@ -1050,6 +960,23 @@
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:10.5px;font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:10px;line-height:1.4}
+/* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */
+.cb-meter{position:relative;height:6px;margin-top:8px;border-radius:3px;background:var(--inner);overflow:hidden;flex-shrink:0}
+.cb-meter-zone{position:absolute;top:0;bottom:0}
+.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 16%,transparent)}
+.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 24%,transparent)}
+.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 22%,transparent)}
+.cb-meter-fill{position:absolute;left:0;top:1px;bottom:1px;border-radius:0 3px 3px 0;min-width:0}
+/* 통화 구성 막대(cbFxMixHtml). 색은 CVD 검증을 통과한 범주 팔레트(라이트·다크 각각 validate_palette 통과). */
+.cb-fx-mix{--fx-usd:#2a78d6;--fx-jpy:#eb6834;--fx-aud:#1baf7a;--fx-other:#eda100;--fx-krw:var(--bd2);margin-top:8px}
+[data-theme="dark"] .cb-fx-mix,[data-theme="navy"] .cb-fx-mix{--fx-usd:#3987e5;--fx-jpy:#d95926;--fx-aud:#199e70;--fx-other:#c98500}
+.cb-fx-bar{position:relative;display:flex;gap:2px;height:8px;border-radius:3px;overflow:hidden;background:var(--inner)}
+.cb-fx-seg{display:block;min-width:0;height:100%}
+.cb-fx-seg.usd{background:var(--fx-usd)}.cb-fx-seg.jpy{background:var(--fx-jpy)}.cb-fx-seg.aud{background:var(--fx-aud)}.cb-fx-seg.other{background:var(--fx-other)}.cb-fx-seg.krw{background:var(--fx-krw)}
+.cb-fx-tick{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--tx);opacity:.55}
+.cb-fx-legend{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:5px;font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.cb-fx-legend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.cb-fx-legend .cb-fx-seg{width:8px;height:8px;border-radius:2px}
     .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 현금 안전판 목표 개월수 입력 — 유일한 조작 지점이라 카드 안에 둔다.
        인라인 폭을 주면 미디어쿼리가 덮지 못해 좁은 화면에서 카드를 넘친다. */
@@ -1063,7 +990,7 @@
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(240px,1.12fr) minmax(240px,1.12fr) minmax(205px,.74fr) minmax(235px,.88fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-sector-card{display:flex;flex-direction:column}
     .cb-dash-sector-note{font-size:10.5px;color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
-    .cb-dash-movers-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:repeat(2,minmax(0,1fr));gap:10px;min-width:0;width:100%;align-self:stretch}
+
     .cb-mover-card{padding:12px 10px;min-width:0}
     .cb-mover-row{display:flex;align-items:center;gap:6px;padding:5px 1px;border-bottom:1px solid var(--bd);font-size:11px;min-width:0}
     .cb-mover-row:last-child{border-bottom:none}
@@ -1093,25 +1020,25 @@
       #view-holdings .pt-table th.sortable{position:sticky}
       .cb-family-table-toolbar,.cb-div-table-toolbar{position:sticky;top:0;z-index:6}
       .cb-family-table-panel .cb-family-head,
-      .cb-div-history-panel .cb-div-head{top:45px;z-index:5}
+      .cb-div-history-panel .cb-div-head{top:43px;z-index:5}
       .cb-dash-table-toolbar{position:sticky;top:0;z-index:6}
-      .cb-dash-table-panel .cb-dash-head{top:45px;z-index:5}
+
       .cb-family-table-panel .cb-family-head,
-      .cb-dash-table-panel .cb-dash-head,
       .cb-div-history-panel .cb-div-head{
         background:var(--panelSolid)!important;
         box-shadow:0 -12px 0 12px var(--panelSolid),0 1px 0 var(--bd);
         isolation:isolate
       }
-      .cb-dash-detail{top:0!important}
+
     }
     @media (min-width:1420px){
       .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 280px}
-      .cb-family-mix-card{position:sticky;top:0}
+      /* 넓은 화면에서는 긴 표를 따라 내려오도록 sticky — sticky 는 행 높이로 늘어나면 동작하지 않으므로 위쪽 정렬을 유지한다. */
+      .cb-family-mix-card{position:sticky;top:0;align-self:start}
     }
     @media (min-width:1580px){
       .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 290px}
-      .cb-div-upcoming-card{position:sticky;top:0}
+      .cb-div-upcoming-card{position:sticky;top:0;align-self:start}
     }
     @media (max-width:1200px){
       .cb-tblwrap{overflow-x:auto}
@@ -1119,7 +1046,7 @@
       .cb-family-table-toolbar,.cb-div-table-toolbar,.cb-dash-table-toolbar{position:static}
       .cb-table-panel{overflow-x:auto!important}
       .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .cb-dash-movers-grid{grid-column:auto}
+
       .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-div-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-dca-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1134,8 +1061,7 @@
       /* 세로로 쌓을 때 인라인 align-items:flex-start 가 남아 있으면 자식이 max-content 폭
          (표의 min-width:640px)까지 부풀어 패널이 화면 밖으로 나가고, .cb-tblwrap 도 같이
          넓어져 표를 가로로 넘길 수조차 없게 된다. 세로 스택에서는 폭을 채우게 한다. */
-      .cb-dash-split{flex-direction:column!important;align-items:stretch!important}
-      .cb-dash-split > .cb-dash-detail{width:100%!important;position:static!important}
+
       .cb-tax-bottom-grid{grid-template-columns:1fr}
       .cb-risk-overview{grid-template-columns:1fr}
       .cb-risk-score-card{width:100%;box-sizing:border-box}
@@ -1147,14 +1073,12 @@
       .cb-lt-bar{min-width:56px}
       .cb-lt-detail{display:none}
       .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
-      .cb-dash-movers-grid{grid-column:auto}
+
       .cb-mover-row{gap:4px;font-size:10.5px}
       .cb-risk-insight-card{min-height:76px}
       /* 한눈에 보기: 히어로 지표 2열, 월별 막대는 값 라벨 없이 높이만으로 읽는다 */
       .fin-nw-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:3px 0 7px;overscroll-behavior-inline:contain}
       .fin-nw-chart-canvas{min-width:680px}
-    }
-    @media (max-width: 360px){
     }
 
     /* =============================================
@@ -1242,34 +1166,6 @@
       #div-detail{position:relative;min-height:250px}
       #div-detail .chart-container{position:relative;top:auto;left:auto;right:auto;bottom:auto}
 
-      /* ── dashboard ── */
-
-      /* 베이스 flex:1.4(basis 0)가 auto 높이 컬럼에서 min-content로 붕괴 → 패널이 콘텐츠보다 작아져
-         캔버스가 패널 밖으로 넘치던 원인. 콘텐츠 크기 기준으로 고정 */
-
-      /* 차트 고정 240px + 패널 overflow:hidden — 캔버스가 패널 밖(다음 카드 위)으로 그려져
-         자산 배분 카드와 중첩되던 문제 차단. 1열 스택은 ≤900px .dash-layout{grid-template-columns:1fr}가 보장 */
-
-      /* NET 요약: 모바일 기본 접힘, 토글 헤더 표시 */
-
-      /* ── portfolio: Row2/Row3 가로 flex → 세로 스택, 내부 래퍼 자연 높이 ── */
-
-      /* 우측 잘림 수정: flex/grid 아이템 기본 min-width:auto가 nowrap 콘텐츠(기간 버튼 6개·TOP3 행)의
-         min-content 폭으로 패널을 뷰포트보다 넓혀 content-area overflow-x:hidden에 잘리던 문제 */
-
-      /* 패널 min-height 강제 없음 — 차트는 .chart-container 고정 240px가 높이를 보장하고,
-         차트 없는 패널(환율 노출도 등)은 콘텐츠 높이로 줄여 하단 여백 제거.
-         인라인 flex:N(basis 0)이 세로 스택에서 grow 분배로 패널을 늘리므로 콘텐츠 크기로 고정 */
-
-      /* 래퍼 자신도 베이스 flex:2.4/인라인 flex:1(basis 0)이 min-content로 붕괴해
-         TOP3 위젯이 다음 카드에 가려지던 문제 — 콘텐츠 크기로 고정 */
-
-      .port-grid-top .glass-panel,
-      .port-row2-flex > .glass-panel,
-      .port-bottom-flex > .glass-panel{flex:0 0 auto!important}
-
-       /* 인라인 min-height:0 덮어쓰기 */
-
       /* ── holdings: 내부 스크롤 제거 — 페이지 스크롤로 일원화 ── */
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
       .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
@@ -1339,27 +1235,11 @@
       .cf-fixed-state{display:none}
       .cf-fixed-inline-owner{pointer-events:none;appearance:none;border:0;background:transparent;padding:0}
 
-      /* ── family: 비교 표 세로 전부 노출(페이지 스크롤). 셀은 축약 포맷(JS)+컴팩트로 5컬럼 수납,
-         그래도 넘치면 패널 내 가로 스크롤 폴백 ── */
-
-      /* ── portfolio 배당 종목 리스트: 종목명/티커 · 보유수량 · 예상배당금만 노출 ── */
-      td):not([colspan]):is(:nth-child(2),:nth-child(3)){display:none}
-
-      /* ── gift: 안내 그리드 1열 (인라인 1fr 1fr 덮어쓰기) ── */
-
-      /* grid 행 높이가 좌측 패널을 콘텐츠보다 작게 잡아(overflow:hidden 시 잘림, visible 시 차트 위로 넘침)
-         → flex 세로 스택으로 전환해 각 패널을 콘텐츠 높이로. 내부 스크롤 제거(페이지 스크롤 일원화) */
-
-      /* ── analysis: 손익 표 가로 스크롤 + 인라인 min-height:360px/flex:1 해제(빈 표일 때 카드 늘어짐) ── */
-
       /* ── 모바일 = 조회 전용: 추가/수정/삭제 UI 전부 숨김 (JS 가드와 이중 방어) ── */
       #cf-input-panel{display:none!important}        /* 수입/지출 입력 패널 (날짜/유형/카테고리 중첩도 함께 해소) */
       #view-holdings .api-btn{display:none!important} /* ➕ 추가 버튼들 */
       .btn-action{display:none!important}             /* ✏️🗑️ 행 단위 수정/삭제 */
       .editable-val{pointer-events:none}              /* 클릭 인라인 편집 */
-                 /* 분석 뷰 월별손익 입력 행 */
-
-      /* ── target_rebal: concentration cards compact grid ── */
 
       /* ── bubble: 인라인 height:100%/overflow:hidden 해제, 모바일은 HTML 비중 리스트 폴백 ── */
       #view-bubble{height:auto!important;overflow:visible!important}
@@ -1381,19 +1261,10 @@
       .login-card{max-width:100%;padding:32px 24px}
     }
 
-/* ── 세금·증여 규칙 버전 및 공식 근거 ───────────────────────── */
-
 /* Review refinements: one action list, readable labels, and a progressive 3D chart. */
-.fin-dashboard-priority{display:block}
-.fin-action-panel{padding:16px 18px}
-.fin-action-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.fin-action-row{min-height:72px;padding:12px;min-width:0}
-.fin-action-row b{font-size:13px;line-height:1.5}
-.fin-action-row small{font-size:12px;line-height:1.6}
+
 .fin-section-head small,.cb-insight-title,.cb-insight-empty{font-size:12px}
-.fin-more-actions{margin-top:10px;color:var(--mut);font-size:12px}
-.fin-more-actions summary{cursor:pointer;padding:8px 0}
-.fin-more-actions[open] .fin-action-list{margin-top:8px}
+
 .cb-div-status{font-size:12px;line-height:1.6;color:var(--mut)}
 .cb-div-status.error{color:var(--warn)}
 .cb-allocation-visual{position:relative;width:100%;height:220px;margin:4px 0 14px;isolation:isolate}
@@ -1409,8 +1280,7 @@
 @media(max-width:768px){
   #view-cdash.active{flex:0 0 auto}
   #cb-cdash{flex:none;overflow:visible!important}
-  .fin-action-list{grid-template-columns:1fr}
-  .fin-action-row{min-height:60px}
+
   .cb-allocation-visual{height:190px}
   .cb-mobile-holdings{display:block;padding:16px;margin-top:14px;min-width:0}
   .cb-mobile-holdings h3{margin:0 0 14px;font-size:15px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
@@ -1429,7 +1299,7 @@
   .cb-mobile-holding dl{margin:0 0 15px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding:14px;background:var(--inner);border-radius:10px}
   .cb-mobile-holding dt{font-size:12px;color:var(--lab);margin-bottom:4px}
   .cb-mobile-holding dd{margin:0;font-size:14px;overflow-wrap:anywhere}
-  #cb-cdash .cb-dash-split{display:none!important}
+
   #cb-cdash>.cb-mobile-holdings{display:block}
 }
 
