@@ -47,8 +47,6 @@ assert.match(scriptSource, /if \(!THEMES\.includes\(mode\)\) mode = 'light'[\s\S
 assert.match(cobaltSource, /fam2:'구성원별 보유'[\s\S]*plan2:'목표·리밸런싱'[\s\S]*data2:'데이터 상태'/, '신규 화면 라우팅 제목 등록')
 assert.doesNotMatch(cobaltSource, /balance2:/, '도달 불가였던 재무상태표 라우팅 제거 — 옛 링크는 navResolve 가 홈으로 보낸다')
 assert.doesNotMatch(cobaltSource, /finDashboardFocus\(ownerF\)/, '홈에서 이번 달 할 일 제거')
-assert.match(financeSource, /function finDashboardFocus\(owner\)\{[\s\S]*finMonthlyActions\(ownerF\)/, '대시보드 점검 항목이 선택한 소유주를 따름')
-assert.match(financeSource, /function finMonthlyActions\(ownerF\)[\s\S]*finTargetAnalysis\(ownerF\)[\s\S]*finCashSafety\(ownerF\)/, '목표 편차·현금 안전판을 같은 소유주 범위의 점검 항목으로 통합')
 assert.match(scriptSource, /balanceSheet:window\._balanceSheet/, '재무상태표를 확장 KV에 저장')
 assert.doesNotMatch(scriptSource, /const ext = \{[^\n]*dataFreshness:/, '데이터 상태는 확장 KV와 중복 저장하지 않음')
 assert.match(financeSource, /FIN_FRESHNESS_KV_KEY='data_freshness'[\s\S]*setKV\(FIN_FRESHNESS_KV_KEY[\s\S]*getKV\(FIN_FRESHNESS_KV_KEY/, '데이터 상태를 전용 KV에 저장·복원')

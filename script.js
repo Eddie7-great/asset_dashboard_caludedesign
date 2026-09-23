@@ -245,7 +245,6 @@ function formatKRW(v) {
   return v.toLocaleString();
 }
 // Y축 tick 콜백 (공통)
-const KRW_TICK = v => v===0?'₩0':'₩'+formatKRW(Math.abs(v))+(v<0?'(-)':'');
 
 // 공용 헬퍼 (중복 통합)
 // 소유주 필터: '전체'/미지정이면 원본 그대로, 아니면 owner 일치 항목만
@@ -1783,12 +1782,9 @@ function applyCommaFormatting(inputEl) {
 // UI 상태
 // =============================================
 let currentOwner = '전체';
-let myDonutChart, myBarChart, myBenchChart, miniDivChart, miniValueChart, myAccDonutChart, myPortBenchChart, portPerfChartInst, sectorDonutChartInst;
 window.activeDivMonth=-1; window.activeMainDivMonth=-1; window.activeCfCat=null;
 window.portToggleState = {'주식':false,'가상화폐':false,'금':false,'현금':false};
 window.cfTrendDetails = {in:[],out:[]};
-
-let currentHmPeriod = {us:'1D',kr:'1D'};
 
 const now = new Date();
 const days = ['일','월','화','수','목','금','토'];
@@ -2012,8 +2008,6 @@ function switchView(viewId, btn) {
   if (cfBar) cfBar.style.display = (viewId==='cashflow') ? 'flex' : 'none';
   const bubbleBar = document.getElementById('bubble-owner-bar');
   if (bubbleBar) bubbleBar.style.display = (viewId==='bubble') ? 'flex' : 'none';
-  const analysisBar = document.getElementById('analysis-owner-bar');
-  if (analysisBar) analysisBar.style.display = (viewId==='analysis') ? 'flex' : 'none';
   if (viewId==='cashflow') {
     _cfOwner='전체';
     _cfSection='monthly';
@@ -3107,8 +3101,6 @@ function changeOwner(owner, btn, isRefresh=false) {
   // 사라졌고, 같은 수치는 Cobalt 대시보드(cbRenderDash)가 자체적으로 계산해 그린다.
 
 
-  // 벤치마크 차트는 소유주 변경 시 데이터셋을 전부 재구성 (단일 진입점)
-  rerenderBenchmark();
 
   syncDivHistory();
 
@@ -3120,63 +3112,6 @@ function changeOwner(owner, btn, isRefresh=false) {
     const activeView = document.querySelector('.view-section.active');
     if(activeView && activeView.id==='view-bubble') renderBubbleChart('weight');
   }
-
-  // 배당 심화 / 목표 & 리밸런싱 view 에서도 owner 변경 시 즉시 재렌더
-  const dpActive = document.getElementById('view-dividend_plus')?.classList.contains('active');
-  if (dpActive) {
-    window._divPlusOwner = owner;
-    if (typeof _divpRenderYocTable === 'function') _divpRenderYocTable(owner);
-    if (typeof _divpRenderCagrTable === 'function') _divpRenderCagrTable(owner);
-    if (typeof _divpFillDripDropdown === 'function') _divpFillDripDropdown(owner);
-    if (typeof renderDripSimulator === 'function') renderDripSimulator();
-  }
-  const trActive = document.getElementById('view-target_rebal')?.classList.contains('active');
-  if (trActive) {
-  }
-}
-
-function updateBenchmark(tf,btn) {
-  if(btn) btn.parentElement.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  const bd=benchData[tf];
-  if(!bd) return;
-  const hasData = arr => Array.isArray(arr) && arr.some(v => v!=null);
-  // 항상 4인의 개별 소유주 라인을 표시('전체' 합산 라인 제외). 선택된 소유주만 강조.
-  const realOwners = OWNERS.filter(o => hasData(bd.data[o]));
-  const selOwner = (currentOwner !== '전체' && realOwners.includes(currentOwner)) ? currentOwner : null;
-  const oc = BENCH_OWNER_COLORS;  // 자녀1은 KOSPI(녹색)와 겹치지 않도록 벤치마크 전용 색상 사용
-  const buildDatasets = () => [
-    {label:'S&P 500',data:bd.data['S&P 500']||[],borderColor:'#4ade80',tension:.4,borderWidth:2,pointRadius:0,spanGaps:true},
-    {label:'KOSPI',data:bd.data['KOSPI']||[],borderColor:'#f2a33c',tension:.4,borderWidth:2,pointRadius:0,spanGaps:true},
-    ...realOwners.map(o=>{
-      const isSel = selOwner === o;
-      const dim   = selOwner && !isSel;            // 특정 소유주 선택 시에만 나머지를 흐리게
-      return {
-        label:o,
-        data:bd.data[o]||[],
-        borderColor: dim ? oc[o]+'80' : oc[o],     // 80 ≈ 50% 알파(8자리 hex) — 흐림이 너무 옅어 '사라진 것처럼' 보이던 문제 완화
-        tension:.4,
-        borderDash: isSel ? [] : [5,5],            // 선택=실선, 그 외=점선
-        borderWidth: isSel ? 3.4 : (dim ? 1.6 : 2),// 선택=굵게, 흐림=얇게, 무선택=기본
-        pointRadius:0,
-        spanGaps:true
-      };
-    })
-  ];
-  if(myBenchChart){
-    myBenchChart.data.labels=bd.labels;
-    myBenchChart.data.datasets=buildDatasets();
-    myBenchChart.update();
-  }
-}
-
-// 활성 TF를 유지한 채 벤치마크 차트만 재렌더 (소유주 토글, KV 로드 직후 등)
-function rerenderBenchmark() {
-  const panel = document.querySelector('#portBenchChart')?.closest('.glass-panel');
-  const activeBtn = panel?.querySelector('.tf-btn.active');
-  if (!activeBtn) return;
-  const tf = activeBtn.textContent.trim();
-  if (benchData[tf]) updateBenchmark(tf, activeBtn);
 }
 
 // =============================================
@@ -4947,20 +4882,6 @@ function applyChartTheme(){
 }
 applyChartTheme();
 
-const getBConf=()=>{
-  const ownerDefs=OWNERS.map(o=>({label:o,borderColor:BENCH_OWNER_COLORS[o]}));
-  // 초기 placeholder — pfolioData 로드 타이밍 무관하게 4개 소유주 라인 자리 잡아둠.
-  // 이후 updateBenchmark가 datasets를 통째로 교체하므로 잠깐만 보임.
-  const ownerDatasets=ownerDefs.map(o=>({
-    label:o.label,data:benchData['3M'].data[o.label]||[],borderColor:o.borderColor,tension:.4,
-    borderDash:o.solid?[]:[5,5],borderWidth:o.solid?3:2,pointRadius:0,spanGaps:true
-  }));
-  return{type:'line',data:{labels:benchData['3M'].labels,datasets:[
-    {label:'S&P 500',data:benchData['3M'].data['S&P 500'],borderColor:'#4ade80',tension:.4,borderWidth:2,pointRadius:0,spanGaps:true},
-    {label:'KOSPI',data:benchData['3M'].data['KOSPI'],borderColor:'#f2a33c',tension:.4,borderWidth:2,pointRadius:0,spanGaps:true},
-    ...ownerDatasets
-  ]},options:{interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw!=null?(c.raw>0?'+':'')+c.raw+'%':'N/A'}`}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)'},ticks:{callback:v=>v+'%'}}}}};
-};
 
 // =============================================
 // 인증 (로그인)
@@ -5149,8 +5070,6 @@ function initDashboard(){
 
   // [수정4] 포트폴리오 가치 차트 - 원 단위 Y축
 
-  // benchmarkChart는 대시보드에서 제거됨 - myBenchChart는 null로 유지
-  myBenchChart=null;
 
 
 
@@ -5203,8 +5122,6 @@ function initDashboard(){
     const [assetsResult,extResult]=await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
     // 로컬 기본값을 원격 데이터 위에 저장하지 않도록, 확장 KV 로드 성공 뒤에만 자동이체를 실체화한다.
     if(assetsResult?.ok&&extResult?.ok) applyAutoTransfers();
-    // 자산 로드 직후 벤치마크 차트 1회 정리 (placeholder → 실제 소유주 리스트)
-    rerenderBenchmark();
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
@@ -5257,43 +5174,9 @@ window.onload = async function() {
 };
 
 // =============================================
-// 정밀 분석 뷰 - 세금/배당/버블 차트
+// 배당 성장률 계산 헬퍼 — cobalt.js 배당 관리 화면(cbDivGrowthInfo)이 쓴다.
+// 이 헬퍼를 쓰던 예전 배당+(YoC·DRIP) 화면은 제거됐다.
 // =============================================
-let _analysisOwner = '전체';
-function setAnalysisOwner(owner, btn) {
-  _analysisOwner = owner;
-  document.querySelectorAll('[id^="analysis-owner-"]').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-}
-
-
-// =============================================
-// (removed) 리스크 & 성과 페이지 — 페이지 통째로 삭제됨.
-// 일별 스냅샷(window._netWorthHistory)은 메인 대시보드의 #netWorthHistoryChart 와
-// KV ext 페이로드에서 계속 사용되므로 데이터 자체는 보존.
-// =============================================
-
-// =============================================
-// 배당+ (배당 심화) View
-//   ① YoC: 매수원가 대비 현재 배당수익률
-//   ② 배당성장률 CAGR: 종목별 주당 배당금(DPS) 연도별 추이
-//   ③ DRIP 시뮬레이터: 배당 재투자 vs 현금 수령 비교
-// =============================================
-window._divPlusOwner = window._divPlusOwner || '전체';
-window._divpDripChart = window._divpDripChart || null;
-if (typeof window._divpOpenTab === 'undefined') window._divpOpenTab = null;
-
-// 통화 기호 (₩ / $ / ¥)
-function _divpCurSym(cur) {
-  return cur === 'USD' ? '$' : (cur === 'JPY' ? '¥' : '₩');
-}
-
-function _divpHeldStocks(owner) {
-  return getFilteredAssets(owner)
-    .filter(a => a.grp === '주식' && (a.qty||0) > 0)
-    .map(a => ({ ...a, _key: (a.tkr||'').replace(/\.(KS|KQ)$/,'').toUpperCase() }));
-}
-
 function _divpAggregateByYear(events) {
   // events: [{date:'YYYY-MM-DD', amount:number}]
   const map = {};
@@ -5303,28 +5186,6 @@ function _divpAggregateByYear(events) {
   });
   return map;  // { '2021': 4.32, '2022': 4.56, ... }
 }
-
-// _divDataCache 에 연배당이 없거나 0인 종목(연 1회/비정기 배당주: SKM·BABA·일부 ETF 등)을
-// 위해 10년치 raw 이력(_divHistoryRawCache)에서 연배당(주당, 종목통화)을 추정한다.
-//  1) 최근 ~370일 지급 합(백엔드 yahooDiv 와 동일 정의), 0이면
-//  2) 가장 최근 '완결' 연도(올해 제외)의 지급 합.
-// 이력 자체가 없으면 null → YoC 행에서 정상 제외(진짜 무배당주 보존).
-function _divpDpsFromHistory(key) {
-  const raw = (window._divHistoryRawCache || {})[key];
-  if (!raw || !Array.isArray(raw.events) || !raw.events.length) return null;
-  const cur = raw.cur || 'USD';
-  const cutoffDate=new Date();cutoffDate.setDate(cutoffDate.getDate()-370);
-  const cutoff = _cfLocalDateKey(cutoffDate);
-  const trailing = raw.events.reduce((s, e) => s + (e.date >= cutoff ? (e.amount || 0) : 0), 0);
-  if (trailing > 0) return { dps: trailing, cur, source: 'hist-ttm' };
-  const byYear = _divpAggregateByYear(raw.events);
-  const curYear = new Date().getFullYear();
-  const years = Object.keys(byYear).map(Number)
-    .filter(y => y < curYear && byYear[String(y)] > 0).sort((a, b) => b - a);
-  if (!years.length) return null;
-  return { dps: byYear[String(years[0])], cur, source: 'hist-year' };
-}
-
 function _divpComputeCagr(annualMap) {
   const curYear = new Date().getFullYear();
   // 완결 연도만 (올해는 보통 미완결이라 제외)
@@ -5347,335 +5208,8 @@ function _divpComputeCagr(annualMap) {
   return { cagr3: cagr(3), cagr5: cagr(5), yoy, recent5 };
 }
 
-function _divpAggregateByTicker(stocks) {
-  // 같은 _key(티커)로 묶어 qty 합, 가중평균 avgP 산출. avg curP는 여러 행의 가중평균.
-  const byKey = {};
-  stocks.forEach(a => {
-    const k = a._key;
-    if (!byKey[k]) {
-      byKey[k] = { ...a, qty: 0, _totalCost: 0, _curPSum: 0, _curPWeight: 0 };
-    }
-    const q = a.qty || 0;
-    byKey[k].qty += q;
-    byKey[k]._totalCost += q * (a.avgP || 0);
-    byKey[k]._curPSum += q * (a.curP || 0);
-    byKey[k]._curPWeight += q;
-  });
-  return Object.values(byKey).map(x => {
-    x.avgP = x.qty > 0 ? x._totalCost / x.qty : 0;
-    if (x._curPWeight > 0) x.curP = x._curPSum / x._curPWeight;
-    delete x._totalCost; delete x._curPSum; delete x._curPWeight;
-    return x;
-  });
-}
-
-function _divpRenderYocTable(owner) {
-  const tbody = document.getElementById('divp-yoc-body');
-  const tfoot = document.getElementById('divp-yoc-foot');
-  if (!tbody) return;
-  const aggregateMode = !!document.getElementById('divp-yoc-aggregate')?.checked;
-  let stocks = _divpHeldStocks(owner);
-  if (aggregateMode) stocks = _divpAggregateByTicker(stocks);
-  const rows = [];
-  let totalAnnualKrw = 0;
-
-  stocks.forEach(a => {
-    const cache = (window._divDataCache || {})[a._key];
-    // 1순위: 현재 배당 캐시. 없거나 0이면 raw 이력으로 폴백(연 1회/비정기 배당주 구제).
-    let dps, cacheCur, fromHist = false;
-    if (cache && cache.annualDps > 0) {
-      dps = cache.annualDps;          // 주당 연배당 (종목 통화)
-      cacheCur = cache.cur;
-    } else {
-      const hist = _divpDpsFromHistory(a._key);
-      if (!hist) return;              // 캐시·이력 모두 없음 → 정상 제외(무배당주)
-      dps = hist.dps;
-      cacheCur = hist.cur;
-      fromHist = true;
-    }
-    const avgP = a.avgP || 0;
-    const curP = a.curP || 0;
-    // 한국 종목은 .KS/.KQ 접미사 또는 6자 영숫자 코드로 판별해 항상 KRW로 강제
-    // (Yahoo가 일부 KR 종목에 USD 통화를 반환해 환산이 1380× 부풀려지는 사고 방지)
-    const isKr = /\.(KS|KQ)$/i.test(a.tkr || '') || _KR_CODE_RE.test(a._key || '');
-    const cur = isKr ? 'KRW' : (cacheCur || a.cur || 'KRW');
-    const qty = a.qty || 0;
-    const yoc = avgP > 0 ? (dps / avgP) * 100 : 0;
-    // 폴백 경로엔 cache.yldNum 이 없으므로 curP 기반만 사용 (curP=0 이면 0)
-    const curYld = curP > 0 ? (dps / curP) * 100 : (cache?.yldNum || 0);
-    const fx = RATES[cur] || 1;
-    const annualKrw = dps * qty * fx;
-    totalAnnualKrw += annualKrw;
-    rows.push({ name: a.name || a.tkr, cur, dps, avgP, qty, fx, yoc, curYld, annualKrw, fromHist });
-  });
-
-  rows.sort((a, b) => b.yoc - a.yoc);
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:18px">배당 데이터 부족 — 우상단 '이력 새로고침' 시도</td></tr>`;
-    if (tfoot) tfoot.innerHTML = '';
-    return;
-  }
-
-  const fmtPx = (v, cur) => cur === 'USD' ? '$' + v.toFixed(2) : _divpCurSym(cur) + Math.round(v).toLocaleString();
-  const fmtDps = (v, cur) => cur === 'USD' ? '$' + v.toFixed(3)
-    : _divpCurSym(cur) + (cur === 'JPY' ? v.toLocaleString(undefined, {maximumFractionDigits:2}) : Math.round(v).toLocaleString());
-  const yocColor = (yoc, cur) => yoc >= cur ? '#10B981' : (yoc >= cur*0.7 ? '#F59E0B' : 'var(--t1)');
-
-  tbody.innerHTML = rows.map(r => {
-    const upDelta = r.curYld > 0 ? r.yoc - r.curYld : 0;
-    const arrow = upDelta > 0.1 ? '↑' : (upDelta < -0.1 ? '↓' : '·');
-    const ac = upDelta > 0.1 ? '#10B981' : (upDelta < -0.1 ? '#EF4444' : 'var(--t3)');
-    // 계산 투명성: 보유수량 × 주당 배당 × 환율 = 연 배당금(KRW)
-    const dpsTxt = r.cur === 'USD' ? '$' + r.dps.toFixed(4)
-      : _divpCurSym(r.cur) + r.dps.toLocaleString(undefined, {maximumFractionDigits: r.cur === 'JPY' ? 2 : 3});
-    const fxTxt = r.cur === 'KRW' ? '×1' : `× ₩${r.fx.toLocaleString(undefined,{maximumFractionDigits:1})}/${r.cur}`;
-    const breakdown = `보유 ${(Number(r.qty)||0).toLocaleString(undefined,{maximumFractionDigits:6})}주 × ${dpsTxt} ${fxTxt} = ₩${Math.round(Number(r.annualKrw)||0).toLocaleString()}`;
-    // 최근 12개월 지급이 없어 직전 완결 연도 배당으로 추정한 경우 표시
-    const histTag = r.fromHist
-      ? ` <span title="최근 12개월 지급 이력이 없어 직전 완결 연도 배당으로 추정" style="color:var(--t3);font-weight:500;font-size:.72rem;cursor:help">≈이력</span>`
-      : '';
-    return `<tr>
-      <td class="text-left"><strong>${_cfEsc(r.name)}</strong>${histTag}</td>
-      <td class="text-right">${r.curYld.toFixed(2)}%</td>
-      <td class="text-right" style="color:${yocColor(r.yoc, r.curYld)};font-weight:700">
-        ${r.yoc.toFixed(2)}% <span style="color:${ac};font-weight:500;font-size:.78rem">${arrow}${Math.abs(upDelta).toFixed(2)}%p</span>
-      </td>
-      <td class="text-right">${fmtPx(r.avgP, r.cur)}</td>
-      <td class="text-right">${fmtDps(r.dps, r.cur)}</td>
-      <td class="text-right" style="cursor:help" title="${_cfEsc(breakdown)}">₩${Math.round(r.annualKrw).toLocaleString()}</td>
-    </tr>`;
-  }).join('');
-
-  if (tfoot) {
-    // colspan 없는 6셀 구조 — 모바일의 nth-child(4,5) 숨김·6컬럼 표시 규칙이 tfoot에도 그대로
-    // 적용되어 합계가 종목별 '연 배당금' 컬럼 아래 우측 정렬로 떨어진다 (colspan 셀은 자식 순번이 밀려 정렬이 깨짐)
-    tfoot.innerHTML = `<tr>
-      <td class="text-left" style="font-weight:700;padding-top:10px;white-space:nowrap">연 배당 합계</td>
-      <td></td><td></td><td></td><td></td>
-      <td class="text-right" style="font-weight:700;color:var(--acc);padding-top:10px">₩${Math.round(totalAnnualKrw).toLocaleString()}</td>
-    </tr>`;
-  }
-}
-
-function _divpRenderCagrTable(owner) {
-  const tbody = document.getElementById('divp-cagr-body');
-  if (!tbody) return;
-  // 같은 종목이 여러 계좌/소유주에 분산 보유될 수 있으므로 티커 단위로 중복 제거
-  const seen = new Set();
-  const stocks = _divpHeldStocks(owner).filter(a => {
-    if (!a._key || seen.has(a._key)) return false;
-    seen.add(a._key);
-    return true;
-  });
-  const histRaw = window._divHistoryRawCache || {};
-
-  const rows = stocks.map(a => {
-    const raw = histRaw[a._key];
-    if (!raw || !raw.events || raw.events.length < 2) return null;
-    const annualMap = _divpAggregateByYear(raw.events);
-    const m = _divpComputeCagr(annualMap);
-    if (!m.recent5.length) return null;
-    const isKr = /\.(KS|KQ)$/i.test(a.tkr || '') || _KR_CODE_RE.test(a._key || '');
-    const cur = isKr ? 'KRW' : (raw.cur || window._divDataCache?.[a._key]?.cur || a.cur || 'USD');
-    return { name: a.name || a.tkr, cur, ...m };
-  }).filter(Boolean);
-
-  // 5Y CAGR 우선 정렬, 없으면 3Y
-  rows.sort((a, b) => {
-    const av = a.cagr5 != null ? a.cagr5 : (a.cagr3 != null ? a.cagr3 : -Infinity);
-    const bv = b.cagr5 != null ? b.cagr5 : (b.cagr3 != null ? b.cagr3 : -Infinity);
-    return bv - av;
-  });
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:18px">배당 이력 데이터 부족 — 우상단 '이력 새로고침' 후 재시도</td></tr>`;
-    return;
-  }
-
-  const fmtPct = v => v == null ? '<span style="color:var(--t3)">-</span>' : `<span style="color:${v >= 0 ? '#10B981' : '#EF4444'};font-weight:700">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
-  const fmtDps = (v, cur) => cur === 'USD' ? '$' + v.toFixed(3)
-    : _divpCurSym(cur) + (cur === 'JPY' ? v.toLocaleString(undefined, {maximumFractionDigits:2}) : Math.round(v).toLocaleString());
-
-  tbody.innerHTML = rows.map(r => {
-    const recentTxt = r.recent5.map(p => `<span class="divp-dps-item"><span class="divp-dps-yr">${p.y}</span><span class="divp-dps-val">${fmtDps(p.v, r.cur)}</span></span>`).join('');
-    return `<tr>
-      <td class="text-left"><strong>${_cfEsc(r.name)}</strong></td>
-      <td class="text-right">${_cfEsc(r.cur)}</td>
-      <td class="text-right">${fmtPct(r.cagr3)}</td>
-      <td class="text-right">${fmtPct(r.cagr5)}</td>
-      <td class="text-right">${fmtPct(r.yoy)}</td>
-      <td class="text-right"><div class="divp-dps-row">${recentTxt}</div></td>
-    </tr>`;
-  }).join('');
-}
-
-function _divpFillDripDropdown(owner) {
-  const sel = document.getElementById('divp-drip-tkr');
-  if (!sel) return;
-  const prev = sel.value;
-  const seen = new Set();
-  const stocks = _divpHeldStocks(owner)
-    .filter(a => {
-      const c = (window._divDataCache || {})[a._key];
-      if (!c || !(c.annualDps > 0)) return false;
-      if (!a._key || seen.has(a._key)) return false;
-      seen.add(a._key);
-      return true;
-    });
-  if (!stocks.length) {
-    const option=document.createElement('option');option.value='';option.textContent='배당 종목 없음';sel.replaceChildren(option);
-    return;
-  }
-  const options=stocks.map(a=>{const option=document.createElement('option');option.value=String(a._key||'').slice(0,80);option.textContent=String(a.name||a.tkr||'').slice(0,160);return option;});
-  sel.replaceChildren(...options);
-  if (prev && stocks.some(a => a._key === prev)) sel.value = prev;
-}
-
-function _divpDripTaxRules(accType) {
-  // 일반·ISA 세율과 공제액은 현재 규칙 버전에서 읽고, 연금은 과세이연한다.
-  if (accType === '연금') return { rate: 0, exempt: Infinity };
-  if (accType === 'ISA') return {
-    rate:_taxRuleValue('isa.separateTaxCombinedRate',0.099),
-    exempt:_taxRuleValue('isa.generalExemptionKrw',2_000_000),
-  };
-  return { rate:_taxRuleValue('dividend.generalWithholdingCombinedRate',0.154), exempt:0 };
-}
-
-function renderDripSimulator() {
-  const tkr = document.getElementById('divp-drip-tkr')?.value;
-  const principal = Number(document.getElementById('divp-drip-principal')?.value) || 0;
-  const divGrowth = (Number(document.getElementById('divp-drip-divgrowth')?.value) || 0) / 100;
-  const pxGrowth = (Number(document.getElementById('divp-drip-pxgrowth')?.value) || 0) / 100;
-  const years = Math.max(1, Math.min(40, Number(document.getElementById('divp-drip-years')?.value) || 20));
-  const accType = document.getElementById('divp-drip-acc')?.value || '일반';
-
-  const cardsEl = document.getElementById('divp-drip-cards');
-  const empty = (msg) => {
-    if (cardsEl) cardsEl.innerHTML = `<div style="grid-column:1/-1;color:var(--t3);font-size:.85rem;padding:14px;text-align:center">${msg}</div>`;
-    if (window._divpDripChart) { window._divpDripChart.data.labels = []; window._divpDripChart.data.datasets.forEach(d => d.data = []); window._divpDripChart.update(); }
-  };
-  if (!tkr) { empty('대상 종목을 선택하세요'); return; }
-  const cache = (window._divDataCache || {})[tkr];
-  if (!cache || !cache.annualDps || cache.annualDps <= 0) { empty('배당 데이터 없음'); return; }
-  const stock = _divpHeldStocks(window._divPlusOwner).find(a => a._key === tkr) || pfolioData.find(a => (a.tkr||'').replace(/\.(KS|KQ)$/,'').toUpperCase() === tkr);
-  if (!stock) { empty('보유 정보 없음'); return; }
-
-  const isKr = /\.(KS|KQ)$/i.test(stock.tkr || '') || _KR_CODE_RE.test(tkr || '');
-  const cur = isKr ? 'KRW' : (cache.cur || stock.cur || 'KRW');
-  const fx = RATES[cur] || 1;
-  const startPriceNative = stock.curP || 0;
-  if (startPriceNative <= 0) { empty('현재가 없음'); return; }
-
-  // 초기 주식 수: 원금(KRW) → 종목 통화 → 주식 수
-  let dripShares = principal / fx / startPriceNative;
-  let cashShares = dripShares;
-  let dpsNative = cache.annualDps;
-  let priceNative = startPriceNative;
-  let cumCashDivKrw = 0;
-  let cumDripDivKrw = 0;
-  const tax = _divpDripTaxRules(accType);
-
-  const labels = ['0'];
-  const dripValues = [dripShares * priceNative * fx];
-  const cashValues = [cashShares * priceNative * fx];
-  const cumCashDivSeries = [0];
-
-  for (let y = 1; y <= years; y++) {
-    // 연 배당 (둘 다 동일 시점에서 같은 dpsNative 사용)
-    const dripDivNative = dripShares * dpsNative;
-    const cashDivNative = cashShares * dpsNative;
-    const dripDivKrw = dripDivNative * fx;
-    const cashDivKrw = cashDivNative * fx;
-    // 세금 적용 (KRW 기준)
-    const dripNetKrw = Math.max(0, dripDivKrw - tax.exempt) * (1 - tax.rate) + Math.min(dripDivKrw, tax.exempt) * 1.0;
-    const cashNetKrw = Math.max(0, cashDivKrw - tax.exempt) * (1 - tax.rate) + Math.min(cashDivKrw, tax.exempt) * 1.0;
-    cumCashDivKrw += cashNetKrw;
-    cumDripDivKrw += dripNetKrw;
-    // DRIP: 세후 배당 → 종목통화 → 신규 주식 매수 (현재 가격으로)
-    const newShares = (dripNetKrw / fx) / priceNative;
-    dripShares += newShares;
-    // 다음해로 진행
-    priceNative *= (1 + pxGrowth);
-    dpsNative *= (1 + divGrowth);
-    labels.push(String(y));
-    dripValues.push(dripShares * priceNative * fx);
-    cashValues.push(cashShares * priceNative * fx);
-    cumCashDivSeries.push(cumCashDivKrw);
-  }
-
-  const finalDrip = dripValues[dripValues.length - 1];
-  const finalCash = cashValues[cashValues.length - 1];
-  const cashTotalWithDiv = finalCash + cumCashDivKrw;
-  const dripAdvantage = finalDrip - cashTotalWithDiv;
-
-  if (cardsEl) {
-    const card = (label, val, color, sub) => `
-      <div class="drip-card">
-        <div class="drip-card-label">${label}</div>
-        <div class="drip-card-val" style="color:${color||'var(--t1)'}" title="${val}">${val}</div>
-        ${sub ? `<div class="drip-card-sub">${sub}</div>` : ''}
-      </div>`;
-    cardsEl.innerHTML = [
-      card('DRIP 최종 평가', '₩' + formatKRW(finalDrip), '#10B981', `${years}년 후 / 누적 배당 ₩${formatKRW(cumDripDivKrw)} 재투자`),
-      card('현금 시나리오 평가', '₩' + formatKRW(cashTotalWithDiv), 'var(--t1)', `보유주식 ₩${formatKRW(finalCash)} + 누적 배당 ₩${formatKRW(cumCashDivKrw)}`),
-      card('DRIP 우위', (dripAdvantage >= 0 ? '+' : '') + '₩' + formatKRW(Math.abs(dripAdvantage)), dripAdvantage >= 0 ? '#10B981' : '#EF4444', `${((dripAdvantage / cashTotalWithDiv) * 100).toFixed(1)}% 추가 가치`),
-      card('연환산 수익률', ((Math.pow(finalDrip / principal, 1/years) - 1) * 100).toFixed(2) + '%', 'var(--acc)', `초기 투자 ₩${formatKRW(principal)} 대비`),
-    ].join('');
-  }
-
-  const canvas = document.getElementById('divpDripChart');
-  if (!canvas) return;
-  // Chart.js 는 CDN 에서 온다 — 로드 실패 시 여기서 던지면 이 함수의 나머지가 통째로 멈춘다.
-  // 위쪽 카드(숫자 요약)는 이미 그려졌으므로 차트만 포기하고 조용히 빠진다.
-  if (typeof Chart === 'undefined') return;
-  if (!window._divpDripChart) {
-    window._divpDripChart = new Chart(canvas.getContext('2d'), {
-      type: 'line',
-      data: { labels: [], datasets: [
-        { label: 'DRIP (재투자)', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.1)', tension: .3, fill: true, pointRadius: 0, borderWidth: 2 },
-        { label: '현금 시나리오 (주식 평가)', data: [], borderColor: '#3B82F6', tension: .3, pointRadius: 0, borderWidth: 1.5, borderDash: [4,4], fill: false },
-        { label: '현금 시나리오 (누적 배당)', data: [], borderColor: '#F59E0B', tension: .3, pointRadius: 0, borderWidth: 1.5, borderDash: [2,2], fill: false }
-      ]},
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-          tooltip: { callbacks: {
-            title: items => `${items[0].label}년 후`,
-            label: c => ` ${c.dataset.label}: ₩${Math.round(c.raw).toLocaleString()}`
-          }}
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 11 }, callback: function(v) { return this.getLabelForValue(v) + '년'; } } },
-          y: { grid: { color: 'rgba(150,150,150,.15)', borderDash: [2,2] }, ticks: { font: { size: 11 }, callback: KRW_TICK } }
-        }
-      }
-    });
-  }
-  const chart = window._divpDripChart;
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = dripValues;
-  chart.data.datasets[1].data = cashValues;
-  chart.data.datasets[2].data = cumCashDivSeries;
-  chart.update();
-}
-
-
-
-// =============================================
-// 목표 & 리밸런싱 View
-//   집중도 리스크 위젯(소유주별) + 포트폴리오 어드바이저(한·미·일 종목 검색).
-//   _targetAlloc 키는 구버전 클라이언트 호환을 위해 read/write 자체는 유지.
-// =============================================
+// 예전 목표 & 리밸런싱 화면의 KV 키. 구버전 클라이언트 호환을 위해 read/write 만 유지한다.
 window._targetAlloc = window._targetAlloc || null;  // {groups, region, threshold} — UI 제거, KV 페이로드만 보존
-
-
-// =============================================
-
-
 
 // 국기 인라인 SVG — 이모지 폰트 미지원 환경에서도 태극기(건곤감리)·일장기·성조기를 정확히 렌더
 function _mktFlagSvg(market, px) {
@@ -5723,7 +5257,6 @@ function loadMonthlyPL(){try{const d=localStorage.getItem('monthlyPLData');if(d)
 
 
 // ── 버블 차트 (Plotly) ──────────────────────
-let _bubbleMode = 'weight'; // 항상 비중 기준
 let _bubbleOwner = '전체';
 let _bubbleChart = null;
 
@@ -7827,8 +7360,6 @@ async function fetchBenchmarkData(ownerOverride) {
         }
       });
 
-      // 라인이 들어오는 대로 점진 렌더 (전부 끝날 때까지 빈 차트로 두지 않음)
-      rerenderBenchmark();
       return hasBenchmarkSeries&&hasPortfolioSeries;
     };
 
@@ -7863,8 +7394,6 @@ async function fetchBenchmarkData(ownerOverride) {
       }
     } catch(e) { console.warn('[Benchmark total owner]', e); }
 
-    // 최종 차트 갱신 ('전체' 합산 라인 포함)
-    rerenderBenchmark();
     const loaded=results.filter(Boolean).length;
     const topNote=truncatedOwners.length?` · 상위 ${BENCH_TICKER_LIMIT}종목 기준(${truncatedOwners.join(', ')})`:'';
     return {ok:loaded===targets.length,loaded,attempted:targets.length,truncatedOwners,

@@ -57,16 +57,24 @@ for(let i=0;i<300;i++){
     assert.ok(Math.abs(out.rows.reduce((s,x)=>s+x.afterPct,0)-100)<1e-8);
   }
 }
-// DCA edits only change the selected account's plan fields, preserving valuations.
-const items=[{owner:'본인',grp:'주식',tkr:'AAPL',acc:'ISA',qty:12,avgP:155,curP:190,costUnknown:true},{owner:'본인',grp:'주식',tkr:'AAPL',acc:'일반',qty:9,avgP:170,curP:190}];
-let saved=0,success=true;
-const dca=vm.createContext({pfolioData:items,isMobileLayout:()=>false,window:{_kvLoadState:{assets:'ready',ext:'ready'}},showSaveError:()=>{},cbRenderDca:()=>{},document:{getElementById:()=>null},saveAssetsToKV:async()=>{saved++;return{ok:success};}});
-vm.runInContext(read('dca-editor.js'),dca);
-dca.cbDcaEdit(1);dca.cbDcaDraft('dcaAmt','250000');await dca.cbDcaSave();
-assert.equal(saved,1);assert.equal(items[1].dcaAmt,250000);assert.equal(items[0].dcaAmt,undefined);assert.equal(items[1].qty,9);assert.equal(items[1].avgP,170);assert.equal(items[1].curP,190);assert.equal(items[0].costUnknown,true);
-dca.cbDcaEdit(1);dca.cbDcaDraft('dcaAmt','400000');success=false;await dca.cbDcaSave();assert.equal(items[1].dcaAmt,250000,'failed save rolls back the in-memory rule');
-assert.equal(vm.runInContext('_dcaDraft.dcaAmt',dca),'400000','draft survives a failed save');
-dca.cbDcaDraft('dcaAmt','0');await dca.cbDcaSave();assert.equal(saved,2,'invalid rule is not saved');
-dca.cbDcaDraft('dcaAmt','500000');items[1]={...items[1]};await dca.cbDcaSave();assert.equal(saved,2,'a stale edit cannot patch a replaced asset');
-dca.cbDcaEdit(0);dca.cbDcaDraft('dcaAmt','100000');dca.window._kvLoadState.ext='loading';await dca.cbDcaSave();assert.equal(saved,2,'both remote loads are required');
-console.log('PASS: consolidated navigation, scenario conservation/validation, isolated DCA saves');
+// DCA 일시정지 토글: 원장·재무계획이 모두 로드돼야 저장하고, 실패하면 되돌린 뒤 사용자에게 알린다.
+// (규칙 등록·수정은 종목 편집 모달이 맡는다 — 예전 인라인 편집기는 제거됐다.)
+{
+  const cobaltSrc=read('cobalt.js');
+  const start=cobaltSrc.indexOf('let _dcaBusy=false;');
+  const end=cobaltSrc.indexOf('\n}\n',cobaltSrc.indexOf('async function cbDcaToggle('))+3;
+  assert.ok(start>-1&&end>start,'DCA 토글 블록을 찾지 못함');
+  const items=[{owner:'본인',grp:'주식',tkr:'AAPL',acc:'일반',qty:9,avgP:170,curP:190,dca:true,dcaAmt:250000}];
+  let saved=0,success=true;const errors=[];
+  const dca=vm.createContext({pfolioData:items,isMobileLayout:()=>false,window:{_kvLoadState:{assets:'ready',ext:'ready'}},showSaveError:m=>errors.push(m),cbRenderDca:()=>{},saveAssetsToKV:async()=>{saved++;return{ok:success};}});
+  vm.runInContext(cobaltSrc.slice(start,end),dca);
+  await dca.cbDcaToggle(0);
+  assert.equal(saved,1);assert.equal(items[0].dca,false,'토글은 dca 플래그만 바꾼다');
+  assert.equal(items[0].dcaAmt,250000);assert.equal(items[0].qty,9);assert.equal(items[0].avgP,170);
+  success=false;await dca.cbDcaToggle(0);
+  assert.equal(items[0].dca,false,'저장 실패 시 되돌린다');
+  assert.equal(errors.length,1,'저장 실패를 사용자에게 알린다');
+  success=true;dca.window._kvLoadState.ext='loading';await dca.cbDcaToggle(0);
+  assert.equal(saved,2,'두 원격 원장이 모두 로드돼야 저장한다');assert.equal(items[0].dca,false);
+}
+console.log('PASS: consolidated navigation, scenario conservation/validation, guarded DCA pause toggle');

@@ -87,7 +87,7 @@ const mergeContext = {
   cbAvgNative: () => 0,
 }
 vm.createContext(mergeContext)
-for (const name of ['cbAccountLabel', 'cbBrokerLabel', 'cbBrokerWeightTip', 'cbMergeRows']) {
+for (const name of ['cbAccountLabel', 'cbBrokerLabel', 'cbMergeRows']) {
   vm.runInContext(extractFunction(cobaltSource, name), mergeContext)
 }
 
@@ -127,11 +127,6 @@ assert.deepEqual(
   Array.from(merged[0].brokerWeights, x => [x.broker, x.pct]),
   [['미래에셋증권', 75], ['삼성증권', 25]],
   '같은 증권사의 여러 계좌를 합쳐 종목 내 증권사별 비중 계산',
-)
-assert.equal(
-  mergeContext.cbBrokerWeightTip(merged[0]),
-  '미래에셋증권 75.00%\n삼성증권 25.00%',
-  '다계좌 툴팁은 증권사별 비중을 줄바꿈하고 계좌 종류는 제외',
 )
 
 const flagContext = {

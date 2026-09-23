@@ -232,37 +232,6 @@ function finFreshAge(iso){
   return `${Math.floor(min/1440)}일 전`;
 }
 
-function finMonthlyActions(ownerF){
-  const target=finTargetAnalysis(ownerF); const safety=finCashSafety(ownerF);
-  const items=[];
-  if(target.max&&Math.abs(target.max.drift)>=target.threshold) items.push({tone:'warn',title:`${target.max.label} 목표 비중 점검`,desc:`목표 대비 ${target.max.drift>=0?'+':''}${target.max.drift.toFixed(1)}%p`,view:'rebal2',menu:'plan2'});
-  else items.push({tone:'ok',title:'목표 비중 허용범위',desc:target.max?`최대 편차 ${Math.abs(target.max.drift).toFixed(1)}%p`:'투자자산 등록 필요',view:'rebal2',menu:'plan2'});
-  if(safety.fixed<=0) items.push({tone:'info',title:'필수지출 등록',desc:safety.pendingCount?`미분류 자동이체 ${safety.pendingCount}건을 고정비로 분류`:'현금 안전판 계산을 위해 현금 흐름에서 등록',view:'cashflow',menu:'cashflow'});
-  else if(safety.runway<safety.targetMonths) items.push({tone:'warn',title:'현금 안전판 보강',desc:`${safety.runway.toFixed(1)}개월 · 목표 ${safety.targetMonths}개월`,view:'balance2',menu:'balance2'});
-  else items.push({tone:'ok',title:'현금 안전판',desc:`${safety.runway.toFixed(1)}개월 확보`,view:'balance2',menu:'balance2'});
-  if(safety.fixed>0&&safety.pendingCount) items.push({tone:'warn',title:'고정비 미분류 정리',desc:`${safety.pendingCount}건 · 월 ${cbDisp(safety.pendingMonthly)}이 안전판에서 빠짐`,view:'cashflow',menu:'cashflow'});
-  const dcaItems=(pfolioData||[]).filter(i=>i&&i.dca&&(!ownerF||i.owner===ownerF));
-  const schedules=dcaItems.map(i=>cbDcaScheduleSummary(i));
-  const remain=schedules.reduce((s,x)=>s+(x.remainingAmount||0),0);
-  const next=schedules.map(x=>x.nextDate).filter(Boolean).sort()[0];
-  items.push({tone:'info',title:'이번 달 DCA 예정',desc:dcaItems.length?`${dcaItems.length}종목 · ${cbDisp(remain)}${next?' · 다음 '+next.slice(5).replace('-','/'):''}`:'활성 규칙 없음',view:'dca2',menu:'dca2'});
-  const divList=(pfolioData||[]).filter(i=>(i.qty||0)>0&&(!ownerF||i.owner===ownerF)).map(i=>({i,d:cbDivOf(i),incomeKRW:cbDivIncomeKRW(i),tkr:i.tkr,title:i.name})).filter(x=>x.d&&x.incomeKRW>0);
-  const upcoming=cbUpcomingDividendSchedule(divList,90); const divAmt=upcoming.reduce((s,x)=>s+x.amount,0);
-  items.push({tone:'info',title:'향후 90일 배당',desc:upcoming.length?`${upcoming.length}건 · 예상 ${cbDisp(divAmt)}`:'예정 내역 없음',view:'divm',menu:'divm'});
-  const stale=(pfolioData||[]).filter(i=>i&&i._priceStale&&(!ownerF||i.owner===ownerF)).length;
-  if(stale) items.push({tone:'warn',title:'시세 데이터 확인',desc:`${stale}개 자산의 최신 시세 확인 필요`,view:'data2',menu:'data2'});
-  const soonGoals=(goalData||[]).filter(g=>g.targetDate&&((new Date(g.targetDate)-Date.now())/86400000)<=180&&new Date(g.targetDate)>=new Date());
-  if(soonGoals.length) items.push({tone:'warn',title:'6개월 내 목표',desc:`${soonGoals.length}개 목표 진행률 점검`,view:'plan2',menu:'plan2'});
-  return items.slice(0,6);
-}
-function finDashboardFocus(owner){
-  const ownerF=finOwnerF(owner);
-  const scope=ownerF?cbEsc(ownerF):'가구 전체';
-  const actions=finMonthlyActions(ownerF).sort((a,b)=>(a.tone==='warn'?0:1)-(b.tone==='warn'?0:1));
-  const row=a=>`<button class="fin-action-row ${a.tone}" onclick="switchView('${a.view}',document.getElementById('menu-${a.menu}'))"><span class="fin-action-dot"></span><span><b>${cbEsc(a.title)}</b><small>${cbEsc(a.desc)}</small></span><span class="fin-action-go">›</span></button>`;
-  return `<div class="fin-dashboard-priority"><div class="cb-panel fin-action-panel"><div class="fin-section-head"><span>이번 달 할 일</span><small>${scope} · ${actions.length}개 점검 항목</small></div><div class="fin-action-list">${actions.slice(0,3).map(row).join('')}</div>${actions.length>3?`<details class="fin-more-actions"><summary>추가 점검 ${actions.length-3}개</summary><div class="fin-action-list">${actions.slice(3).map(row).join('')}</div></details>`:''}</div></div>`;
-}
-
 // 모바일에서는 입력 폼을 감추므로(스타일시트 768px 규칙) 왜 안 보이는지 화면에서 알려준다.
 function finMobileNote(what){
   return `<div class="fin-mobile-note">모바일에서는 조회만 가능합니다. ${cbEsc(what)} 추가·수정은 PC 화면에서 해주세요.</div>`;

@@ -9,7 +9,7 @@
    _gicsSector, _divpAggregateByYear, _divpComputeCagr, loadMonthlyPL,
    saveMonthlyPL, saveAssetsToKV, loadAssetsFromKV, saveExtDataToKV, cssVar,
    openAddModal, editItem, closeSidebar, fetchDivData, fetchDividendHistory,
-   switchView, changeOwner, updateBenchmark, setTheme, isMobileLayout, authFetch */
+   switchView, changeOwner, setTheme, isMobileLayout, authFetch */
 
 // ───────────────────────── 상태 ─────────────────────────
 // 평가금액 표시 통화는 KRW 고정 (표시 통화 선택 UI 제거됨).
@@ -256,9 +256,6 @@ function cbAccountLabel(i){
   return [broker,account].filter(Boolean).join(' / ');
 }
 function cbBrokerLabel(i){ return String((i&&i.broker)||'미지정').trim() || '미지정'; }
-function cbBrokerWeightTip(r){
-  return (r.brokerWeights||[]).map(x=>`${x.broker} ${x.pct.toFixed(2)}%`).join('\n');
-}
 
 // 동일 소유주 + 동일 종목(다계좌)을 한 행으로 합산 (대시보드 내역·상세 공통)
 // 가중 평단가는 KRW 총원가 ÷ (합산수량 × 환율)로 역산해 종목 통화 기준으로 되돌린다.
@@ -1224,24 +1221,7 @@ function cbDashSecToggle(n){
   cbRenderDash();
 }
 
-// ───────────────────────── 페이지: 한눈에 보기 ─────────────────────────
-// 대시보드가 '따져보는 화면'이라면 이 페이지는 '보여주는 화면'이다.
-// 자산 구성 · 순자산 추이 · 배당을 큰 숫자와 색 블록으로 요약하고, 상세는 각 페이지로 넘긴다.
-// 수치는 전부 기존 엔진(cbAllRows / finNwSeries / cbDivMonthlyForYear)을 그대로 쓴다 — 여기서 새로 만드는 계산은 없다.
-// 자산군 아이콘 — 글꼴에 없을 수 있는 기호(₿ 등) 대신 어느 환경에서나 그려지는 2글자로 쓴다.
-// 배당 요약용 목록 — 소유주+티커로 합쳐 계좌 수에 종목 수가 흔들리지 않게 한다.
-// 세전(gross) 기준만 다룬다. 세후는 계좌별 세제가 필요해 배당 관리 페이지의 세금 엔진 하나만 쓴다.
-function cbSnapDivList(rows){
-  const merged = new Map();
-  rows.forEach(r=>{
-    const d = cbDivOf(r.i); if(!d) return;
-    const key = r.i.owner + '::' + cbStrip(r.i.tkr);
-    const prev = merged.get(key);
-    if (prev){ prev.qty += (r.i.qty||0); prev.incomeKRW += cbDivIncomeKRW(r.i); return; }
-    merged.set(key, { i:r.i, d, tkr:r.tkr, title:r.title, qty:(r.i.qty||0), incomeKRW:cbDivIncomeKRW(r.i) });
-  });
-  return Array.from(merged.values()).sort((a,b)=>b.incomeKRW-a.incomeKRW);
-}
+// ───────────────────────── 배당 조회 완결성 ─────────────────────────
 // API가 무배당 종목도 "조회 완료"로 기록하므로 데이터 행 수가 아니라 verified 목록으로
 // 현재 소유주 범위의 배당 요약이 완전한지 판정한다.
 function cbSnapDivCoverage(rows){
@@ -3308,6 +3288,13 @@ function cbRenderDca(){
     </div>`;
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
+// 적립식 규칙 등록·수정은 종목 편집 모달이 맡고, 이 화면은 일정 확인과 일시정지 토글만 한다.
+// 자산 원장과 재무계획을 둘 다 불러온 뒤에만 저장한다(빈 기본값으로 덮어쓰지 않도록).
+let _dcaBusy=false;
+function cbDcaCanSave(){
+  if(window._kvLoadState?.assets==='ready'&&window._kvLoadState?.ext==='ready')return true;
+  showSaveError('자산과 재무계획을 모두 불러온 뒤 규칙을 저장할 수 있습니다.');return false;
+}
 async function cbDcaToggle(idx){
   if(isMobileLayout()||_dcaBusy||!cbDcaCanSave())return;
   const item=pfolioData[idx];if(!item)return;
@@ -3315,7 +3302,9 @@ async function cbDcaToggle(idx){
   let result;
   try{result=await saveAssetsToKV();}catch(e){result={ok:false};}
   _dcaBusy=false;
-  if(!result?.ok){item.dca=before;_dcaMessage='저장하지 못해 규칙 상태를 되돌렸습니다.';}
+  // 실패 안내는 토스트로 보여 준다. 예전엔 인라인 편집기가 읽던 변수에만 넣어서
+  // 편집기가 사라진 뒤로는 실패가 화면에 전혀 나타나지 않았다.
+  if(!result?.ok){item.dca=before;showSaveError('⚠️ 저장하지 못해 적립식 규칙 상태를 되돌렸습니다.');}
   cbRenderDca();
 }
 // ───────────────────────── 라우팅 통합 ─────────────────────────
@@ -3380,7 +3369,7 @@ switchView = function(id, btn){
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active'));
   const v = document.getElementById('view-'+id); if(v) v.classList.add('active');
   const title = document.getElementById('main-title'); if (title) title.textContent = CB_TITLES[id];
-  ['owner-tabs-container','cf-owner-bar','bubble-owner-bar','analysis-owner-bar'].forEach(x=>{
+  ['owner-tabs-container','cf-owner-bar','bubble-owner-bar'].forEach(x=>{
     const e=document.getElementById(x); if(e) e.style.display='none';
   });
   if (id==='divm') cbVerifyDividendDataOnOpen();
@@ -3446,11 +3435,6 @@ fetchDivData = async function(...args){
   if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',r?.ok===true,r?.ok?(r.detail||`${r?.count??Object.keys(window._divDataCache||{}).length}개 티커 캐시`):(r?.error||'조회 실패'));
   cbRerender();
   return r;
-};
-const _cbOrigUpdateBenchmark = updateBenchmark;
-updateBenchmark = function(tf, btn){
-  _cbOrigUpdateBenchmark(tf, btn);
-  if (_cobaltActive === 'perf2') cbRerender();
 };
 const _cbOrigFetchBenchmarkData = fetchBenchmarkData;
 fetchBenchmarkData = async function(...args){
