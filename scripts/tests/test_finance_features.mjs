@@ -60,7 +60,7 @@ assert.match(financeSource, /function cbRenderPlan\([\s\S]*cbOwnerBtns\(_finPlan
 assert.match(financeSource, /function finNwChartSvg\(/, '순자산 추이 차트 렌더러 제공')
 assert.match(financeSource, /function cbRenderPlan\([\s\S]*목표 비중과 리밸런싱[\s\S]*월 DCA 보정안[\s\S]*계좌 배치 진단/, '목표·리밸런싱·DCA 보정·계좌 배치 진단 제공')
 assert.match(financeSource, /function cbRenderDataStatus\([\s\S]*데이터 신뢰 점검[\s\S]*최근 확인/, '데이터 출처·최근 확인·상태 센터 제공')
-assert.match(styleSource, /\.fin-dashboard-priority[\s\S]*\.fin-summary-grid[\s\S]*\.fin-data-grid/, '신규 기능의 반응형 레이아웃 스타일 추가')
+assert.match(styleSource, /@media \(max-width:768px\)\{\.fin-goal-grid,\.fin-data-grid\{grid-template-columns:1fr\}/, '목표·데이터 상태 카드 그리드는 모바일에서 1열')
 
 const context = {
   window: {

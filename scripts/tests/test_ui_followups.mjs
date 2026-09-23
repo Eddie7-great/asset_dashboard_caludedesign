@@ -128,7 +128,7 @@ assert.match(cobaltSource, /\[rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(
 assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row"/, '성과 비교 하단 기존 표 행 구조 유지')
 assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')
 assert.match(cobaltSource, /수익률 TOP 5[\s\S]*손실률 TOP 5/, '대시보드에 수익률·손실률 TOP5 위젯 추가')
-assert.match(styleSource, /\.cb-dash-movers-grid\{display:grid!important;grid-template-columns:minmax\(0,1fr\)!important;grid-template-rows:repeat\(2,minmax\(0,1fr\)\)/, '대시보드 수익률·손실률 TOP5를 세로 2×1로 강제')
+assert.match(workspaceSource, /\.cb-home-movers\{display:grid;grid-template-rows:1fr 1fr/, '대시보드 수익률·손실률 TOP5를 세로 2×1로 강제')
 assert.match(cobaltSource, /const contributionRows = mergedRows[\s\S]*Math\.abs\(b\.gain\)-Math\.abs\(a\.gain\)[\s\S]*평가손익 기여도/, '대시보드에 실제 원화 평가손익 기준 기여도 위젯 추가')
 assert.match(cobaltSource, /이익 기여[\s\S]*손실 기여[\s\S]*cb-contrib-track/, '평가손익 기여도에 양·음 손익 합계와 발산형 막대 표시')
 assert.match(styleSource, /\.cb-dash-insight-grid\{display:grid;grid-template-columns:minmax\(240px,1\.12fr\)[\s\S]*minmax\(205px,.74fr\)[\s\S]*minmax\(235px,.88fr\)/, '대시보드 자산 배분·섹터 위젯은 넓히고 TOP5 폭은 축소')
@@ -213,7 +213,6 @@ assert.match(cobaltSource, /const items = open \? mergedByVal\.filter/, '섹터 
 // 모바일에서 화면 밖으로 밀려 잘리던 레이아웃 — 인라인 폭 제약을 클래스로 빼 미디어쿼리가 닿게 한다.
 assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel">/, '증여 패널의 min-width 를 CSS 로 이관')
 assert.match(styleSource, /@media \(max-width:768px\)[\s\S]*\.cb-gift-panel\{min-width:0;flex-basis:100%\}/, '모바일에서 증여 패널을 한 줄에 하나씩 (금액 잘림 방지)')
-assert.match(styleSource, /\.cb-dash-split\{flex-direction:column!important;align-items:stretch!important\}/, '세로 스택에서 대시보드 표 패널이 max-content 로 부풀지 않게 stretch')
 assert.match(cobaltSource, /<div class="cb-lt-row">[\s\S]*class="cb-lt-name"[\s\S]*class="cb-lt-bar"/, '종목 집중도 행을 클래스로 노출')
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{display:none\}/, '좁은 화면에서는 룩스루 직접/ETF 칸을 숨겨 잘림 방지')
 assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
@@ -251,7 +250,8 @@ assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
 assert.match(cobaltSource, /시장<\/span><span style="width:64px">계좌<\/span><span style="width:82px;text-align:center"><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head"[^>]*>메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
 assert.match(cobaltSource, /cbHomeSummary\(sel,nw\)/, '홈 보유 목록 옆 선택 종목 요약 유지')
-assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-dash-table-panel \.cb-dash-head\{top:45px[\s\S]*\.cb-dash-detail\{top:0!important\}/, '대시보드 제목·검색줄과 칼럼 및 우측 상세를 스크롤 중 고정')
+assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0/, '대시보드 제목·검색줄을 스크롤 중 고정')
+assert.match(workspaceSource, /\.home-stock-summary\{position:sticky;top:12px/, '홈 우측 선택 종목 요약을 스크롤 중 고정')
 assert.match(styleSource, /#cb-perf2\{display:flex;flex-direction:column;padding-bottom:12px\}[\s\S]*\.cb-perf-detail-panel\{display:flex;flex:1 0 270px/, '성과 비교 하단 위젯이 남은 세로 공간을 채움')
 assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')
 assert.match(cobaltSource, /class="cb-dash-sector-note"/, '대시보드 섹터 진단 문구를 위젯 하단에 배치')
@@ -461,7 +461,7 @@ assert.match(styleSource, /@media \(max-width:1200px\)\{[\s\S]*\.cb-risk-card-gr
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-perf-detail-grid,\.cb-dash-insight-grid,\.cb-risk-card-grid\{grid-template-columns:1fr\}/, '리스크 위젯 모바일 1열 배치')
 assert.match(styleSource, /\.cb-risk-primary-message\{[^}]*word-break:keep-all;overflow-wrap:break-word/, '리스크 설명 문구가 카드 밖으로 잘리지 않도록 단어 단위 줄바꿈')
 assert.match(styleSource, /\.cb-div-tip-owner\{[^}]*var\(--tiptx\)/, '라이트 테마의 어두운 배당 툴팁에서도 소유주명이 밝게 표시')
-assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-dash-table-panel \.cb-dash-head,[\s\S]*\.cb-div-history-panel \.cb-div-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산·배당 관리 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
+assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*\.cb-div-history-panel \.cb-div-head\{[\s\S]*box-shadow:0 -12px 0 12px var\(--panelSolid\)/, '대시보드·가족 자산·배당 관리 고정 헤더는 불투명 배경으로 행 내용 비침 방지')
 
 // ── PC 입력란 폭 상한 · 페이지 컴팩트화 ───────────────────────────
 assert.match(styleSource, /\.fin-form-grid\{[^}]*minmax\(148px,192px\)[^}]*align-items:end/, '목표·재무 입력란 폭 상한과 하단 정렬')
