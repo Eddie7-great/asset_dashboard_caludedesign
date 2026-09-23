@@ -655,6 +655,10 @@ function cbRisk(ownerFilter){
   const topPct = top ? top.pct : 0;
   const cryptoPct = pctOf(byCls.crypto||0), cashPct = pctOf(byCls.cash||0);
   const fxPct = pctOf(rows.filter(r=>r.i.cur && r.i.cur!=='KRW').reduce((s,r)=>s+r.val,0));
+  // 환노출 카드의 통화 구성 막대용 — 같은 분모(nw)·같은 판정(cur!=='KRW')을 통화별로 나눈 것뿐이다.
+  const fxMixMap = {};
+  rows.forEach(r=>{ const c=String(r.i.cur||'KRW').toUpperCase(); fxMixMap[c]=(fxMixMap[c]||0)+r.val; });
+  const fxMix = Object.entries(fxMixMap).map(([cur,val])=>({cur,pct:pctOf(val)})).filter(x=>x.pct>0);
   const leveragedInverse = rows
     .map(r=>({ r, meta:cbLeveragedInverseMeta(r.i) }))
     .filter(x=>x.meta)
@@ -684,6 +688,8 @@ function cbRisk(ownerFilter){
     return { title, valFmt, status:['양호','주의','경고'][lvl], color,
       // 0% 항목에 최소 너비를 강제로 칠하지 않는다. 소유주별 실제 비중과 막대 길이를 일치시킨다.
       fill: Math.max(0, Math.min(100, Math.round(fillRaw))),
+      // 게이지는 판정에 쓴 같은 기준값을 그린다(새 기준을 만들지 않는다). 눈금 끝은 막대 길이와 같은 척도.
+      meter: { value:val, warnAt:thWarn, badAt:thBad, invert:!!invert, max: invert ? thWarn*2 : 100 },
       msg: msgs[lvl], lvl };
   };
   const topName = top ? top.title : '—';
@@ -715,6 +721,8 @@ function cbRisk(ownerFilter){
             '레버리지·인버스 상품 비중 축소를 검토하세요.',
           ]),
   ];
+  const fxCard=cards.find(c=>c.title.startsWith('환노출'));
+  if(fxCard) fxCard.fxMix=fxMix;
   cards[cards.length-1].tip = '레버리지·인버스 ETF의 현재 평가액 합계를 선택한 소유주의 투자자산으로 나눈 비중입니다. 5% 초과는 주의, 10% 초과는 경고로 표시합니다.';
   const company=cards.find(c=>c.title.includes('단일 종목'));
   if(provisional&&company){company.msg='일부 ETF 구성비가 미확인·지연 상태입니다. 확인된 직접·간접 노출만 반영한 잠정 수치입니다.';if(company.lvl===0)company.status='확인 필요';}
@@ -810,6 +818,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
       id:'etf-overlap', title:'ETF 중복 노출률', value:overlapUnknown?'—':overlapPct.toFixed(1)+'%',
       detail:overlapUnknown?(overlapPending?'구성종목 확인 중':'구성종목 미조회 · 판정 보류'):(overlapPct>0?`간접 중복 ${cbDisp(overlapVal)}`:'직접·간접 중복 없음'),
       tone:overlapUnknown?(overlapPending?'var(--lab)':warn):toneHigh(overlapPct,5,15),
+      meter:overlapUnknown?null:{value:overlapPct,warnAt:5,badAt:15,max:30},
       tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 투자자산으로 나눈 비중입니다. 직접 보유가 없는 회사는 여기에 잡히지 않으므로 ETF 간 중복도를 함께 보세요.',
     },
     {
@@ -822,18 +831,21 @@ function cbRiskInsights(ownerFilter, baseRisk){
       tone:crossOverlap.etfCount===0?up
         :crossOverlap.provisional&&crossOverlap.count===0?'var(--lab)'
         :toneHigh(crossOverlap.pct,15,30),
+      meter:crossOverlap.etfCount===0||(crossOverlap.provisional&&crossOverlap.count===0)?null:{value:crossOverlap.pct,warnAt:15,badAt:30,max:60},
       tip:'같은 소유주가 가진 서로 다른 ETF 가 동시에 담고 있는 회사의 간접 보유분 합계를 투자자산으로 나눈 비중입니다. 직접 보유 여부와 무관하게 셉니다 — 테마가 몰린 포트폴리오는 섹터 분류가 흩어져 있어도 실제로는 같은 회사에 겹쳐 노출됩니다. 구성종목을 확인하지 못한 ETF 는 합산에서 빼고 그 사실을 함께 표시합니다.',
     },
     {
       id:'effective-holdings', title:'실효 종목 수', value:effectiveCount.toFixed(1)+'개',
       detail:`실제 ${merged.length}종목 · HHI 역수`,
       tone:toneLow(effectiveCount,10,6),
+      meter:merged.length?{value:effectiveCount,warnAt:10,badAt:6,invert:true,max:20}:null,
       tip:'각 종목 비중 제곱합(HHI)의 역수입니다. 종목 수가 많아도 일부에 쏠리면 실효 종목 수는 작아집니다.',
     },
     {
       id:'fx-shock', title:'환율 -10% 충격', value:'−'+fxShockPct.toFixed(1)+'%',
       detail:fxShockVal>0?`예상 감소 ${cbDisp(fxShockVal)}`:'외화 자산 없음',
       tone:toneHigh(fxShockPct,5,8),
+      meter:{value:fxShockPct,warnAt:5,badAt:8,max:12},
       tip:'외화 표시 자산의 환율만 10% 하락하고 자산 가격은 그대로라고 가정한 단순 민감도입니다.',
     },
     {
@@ -841,12 +853,14 @@ function cbRiskInsights(ownerFilter, baseRisk){
       value:topCountry[1]>0?`${topCountry[0]} ${topCountryPct.toFixed(1)}%`:'주식 없음',
       detail:'상장통화·상품명 기준 추정',
       tone:toneHigh(topCountryPct,45,65),
+      meter:topCountry[1]>0?{value:topCountryPct,warnAt:45,badAt:65,max:100}:null,
       tip:'주식과 ETF의 상장통화 및 상품명으로 투자 지역을 추정한 뒤 전체 투자자산 대비 최대 지역 비중을 표시합니다.',
     },
     {
       id:'top2-sectors', title:'상위 2개 섹터 집중도', value:topTwoSectorPct.toFixed(1)+'%',
       detail:topTwoSectorNames,
       tone:toneHigh(topTwoSectorPct,50,70),
+      meter:sectors.length?{value:topTwoSectorPct,warnAt:50,badAt:70,max:100}:null,
       tip:'가장 큰 두 주식 섹터의 비중을 합산합니다. 비중 분모에는 현금·금·가상화폐를 포함한 전체 투자자산을 사용합니다.',
     },
     {
@@ -854,6 +868,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
       value:dividendAnnual>0?dividendTop3Pct.toFixed(1)+'%':'배당 없음',
       detail:dividendAnnual>0?`연 배당 ${cbDisp(dividendAnnual)}`:'배당 데이터 없음',
       tone:dividendAnnual>0?toneHigh(dividendTop3Pct,45,70):warn,
+      meter:dividendAnnual>0?{value:dividendTop3Pct,warnAt:45,badAt:70,max:100}:null,
       tip:'연간 예상 배당수입 중 가장 큰 세 개 배당원이 차지하는 비중입니다. 소유주가 다르면 같은 종목도 별도로 계산합니다.',
     },
     {
@@ -861,9 +876,56 @@ function cbRiskInsights(ownerFilter, baseRisk){
       value:recoveryRows.length?recoveryPct.toFixed(1)+'%':'산정 제외',
       detail:recoveryPct>0?'현재 평가손실에서 원금 기준':'평가손실 없음',
       tone:toneHigh(recoveryPct,10,25),
+      meter:recoveryRows.length?{value:recoveryPct,warnAt:10,badAt:25,max:50}:null,
       tip:'취득가를 아는 투자자산의 현재 평가액이 매입원가로 회복하려면 필요한 상승률입니다. 취득가 미상 자산과 현금은 제외합니다.',
     },
   ];
+}
+
+// 리스크 기준 게이지 — 양호·주의·위험 3구간 띠 위에 현재 값까지 채운 막대.
+// 구간 경계는 카드 판정(mk / toneHigh·toneLow)에 쓴 기준값 그대로다. 값이 없으면(판정 보류) 그리지 않는다.
+// invert: 값이 '작을수록' 위험한 지표(현금 비중·자산군 수·실효 종목 수). unit: 표시 단위.
+function cbRiskMeterHtml(m, unit, color){
+  if(!m||!Number.isFinite(Number(m.value))||!(m.max>0)) return '';
+  const u=unit==null?'%':unit;
+  const clamp=v=>Math.max(0,Math.min(100,v/m.max*100));
+  const lo=clamp(Math.min(m.warnAt,m.badAt)), hi=clamp(Math.max(m.warnAt,m.badAt));
+  const zones=m.invert
+    ? [['bad',0,lo],['warn',lo,hi],['good',hi,100]]
+    : [['good',0,lo],['warn',lo,hi],['bad',hi,100]];
+  const fmt=v=>(Math.round(v*10)/10).toLocaleString()+u;
+  const v=Number(m.value);
+  const desc=m.invert
+    ? `현재 ${fmt(v)} · ${fmt(m.warnAt)} 미만 주의 · ${fmt(m.badAt)} 미만 위험`
+    : `현재 ${fmt(v)} · ${fmt(m.warnAt)} 초과 주의 · ${fmt(m.badAt)} 초과 위험`;
+  return `<div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
+    + zones.filter(z=>z[2]>z[1]).map(z=>`<span class="cb-meter-zone ${z[0]}" style="left:${z[1].toFixed(2)}%;width:${(z[2]-z[1]).toFixed(2)}%"></span>`).join('')
+    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`;
+}
+
+// 통화 구성 100% 누적 막대 — 외화(USD·JPY·AUD·기타)를 왼쪽부터 쌓고 원화는 회색으로 끝에 둔다.
+// 그래서 외화 부분의 길이가 곧 환노출 비중이고, 판정 기준(주의·경고) 눈금을 그대로 얹을 수 있다.
+// 색은 검증한 범주 팔레트(--fx-*), 글자는 텍스트 토큰. 대비가 낮은 색이 있어 비중을 글자로도 적는다.
+const CB_FX_ORDER=['USD','JPY','AUD'];
+function cbFxMixHtml(mix, meter){
+  const list=(mix||[]).filter(x=>x.pct>0);
+  if(!list.length) return '';
+  const known=CB_FX_ORDER.map(c=>list.find(x=>x.cur===c)).filter(Boolean);
+  const other=list.filter(x=>x.cur!=='KRW'&&!CB_FX_ORDER.includes(x.cur));
+  const otherPct=other.reduce((s,x)=>s+x.pct,0);
+  const krw=list.find(x=>x.cur==='KRW');
+  const segs=[...known.map(x=>({key:x.cur.toLowerCase(),label:x.cur,pct:x.pct})),
+    ...(otherPct>0?[{key:'other',label:other.map(x=>x.cur).join('·'),pct:otherPct}]:[]),
+    ...(krw?[{key:'krw',label:'KRW',pct:krw.pct}]:[])];
+  const total=segs.reduce((s,x)=>s+x.pct,0)||1;
+  const pct=v=>(Math.round(v*10)/10).toFixed(1)+'%';
+  const ticks=meter?[meter.warnAt,meter.badAt].filter(v=>v>0&&v<100):[];
+  const desc=segs.map(x=>`${x.label} ${pct(x.pct)}`).join(' · ');
+  return `<div class="cb-fx-mix" role="img" aria-label="통화 구성 ${cbEsc(desc)}">`
+    + `<div class="cb-fx-bar" data-tip="${cbEsc(desc+(ticks.length?` · 외화 ${ticks.join('%·')}% 초과 시 주의·경고`:''))}">`
+    + segs.map(x=>`<span class="cb-fx-seg ${x.key}" style="width:${(x.pct/total*100).toFixed(2)}%"></span>`).join('')
+    + ticks.map(t=>`<i class="cb-fx-tick" style="left:${t}%"></i>`).join('')
+    + `</div><div class="cb-fx-legend">${segs.map(x=>`<span><i class="cb-fx-seg ${x.key}"></i>${cbEsc(x.label)} ${pct(x.pct)}</span>`).join('')}</div></div>`;
 }
 
 // ───────────────────────── SVG 빌더 ─────────────────────────
@@ -1639,6 +1701,7 @@ function cbRenderRisk(){
             <div class="cb-panel cb-risk-insight-card" style="--risk-tone:${card.tone}">
               <div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div>
               <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
+              ${cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)}
               <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
                 <span data-overflow-watch>${cbEsc(card.detail)}</span>
               </div>
@@ -1651,7 +1714,7 @@ function cbRenderRisk(){
                 <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
               </div>
               <div class="cb-risk-primary-message">${cbEsc(c.msg)}</div>
-              <div style="height:5px;border-radius:3px;background:var(--inner);margin-top:8px;overflow:hidden"><div style="height:100%;width:${c.fill}%;background:${c.color}"></div></div>
+              ${c.fxMix?cbFxMixHtml(c.fxMix,c.meter):cbRiskMeterHtml(c.meter, c.title==='자산군 분산'?'개':'%', c.color)}
             </div>`;
         }).join('')}
       </div>

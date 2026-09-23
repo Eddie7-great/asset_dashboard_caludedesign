@@ -960,6 +960,23 @@
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:10.5px;font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:'Manrope','Noto Sans KR',sans-serif;font-size:clamp(15px,1.15vw,18px);font-weight:850;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:10px;line-height:1.4}
+/* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */
+.cb-meter{position:relative;height:6px;margin-top:8px;border-radius:3px;background:var(--inner);overflow:hidden;flex-shrink:0}
+.cb-meter-zone{position:absolute;top:0;bottom:0}
+.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 16%,transparent)}
+.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 24%,transparent)}
+.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 22%,transparent)}
+.cb-meter-fill{position:absolute;left:0;top:1px;bottom:1px;border-radius:0 3px 3px 0;min-width:0}
+/* 통화 구성 막대(cbFxMixHtml). 색은 CVD 검증을 통과한 범주 팔레트(라이트·다크 각각 validate_palette 통과). */
+.cb-fx-mix{--fx-usd:#2a78d6;--fx-jpy:#eb6834;--fx-aud:#1baf7a;--fx-other:#eda100;--fx-krw:var(--bd2);margin-top:8px}
+[data-theme="dark"] .cb-fx-mix,[data-theme="navy"] .cb-fx-mix{--fx-usd:#3987e5;--fx-jpy:#d95926;--fx-aud:#199e70;--fx-other:#c98500}
+.cb-fx-bar{position:relative;display:flex;gap:2px;height:8px;border-radius:3px;overflow:hidden;background:var(--inner)}
+.cb-fx-seg{display:block;min-width:0;height:100%}
+.cb-fx-seg.usd{background:var(--fx-usd)}.cb-fx-seg.jpy{background:var(--fx-jpy)}.cb-fx-seg.aud{background:var(--fx-aud)}.cb-fx-seg.other{background:var(--fx-other)}.cb-fx-seg.krw{background:var(--fx-krw)}
+.cb-fx-tick{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--tx);opacity:.55}
+.cb-fx-legend{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:5px;font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.cb-fx-legend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.cb-fx-legend .cb-fx-seg{width:8px;height:8px;border-radius:2px}
     .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 현금 안전판 목표 개월수 입력 — 유일한 조작 지점이라 카드 안에 둔다.
        인라인 폭을 주면 미디어쿼리가 덮지 못해 좁은 화면에서 카드를 넘친다. */

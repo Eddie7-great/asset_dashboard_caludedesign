@@ -150,7 +150,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalAllocation', 'finGoalAllocationCard', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalAllocation', 'finGoalAllocationCard', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -189,6 +189,20 @@ elements['view-rebal2']={classList:{contains:()=>true}}
 elements['cb-rebal2']={innerHTML:''}
 context.cbRenderPlan()
 assert.match(elements['cb-rebal2'].innerHTML, /목표 비중과 리밸런싱[\s\S]*계좌 배치 진단/, '리밸런싱 탭 렌더')
+assert.match(elements['cb-rebal2'].innerHTML, /fin-bullet[\s\S]*현재 비중 vs 목표[\s\S]*fin-bullet-row/, '리밸런싱에 현재 vs 목표 막대 표시')
+{
+  // 막대 위치·범위 판정은 finTargetAnalysis 값 그대로 — 새 계산 없음.
+  const html = context.finRebalBulletHtml({ total: 100, threshold: 5, result: [
+    { key:'us', label:'미국 주식', color:'#5b9bff', currentPct: 44, targetPct: 35, drift: 9 },
+    { key:'kr', label:'한국 주식', color:'#4ecdc4', currentPct: 23, targetPct: 25, drift: -2 },
+  ] })
+  assert.match(html, /눈금 0–50%/, '눈금 상한은 현재·목표+허용 편차를 덮는 10% 단위')
+  assert.match(html, /fin-bullet-row out[^>]*미국 주식 현재 44\.0% · 목표 35\.0% · 허용 ±5%p · 범위 밖/, '허용 편차를 넘은 줄은 글자로도 범위 밖 표시')
+  assert.match(html, /class="fin-bullet-bar" style="width:88\.00%/, '현재 막대 길이 = 현재/눈금 상한')
+  assert.match(html, /class="fin-bullet-target" style="left:70\.00%/, '목표 눈금 위치')
+  assert.doesNotMatch(html, /fin-bullet-row out[^>]*한국 주식/, '허용 범위 안이면 범위 밖이 아니다')
+  assert.equal(context.finRebalBulletHtml({ total: 0, threshold: 5, result: [] }), '', '자산이 없으면 그리지 않는다')
+}
 assert.doesNotMatch(elements['cb-rebal2'].innerHTML, /fin-goal-form/, '리밸런싱 탭에 목표 입력란을 중복 생성하지 않음')
 assert.match(elements['cb-rebal2'].innerHTML, /연금 과세이연 계좌로 옮긴 단순 가정상 연 최대/, '일반계좌 배당의 과세이연 여력을 금액으로 제시')
 assert.match(elements['cb-data2'].innerHTML, /데이터 신뢰 점검[\s\S]*성과 벤치마크/, '데이터 상태 렌더')
