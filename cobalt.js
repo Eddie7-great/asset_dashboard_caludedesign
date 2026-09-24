@@ -2966,8 +2966,13 @@ function cbRenderTax(){
       <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <div class="cb-panel-title">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
-          ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:12px">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
+          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="padding:4px 9px;font-size:12px">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
+            <button class="cb-btn cb-tax-import" onclick="document.getElementById('cb-tax-import-file')?.click()" data-tip="증권사 거래내역으로 계산한 실현손익 파일(JSON)을 불러옵니다. 파일에 적힌 소유주·연도의 기존 기록은 교체되고, 다른 소유주·연도 기록은 그대로 둡니다." style="padding:4px 9px;font-size:12px">거래내역 가져오기</button>
+            <input id="cb-tax-import-file" class="cb-tax-import" type="file" accept=".json,application/json" hidden onchange="cbTaxImportFile(this)" />
+          </span>
         </div>
+        ${typeof finMobileNote==='function'?finMobileNote('실현손익 기록과 거래내역 가져오기'):''}
         <div class="cb-tax-entry-form">
           <label>귀속 월<select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
           <label>시장<select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
@@ -3109,6 +3114,84 @@ function cbTaxEdit(id){
 function cbTaxCancelEdit(){
   _cbTaxEditId=null;
   _cbTaxDraft={ m:String(new Date().getMonth()+1), k:'domestic', acc:'일반', owner:'', pl:'', memo:'' };
+  cbRenderTax();
+}
+// ── 거래내역 가져오기 ──
+// scripts/broker_realized_pl.py 가 증권사 거래내역으로 만든 JSON 을 받는다. 파일에 적힌
+// 소유주 × 연도의 기록만 통째로 교체한다 — 같은 매도를 손으로 넣어 둔 기록과 이중 합산되지 않게 하고,
+// 다른 소유주·다른 연도·소유주 미지정 레거시 기록은 건드리지 않는다. 한 행이라도 틀리면 전부 거부한다.
+const CB_TAX_IMPORT_FORMAT='asset-dashboard/realized-pl';
+const CB_TAX_IMPORT_MAX_ROWS=5000; // _normalizeMonthlyPLRows 상한과 같다
+let _cbTaxImportBusy=false;
+function cbTaxImportPlan(payload, existing, ruleIdFor, idStart){
+  const fail=msg=>({errors:[msg]});
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)) return fail('JSON 형식이 아닙니다.');
+  if(payload.format!==CB_TAX_IMPORT_FORMAT||payload.version!==1) return fail('세금 페이지용 거래내역 파일이 아닙니다.');
+  const owner=String(payload.owner||'');
+  if(OWNERS.indexOf(owner)<0) return fail(`소유주를 알 수 없습니다: ${owner||'(없음)'}`);
+  const years=Array.isArray(payload.years)?[...new Set(payload.years.map(String))]:[];
+  if(!years.length||years.some(y=>!/^\d{4}$/.test(y))) return fail('연도 목록이 올바르지 않습니다.');
+  const rows=Array.isArray(payload.rows)?payload.rows:[];
+  if(!rows.length) return fail('가져올 기록이 없습니다.');
+  const current=Array.isArray(existing)?existing:[];
+  let nextId=Math.max(Number(idStart)||0, ...current.map(t=>Number(t&&t.id)||0))+1;
+  const errors=[], added=[];
+  rows.forEach((r,i)=>{
+    const where=`${i+1}번째 기록`;
+    const month=String(r&&r.month||'');
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||years.indexOf(month.slice(0,4))<0){ errors.push(`${where}: 귀속 월(${month||'없음'})이 연도 목록 밖입니다.`); return; }
+    const amt=Number(r.amt);
+    if(!Number.isFinite(amt)){ errors.push(`${where}: 실현손익 금액이 숫자가 아닙니다.`); return; }
+    if(r.category!=='domestic'&&r.category!=='foreign'){ errors.push(`${where}: 시장 구분이 올바르지 않습니다.`); return; }
+    if(CB_TAX_ACCTS.indexOf(r.account)<0||(r.category==='foreign'&&r.account!=='일반')){ errors.push(`${where}: 계좌 구분이 올바르지 않습니다.`); return; }
+    const entry={ id:nextId++, month, amt:Math.round(amt), memo:String(r.memo||'').slice(0,240), owner, category:r.category, account:r.account };
+    const ruleSetId=typeof ruleIdFor==='function'?ruleIdFor(month.slice(0,4)):'';
+    if(ruleSetId) entry.ruleSetId=ruleSetId;
+    added.push(entry);
+  });
+  if(errors.length) return {errors};
+  const normalized=_normalizeMonthlyPLRows(added);
+  if(normalized.length!==added.length) return fail('저장 형식으로 바꿀 수 없는 기록이 있습니다.');
+  const inScope=t=>!!t&&t.owner===owner&&years.indexOf(String(t.month||'').slice(0,4))>=0;
+  const removed=current.filter(inScope);
+  const next=current.filter(t=>!inScope(t)).concat(normalized);
+  if(next.length>CB_TAX_IMPORT_MAX_ROWS) return fail(`기록이 ${CB_TAX_IMPORT_MAX_ROWS.toLocaleString('ko-KR')}건을 넘어 저장할 수 없습니다.`);
+  return {errors:[], owner, years:years.slice().sort(), added:normalized, removed, next};
+}
+async function cbTaxImportFile(input){
+  const file=input&&input.files&&input.files[0];
+  if(input) input.value='';
+  if(!file||_cbTaxImportBusy) return;
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  // 원격 재무 데이터를 못 불러온 상태에서 쓰면 빈 기본값으로 실제 기록을 덮는다 — 메모리를 바꾸기 전에 멈춘다.
+  const notReady=()=>window._kvLoadState?.ext!=='ready';
+  if(notReady()){ showSaveError('⚠️ 재무 데이터를 정상적으로 불러온 뒤에 가져올 수 있습니다. 데이터 상태에서 다시 확인해 주세요.'); return; }
+  let payload;
+  try{ payload=JSON.parse(await file.text()); }catch(e){ alert('JSON 파일을 읽지 못했습니다.'); return; }
+  try{ loadMonthlyPL(); }catch(e){}
+  const before=monthlyPLData.slice();
+  const plan=cbTaxImportPlan(payload, before,
+    y=>typeof assetTaxRulesFor==='function'?(assetTaxRulesFor(y)?.id||''):'', Date.now());
+  if(plan.errors.length){ alert('가져오지 못했습니다.\n\n'+plan.errors.slice(0,5).join('\n')+(plan.errors.length>5?`\n… 외 ${plan.errors.length-5}건`:'')); return; }
+  const span=plan.years.length>1?`${plan.years[0]}~${plan.years[plan.years.length-1]}년`:`${plan.years[0]}년`;
+  if(!confirm(`${span} ${plan.owner}의 실현손익 기록을 거래내역 기준으로 교체합니다.\n\n기존 기록 ${plan.removed.length}건 삭제 · 새 기록 ${plan.added.length}건 추가\n다른 소유주·다른 연도의 기록은 그대로 둡니다.`)) return;
+  if(notReady()){ showSaveError('⚠️ 재무 데이터를 정상적으로 불러온 뒤에 가져올 수 있습니다.'); return; }
+  _cbTaxImportBusy=true;
+  monthlyPLData=plan.next;
+  try{ localStorage.setItem('monthlyPLData',JSON.stringify(monthlyPLData)); }catch(e){}
+  let result;
+  try{ result=await saveExtDataToKV(); }catch(e){ result={ok:false}; }
+  _cbTaxImportBusy=false;
+  if(!result?.ok){
+    monthlyPLData=before;
+    try{ localStorage.setItem('monthlyPLData',JSON.stringify(before)); }catch(e){}
+    if(!result?.blocked) showSaveError('⚠️ 저장하지 못해 가져오기를 취소했습니다. 기존 기록은 그대로입니다.');
+    cbRenderTax();
+    return;
+  }
+  _cbTaxEditId=null; _cbTaxMonthFilter=null;
+  _cbTaxYear=plan.added.map(t=>t.month.slice(0,4)).sort().pop()||_cbTaxYear;
+  if(_cbTaxOwner!=='전체'&&_cbTaxOwner!==plan.owner) _cbTaxOwner=plan.owner;
   cbRenderTax();
 }
 function cbTaxDel(id){
