@@ -128,7 +128,7 @@
 @media (max-width:1100px){.fin-goal-grid,.fin-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-data-support-grid{grid-template-columns:1fr}}
 @media (max-width:768px){.fin-goal-grid,.fin-data-grid{grid-template-columns:1fr}.fin-form-grid{grid-template-columns:1fr}.fin-data-hero{align-items:flex-start;flex-direction:column}.fin-data-card{grid-template-columns:minmax(0,1fr) auto}.fin-guidance,.fin-price-steps,.fin-price-bottom{grid-template-columns:1fr}.fin-price-actions{flex-wrap:wrap}.fin-section{padding:14px}.fin-nw-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-nw-stats>div:nth-child(3){grid-column:1/-1}
   /* 모바일은 조회 전용 — 폼과 편집 버튼을 감추는 대신 왜 안 보이는지 안내를 띄운다 */
-  #fin-goal-form,.fin-form-actions,.fin-row-actions,.fin-target-inputs>button{display:none!important}
+  #fin-goal-form,.fin-form-actions,.fin-row-actions,.fin-target-inputs>button,.cb-tax-import{display:none!important}
   .fin-mobile-note{display:block}}
     /* ── 디자인 토큰 ─ 다크 ──────────────────────────────── */
     [data-theme="dark"] {
