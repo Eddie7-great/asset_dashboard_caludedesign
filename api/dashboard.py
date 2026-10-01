@@ -246,16 +246,6 @@ def safe_last_close(ticker_yf, period='5d'):
         return None
 
 
-def safe_history(ticker_yf, period='1y'):
-    try:
-        if not YF_OK:
-            return None
-        h = yf.Ticker(ticker_yf).history(period=period)
-        return h if h is not None and not h.empty else None
-    except Exception:
-        return None
-
-
 # ── 1. 환율 ─────────────────────────────────────────────────────
 def get_rates():
     r = {'usd_krw': UNAVAILABLE, 'usd_jpy': UNAVAILABLE, 'jpy100_krw': UNAVAILABLE,
@@ -507,11 +497,12 @@ def get_dividends(tickers):
     return {'success': True, 'result': result}
 
 
-# ── 5. (ETF 구성종목 조회는 이 경로에서 제거됨) ─────────────────
-# 브라우저 → 이 함수 → KRX 왕복이 서버리스 제한시간을 자주 넘겨 룩스루가 비었다.
-# 이제 GitHub Actions(.github/workflows/etf-holdings.yml)가 미국 장 마감 뒤 평일 1회
-# scripts/collect_etf_holdings.py 로 수집해 data/etf_holdings.json 을 커밋하고,
-# 대시보드는 그 정적 파일만 읽는다.
+# ── 5. ETF 구성종목 실시간 조회 (type=etf_holdings → 파일 맨 위 get_live_etf) ──
+# ETF 탐색 화면 진입·재조회 때 보유 ETF만 조회한다. 서버리스 제한시간 안에 끝나도록
+# 제한된 HTTP 소스(국내 FunETF 우선, 해외 운용사 → stockanalysis)만 쓰고, KRX 재시도나
+# 브라우저 단계는 쓰지 않는다. 긴 재시도와 영구 이력은 GitHub Actions
+# (.github/workflows/etf-holdings.yml → scripts/collect_etf_holdings.py)가 맡아
+# data/etf_holdings.json 을 커밋한다.
 
 
 # ── 6. 헬스체크 ─────────────────────────────────────────────────

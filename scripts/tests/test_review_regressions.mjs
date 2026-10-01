@@ -76,7 +76,7 @@ for(const scenario of ['top','unrelated-frame','cross-origin','valid','expired',
 
 // Compact mobile rows retain full names and null acquisition costs without inventing a return.
 {
-  const ctx=vm.createContext({_cdashQ:'',_dispCur:'KRW',cbRate:()=>1})
+  const ctx=vm.createContext({_cdashQ:'',_dispCur:'KRW',cbRate:()=>1,curSymbol:c=>({KRW:'₩',USD:'$',JPY:'¥',AUD:'A$'})[c]||'₩'})
   for(const name of ['cbEsc','cbDisp','cbSignDisp','cbFmtNative','cbPct','cbUpDn','cbMobileHoldings'])vm.runInContext(fn(cobalt,name),ctx)
   const html=ctx.cbMobileHoldings([{title:'Long <ETF> & name',subTitle:'VOO',val:1000000,gainPct:null,gain:0,qty:4,avgNative:0,cl:{label:'미국 주식'},i:{owner:'본인',grp:'주식',cur:'USD',curP:250,costUnknown:true}}])
   const $=load(html)

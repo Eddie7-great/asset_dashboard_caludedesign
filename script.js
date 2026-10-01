@@ -23,7 +23,6 @@ function curRateKnown(cur){
   if (c === 'KRW') return true;
   return Number.isFinite(RATES[c]) && RATES[c] > 0;
 }
-let _donutMainLevel = 'top', _donutAccLevel = 'top';
 
 function _taxRuleValue(path, fallback, when) {
   return typeof assetTaxRuleValue === 'function'
@@ -224,7 +223,6 @@ function getFilteredAssets(owner) {
 const ownerColors = {'전체':'#4ecdc4','본인':'#5b9bff','아내':'#f2a33c','자녀1':'#4ade80','아버지':'#c084fc'};
 // 벤치마크 차트 전용 소유주 색상: 아내(#f2a33c)가 KOSPI 라인(주황)과, 자녀1(#4ade80)이 S&P 라인(녹색)과 겹치므로 분리
 const BENCH_OWNER_COLORS = { ...ownerColors, '아내': '#f472b6', '자녀1': '#4ecdc4' };
-const CHART_PALETTE = ['#5b9bff','#4ecdc4','#f2a33c','#fb7185','#c084fc','#4ade80','#e8875a','#94a3c8','#d4b24a','#56c596'];
 
 // 소유주 목록 (단일 소스). OWNERS = 실제 소유주 4인, ALL_OWNERS = '전체' 포함
 const OWNERS = ['본인','아내','자녀1','아버지'];
@@ -235,29 +233,14 @@ const CYCLE_COUNT = {'월배당':12,'분기':4,'반기':2,'연간':1,'-':1};
 const CYCLE_LABEL = {daily:'매일',weekly:'매주',monthly:'매월','month-end':'매월말','month-start':'매월초'};
 const DOW_LABELS = ['일','월','화','수','목','금','토'];
 
-// 통일된 KRW 포맷 헬퍼 (Y축 레이블 등)
-function formatKRW(v) {
-  if (v >= 1000000000) return (v/100000000).toFixed(1)+'억';
-  if (v >= 100000000) return Math.round(v/100000000)+'억';
-  if (v >= 10000000) { const tm=v/10000000; return (Number.isInteger(tm)?tm:tm.toFixed(1))+'천만'; }
-  if (v >= 1000000) { const bm=v/1000000; return (Number.isInteger(bm)?bm:bm.toFixed(1))+'백만'; }
-  if (v >= 10000) return Math.round(v/10000)+'만';
-  return v.toLocaleString();
-}
-// Y축 tick 콜백 (공통)
-
 // 공용 헬퍼 (중복 통합)
 // 소유주 필터: '전체'/미지정이면 원본 그대로, 아니면 owner 일치 항목만
 function filterByOwner(items, owner){
   if (!owner || owner === '전체') return items;
   return items.filter(i => (i.owner || '본인') === owner);
 }
-// 부호 포함 퍼센트 포맷: 12.3 → "+12.3%", -4 → "-4.0%"
-function fmtPct(v, d=1){ return (v>=0?'+':'') + (v||0).toFixed(d) + '%'; }
-// 콤마형 통화 포맷 (formatKRW 약어와 달리 전체 자릿수 표기)
-function fmtMoney(v, cur='KRW'){
-  if (cur === 'USD') return '$' + (v||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  if (cur === 'JPY') return '¥' + Math.round(v||0).toLocaleString();
+// 원화 전체 자릿수 표기: 1234567.8 → "₩1,234,568" (보유 표의 평가금액 칸)
+function fmtMoney(v){
   return '₩' + Math.round(v||0).toLocaleString();
 }
 // 손익 계산: { profit, pct }
@@ -1782,7 +1765,6 @@ function applyCommaFormatting(inputEl) {
 // UI 상태
 // =============================================
 let currentOwner = '전체';
-window.activeDivMonth=-1; window.activeMainDivMonth=-1; window.activeCfCat=null;
 window.portToggleState = {'주식':false,'가상화폐':false,'금':false,'현금':false};
 window.cfTrendDetails = {in:[],out:[]};
 
@@ -2370,11 +2352,6 @@ function selectTicker(tkr, name, rawTkr, market, price) {
     if(curEl) curEl.value = 'USD';
     document.getElementById('add-search').dataset.market = 'US';
   }
-  // 화폐 select가 보이면 값 업데이트
-  const cRowEl = document.getElementById('wrap-currency-row');
-  if(cRowEl && cRowEl.style.display !== 'none' && curEl){
-    // 이미 세팅됨
-  }
   updateAvgpDecimalMode();
 }
 
@@ -2546,12 +2523,12 @@ function confirmStockSelection() {
 function onMarketChange() {
   const market = document.getElementById('add-market').value;
   const currSel = document.getElementById('add-currency-stock');
-  const wrapCurr = document.getElementById('wrap-currency-stock');
-  if (market === 'US') { if(currSel)currSel.value='USD'; if(wrapCurr)wrapCurr.style.display='flex'; }
-  else if (market === 'KR') { if(currSel)currSel.value='KRW'; if(wrapCurr)wrapCurr.style.display='none'; }
-  else if (market === 'JP') { if(currSel)currSel.value='JPY'; if(wrapCurr)wrapCurr.style.display='flex'; }
-  else if (market === 'CRYPTO') { if(currSel)currSel.value='USD'; if(wrapCurr)wrapCurr.style.display='flex'; }
-  else { if(wrapCurr)wrapCurr.style.display='flex'; }
+  // 화폐 줄(#wrap-currency-row)의 표시 여부는 toggleModalFields 가 정한다 — 여기서는 값만 맞춘다.
+  if (currSel) {
+    if (market === 'US' || market === 'CRYPTO') currSel.value='USD';
+    else if (market === 'KR') currSel.value='KRW';
+    else if (market === 'JP') currSel.value='JPY';
+  }
   updateAvgpDecimalMode();
   document.getElementById('add-search').value='';
   document.getElementById('add-search').dataset.tkr='';
@@ -3015,28 +2992,10 @@ function applyHoldingsBrokerFilter() {
 
 
 // =============================================
-// 계좌별 도넛 데이터
-// =============================================
-function buildAccDonutData(owner) {
-  const items=getFilteredAssets(owner);
-  // 항상 계좌종류 기준 (기본값), 드릴다운 시 자산군 표시
-  const byAcc=Object.create(null);const grpsByAcc=Object.create(null);
-  items.forEach(i=>{
-    const val=i.qty*i.curP*(RATES[i.cur]||1);
-    byAcc[i.acc]=(byAcc[i.acc]||0)+val;
-    if(!grpsByAcc[i.acc])grpsByAcc[i.acc]=Object.create(null);
-    grpsByAcc[i.acc][i.grp]=(grpsByAcc[i.acc][i.grp]||0)+val;
-  });
-  const entries=Object.entries(byAcc).sort((a,b)=>b[1]-a[1]);
-  return{labels:entries.map(([k])=>k),data:entries.map(([,v])=>Math.round(v)),bg:entries.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),grpsByAcc};
-}
-
-// =============================================
 // changeOwner - 메인 렌더링
 // =============================================
-function changeOwner(owner, btn, isRefresh=false) {
+function changeOwner(owner, btn) {
   currentOwner=owner;
-  if (!isRefresh){_donutMainLevel='top';_donutAccLevel='top';window.activeDivMonth=-1;window.activeMainDivMonth=-1;}
   // 메인 owner 탭(#owner-tabs-container)만 갱신 — cashflow/bubble 등 별도 owner 바의 활성 상태는
   // 사용자가 해당 바 버튼을 직접 클릭했을 때만 변경되도록 격리한다 (수동 새로고침 시 소유주 이동 방지)
   if (btn){document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
@@ -3054,50 +3013,9 @@ function changeOwner(owner, btn, isRefresh=false) {
   const hof = document.getElementById('holdings-owner-filter');
   if (hof) hof.value = owner;
 
-  const filtered=getFilteredAssets(owner);
   renderPortfolio(owner);
-
-  let gT=0,gInv=0,gKnownT=0;
-  let grpTotals={'주식':0,'가상화폐':0,'금':0,'현금':0};
-  let bestArr=[],worstArr=[];
-  filtered.forEach(i=>{
-    let r=RATES[i.cur]||1;
-    let curVal, invVal;
-    if (i.grp==='금') {
-      // 금: curP는 단위당 가격 (g당, 또는 돈당), 단위 변환 없이 직접 사용
-      curVal = i.qty * i.curP;
-      invVal = i.qty * i.avgP;
-    } else if (i.grp==='가상화폐' && i.cur==='USD') {
-      // 가상화폐: curP는 USD, avgP는 KRW(>=1000만) 또는 USD(<1000만)으로 저장
-      // BTC가 $1M 이상이 되는 경우를 대비해 임계값을 10M으로 설정
-      const _avgIsUSD = i.avgP > 0 && i.avgP < 10000000;
-      curVal = i.qty * i.curP * r;
-      invVal = i.qty * (_avgIsUSD ? i.avgP * r : i.avgP);
-    } else {
-      curVal=i.qty*i.curP*r; invVal=i.qty*i.avgP*r;
-    }
-    gT+=curVal;grpTotals[i.grp]+=curVal;
-    if(!i.costUnknown){gInv+=invVal;gKnownT+=curVal;}
-    if (i.grp!=='현금'&&!i.costUnknown){
-      let pRate=invVal>0?((curVal-invVal)/invVal)*100:0;
-      let profit=Math.round(curVal-invVal);
-      let nmStr=owner==='전체'?`[${i.owner}] ${i.name}`:i.name;
-      bestArr.push({nm:nmStr,r:pRate,f:fmtPct(pRate,1),profit});
-      worstArr.push({nm:nmStr,r:pRate,f:fmtPct(pRate,1),profit});
-    }
-  });
-  bestArr.sort((a,b)=>b.r-a.r);worstArr.sort((a,b)=>a.r-b.r);
-  let dProfit=gKnownT-gInv,dPct=gInv>0?(dProfit/gInv)*100:0;
-
-  // 레거시 대시보드 KPI·TOP3 위젯 갱신부는 제거됐다. 해당 화면(view-dashboard/view-portfolio)이
-  // 사라졌고, 같은 수치는 Cobalt 대시보드(cbRenderDash)가 자체적으로 계산해 그린다.
-
-
-
   syncDivHistory();
 
-  // 레거시 포트폴리오 화면(view-portfolio)의 퍼포먼스 헤더 갱신부 제거 — 화면 자체가 사라졌다.
-  
   // [프리미엄 개선] 버블 차트 자산 마인드맵 동기화
   _bubbleOwner = owner;
   if(typeof renderBubbleChart==='function'){
@@ -3136,7 +3054,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
       if(isCash){item.curP=1;item.avgP=1;}
       // 수량·매입가를 직접 고쳤으면 그 값이 오늘 기준이다 — 이전 분할을 다시 곱하지 않는다.
       if(field==='qty'||field==='avgP') item.splitCheckedAt=finLocalDateKey(new Date());
-      syncDivHistory();changeOwner(currentOwner,null,true);await saveAssetsToKV();
+      syncDivHistory();changeOwner(currentOwner, null);await saveAssetsToKV();
     } else {el.innerHTML=originalHTML;}
   };
   input.onblur=save;
@@ -4205,7 +4123,7 @@ function renderCashFlow() {
   }
   const sumEl=document.getElementById('cf-month-summary');
   if(sumEl)sumEl.innerHTML=cfMonthSummaryHtml(tIn,tOut,expByCat);
-  updateCfTrendChart();window.activeCfCat=null;
+  updateCfTrendChart();
   if(_cfSection==='fixed')renderFixedCostView();
 }
 
@@ -4418,7 +4336,7 @@ async function manualRefresh(source='all') {
     if(source==='all'&&assetsResult?.ok&&extResult?.ok) results.snapshot=await saveNetWorthSnapshot();
     const activeView=document.querySelector('.view-section.active');
     if(activeView&&activeView.id==='view-bubble') renderBubbleChart('weight');
-    changeOwner(currentOwner,null,true);
+    changeOwner(currentOwner, null);
     if(typeof cbRerender==='function') cbRerender();
     const attempted=Object.values(results);
     return {ok:attempted.length>0&&attempted.every(r=>r?.ok===true),results};
@@ -4511,7 +4429,7 @@ async function liveRefresh() {
         }else{i._priceStale=true;}
       }
     });
-    syncDivHistory();changeOwner(currentOwner,null,true);
+    syncDivHistory();changeOwner(currentOwner, null);
     const stale=pfolioData.filter(i=>i&&i._priceStale).length;
     const partial=failedChunks>0?` · 요청 ${chunks.length}건 중 ${failedChunks}건 실패`:'';
     return {ok:stale===0&&failedChunks===0,stale,failedChunks,
@@ -4665,7 +4583,7 @@ async function _checkSplitAdjustmentsOnce(force){
   window._splitAutoResult={applied,at:today};
   if(applied.length){
     console.info('[액면분할·병합 자동 반영]',applied);
-    changeOwner(currentOwner,null,true);
+    changeOwner(currentOwner, null);
   }
   return {ok:fetchOk,applied};
 }
@@ -4821,7 +4739,7 @@ async function loadExtDataFromKV() {
       renderFixedCostView();
       renderCashFlow();
     }
-    changeOwner(currentOwner, null, true);
+    changeOwner(currentOwner, null);
     window._kvLoadState.ext='ready';
     clearKvLoadError('ext');
     return {ok:true,detail:`목표 ${goalData.length}개 · 순자산 기록 ${(window._netWorthHistory||[]).length}개`};
@@ -4832,7 +4750,7 @@ async function loadExtDataFromKV() {
 }
 
 // =============================================
-// Chart.js 플러그인 등록
+// Chart.js 공통 기본값
 // =============================================
 // Chart.js CDN 로드가 실패하면 여기서 ReferenceError가 나고, 최상위 실행이 중단되어
 // 이 아래에서 선언되는 let/const(monthlyPLData·_bubbleOwner·KR_CODE_RE 등)가 영구 TDZ에
@@ -4841,9 +4759,6 @@ async function loadExtDataFromKV() {
 if (typeof Chart === "undefined") {
   console.error('[Chart.js] 라이브러리 로드 실패 — 차트 없이 계속합니다.');
 } else {
-  Chart.register(
-    {id:'barPercent',afterDatasetsDraw(c){if(c.canvas.id!=='holdingsBarChart')return;const{ctx,data}=c;ctx.save();ctx.font='bold 9.5px DM Sans';ctx.fillStyle=_chartLabelColor;ctx.textAlign='left';ctx.textBaseline='middle';c.getDatasetMeta(0).data.forEach((b,i)=>{const v=data.datasets[0].data[i],t=data.datasets[0].data.reduce((a,x)=>a+x,0)||1;ctx.fillText(Math.round((v/t)*100)+'%',b.x+4,b.y+1);});ctx.restore();}},
-  );
   Chart.defaults.responsive=true;
   Chart.defaults.maintainAspectRatio=false;
   Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
@@ -4856,8 +4771,6 @@ function cssVar(name, fallback){
   try{ const v=getComputedStyle(document.body).getPropertyValue(name).trim(); return v||fallback; }
   catch(e){ return fallback; }
 }
-// 캔버스 직접 드로잉(플러그인)용 색 — applyChartTheme가 갱신
-let _chartLabelColor='#64748b', _chartNeedleColor='#475569', _chartHubColor='#0f172a';
 function applyChartTheme(){
   if(typeof Chart==='undefined') return;
   const t1=cssVar('--t1','#0f172a'), t2=cssVar('--t2','#475569'),
@@ -4867,9 +4780,7 @@ function applyChartTheme(){
   Chart.defaults.borderColor=grid;
   const tp=Chart.defaults.plugins.tooltip;
   tp.backgroundColor=glass; tp.titleColor=t1; tp.bodyColor=t2; tp.borderColor=border; tp.borderWidth=1;
-  _chartLabelColor=t2; _chartNeedleColor=t2; _chartHubColor=t1;
-  // 테마 적용 후 기존 차트 전부 재드로우 — 초기 다크 로드 시 라이트색으로 그려진
-  // 라벨(예: TOP5 위젯 y축 종목/소유주명)이 갱신되지 않던 문제 해결
+  // 테마 적용 후 기존 차트 전부 재드로우 — 초기 다크 로드 시 라이트색으로 그려진 축 라벨이 갱신되지 않던 문제 해결
   for(const id in Chart.instances){ try{ Chart.instances[id].update(); }catch(e){} }
 }
 applyChartTheme();
@@ -5060,18 +4971,6 @@ function initDashboard(){
     });
   }
 
-  // [수정4] 포트폴리오 가치 차트 - 원 단위 Y축
-
-
-
-
-  const initAccData=buildAccDonutData('전체');
-
-  
-  
-
-
-
   // Chart.js 는 CDN 에서 온다. 로드에 실패했는데 여기서 그대로 new Chart 를 하면
   // initDashboard 가 통째로 중단되고, 그 아래의 KV 로드(loadAssetsFromKV)까지 실행되지 않아
   // 차트뿐 아니라 자산·순자산·배당이 전부 빈 화면이 된다. 차트만 포기하고 나머지는 띄운다.
@@ -5082,11 +4981,6 @@ function initDashboard(){
 
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
-
-
-  // 정밀 분석 - 월별 매도차익/손실 막대 차트
-
-
 
   // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 라이트 기본
   try{
@@ -5107,8 +5001,6 @@ function initDashboard(){
   renderAutoTransfers();
 
   // 초기 로드: KV에서 자산 로드 후 EOD 시세 1회 반영
-  window.familyBarChartInst = null;
-  window.familyStackChartInst = null;
   (async () => {
     // KRX 종목 DB(data/stocks.json)와 자산을 병렬 로드
     const [assetsResult,extResult]=await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
@@ -5257,7 +5149,7 @@ function setBubbleOwnerX(owner, btn) {
   _bubbleOwner = owner;
   document.querySelectorAll('[id^="sunburst-owner-"]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  try { if (typeof changeOwner === 'function' && currentOwner !== owner) { changeOwner(owner, null, true); } } catch(e){}
+  try { if (typeof changeOwner === 'function' && currentOwner !== owner) { changeOwner(owner, null); } } catch(e){}
   // 타이틀 즉시 업데이트 (소유주별 포트폴리오 비중 차트)
   const mt = document.getElementById('main-title');
   if (mt) mt.textContent = '자산 관리';
@@ -5550,8 +5442,7 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
 }
 
 function renderBubbleChart(mode) {
-  // view-bubble 의 컨테이너 재활용 (sunburst-container), 없으면 레거시
-  const container = document.getElementById('sunburst-container') || document.getElementById('bubble-chart-container');
+  const container = document.getElementById('sunburst-container');
   if (!container) return;
   const listFallback = isMobileLayout() || typeof Plotly === 'undefined';
   container.classList.toggle('bubble-list-fallback', listFallback);
@@ -6556,7 +6447,7 @@ async function loadAssetsFromKV(){
     }
     window._kvLoadState.assets='ready';
     clearKvLoadError('assets');
-    changeOwner(currentOwner,null,true);
+    changeOwner(currentOwner, null);
     // 잘못된 티커 자동 보정 실행
     setTimeout(() => { autoFixTickers(); }, 2000);
     return {ok:true,count:pfolioData.length,detail:`${pfolioData.length}개 항목 로드`};
@@ -6608,7 +6499,7 @@ async function autoFixTickers() {
     }
     if (fixCount > 0) {
         saveAssetsToKV();
-        changeOwner(currentOwner, null, true);
+        changeOwner(currentOwner, null);
         console.log(`[AutoFix] ${fixCount}개의 종목 티커 보정 완료`);
     }
 }
@@ -6764,7 +6655,7 @@ function injectInitialFromStocksDB() {
     console.warn('[StocksDB] 티커 자동 매칭 실패 종목 (수동 확인 필요):\n' + unresolved.join('\n'));
   }
   if (fixed > 0) {
-    try { changeOwner(currentOwner, null, true); } catch (_) {}
+    try { changeOwner(currentOwner, null); } catch (_) {}
   }
   return fixed;
 }
@@ -6820,7 +6711,7 @@ async function liveRefreshDomesticEtfs() {
   }
 
   if (updatedTickers.size > 0) {
-    try { changeOwner(currentOwner, null, true); } catch (_) {}
+    try { changeOwner(currentOwner, null); } catch (_) {}
     console.log(`[DomesticEtfLive] ${updatedTickers.size}종목 실시간 가격 반영 완료`);
   }
   const stale=items.filter(i=>i&&i._priceStale).length;
@@ -6985,7 +6876,7 @@ async function fetchPyPrices(tickers) {
   });
   if (updated) {
     syncDivHistory();
-    changeOwner(currentOwner, null, true);
+    changeOwner(currentOwner, null);
   }
 }
 
@@ -7080,7 +6971,7 @@ async function fetchPyDividends() {
   // 현금흐름: 갱신된 배당 정보로 이번 달 누락 배당수입을 자동 등록
   try { if (typeof autoAddDividendCashFlow === 'function') await autoAddDividendCashFlow(true); } catch(_){}
   // 대시보드/포트폴리오/현금흐름/가족 화면 재렌더
-  try { if (typeof changeOwner === 'function') changeOwner(currentOwner, null, true); } catch(_){}
+  try { if (typeof changeOwner === 'function') changeOwner(currentOwner, null); } catch(_){}
   try { if (typeof renderCashFlow === 'function') renderCashFlow(); } catch(_){}
 }
 
@@ -7291,7 +7182,7 @@ async function fetchBenchmarkData(ownerOverride) {
       let data = null;
       try {
         // 진짜로 멈춘 연결만 끊기 위한 안전망 타임아웃.
-        //   서버(api/dashboard.py)의 maxDuration이 30s이고, 보유 종목이 많거나(본인)
+        //   서버(api/dashboard.py)의 maxDuration이 60s이고, 보유 종목이 많거나(본인)
         //   KR .KS/.KQ 양쪽을 받는 종목이 많은(아버지) 소유주는 12s를 넘길 수 있어 조기 중단되면
         //   CORS로 막힌 JS 폴백으로 떨어져 라인이 통째로 사라졌다. 서버 예산보다 약간 길게 잡아
         //   정상 응답을 끊지 않는다. (소유주별 점진 렌더라 느린 소유주만 늦게 그려질 뿐 차단 없음)

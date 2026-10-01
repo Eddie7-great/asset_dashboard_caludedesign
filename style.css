@@ -291,8 +291,8 @@
     .pt-group-header:hover{background:var(--hover-bg)}
     .pt-group-title{font-weight:700;font-size:.95rem;gap:8px;color:var(--t1)}
     .pt-group-stats{font-size:.8rem;font-weight:600}
-    /* 아코디언 화살표 고정폭 — 투자자산/부동산/부채 헤더의 ＋ 추가 버튼 x좌표를 맞춘다 */
-    .pt-arrow,#re-accordion-arrow,#liab-accordion-arrow{
+    /* 아코디언 화살표 고정폭 — 자산군 헤더마다 ＋ 추가 버튼 x좌표를 맞춘다 */
+    .pt-arrow{
       width:14px;flex-shrink:0;display:inline-block;text-align:center}
     .pt-table-wrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 10px 10px;overflow:hidden}
     .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:12.5px;white-space:nowrap;color:var(--mut)}
@@ -412,9 +412,6 @@
     /* 관리 칼럼: 수정+삭제 두 버튼이 잘리지 않도록 여백 축소 + 줄바꿈 금지 */
     .pt-table td.mgmt-cell{padding:10px 4px;white-space:nowrap;text-align:center}
     .pt-table td.mgmt-cell .btn-action{padding:0 3px}
-    #div-widget{flex:1.6;min-height:0}
-    #div-detail{flex:1;min-height:0;position:relative;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-dark)}
-    #div-detail .chart-container{position:absolute;top:8px;left:0;right:0;bottom:0;height:auto}
 
     /* ── 선버스트 패널 (플랫 카드) ────────────────────────────── */
     .sunburst-panel {
@@ -427,7 +424,7 @@
     }
     /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
     /* 소유주 버튼 — 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
-    .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
+    .owner-tabs, #cf-owner-bar, #bubble-owner-bar {
       background: var(--inner-bg);
       border: 1px solid var(--border-dark);
       border-radius: 10px;
@@ -766,10 +763,9 @@
     }
     .owner-tabs,
     #cf-owner-bar,
-    #bubble-owner-bar,
-    #analysis-owner-bar { flex-wrap: wrap; }
+    #bubble-owner-bar { flex-wrap: wrap; }
     @media (max-width: 900px) {
-      .owner-tabs, #cf-owner-bar, #bubble-owner-bar, #analysis-owner-bar {
+      .owner-tabs, #cf-owner-bar, #bubble-owner-bar {
         margin-left: 0 !important;
       }
     }
@@ -1116,7 +1112,7 @@
       body.head-sub-open #main-title-sub{display:block;grid-row:3;grid-column:1/-1;line-height:1.6;padding-bottom:2px}
       .page-sub-toggle{display:flex;grid-row:1;grid-column:3}
       #cb-head-widgets{grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center;flex-wrap:wrap}
-      #owner-tabs-container,#cf-owner-bar,#bubble-owner-bar,#analysis-owner-bar{
+      #owner-tabs-container,#cf-owner-bar,#bubble-owner-bar{
         grid-row:2;grid-column:1/-1;margin-left:0!important;justify-content:center}
       .owner-btn{padding:4px 10px;font-size:.72rem}
       .modal-content{max-width:92vw}
@@ -1130,8 +1126,7 @@
       .view-section.active > .f-col,
       .view-section.active > .glass-panel{height:auto!important;min-height:0;max-width:100%}
       /* 표·기간 성과는 패널 안에서 손가락으로 좌우 이동한다. 페이지 자체는 가로로 흔들리지 않는다. */
-      .cb-table-panel,.cb-tblwrap,.pt-table-wrap,
-      #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{
+      .cb-table-panel,.cb-tblwrap,.pt-table-wrap{
         max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;
         touch-action:pan-x pan-y;overscroll-behavior-inline:contain
       }
@@ -1162,14 +1157,10 @@
       .chart-container{height:240px!important;min-height:0!important;flex:0 0 auto!important;overflow:hidden}
       /* 리사이즈 전 캔버스가 컨테이너보다 커도 축/범례가 잘리지 않도록 시각적 상한 */
       .chart-container > canvas{max-width:100%!important;max-height:100%!important}
-      /* #div-detail 내부 chart-container는 absolute(top/bottom) 배치 — auto 높이에서 붕괴 방지 */
-      #div-detail{position:relative;min-height:250px}
-      #div-detail .chart-container{position:relative;top:auto;left:auto;right:auto;bottom:auto}
 
       /* ── holdings: 내부 스크롤 제거 — 페이지 스크롤로 일원화 ── */
       .holdings-main-col{height:auto!important;overflow-y:visible!important;padding-right:0!important}
       .pt-table-wrap{overflow-x:auto;overflow-y:hidden}
-      #re-accordion-body .glass-panel,#liab-accordion-body .glass-panel{overflow-x:auto}
       /* 핵심 컬럼만 노출 — 주식/가상화폐/금: 종목명/티커 · 수익금 · 수익률 (오른쪽 기준 10·3·2번째) */
       #portfolio-tables .pt-table:not([data-grp="현금"]) :is(th,td):not([colspan]):is(
         :nth-last-child(1),:nth-last-child(4),:nth-last-child(5),:nth-last-child(6),
@@ -1188,13 +1179,6 @@
       #portfolio-tables .pt-group-stats > span:nth-of-type(1){font-size:.78rem}
       #portfolio-tables .pt-group-stats > span:nth-of-type(2){order:2;flex:1 1 100%;font-size:.78rem}
       #portfolio-tables .pt-group-stats > .pt-arrow{margin-left:auto}
-      /* 부동산/부채 아코디언 헤더 — 동일 패턴: 1행 [제목 ── ▼] / 2행 [지표들] */
-      #htab-realestate .pt-group-header > div:last-child,
-      #htab-liability .pt-group-header > div:last-child{display:contents!important} /* 인라인 display:flex 덮어쓰기 */
-      #htab-realestate .pt-group-header > div:last-child > div,
-      #htab-liability .pt-group-header > div:last-child > div{order:2;flex:1 1 100%;flex-wrap:wrap;gap:4px 14px!important}
-      #htab-realestate .pt-group-header > div:last-child > [id$="-arrow"],
-      #htab-liability .pt-group-header > div:last-child > [id$="-arrow"]{margin-left:auto}
 
       /* ── cashflow: 두 컬럼 자연 높이 + 상세 표는 패널 내부 가로 스크롤 ── */
       /* grid 행 높이가 좌측 컬럼을 콘텐츠보다 작게 잡아(전체 소유주 다건 시) 상세 리스트가

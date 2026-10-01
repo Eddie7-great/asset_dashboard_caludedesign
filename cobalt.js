@@ -52,7 +52,7 @@ const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비�
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
-  cashflow: '월별 수입·지출 기록과 고정비 관리 · 고정비로 분류한 항목이 재무상태표의 현금 안전판 기준이 됩니다',
+  cashflow: '월별 수입·지출 기록과 고정비 관리 · 고정비로 분류한 항목이 투자 계획 > 목표의 현금 안전판 기준이 됩니다',
   bubble:   '주식·ETF·가상화폐·금·현금 비중 비교 · ETF는 펀드 단위이며 원을 클릭하면 하위 종목으로 들어갑니다',
 };
 
@@ -79,8 +79,7 @@ function cbGainKRW(i){ return i.grp==='현금' || i.costUnknown ? 0 : cbValKRW(i
 
 function cbDisp(vKrw){
   const c = _dispCur, v = vKrw / cbRate(c);
-  const s = c==='USD' ? '$' : c==='KRW' ? '₩' : '¥';
-  return (v<0?'-':'') + s + Math.abs(Math.round(v)).toLocaleString(c==='USD'?'en-US':'ko-KR');
+  return (v<0?'-':'') + curSymbol(c) + Math.abs(Math.round(v)).toLocaleString(c==='USD'?'en-US':'ko-KR');
 }
 function cbSignDisp(vKrw){ return (vKrw>=0?'+':'') + cbDisp(vKrw); }
 function cbKrw(n){ return (n<0?'-':'') + '₩' + Math.abs(Math.round(n)).toLocaleString('ko-KR'); }
@@ -1134,7 +1133,7 @@ function cbRenderDash(){
           dayBase>0 ? cbUpDn(dayAbs) : 'color:var(--lab)', 'var(--upSoft)')}
         ${badge('<span data-tip="현재 평가액 − 총 매입원가">평가손익</span>', cbSignDisp(gainAbs)+' · '+cbPct(gainAbs/costTot), cbUpDn(gainAbs), 'var(--upSoft)')}
         ${badge('연 배당', cbDisp(divAnnual), 'color:var(--tx)', 'var(--accSoft)')}
-        ${badge('리스크', risk.score+'점 · '+risk.grade, 'color:var(--tx)', 'var(--accSoft)', "switchView('risk2',document.getElementById('menu-risk2'))")}
+        ${badge('리스크', risk.score+'점 · '+risk.grade, 'color:var(--tx)', 'var(--accSoft)', "switchView('risk2')")}
       </div>
 
     </div>
@@ -3500,7 +3499,6 @@ switchView = function(id, btn){
     const tip=document.getElementById(tipId);
     if(tip){ tip.style.display='none'; tip._anchor=null; }
   });
-  if (id === 'dashboard'){ id='cdash'; btn = btn || document.getElementById('menu-dashboard'); }
   if (!CB_VIEWS[id]){
     // 레거시 화면도 Cobalt 페이지와 같이 제목 옆 소제목을 채운다 — 비어 있으면 헤더가 페이지마다 들쭉날쭉해 보인다.
     _cobaltActive=null; cbSetHead(CB_LEGACY_SUB[id] || null, null);
@@ -3533,8 +3531,8 @@ switchView = function(id, btn){
 
 // 데이터 변경/갱신 시 활성 페이지 재렌더
 const _cbOrigChangeOwner = changeOwner;
-changeOwner = function(owner, btn, isRefresh){
-  _cbOrigChangeOwner(owner, btn, isRefresh);
+changeOwner = function(owner, btn){
+  _cbOrigChangeOwner(owner, btn);
   cbRerender();
   const active=document.querySelector('.view-section.active')?.id.replace('view-','');
   const group=navGroup(active);if(group)document.getElementById('main-title').textContent=group.title;
