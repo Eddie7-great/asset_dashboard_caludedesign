@@ -280,8 +280,8 @@
       id: version,
       effectiveFrom: `${year}-01-01`,
       effectiveTo: `${year}-12-31`,
-      verifiedAt: '2026-08-31',
-      nextReviewAt: archived ? null : '2026-09-30',
+      verifiedAt: '2026-10-01',
+      nextReviewAt: archived ? null : '2026-10-31',
       archived: Boolean(archived),
       values: valuesForYear(year),
       disclosures: disclosuresForYear(year),
@@ -295,7 +295,7 @@
 
   const MANIFEST = {
     schemaVersion: 1,
-    manifestVersion: 'kr-tax-gift-2026.3',
+    manifestVersion: 'kr-tax-gift-2026.4',
     jurisdiction: '대한민국',
     timezone: 'Asia/Seoul',
     monitoring: {
@@ -307,7 +307,7 @@
     periods: [
       makePeriod(2024, 'kr-tax-gift-2024.1', true),
       makePeriod(2025, 'kr-tax-gift-2025.1', true),
-      makePeriod(2026, 'kr-tax-gift-2026.3', false),
+      makePeriod(2026, 'kr-tax-gift-2026.4', false),
     ],
   };
 

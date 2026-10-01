@@ -2980,9 +2980,9 @@ function cbRenderTax(){
           <label>계좌<select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
           <label>소유주<select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
           <label>실현손익(원)<input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" /></label>
-          <label>메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" style="flex:1;min-width:118px" /></label>
-          <button onclick="cbTaxAdd()" class="cb-btn" style="padding:8px 12px;font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
-          ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="padding:8px 10px;font-size:12px;color:var(--mut)">취소</button>':''}
+          <label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
+          <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:12px">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
+          ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:12px;color:var(--mut)">취소</button>':''}
         </div>
         <div style="overflow-x:auto"><div style="min-width:760px">
           <div class="cb-thead" style="display:flex;align-items:center;font-size:12px;color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">

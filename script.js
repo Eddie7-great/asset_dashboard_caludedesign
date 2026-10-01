@@ -5745,8 +5745,9 @@ function renderBubbleChart(mode) {
       const ownerWeight=isOwnerLabel?(ownerLabelWeights.get(ownerName)||0):0;
       // 작은 소유주 조각에 16px 라벨과 컬러 점을 강제로 넣으면 인접 링/차트 경계에서
       // 글자가 잘린다. 비중에 맞춰 글자와 점을 단계적으로 줄여 조각 안에 유지한다.
+      // 점은 비중과 무관하게 모든 소유주에 붙인다 — 예전엔 10% 미만이면 빼서 자녀1·아버지만
+      // 점이 없는 범례처럼 보였다. 작은 조각은 점·공백을 함께 줄여 폭 증가를 최소화한다.
       const ownerFontSize=ownerWeight>=20?15:(ownerWeight>=10?13:11);
-      const showOwnerDot=ownerWeight>=10;
       t.style.fontSize=isOwnerLabel?ownerFontSize+'px':'13px';
       t.style.fontWeight=isOwnerLabel?'800':'650';
       if(isOwnerLabel) {
@@ -5758,14 +5759,12 @@ function renderBubbleChart(mode) {
         labelSpan.setAttribute('fill',textColor);
         labelSpan.style.fontSize=ownerFontSize+'px';
         labelSpan.style.fontWeight='800';
-        if(showOwnerDot){
-          const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
-          dotSpan.textContent='● ';
-          dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
-          dotSpan.style.fontSize=Math.max(8,ownerFontSize-4)+'px';
-          dotSpan.style.fontWeight='900';
-          t.append(dotSpan);
-        }
+        const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+        dotSpan.textContent=ownerWeight>=10?'● ':'●\u2009';
+        dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
+        dotSpan.style.fontSize=Math.max(7,ownerFontSize-4)+'px';
+        dotSpan.style.fontWeight='900';
+        t.append(dotSpan);
         t.append(labelSpan);
       } else {
         t.removeAttribute('data-cb-bubble-owner');
