@@ -781,9 +781,6 @@
     .cb-btn:hover{background:var(--hover-bg)}
     .cb-input{background:var(--inner);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;padding:7px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box}
     .cb-input:focus{border-color:var(--acc)}
-    /* 양도소득세 실현손익 입력 — cobalt.js 인라인은 flex/min-width 만 주므로 상한은 여기서 건다 */
-    #cb-tax-pl{max-width:170px}
-    #cb-tax-memo{max-width:260px}
     /* 증여 페이지 입력 라벨 — 한 줄에 2칸만 남을 때 폭이 벌어지지 않게 상한을 둔다(모바일에선 해제) */
     /* 증여 패널의 min-width 를 인라인으로 두면 미디어쿼리가 못 덮어, 390px 화면에서 패널이
        뷰포트를 넘고 .content-area 의 overflow-x:hidden 에 잘려 금액이 '200,000'→'200' 으로 보였다 */
