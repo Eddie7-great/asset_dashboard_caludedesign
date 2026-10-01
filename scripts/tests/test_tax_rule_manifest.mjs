@@ -17,7 +17,7 @@ vm.runInContext(rulesSource, context)
 const manifest = context.ASSET_TAX_RULES
 
 assert.equal(manifest.schemaVersion, 1, '규칙 스키마 버전')
-assert.equal(manifest.manifestVersion, 'kr-tax-gift-2026.3', '현재 규칙 버전')
+assert.equal(manifest.manifestVersion, 'kr-tax-gift-2026.4', '현재 규칙 버전')
 assert.equal(Object.isFrozen(manifest), true, '런타임에서 규칙 매니페스트 변경 금지')
 assert.equal(Object.isFrozen(manifest.periods[2].values.gift), true, '중첩 규칙 값도 변경 금지')
 
@@ -27,7 +27,7 @@ assert.equal(manifest.sources.every(source => /^https:\/\/(?:www\.)?(?:law\.go\.
 assert.equal(manifest.sources.every(source => Array.isArray(source.expected) && source.expected.length), true, '모든 출처에 변경 감시 문구 존재')
 
 const current = context.assetTaxRulesFor(2026)
-assert.equal(current.id, 'kr-tax-gift-2026.3', '2026년 규칙 선택')
+assert.equal(current.id, 'kr-tax-gift-2026.4', '2026년 규칙 선택')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2024), 0.0018, '2024 KOSPI 총 부담 0.18%')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2025), 0.0015, '2025 KOSPI 총 부담 0.15%')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2026), 0.002, '2026 KOSPI 총 부담 0.20%')
@@ -37,13 +37,13 @@ assert.equal(context.assetTaxRuleValue('dividend.highDividendSeparateTaxActive',
 assert.equal(context.assetTaxRuleValue('dividend.highDividendSeparateTaxActive', null, 2024), false, '2024 고배당 특례 미적용')
 assert.match(context.assetTaxRuleValue('gift.otherRelativeScope', '', 2025), /2025-03-14 전[\s\S]*이후/, '2025년 중 친족 범위 변경 기록')
 
-assert.equal(context.assetTaxRuleStatus(2026, new Date('2026-08-31T00:00:00+09:00')).state, 'verified', '검토기한 전 공식 근거 확인 상태')
-assert.equal(context.assetTaxRuleStatus(2026, new Date('2026-10-01T00:00:00+09:00')).state, 'stale', '검토기한 초과 시 확인 필요')
+assert.equal(context.assetTaxRuleStatus(2026, new Date('2026-10-01T00:00:00+09:00')).state, 'verified', '검토기한 전 공식 근거 확인 상태')
+assert.equal(context.assetTaxRuleStatus(2026, new Date('2026-11-01T00:00:00+09:00')).state, 'stale', '검토기한 초과 시 확인 필요')
 assert.equal(context.assetTaxRuleStatus(2025, new Date('2026-08-31T00:00:00+09:00')).state, 'historical', '과거 연도는 현재 규칙으로 오인하지 않음')
 assert.equal(context.assetTaxRuleStatus(2027, new Date('2027-01-01T00:00:00+09:00')).state, 'unsupported', '검증하지 않은 미래 연도 미지원')
 
 const taxHtml = context.assetTaxRuleDisclosureHtml('capitalGains', 2026)
-assert.match(taxHtml, /2026년 적용[\s\S]*kr-tax-gift-2026\.3/, '적용 연도와 규칙 버전 표시')
+assert.match(taxHtml, /2026년 적용[\s\S]*kr-tax-gift-2026\.4/, '적용 연도와 규칙 버전 표시')
 assert.match(taxHtml, /계산에 적용[\s\S]*계산 가정[\s\S]*제외·주의[\s\S]*공식 기준 출처/, '값·가정·제외·공식 출처를 한 패널에 표시')
 assert.match(taxHtml, /KOSPI·KOSDAQ 장내 매도 부담 참고 0\.2%/, '2026 거래세 표시 보정')
 assert.match(taxHtml, /target="_blank" rel="noopener noreferrer"/, '공식 출처 새 창 링크 보호')
