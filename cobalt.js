@@ -2669,8 +2669,11 @@ function cbTaxAxisLab(v){
   return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만';
 }
 // 월별 실현손익 막대(국내/해외) + 누적 손익·예상 세액 추이 라인 + 해외 기본공제(250만) 기준선 + hover 상세
-function cbTaxChartSvg(w,h,list){
+// when: 화면이 보고 있는 연도 — 세율·공제 규칙과 hover 의 'N년 규칙' 표기가 같은 해를 가리키게 한다.
+function cbTaxChartSvg(w,h,list,when){
   const agg={}, mgf={}, misa={};
+  const ruleWhen=when||(list||[]).find(row=>row?.month)?.month||new Date();
+  const ruleYear=ruleWhen instanceof Date ? ruleWhen.getFullYear() : Number(String(ruleWhen).slice(0,4));
   const ownerOf=t=>(t&&t.owner&&t.owner!=='전체'?String(t.owner):null);
   let maxM=0;
   list.forEach(t=>{ const m=parseInt(String(t.month).split('-')[1]||'0'); if(!m) return;
@@ -2689,14 +2692,13 @@ function cbTaxChartSvg(w,h,list){
     cpFgn+=agg[m+'-f']||0;
     const cp=cpDom+cpFgn;
     const through=(list||[]).filter(t=>parseInt(String(t.month).split('-')[1]||'0')<=m);
-    const taxSummary=cbTaxSummary(through,ownerOf);
+    const taxSummary=cbTaxSummary(through,ownerOf,[],ruleWhen);
     const tax=taxSummary.totalDue;
     cum[m]={fgn:cf, isa:ci, domProfit:cpDom, fgnProfit:cpFgn, profit:cp, tax};
     cum[m].legacyTax=taxSummary.legacyDue;
-    window._cbTaxHover[m]={m, dom:agg[m+'-d']||0, fgn:agg[m+'-f']||0, cumDomProfit:cpDom, cumFgnProfit:cpFgn, cumProfit:cp, tax, legacyTax:taxSummary.legacyDue};
+    window._cbTaxHover[m]={m, dom:agg[m+'-d']||0, fgn:agg[m+'-f']||0, cumDomProfit:cpDom, cumFgnProfit:cpFgn, cumProfit:cp, tax, legacyTax:taxSummary.legacyDue, year:ruleYear};
   }
   const vals=Object.values(agg);
-  const ruleWhen=(list||[]).find(row=>row?.month)?.month||new Date();
   const DED=_taxRuleValue('capitalGains.foreignStockBasicDeductionKrw',CB_TAX_FGN_DED,ruleWhen),
         wn=(typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706'),
         acc3=(typeof cssVar==='function'?cssVar('--acc3','#7c3aed'):'#7c3aed'),
@@ -2782,7 +2784,7 @@ function cbTaxChartSvg(w,h,list){
 function cbTaxHover(ev, m){
   const r=(window._cbTaxHover||[])[m]; if(!r) return;
   const t=_cbPerfTipEl();
-  const year=Number(document.getElementById('cb-tax-year')?.value)||new Date().getFullYear();
+  const year=r.year||new Date().getFullYear();
   const foreignRate=_taxRuleValue('capitalGains.foreignStockCombinedRate',0.22,year);
   const foreignDeduction=_taxRuleValue('capitalGains.foreignStockBasicDeductionKrw',2_500_000,year);
   const isaRate=_taxRuleValue('isa.separateTaxCombinedRate',0.099,year);
@@ -2959,7 +2961,7 @@ function cbRenderTax(){
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--acc3)"></span>전체 누적손익</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--dn)"></span>누적 예상 세액</span>
       </div>
-      ${cbTaxChartSvg(1240,320,list)}
+      ${cbTaxChartSvg(1240,320,list,year)}
     </div>
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">
