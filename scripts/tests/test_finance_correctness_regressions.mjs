@@ -76,6 +76,12 @@ taxContext.cbTaxChartSvg(900, 320, [
 ])
 assert.equal(taxContext.window._cbTaxHover[1].tax, 110_000, '차트 1월 누적세액도 소유주별 계산')
 assert.equal(taxContext.window._cbTaxHover[2].tax, 220_000, '차트 2월 누적세액은 소유주별 세액 합계')
+// hover 툴팁의 'N년 규칙'은 화면이 보고 있는 연도를 따른다(예전엔 없는 #cb-tax-year 를 읽어 늘 올해였다).
+taxContext.cbTaxChartSvg(900, 320, [foreign('본인', 3_000_000, '2025-03')])
+assert.equal(taxContext.window._cbTaxHover[1].year, 2025, '기록의 연도를 hover 규칙 연도로 싣는다')
+taxContext.cbTaxChartSvg(900, 320, [], '2025')
+assert.equal(taxContext.window._cbTaxHover[1].year, 2025, '선택 연도에 기록이 없어도 올해로 떨어지지 않는다')
+assert.doesNotMatch(cobaltSource, /cb-tax-year/, '존재하지 않는 연도 입력을 읽지 않는다')
 
 // ── 증여: 최근 10년 실제 내역 없이는 공제 잔여 판정 보류 ────────────
 const giftContext = { window: { _giftActual:{} } }

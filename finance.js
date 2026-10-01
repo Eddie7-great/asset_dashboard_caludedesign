@@ -237,14 +237,12 @@ function finMobileNote(what){
   return `<div class="fin-mobile-note">모바일에서는 조회만 가능합니다. ${cbEsc(what)} 추가·수정은 PC 화면에서 해주세요.</div>`;
 }
 
-async function finSaveAndRender(renderFn,refreshSnapshot=false){
-  // 재무상태표 변경은 오늘의 전체 순자산에도 즉시 반영하고, 확장 데이터는 한 번만 저장한다.
-  const originalsReady=window._kvLoadState?.assets==='ready'&&window._kvLoadState?.ext==='ready';
-  if(refreshSnapshot&&originalsReady&&typeof updateNetWorthSnapshot==='function') updateNetWorthSnapshot();
+// 투자 계획(목표·리밸런싱·현금 안전판) 변경을 확장 데이터에 한 번 저장하고 다시 그린다.
+async function finSaveAndRender(renderFn){
   let result={ok:false,error:'저장 함수를 찾을 수 없습니다.'};
   try{ result=await saveExtDataToKV(); }catch(e){ result={ok:false,error:e?.message||'저장 실패'};console.error('[finance save]',e); }
   if(typeof renderFn==='function') renderFn();
-  if(typeof cbRerender==='function'&&!document.getElementById('view-balance2')?.classList.contains('active')&&!document.getElementById('view-plan2')?.classList.contains('active')) cbRerender();
+  if(typeof cbRerender==='function'&&!document.getElementById('view-plan2')?.classList.contains('active')) cbRerender();
   return result;
 }
 // 목록이 소유주 필터로 걸러지므로 수정·삭제는 배열 인덱스가 아니라 id 로 찾는다.

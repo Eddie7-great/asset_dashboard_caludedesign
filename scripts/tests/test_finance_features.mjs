@@ -118,7 +118,6 @@ assert.equal(target.max.key, 'us', '목표 대비 편차가 가장 큰 자산군
 assert.equal(target.max.drift, 30, '현재 60%와 목표 30%의 편차 계산')
 
 const elements = {
-  'cb-balance2': { innerHTML: '' },
   'cb-plan2': { innerHTML: '' },
   'cb-data2': { innerHTML: '' },
 }
@@ -317,7 +316,8 @@ assert.doesNotMatch(cobaltSource, /liquidity-coverage/, '현금 유동성 커버
 assert.doesNotMatch(cobaltSource, /card\.control/, '쓰는 카드가 없어진 컨트롤 슬롯도 함께 제거한다')
 assert.doesNotMatch(styleSource, /\.cb-risk-insight-control/, '도달 불가 CSS 도 함께 제거한다')
 
-// 재무상태표 변경 저장은 오늘 스냅샷을 먼저 갱신하고 KV는 한 번만 쓴다.
+// 투자 계획 변경 저장은 확장 KV를 한 번만 쓰고 그 뒤에 렌더한다. 순자산 스냅샷을 건드리던
+// 경로는 재무상태표 CRUD 전용이었고 화면과 함께 사라졌다.
 const saveOrder=[]
 context.window._kvLoadState = { assets:'ready', ext:'ready' }
 Object.assign(context, {
@@ -325,9 +325,9 @@ Object.assign(context, {
   saveExtDataToKV: async () => { saveOrder.push('save'); return {ok:true} },
   cbRerender: undefined,
 })
-const saveResult = await context.finSaveAndRender(() => saveOrder.push('render'), true)
-assert.equal(saveResult.ok, true, '재무상태표 저장 결과 반환')
-assert.deepEqual(saveOrder, ['snapshot','save','render'], '스냅샷 갱신 후 확장 KV를 한 번만 저장하고 렌더')
+const saveResult = await context.finSaveAndRender(() => saveOrder.push('render'))
+assert.equal(saveResult.ok, true, '저장 결과 반환')
+assert.deepEqual(saveOrder, ['save','render'], '확장 KV를 한 번만 저장하고 렌더')
 
 // 순자산 추이 커버리지 — 기록이 선택 기간을 못 채우면 어떤 버튼을 눌러도 같은 구간이 나온다.
 // 그 사실을 화면이 밝히지 않으면 MDD가 안 변하는 게 고장으로 보인다.

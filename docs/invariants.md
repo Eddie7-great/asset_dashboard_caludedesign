@@ -280,7 +280,7 @@ GitHub 의 예약 실행(`schedule`)은 공용 스케줄러라 **몇 시간씩 �
 | 거래내역 가져오기는 그 소유주 × 연도만 교체 | 다른 가족·다른 해 기록이 사라지거나 두 번 합산 | `test_tax_import.mjs`, `test_broker_realized_pl.py` |
 | 날짜는 `finLocalDateKey` | 오전 9시 이전 기록이 하루 밀림 | `test_finance_features.mjs` |
 | 배당 기록 삭제는 확실한 근거만 | 네트워크 한 번 끊기면 기록 소실 | `test_dividend_tax.mjs` |
-| 소유주 필터 전면 적용 | 남의 자산이 내 것으로 표시됨 | `test_snapshot_page.mjs`, `test_risk_page.mjs`, `test_lookthrough_owner_scope.mjs` |
+| 소유주 필터 전면 적용 | 남의 자산이 내 것으로 표시됨 | `test_risk_page.mjs`, `test_lookthrough_owner_scope.mjs` |
 | 신선도는 기록으로만 판정 | 영구 가짜 초록불 | `test_data_loading_state.mjs` |
 | 워크플로 `run:` 값에 `": "` 금지 | CI 가 통째로 멈춤 | `test_workflow_yaml.mjs` |
 | 터치 툴팁 유예 창 유지 | 폰에서 설명이 안 보임 | `test_accessibility_static.mjs` |

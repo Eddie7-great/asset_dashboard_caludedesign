@@ -57,7 +57,7 @@ CSS와 어긋나면 CSS가 맞습니다.
 - **헤더(header)**: 별도 `<header>` 태그는 없고, 본문 상단의 `#page-head`(class `f-between`)가 그 역할을 합니다. `padding:15px 24px; border-bottom:1px solid var(--border-dark)`이며 좌측부터 제목(`#main-title`) → 소제목(`#main-title-sub`, `cbSetHead()`가 채움) → 페이지별 위젯(`#cb-head-widgets`) → 소유주 탭(`.owner-tabs` 등, `margin-left:auto`로 우측 정렬)이 한 줄에 배치됩니다 (`index.html:110`). 모바일에서는 `☰ | 제목(중앙) | 여백` 3열 그리드 + sticky, 소유주 탭은 둘째 줄로 내려갑니다 (`style.css:1352`).
 - **사이드바(aside, `.menu-col`)**: `glass-panel` 스타일(카드형, radius 12px) 위에 세 구역이 세로로 쌓입니다.
   1. 환율/금 위젯(`.side-rates`) — USD/KRW, USD/JPY, JPY100/KRW, GOLD.
-  2. 메뉴 내비게이션(`nav#sidebar-menu`) — **요약 / 분석 / 계획 / 기록·관리** 4개의 접이식 `.menu-group` 섹션. 상태는 `localStorage.menuGroupState`에 저장됩니다.
+  2. 메뉴 내비게이션(`nav#sidebar-menu`) — 홈·자산 관리·투자 분석·배당·투자 계획·현금 흐름·세금·증여 **7개 `.menu-btn` 평면 목록**. 세부 화면은 헤더 오른쪽 링크로 전환합니다(`navigation.js`의 `APP_NAV`).
   3. `.sidebar-footer` — 테마 선택 세그먼트, 새로고침·모바일버전·금액가리기 버튼, 마지막 줄에 데이터 상태 진입점(`.footer-status-btn`).
 - **본문(main, `.content-area`)**: `f-col`(세로 flex) + `overflow-y:auto`. 헤더(`#page-head`) 아래로 현재 활성화된 `.view-section`의 `.cb-scroll`(`overflow-y:auto; overflow-x:hidden; padding:0 6px 60px 0`)이 실제 스크롤 컨테이너입니다. 본문 안 카드들은 대부분 `.cb-panel`/`.glass-panel`(둥근 모서리 12px 카드) 단위로 그리드/flex 배치됩니다.
 - **푸터(footer)**: 페이지 하단에 걸치는 전역 푸터는 없습니다. 사이드바 하단의 `.sidebar-footer`가 그 역할을 겸하며(테마·새로고침·데이터 상태), 각주성 텍스트(세율 근거, ETF 룩스루 실패 안내 등)는 해당 카드 내부에 `.tax-rule-disclosure`/`.fin-disclaimer` 형태로 인라인됩니다.
@@ -116,10 +116,8 @@ CSS와 어긋나면 CSS가 맞습니다.
 
 차트·배지 전용 색상 세트로, CSS 변수와 별개로 JS 상수로 관리됩니다.
 
-- **소유주 컬러** `ownerColors` (`script.js:233`): 전체 `#4ecdc4`(티일) · 본인 `#5b9bff`(블루) · 아내 `#f2a33c`(오렌지) · 자녀1 `#4ade80`(그린) · 아버지 `#c084fc`(퍼플)
-- **범용 차트 팔레트** `CHART_PALETTE` (`script.js:236`): `#5b9bff #4ecdc4 #f2a33c #fb7185 #c084fc #4ade80 #e8875a #94a3c8 #d4b24a #56c596`
-- **현금흐름 카테고리 컬러** `cfColors` (`script.js:1014`): 교통/차량 `#4ecdc4` · 교육 `#f472b6` · 급여 `#5b9bff` · 기타 `#94a3c8` · 문화/생활 `#c084fc` · 식비 `#f2a33c` · 의료/건강 `#fb7185` · 저축/투자 `#56c596` · 주거/통신 `#e8875a` · 배당금 `#4ade80` · 대출납입금 `#fb7185` · 관리비 `#e8875a` · 세금 `#e05572`
-- **자산군 컬러** `catColors` (`script.js:3255`, `5202`): 한국주식 `#4ecdc4` · 해외주식 `#5b9bff` · 연금 `#c084fc` · 가상화폐 `#f2a33c` · 금 `#d4b24a` · 현금 `#94a3c8`
+- **소유주 컬러** `ownerColors`: 전체 `#4ecdc4`(티일) · 본인 `#5b9bff`(블루) · 아내 `#f2a33c`(오렌지) · 자녀1 `#4ade80`(그린) · 아버지 `#c084fc`(퍼플)
+- **현금흐름 카테고리 컬러** `cfColors`: 교통/차량 `#4ecdc4` · 교육 `#f472b6` · 급여 `#5b9bff` · 기타 `#94a3c8` · 문화/생활 `#c084fc` · 식비 `#f2a33c` · 의료/건강 `#fb7185` · 저축/투자 `#56c596` · 주거/통신 `#e8875a` · 배당금 `#4ade80` · 대출납입금 `#fb7185` · 관리비 `#e8875a` · 세금 `#e05572`
 
 이 팔레트는 CSS 다크/네이비 변수와 색조를 공유하도록 골라져 있어(예: `--acc`가 다크에서 `#7aa2ff`, 네이비에서 `#5b9bff`로, 소유주 "본인"의 `#5b9bff`와 겹침) 테마를 바꿔도 차트 색이 어색하게 튀지 않습니다.
 
@@ -287,7 +285,7 @@ Tailwind류의 명시적 스케일 토큰은 없고, 각 컴포넌트마다 `rem
 - 다크/네이비 테마는 카드 그림자를 아예 없앱니다(`--gshadow:none`) — 어두운 배경에서는 그림자보다 테두리(`--panel-border`)로 카드 경계를 구분.
 - 툴팁 배경(`--tipbg`)은 라이트에서 어두운 네이비(`#18213a`)를 쓰고, 다크/네이비 테마에서는 반대로 밝은 배경(`#f4f7fb`/`#edf3ff`)을 씁니다 — 항상 "테마와 반전된" 고대비 팝업을 유지하기 위한 의도적 설계입니다.
 - `--upSoft`(상승 값의 옅은 배경)는 라이트 `rgba(23,138,82,.10)`, 다크 `rgba(52,211,153,.12)`, 네이비 `rgba(77,222,128,.12)`로 테마별 accent 색조에 맞춰 별도 조정됩니다.
-- 차트/데이터 팔레트(`ownerColors`, `CHART_PALETTE` 등, [2.2](#22-데이터-시각화-팔레트-scriptjs))는 테마와 무관하게 **고정된 HEX 값**을 그대로 씁니다 — 다크 배경에서도 채도가 죽지 않도록 처음부터 밝은 톤(파스텔~비비드)으로 선택되어 있어 별도 다크 변형이 필요 없습니다.
+- 차트/데이터 팔레트(`ownerColors`, `cfColors` 등, [2.2](#22-데이터-시각화-팔레트-scriptjs))는 테마와 무관하게 **고정된 HEX 값**을 그대로 씁니다 — 다크 배경에서도 채도가 죽지 않도록 처음부터 밝은 톤(파스텔~비비드)으로 선택되어 있어 별도 다크 변형이 필요 없습니다.
 - 시스템 다크모드(`prefers-color-scheme`)에 대한 자동 반응은 없습니다 — 테마는 오직 사용자가 사이드바에서 명시적으로 선택하며 `localStorage`에 저장됩니다.
 
 ---
@@ -300,7 +298,7 @@ Tailwind류의 명시적 스케일 토큰은 없고, 각 컴포넌트마다 `rem
 | 레이아웃 그리드 | `style.css:246`(`.layout`), `:296`(`.content-area`), `:1101-1103`(`.cb-scroll`/`.cb-panel`) |
 | 모바일 반응형 전면 규칙 | `style.css:1332-`(768px 이하 전용 블록) |
 | 폰트 로드 | `index.html:9` |
-| 소유주/차트 팔레트 | `script.js:233`(`ownerColors`), `:236`(`CHART_PALETTE`), `:1014`(`cfColors`), `:3255`(`catColors`) |
+| 소유주/차트 팔레트 | `script.js`의 `ownerColors`, `BENCH_OWNER_COLORS`, `cfColors` |
 | 사이드바/메뉴 마크업 | `index.html:34-107` |
 | 헤더(`#page-head`) 마크업 | `index.html:109-144` |
 | 테마 전환 로직 | `script.js`의 `setTheme()` / `isDarkTheme()` |
