@@ -87,11 +87,9 @@ function cbPct(r){ return (r>=0?'+':'') + (r*100).toFixed(Math.abs(r)<0.1?2:1) +
 // 통화 기호·소수 자릿수는 script.js 의 CURRENCY_META 하나만 따른다.
 // 예전에는 여기서도 USD/JPY 를 따로 분기해, 통화를 늘릴 때마다 한쪽만 고쳐지곤 했다.
 function cbFmtNative(n, cur){
-  const meta = (typeof curMeta==='function') ? curMeta(cur) : null;
-  const sym = meta ? meta.symbol : (cur==='USD'?'$':cur==='JPY'?'¥':'₩');
-  const dec = meta ? meta.cashDecimals : (cur==='USD'?2:0);
+  const meta = curMeta(cur);
   const loc = cur==='JPY' ? 'ja-JP' : cur==='KRW' ? 'ko-KR' : 'en-US';
-  return sym + Number(n).toLocaleString(loc,{minimumFractionDigits:0,maximumFractionDigits:dec});
+  return meta.symbol + Number(n).toLocaleString(loc,{minimumFractionDigits:0,maximumFractionDigits:meta.cashDecimals});
 }
 function cbEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function cbUpDn(v){ return 'color:' + (v>=0 ? 'var(--up)' : 'var(--dn)'); }
