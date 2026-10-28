@@ -437,6 +437,9 @@ def fetch_local_source(code, verbose=True):
                         os.unlink(tmp_path)
                     except OSError:
                         pass
+        elif verbose:
+            # 조용히 넘어가면 Actions 로그만 봐서는 등록한 주소가 살아 있는지 알 수 없다.
+            print('[file] %s: 다운로드 실패 → 커밋된 파일로 폴백 (%s)' % (code, url))
 
     path = os.path.join(SOURCE_DIR, spec.get('file') or '')
     if not os.path.isfile(path):

@@ -4,7 +4,9 @@
 그래서 운용사 공시 파일을 고정 자료로 넣었고, 여기서 그 파일이 실제로 무엇을 내놓는지
 숫자로 못 박는다 — 파일을 갱신하다 형식이 바뀌면 조용히 부분 목록으로 되돌아가지 않도록.
 """
+import contextlib
 import datetime
+import io
 import shutil
 import sys
 import tempfile
@@ -235,6 +237,16 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(len(holdings), 503)
         self.assertEqual(as_of, '2026-09-14')
         self.assertTrue(complete)
+
+    def test_download_failure_is_logged(self):
+        # 수집 로그만 보고도 등록한 주소가 죽었는지 알 수 있어야 한다.
+        out = io.StringIO()
+        with patch.object(etf_sources, 'load_index', return_value=self._spec_with_url()), \
+             patch.object(etf_sources, '_download_source', return_value=None), \
+             contextlib.redirect_stdout(out):
+            etf_sources.fetch_local_source('SPYM', verbose=True)
+        self.assertIn('SPYM: 다운로드 실패 → 커밋된 파일로 폴백', out.getvalue())
+        self.assertIn('https://example.invalid/spym.xlsx', out.getvalue())
 
     def test_downloaded_file_failing_validation_falls_back_to_committed_file(self):
         with patch.object(etf_sources, 'load_index', return_value=self._spec_with_url()), \
