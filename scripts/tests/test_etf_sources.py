@@ -20,6 +20,18 @@ import etf_sources
 
 SRC = Path(etf_sources.SOURCE_DIR)
 
+# index.json 에 운용사 다운로드 주소가 등록돼 있으므로, 테스트 중에는 실제 다운로드를 막고
+# 커밋된 파일만 읽게 한다(DownloadTests 는 안쪽 patch 로 응답을 직접 넣는다).
+_NO_NETWORK = patch.object(etf_sources, '_download_source', return_value=None)
+
+
+def setUpModule():
+    _NO_NETWORK.start()
+
+
+def tearDownModule():
+    _NO_NETWORK.stop()
+
 
 def weights(holdings):
     return {h['t']: h['w'] for h in holdings}
@@ -60,9 +72,9 @@ class SpdrTests(unittest.TestCase):
 
     def test_full_basket_with_real_date(self):
         self.assertEqual(len(self.h), 503)     # 508 데이터 행 - 비주식 4행 - 비중 0 자리표시자 1행
-        self.assertEqual(self.as_of, '2026-09-14')
+        self.assertEqual(self.as_of, '2026-10-28')
         self.assertTrue(self.full)
-        self.assertAlmostEqual(weights(self.h)['NVDA'], 7.7834, places=3)
+        self.assertAlmostEqual(weights(self.h)['NVDA'], 7.8044, places=3)
 
     def test_disclaimer_rows_do_not_become_holdings(self):
         # 행 수를 세어 자르지 않고 '비중이 숫자인 행'만 받는다.
@@ -85,24 +97,29 @@ class SpdrTests(unittest.TestCase):
             etf_sources.parse_spdr_xlsx(str(SRC / 'spym_holdings.xlsx'), 'SPY')
 
 
-class TemaSwapTests(unittest.TestCase):
-    """Tema DRAM — 기초자산이 명시된 스왑을 그 종목의 노출로 센다."""
+class RoundhillSwapTests(unittest.TestCase):
+    """Roundhill DRAM — 기초자산이 명시된 스왑을 그 종목의 노출로 센다.
+
+    커밋된 dram_holdings.csv 는 운용사 전 상품 CSV(Holdings_10292026)에서 DRAM 행만 남긴 것이다.
+    """
 
     def setUp(self):
         self.h, self.as_of, self.full, self.label = etf_sources.fetch_local_source('DRAM', verbose=False)
         self.w = weights(self.h)
 
-    def test_pdf_is_read_without_a_third_party_library(self):
-        self.assertEqual(self.as_of, '2026-09-15')
+    def test_csv_is_read_with_its_real_date(self):
+        # Date 열(10/30)은 다음 거래일이다 — 기준일은 그 직전 평일, 즉 파일명의 날짜(10/29)다.
+        self.assertEqual(self.as_of, '2026-10-29')
         self.assertTrue(self.full)
-        self.assertEqual(len(self.h), 15)
+        self.assertEqual(len(self.h), 13)
+        self.assertEqual(self.label, 'Roundhill')
 
     def test_named_underlying_swaps_merge_into_the_cash_equity_row(self):
         # 근거는 이름 추측이 아니라 운용사가 쓴 식별자다 —
         # 595112103(MU CUSIP) / 6771720(삼성 SEDOL) / 6450267(하이닉스 SEDOL).
-        self.assertAlmostEqual(self.w['MU'], 25.34, places=2)       # 현물 0.42 + 스왑 15.63+9.29
-        self.assertAlmostEqual(self.w['005930'], 25.02, places=2)   # 현물 19.03 + 스왑 5.99
-        self.assertAlmostEqual(self.w['000660'], 22.82, places=2)   # 현물 17.30 + 스왑 5.52
+        self.assertAlmostEqual(self.w['MU'], 27.10, places=2)       # 현물 2.92 + 스왑 12.99+11.19
+        self.assertAlmostEqual(self.w['005930'], 25.24, places=2)   # 현물 18.44 + 스왑 6.80
+        self.assertAlmostEqual(self.w['000660'], 22.23, places=2)   # 현물 16.17 + 스왑 6.06
 
     def test_unlisted_underlying_keeps_its_identifier(self):
         # CXMT 는 비상장이라 현물 행이 없다. 식별자를 코드로 남기면 어떤 직접 보유와도
@@ -111,17 +128,18 @@ class TemaSwapTests(unittest.TestCase):
         self.assertEqual([h['n'] for h in self.h if h['t'] == 'BTMTQT8'], ['CXMT CORPORATION'])
 
     def test_collateral_and_cash_are_excluded(self):
-        for absent in ('FGXXX', '912797VP9', '912797UK1', 'CASHKRW', 'KRW'):
+        for absent in ('FGXXX', '912797VP9', '912797VA2', 'CASHKRW', 'KRW', 'CNY', 'CASH&OTHER'):
             self.assertNotIn(absent, self.w, absent)
 
-    def test_gross_exposure_may_exceed_100_percent(self):
-        # 국채·MMF 담보 위에 스왑을 얹은 펀드라 총 노출이 순자산을 조금 넘는다.
+    def test_gross_exposure_is_not_renormalised(self):
+        # 국채·MMF 담보 위에 스왑을 얹은 펀드라 총 노출이 순자산 근처이거나 넘을 수 있다.
         # 100%로 재정규화하지 않는다 — 그게 사실이다.
-        self.assertAlmostEqual(sum(h['w'] for h in self.h), 100.19, places=2)
+        self.assertAlmostEqual(sum(h['w'] for h in self.h), 99.87, places=2)
 
     def test_exchange_suffixes_are_stripped_only_for_known_venues(self):
         self.assertIn('285A', self.w)          # '285A JP' → 직접 보유 285A.T 와 맞물린다
         self.assertIn('2408', self.w)          # '2408 TT'
+        self.assertIn('603986', self.w)        # '603986 C1'
         self.assertEqual(etf_sources.strip_exchange_suffix('005930 KS'), '005930')
         self.assertEqual(etf_sources.strip_exchange_suffix('FOO ZZ'), 'FOO ZZ')
         self.assertEqual(etf_sources.strip_exchange_suffix('NVDA'), 'NVDA')
@@ -129,6 +147,41 @@ class TemaSwapTests(unittest.TestCase):
     def test_share_classes_stay_separate(self):
         self.assertIn('005935', self.w)        # 삼성전자우
         self.assertIn('SKHY', self.w)          # SK하이닉스 미국 예탁증권
+
+    def _csv(self, body):
+        tmp = Path(tempfile.mkdtemp())
+        path = tmp / 'h.csv'
+        path.write_text('Date,Account,StockTicker,CUSIP,SecurityName,Shares,Price,MarketValue,Weightings\n'
+                        + body, encoding='utf-8')
+        self.addCleanup(shutil.rmtree, tmp)
+        return str(path)
+
+    def test_monday_effective_date_maps_back_to_friday(self):
+        path = self._csv('10/26/2026,DRAM,MU,595112103,Micron Technology Inc,1,1,1,99.00%\n'
+                         '10/26/2026,DRAM,Cash&Other,Cash&Other,Cash & Other,1,1,1,1.00%\n')
+        _, as_of, complete = etf_sources.parse_roundhill_csv(path, 'DRAM')
+        self.assertEqual(as_of, '2026-10-23')
+        self.assertTrue(complete)
+
+    def test_swp_rows_without_names_are_swaps_too(self):
+        # 편입 직후 파일에는 이름 없이 '6283601 SWP' 로만 적힌 스왑 행이 섞여 나온다.
+        path = self._csv('10/30/2026,DRAM,2408 TT,6283601,Nanya Technology Corp,1,1,1,2.00%\n'
+                         '10/30/2026,DRAM,6283601 SWP,6283601 SWP,6283601 SWP,1,1,1,0.21%\n'
+                         '10/30/2026,DRAM,Cash&Other,Cash&Other,Cash & Other,1,1,1,97.79%\n')
+        holdings, _, _ = etf_sources.parse_roundhill_csv(path, 'DRAM')
+        self.assertEqual(holdings, [('2408', 'Nanya Technology Corp', 2.0), ('2408', 'Nanya Technology Corp', 0.21)])
+
+    def test_other_funds_rows_are_rejected(self):
+        path = self._csv('10/30/2026,CHAT,MU,595112103,Micron Technology Inc,1,1,1,100.00%\n')
+        with self.assertRaises(ValueError):
+            etf_sources.parse_roundhill_csv(path, 'DRAM')
+
+    def test_html_not_found_page_is_rejected(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        (tmp / 'h.csv').write_text('<!doctype html>\n<html><body>404</body></html>\n', encoding='utf-8')
+        with self.assertRaises(ValueError):
+            etf_sources.parse_roundhill_csv(str(tmp / 'h.csv'), 'DRAM')
 
 
 class ChainPositionTests(unittest.TestCase):
@@ -139,7 +192,7 @@ class ChainPositionTests(unittest.TestCase):
         with patch.object(collector, 'fetch_proshares', return_value=([], None)), \
              patch.object(collector, 'fetch_invesco', return_value=([], None)), \
              patch.object(collector, 'fetch_stockanalysis', return_value=(full, '2026-09-16', True)):
-            _, _, as_of, source, complete = collector.collect_one('DRAM', 'Tema DRAM')
+            _, _, as_of, source, complete = collector.collect_one('DRAM', 'Roundhill Memory ETF')
         self.assertEqual(source, 'stockanalysis')
         self.assertEqual(as_of, '2026-09-16')
         self.assertTrue(complete)
@@ -203,8 +256,8 @@ class ValidationTests(unittest.TestCase):
 
 
 class DownloadTests(unittest.TestCase):
-    """url 이 등록된 소스는 매 수집 때 새 파일을 먼저 시도하고, 실패하면 커밋된
-    파일로 조용히 내려간다 — SPYM·DRAM 처럼 일일 공시라 고정 파일이 낡는 상품용.
+    """url 이 등록된 소스는 새 파일을 먼저 시도하고, 실패하면 커밋된 파일로 내려간다.
+    언제 시도할지는 수집기가 리밸런싱·공시 주기로 정한다(RebalanceScheduleTests).
 
     fetch_local_source 는 load_index() 를 인자 없이 호출하므로(내부에서 INDEX_PATH
     기본값을 쓴다), index.json 내용 자체를 바꿔 보려면 load_index 를 patch 하는 쪽이
@@ -225,7 +278,7 @@ class DownloadTests(unittest.TestCase):
             holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
         dl.assert_called_once_with('https://example.invalid/spym.xlsx')
         self.assertEqual(len(holdings), 503)
-        self.assertEqual(as_of, '2026-09-14')
+        self.assertEqual(as_of, '2026-10-28')
         self.assertTrue(complete)
         self.assertEqual(label, 'State Street')
 
@@ -235,7 +288,7 @@ class DownloadTests(unittest.TestCase):
             holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
         # 다운로드가 실패해도 커밋된 파일로 내려가 지금과 같은 결과를 낸다.
         self.assertEqual(len(holdings), 503)
-        self.assertEqual(as_of, '2026-09-14')
+        self.assertEqual(as_of, '2026-10-28')
         self.assertTrue(complete)
 
     def test_download_failure_is_logged(self):
@@ -254,13 +307,50 @@ class DownloadTests(unittest.TestCase):
             holdings, as_of, complete, label = etf_sources.fetch_local_source('SPYM', verbose=False)
         # 다운로드는 됐지만 파싱/검증에 실패 → 커밋된 파일로 내려간다.
         self.assertEqual(len(holdings), 503)
-        self.assertEqual(as_of, '2026-09-14')
+        self.assertEqual(as_of, '2026-10-28')
 
     def test_no_url_never_attempts_download(self):
-        # 등록에 url 이 없으면(지금의 1629·DRAM처럼) 다운로드 코드 경로를 아예 타지 않는다.
-        with patch.object(etf_sources, '_download_source') as dl:
-            etf_sources.fetch_local_source('1629', verbose=False)
+        # 등록에 url 이 없으면 다운로드 코드 경로를 아예 타지 않는다.
+        spec = self._spec_with_url()
+        del spec['SPYM']['url']
+        with patch.object(etf_sources, 'load_index', return_value=spec), \
+             patch.object(etf_sources, '_download_source') as dl:
+            etf_sources.fetch_local_source('SPYM', verbose=False)
         dl.assert_not_called()
+
+    def _dated_spec(self):
+        return {'DRAM': {
+            'file': 'dram_holdings.csv', 'format': 'roundhill_csv', 'label': 'Roundhill',
+            'expect': {'id': 'DRAM', 'minRows': 10}, 'urlLookbackDays': 7,
+            'url': 'https://example.invalid/Holdings_{MMDDYYYY}.csv',
+        }}
+
+    def test_dated_url_tries_weekdays_from_today_backwards(self):
+        urls = etf_sources.source_urls(self._dated_spec()['DRAM'], datetime.date(2026, 11, 2))  # 월요일
+        self.assertEqual([u.rsplit('_', 1)[1] for u in urls],
+                         ['11022026.csv', '10302026.csv', '10292026.csv', '10282026.csv', '10272026.csv'])
+
+    def test_dated_url_skips_not_found_pages_and_uses_the_newest_valid_file(self):
+        real = (SRC / 'dram_holdings.csv').read_bytes()
+        html = b'<!doctype html><html><body>not found</body></html>'
+        with patch.object(etf_sources, 'load_index', return_value=self._dated_spec()), \
+             patch.object(etf_sources, '_download_source', side_effect=[html, real]) as dl:
+            holdings, as_of, complete, label = etf_sources.fetch_local_source(
+                'DRAM', verbose=False, today=datetime.date(2026, 10, 30))
+        self.assertEqual([c.args[0].rsplit('_', 1)[1] for c in dl.call_args_list], ['10302026.csv', '10292026.csv'])
+        self.assertEqual(as_of, '2026-10-29')
+        self.assertTrue(complete)
+
+    def test_dated_url_falls_back_after_every_candidate_fails(self):
+        out = io.StringIO()
+        with patch.object(etf_sources, 'load_index', return_value=self._dated_spec()), \
+             patch.object(etf_sources, '_download_source', return_value=None) as dl, \
+             contextlib.redirect_stdout(out):
+            holdings, as_of, _, _ = etf_sources.fetch_local_source('DRAM', today=datetime.date(2026, 10, 30))
+        self.assertEqual(dl.call_count, 5)
+        self.assertEqual(as_of, '2026-10-29')   # 커밋된 파일
+        self.assertIn('DRAM: 다운로드 실패 → 커밋된 파일로 폴백', out.getvalue())
+        self.assertIn('주소 5개 시도', out.getvalue())
 
 
 class MonthlyDisclosureThresholdTests(unittest.TestCase):
@@ -291,6 +381,89 @@ class MonthlyDisclosureThresholdTests(unittest.TestCase):
         self.assertIsNotNone(m, 'etf-explorer.js에서 상수를 찾지 못함')
         self.assertEqual(collector.ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS, int(m.group(1)),
                           'etfQuality(JS)와 snapshot_stale(Python)의 임계값이 어긋나면 같은 화면이 서로 다른 기준으로 판정한다')
+
+
+class RebalanceScheduleTests(unittest.TestCase):
+    """리밸런싱·공시 주기가 등록된 상품은 매일 받지 않는다.
+
+    분기(SPYM·DRAM): 3·6·9·12월 셋째 금요일 + 7일과 전월 마지막 평일 중 늦은 날짜 이후 자료가
+    있으면 생략(분기 + 월 1회 점검). 월간 공시(1629): 전월 마지막 평일.
+    etf-explorer.js 의 etfQuarterlyRebalanceDue 와 같은 날짜표를 쓴다(test_etf_explorer.mjs).
+    """
+
+    D = staticmethod(datetime.date.fromisoformat)
+    QUARTERLY = {'rebalance': 'quarterly'}
+
+    def test_quarterly_rebalance_due_table(self):
+        table = {'2026-09-24': '2026-06-26', '2026-09-25': '2026-09-25', '2026-10-30': '2026-09-25',
+                 '2026-12-28': '2026-12-25', '2027-01-05': '2026-12-25'}
+        for today, due in table.items():
+            self.assertEqual(collector.quarterly_rebalance_due(self.D(today)).isoformat(), due, today)
+
+    def test_collection_due_adds_a_monthly_check(self):
+        due = lambda spec, today: collector.collection_due(spec, self.D(today)).isoformat()
+        self.assertEqual(due(self.QUARTERLY, '2026-10-30'), '2026-09-30')   # 9/25 리밸런싱보다 월말이 늦다
+        self.assertEqual(due(self.QUARTERLY, '2026-11-03'), '2026-10-30')   # 10/31 은 토요일
+        self.assertEqual(due(self.QUARTERLY, '2026-12-28'), '2026-12-25')   # 12월 리밸런싱이 월말 점검보다 늦다
+        self.assertEqual(due({'disclosure': 'monthly'}, '2026-10-30'), '2026-09-30')
+        self.assertIsNone(collector.collection_due({}, self.D('2026-10-30')), '주기가 없으면 매 평일 수집')
+
+    def test_only_a_complete_snapshot_after_the_due_date_skips_collection(self):
+        due = self.D('2026-09-30')
+        full = {'asOf': '2026-10-29', 'coverage': 'full', 'holdings': [{'t': 'A', 'n': 'A', 'w': 1}]}
+        self.assertTrue(collector.collection_not_due(full, due))
+        self.assertFalse(collector.collection_not_due({**full, 'asOf': '2026-09-14'}, due))
+        self.assertFalse(collector.collection_not_due({**full, 'coverage': 'partial'}, due))
+        self.assertFalse(collector.collection_not_due({**full, 'retained': True}, due))
+        self.assertFalse(collector.collection_not_due(None, due))
+        self.assertFalse(collector.collection_not_due(full, None))
+
+    def _run(self, previous, due):
+        holdings = [{'t': 'MU', 'n': 'Micron', 'w': 27.1}]
+        with patch.object(collector, 'collect_one',
+                          return_value=(holdings, 27.1, '2026-10-29', 'file:Roundhill', True)) as one, \
+             patch.object(collector, 'collection_due', return_value=self.D(due)), \
+             patch.object(collector, 'load_index', return_value={'DRAM': dict(self.QUARTERLY)}), \
+             patch.object(collector, 'load_previous', return_value={'etfs': previous}), \
+             contextlib.redirect_stdout(io.StringIO()):
+            doc = collector.run([('DRAM', 'Roundhill Memory ETF', None)], dry_run=True)
+        return doc, one
+
+    def test_run_keeps_a_current_snapshot_without_any_request(self):
+        prev = {'DRAM': {'name': 'Roundhill Memory ETF', 'asOf': '2026-10-29', 'source': 'file:Roundhill',
+                         'coverage': 'full', 'equityWeight': 27.1, 'retained': False, 'lastAttempt': '2026-10-30',
+                         'rebalance': 'quarterly', 'holdings': [{'t': 'MU', 'n': 'Micron', 'w': 27.1}],
+                         'history': [{'asOf': '2026-10-29', 'source': 'file:Roundhill', 'coverage': 'full',
+                                      'holdings': [{'t': 'MU', 'n': 'Micron', 'w': 27.1}]}]}}
+        doc, one = self._run(prev, '2026-09-30')
+        one.assert_not_called()
+        self.assertEqual(doc['etfs']['DRAM'], prev['DRAM'], '생략한 날은 스냅샷을 한 글자도 바꾸지 않는다')
+        self.assertFalse(doc['etfs']['DRAM']['retained'], '실패가 아니므로 이전 자료 유지 표시를 켜지 않는다')
+        self.assertEqual(doc['summary']['complete'], 1)
+
+    def test_run_collects_once_the_due_date_passes(self):
+        prev = {'DRAM': {'name': 'Roundhill Memory ETF', 'asOf': '2026-09-15', 'source': 'file:Tema',
+                         'coverage': 'full', 'holdings': [{'t': 'MU', 'n': 'Micron', 'w': 25.3}]}}
+        doc, one = self._run(prev, '2026-09-30')
+        one.assert_called_once()
+        self.assertEqual(doc['etfs']['DRAM']['asOf'], '2026-10-29')
+        self.assertEqual(doc['etfs']['DRAM']['rebalance'], 'quarterly', '프런트가 읽도록 주기를 옮겨 적는다')
+
+    def test_quarterly_snapshot_is_fresh_until_the_next_rebalance_settles(self):
+        entry = {'asOf': '2026-09-28', 'rebalance': 'quarterly', 'name': 'SPDR Portfolio S&P 500'}
+        stale = lambda e, today: collector.snapshot_stale(e, self.D(today))
+        self.assertFalse(stale(entry, '2026-12-24'), '리밸런싱 이후 자료면 석 달 가까이 지나도 지연이 아니다')
+        self.assertFalse(stale(entry, '2027-01-01'), '12월 기준일(12/25) 뒤 5평일까지는 기다린다')
+        self.assertTrue(stale(entry, '2027-01-04'), '12월 리밸런싱 뒤 새 자료가 없으면 지연')
+        self.assertTrue(stale({**entry, 'asOf': '2026-09-14'}, '2026-10-30'), '9월 리밸런싱 전 자료는 지연')
+        self.assertFalse(stale({**entry, 'asOf': '2026-09-14'}, '2026-09-30'), '기준일(9/25) 뒤 5평일 이내')
+
+    def test_constants_match_frontend_etfquality(self):
+        js = (Path(__file__).resolve().parents[2] / 'etf-explorer.js').read_text(encoding='utf-8')
+        for name in ('ETF_REBALANCE_SETTLE_DAYS', 'ETF_REBALANCE_GRACE_WEEKDAYS'):
+            m = __import__('re').search(name + r'=(\d+)', js)
+            self.assertIsNotNone(m, name)
+            self.assertEqual(getattr(collector, name), int(m.group(1)), name)
 
 
 class DisclosureStampingTests(unittest.TestCase):

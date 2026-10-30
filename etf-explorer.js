@@ -84,12 +84,30 @@ function etfBusinessAge(asOf,now=new Date()){
 // 통상적인 월간 주기(약 21평일)에 약 2주의 공시 유예를 더한 값. snapshot_stale
 // (scripts/collect_etf_holdings.py)이 이 값과 동일해야 한다 — 프런트가 권위다.
 const ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS=35;
+// 분기 리밸런싱 상품(entry.rebalance==='quarterly', SPYM·DRAM)은 나이가 아니라 '마지막 리밸런싱
+// 이후 자료인가'로 판정한다 — 리밸런싱 사이에는 구성이 거의 바뀌지 않아 몇 주 지난 자료도 맞다.
+// 3·6·9·12월 셋째 금요일 + 7일(DRAM 처럼 매매가 그 주에 걸쳐 끝남)을 기준일로 보고, 그 이전
+// 자료면 기준일로부터 5평일이 지났을 때만 지연이다. 거래소 휴일은 반영하지 않는다.
+// snapshot_stale(scripts/collect_etf_holdings.py)과 같은 값이어야 한다 — 프런트가 권위다.
+const ETF_REBALANCE_SETTLE_DAYS=7, ETF_REBALANCE_GRACE_WEEKDAYS=5;
+function etfQuarterlyRebalanceDue(now=new Date()){
+  const today=now.toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}),key=d=>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  const year=Number(today.slice(0,4));
+  for(const y of [year,year-1])for(const m of [12,9,6,3]){
+    const firstDay=new Date(Date.UTC(y,m-1,1)).getUTCDay(),thirdFriday=1+(5-firstDay+7)%7+14;
+    const due=key(new Date(Date.UTC(y,m-1,thirdFriday+ETF_REBALANCE_SETTLE_DAYS)));
+    if(due<=today)return due;
+  }
+  return null;
+}
 function etfQuality(entry,now=new Date()){
   const rows=etfStockRows(entry),active=entry?.active||/액티브|\bACTIVE\b/i.test(entry?.name||'');
   const age=etfBusinessAge(entry?.asOf,now);
   const limit=entry?.disclosure==='monthly'?ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS:(active?2:5);
   const full=entry?.coverage==='full'&&rows.length===entry?.holdings?.length;
-  const stale=age!==null&&age>limit, reasons=[];
+  const due=entry?.rebalance==='quarterly'?etfQuarterlyRebalanceDue(now):null, reasons=[];
+  const stale=age!==null&&(due?entry.asOf<due&&etfBusinessAge(due,now)>ETF_REBALANCE_GRACE_WEEKDAYS:age>limit);
   if(!rows.length)reasons.push('미조회');
   else if(!full)reasons.push('일부 자료');
   if(age===null)reasons.push('기준일 미확인');else if(stale)reasons.push('기준일 지연');

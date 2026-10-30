@@ -29,6 +29,21 @@ assert.equal(ctx.etfQuality(s([h('A',50)],{asOf:'2026-06-30',disclosure:'monthly
   '월간 공시 상품도 두 달 이상 갱신이 없으면 지연이다');
 // 최상위 const는 vm 컨텍스트 프로퍼티가 아니라 코드 문자열로 읽는다.
 assert.equal(vm.runInContext('ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS',ctx),35);
+
+// 분기 리밸런싱 상품(rebalance:'quarterly', SPYM·DRAM)은 나이가 아니라 '마지막 리밸런싱 이후
+// 자료인가'로 본다. 기준일 = 3·6·9·12월 셋째 금요일 + 7일 — test_etf_sources.py 와 같은 날짜표다.
+const kst=d=>new Date(d+'T03:00:00Z');
+for(const [today,due] of [['2026-09-24','2026-06-26'],['2026-09-25','2026-09-25'],['2026-10-30','2026-09-25'],
+  ['2026-12-28','2026-12-25'],['2027-01-05','2026-12-25']])
+  assert.equal(ctx.etfQuarterlyRebalanceDue(kst(today)),due,today);
+const quarterly=extra=>s([h('A',50)],{rebalance:'quarterly',asOf:'2026-09-28',...extra});
+assert.equal(ctx.etfQuality(quarterly(),kst('2026-12-24')).stale,false,'리밸런싱 이후 자료면 석 달 가까이 지나도 지연이 아니다');
+assert.equal(ctx.etfQuality(quarterly(),kst('2027-01-01')).stale,false,'12월 기준일 뒤 5평일까지는 기다린다');
+assert.equal(ctx.etfQuality(quarterly(),kst('2027-01-04')).stale,true,'12월 리밸런싱 뒤 새 자료가 없으면 지연');
+assert.equal(ctx.etfQuality(quarterly({asOf:'2026-09-14'}),kst('2026-10-30')).stale,true,'9월 리밸런싱 전 자료는 지연');
+assert.equal(ctx.etfQuality(quarterly({asOf:'2026-09-14'}),kst('2026-09-30')).stale,false,'기준일 뒤 5평일 이내');
+assert.equal(vm.runInContext('ETF_REBALANCE_SETTLE_DAYS',ctx),7);
+assert.equal(vm.runInContext('ETF_REBALANCE_GRACE_WEEKDAYS',ctx),5);
 const old=s([h('A',30),h('B',20)]),current=s([h('A',35),h('C',10)],{asOf:'2026-09-08'});
 let d=ctx.etfCompareSnapshots(current,old);
 assert.equal(d.complete,true);assert.equal(d.rows.find(x=>x.t==='B').kind,'편출');assert.equal(d.rows.find(x=>x.t==='C').kind,'편입');

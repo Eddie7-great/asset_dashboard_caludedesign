@@ -28,7 +28,7 @@
 - 주식 비중 합계가 **100%를 넘으면 그 사실을 숫자 옆에서 설명한다**(담보 위에 기초자산이 명시된 스왑을 얹은 구조). 자르거나 재정규화하지 않는다 — `etfWeightSum` 이 그 합의 단일 출처다.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
 - Each ETF retains up to 30 source/date snapshots. Same-date corrections replace that observation; an older response cannot overwrite a newer dated snapshot. Failed retrieval preserves the prior valid data and date with retained=true. Only full lists from the same source prove entries/exits; partial lists compare shared tickers only. Weight changes include price effects and never imply actual trades.
-- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
+- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Issuer-file ETFs follow their own cycle instead: monthly disclosure (1629) uses 35 weekdays, quarterly rebalance (SPYM·DRAM) is delayed only when the snapshot predates the latest rebalance settle date by more than 5 weekdays — see the ETF 구성종목 수집 section. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
 - ETF exploration uses a stable, selectable horizontal weight chart; never replace it asynchronously with 3D blocks. Korean constituents display company names. **해외 종목은 한글 병기가 필요 없다** — `etfIdentityHtml`이 티커를 `<b>` 주값으로 쓰고 회사명은 `title` 속성에만 남긴다(`etfIdentity(...).kr`로 분기). Neighboring desktop cards stretch to equal height, and long lists retain compact pagination.
 - **구성종목 표의 `편입`·`편출` 라벨은 남기고 `비중 증가`·`비중 감소` 라벨은 지운다.** 옆의 %p 값이 증감을 이미 말해 주지만, 신규 편입·편출은 숫자만으로 구분되지 않는다(`etfCompareSnapshots`의 `kind`).
 - **툴바의 보유 수량·평균 매입단가·포트 비중은 `etfFundStats`/`etfPortfolioPct`(순수 함수, etf-explorer.js) 하나씩만 쓴다.** 평균 매입단가는 여러 계좌를 KRW 로 합친 `Σ매입금액/Σ수량`이고, 포트 비중의 분모는 `etfExposureHtml` 각주와 같은 정의(그 소유주의 주식·ETF·가상화폐·금·현금 합계, 부동산·부채 제외)다 — 새 분모를 만들지 않는다.
@@ -102,21 +102,31 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   공개 조회 소스가 상위 N개만 주는 해외 ETF(1629·SPYM·DRAM)를 위해 운용사 공시 파일을 리포에 커밋해 쓴다.
   순서를 바꿔 GitHub Actions 에서 실제로 돌려 봐도 셋 다 그대로였고(run 35073894717), funetf.co.kr 은
   국내 상장 ETF 카탈로그라 해당 없다. **표준 라이브러리만 쓴다** — xlsx 는 `zipfile`+`ElementTree`,
-  PDF 는 콘텐츠 스트림의 `BT`/`Td`/`Tj` 좌표를 직접 읽는다(openpyxl·pypdf 를 넣지 않는다).
+  CSV 는 `csv` 모듈로 읽는다(openpyxl 을 넣지 않는다).
   - 등록은 `data/etf_sources/index.json`. **검증에 하나라도 실패하면 조용히 기존 체인으로 폴백한다**
     (식별자 불일치 / 기준일 파싱 실패 / 헤더 불일치 / 비중 합계가 97~103% 밖 / 기대 행 수 미달).
   - `coverage='full'` 의 근거는 **파일의 비중이 순자산 100%를 설명한다는 것**이다 — 상위 N개 목록은
     이 밴드에 들어올 수 없다. 출처가 '파일'이라는 사실 자체는 근거가 아니다.
-  - PDF 의 `BT`…`ET` 블록을 정규식으로 찾지 않는다. 본문에 `DRAM ETF Holdings` 같은 문자열이 있으면
-    ` ET` 가 먼저 걸려 블록이 잘린다(실제로 표지 제목이 통째로 사라졌다). 줄 단위로 읽고 괄호 깊이를 센다.
   - 반올림 후 `0.0000%` 인 행은 버린다 — SPDR 표의 `CONTRA …`(합병 대기 자리표시자)가 여기 해당한다.
   - `005930 KS` 같은 Bloomberg 접미사는 **알려진 거래소 목록에 한해서만** 뗀다. 공백 뒤를 무조건 버리지 않는다.
-  - **한계: 파일이 고정이라 기준일이 멈춘다.** `etfQuality` 기준을 넘기면 '기준일 지연'으로 표시되는데
-    그게 사실 그대로다. 갱신은 같은 경로에 새 파일을 덮어쓰고 `expect` 를 맞추면 된다.
-    등록에 `url` 을 채우면 `fetch_local_source` 가 매 수집 때 그 주소에서 새 파일을 먼저 받아
-    검증하고, 실패(네트워크·형식·검증 모두 포함)하면 조용히 커밋된 파일로 내려간다 — 일일
-    공시 상품(SPYM·DRAM)은 이 경로로 고정 기준일 문제 자체를 없앨 수 있다. `url` 없이 두면
-    지금처럼 커밋된 파일만 쓴다(동작 변화 없음).
+  - **세 상품 모두 운용사 다운로드 주소(`url`)가 등록돼 있다.** `fetch_local_source` 가 그 주소의 새
+    파일을 먼저 받아 커밋된 파일과 **같은 검증**을 거치고, 실패(네트워크·형식·검증)하면 커밋된 파일로
+    내려가며 그 사실을 로그(`다운로드 실패 → 커밋된 파일로 폴백`)에 남긴다. SPYM 은 State Street 의
+    `holdings-daily-us-en-spym.xlsx`, 1629 는 노무라(`www.nomura-am.co.jp`)의 `1629_brd_data.xlsx`.
+    **DRAM 의 운용사는 Roundhill 이다**(예전 등록의 'Tema' 는 오기). 사이트의 보유명세 PDF 는 브라우저가
+    즉석 생성하는 것이라 고정 주소가 없고, 원본은 파일명에 기준일이 들어간 전 상품 CSV
+    (`FilepointRoundhill.40RU.RU_Holdings_MMDDYYYY.csv`)다 — 주소의 `{MMDDYYYY}` 를 오늘부터
+    `urlLookbackDays` 일 거슬러 평일로 바꿔 차례로 시도하고(사이트도 그렇게 찾는다), 아직 없는 날짜는
+    HTML 404 페이지라 검증에서 걸러진다. CSV 의 `Date` 열은 **다음 거래일**이라 기준일은 그 직전 평일이다.
+  - **매일 받지 않는다 — 리밸런싱·공시 주기에 맞춘다.** `index.json` 의 `rebalance:'quarterly'`(SPYM·DRAM)는
+    3·6·9·12월 셋째 금요일 주간에 리밸런싱하는 상품이다(S&P 500 정기 변경일; DRAM 은 투자설명서상
+    "최소 분기 1회·그 사이 매매 안 함"이고 2026-06·09 실제 교체가 셋째 금요일 직후였다).
+    `collect_etf_holdings.py` 의 `collection_due` 가 기준일을 정하고 `run()` 은 그 이후의 완전한 자료
+    (coverage full·retained 아님)가 이미 있으면 **네트워크 요청 없이** 스냅샷을 그대로 둔다 — 실패가
+    아니므로 retained 를 켜지 않는다. 분기 상품의 기준일은 (셋째 금요일 + 7일)과 전월 마지막 평일 중
+    늦은 날짜다: +7일은 매매가 그 주에 걸쳐 끝나는 경우(DRAM 2026-06-22·24), 월말은 리밸런싱 사이의
+    수시 편입(DRAM 2026-07 CXMT 스왑 4.7% 등)을 한 달 안에 담는 **월 1회 점검**이다. 월간 공시 상품은
+    전월 마지막 평일. 그 외 ETF(국내·QQQ·QLD 등)는 지금처럼 매 평일 수집한다.
   - **월 1회만 공시하는 상품은 `disclosure:'monthly'` 로 등록한다.** 1629(NEXT FUNDS)처럼 월말에만
     구성종목을 공시하는 상품을 평일 5일 기준으로 재면 매달 대부분의 날짜가 '지연'이 된다 — 파일을
     갱신해도 구조적으로 반복된다. `scripts/collect_etf_holdings.py` 의 `run()` 이 `index.json` 의
@@ -125,14 +135,20 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
     (collect_etf_holdings.py) 이 그 항목엔 5평일 대신 `ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS`
     (35평일 — 월간 주기 약 21평일 + 공시 유예 약 2주)를 쓴다. **두 상수는 반드시 같은 값이어야
     한다** — 프런트가 권위이고 Python 쪽이 이를 따라간다.
-- **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `parse_tema_pdf` 안에서만.**
+  - **분기 리밸런싱 상품의 신선도는 나이가 아니라 '마지막 리밸런싱 이후 자료인가'다.** `run()` 이
+    `rebalance` 도 엔트리에 옮겨 적고, `etfQuality`(`etfQuarterlyRebalanceDue`)와 `snapshot_stale`
+    (`quarterly_rebalance_due`)은 `asOf` 가 (셋째 금요일 + 7일) 이전이고 그 날로부터 5평일이 지났을 때만
+    지연으로 본다(월 1회 점검 실패만으로는 지연이 아니다). `ETF_REBALANCE_SETTLE_DAYS`(7)·
+    `ETF_REBALANCE_GRACE_WEEKDAYS`(5)는 두 파일에서 같은 값이어야 하고, 두 테스트가 같은 날짜표로 고정한다.
+- **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `_merge_named_swaps`(Roundhill DRAM 파서 `parse_roundhill_csv`) 안에서만.**
   QLD 금지 규칙은 스왑 바스켓 내용을 **알 수 없어서** 둔 것이라 여기에 해당하지 않는다. 근거는 이름
   추측이 아니라 운용사가 쓴 식별자다 — 스왑 행 Identifier 의 첫 토큰이 기초자산의 CUSIP/SEDOL 이고
   그 값이 **같은 표의 현물 주식 행 Identifier 와 일치**한다(`595112103`→MU, `6771720`→005930,
   `6450267`→000660). 현물 행에 없는 기초자산(비상장 CXMT `BTMTQT8`)은 식별자를 코드로 남긴다 —
   어떤 직접 보유와도 매칭되지 않으므로 허위 룩스루를 만들 수 없다.
+  편입 직후 파일에는 이름 없이 `6283601 SWP` 로만 적힌 스왑 행도 섞여 나와 `SWP` 도 스왑으로 본다.
   `NON_EQUITY_NAME_RE` 의 `스왑|SWAP` 제외는 그대로 두고, 다른 어댑터로 넓히지 않는다.
-  **총 노출이 100%를 넘을 수 있다**(DRAM 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
+  **총 노출이 100%를 넘을 수 있다**(DRAM 2026-09-15 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
   재정규화하지 않는다.
 - `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,
   **비중은 100%로 재정규화하지 않는다**(ETF 순자산 대비 원값 유지 → `equityWeight` 로 주식 비중 합 노출).
