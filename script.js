@@ -1409,6 +1409,31 @@ function toggleCfMode() {
   toggleAtCycleFields();
 }
 
+// 입력 폼 펼침/접힘 — 폼은 기본으로 접혀 있고, 버튼을 누르거나 내역을 수정할 때만 편다.
+// 저장·편집 로직(submitCfEntry/editCF/resetCfForm)은 그대로이며 여기서는 보이기만 바꾼다.
+function cfShowEntry(){
+  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
+  if(body) body.hidden=false;
+  if(close) close.hidden=false;
+}
+function cfOpenEntry(kind){
+  if (isMobileLayout()) return; // 모바일은 조회 전용
+  if (typeof resetCfForm==='function') resetCfForm();
+  const auto=kind==='auto';
+  const radio=document.getElementById(auto?'cfmode-auto':'cfmode-oneshot');
+  if(radio && !radio.checked){ radio.checked=true; toggleCfMode(); }
+  const typeEl=document.getElementById(auto?'at-type':'cf-type');
+  if(typeEl && !auto) typeEl.value=kind==='in'?'수입':'지출';
+  cfShowEntry();
+  document.getElementById(auto?'at-amt':'cf-amt')?.focus();
+}
+function cfCloseEntry(){
+  if (typeof resetCfForm==='function') resetCfForm();
+  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
+  if(body) body.hidden=true;
+  if(close) close.hidden=true;
+}
+
 function submitCfEntry() {
   if (isMobileLayout()) return; // 모바일은 조회 전용
 
@@ -1765,7 +1790,6 @@ function applyCommaFormatting(inputEl) {
 // UI 상태
 // =============================================
 let currentOwner = '전체';
-window.portToggleState = {'주식':false,'가상화폐':false,'금':false,'현금':false};
 window.cfTrendDetails = {in:[],out:[]};
 
 const now = new Date();
@@ -1776,17 +1800,32 @@ if (sideDate) sideDate.innerText = `${now.getFullYear()}.${String(now.getMonth()
 // =============================================
 // 테마
 // =============================================
-// 3-테마: 'light' | 'dark' | 'navy' (기본: light)
-const THEMES = ['light','dark','navy'];
+// 3-테마: 'default'(밝은 본문 + 진한 사이드바) | 'light'(사이드바까지 밝게) | 'dark'
+// 'default'만 data-theme 속성이 없다 — :root 토큰이 곧 기본 테마다.
+const THEMES = ['default','light','dark'];
+// 저장된 테마를 읽는다. 예전 판(라이트/다크/네이비, 라이트=속성 없음)의 저장값은
+// 한 번만 새 구성으로 옮긴다: 라이트·미저장 → 기본, 네이비 → 다크.
+function _savedTheme(){
+  try{
+    let t=localStorage.getItem('theme');
+    if(localStorage.getItem('themeV')!=='2'){
+      t = t==='dark'||t==='navy' ? 'dark' : 'default';
+      localStorage.setItem('theme',t);
+      localStorage.setItem('themeV','2');
+    }
+    return THEMES.includes(t)?t:'default';
+  }catch(e){ return 'default'; }
+}
+function _applyThemeAttr(mode){
+  if (mode === 'default') document.body.removeAttribute('data-theme');
+  else document.body.setAttribute('data-theme', mode);
+}
 function isDarkTheme() {
-  const t = document.body.getAttribute('data-theme');
-  return t === 'dark' || t === 'navy';
+  return document.body.getAttribute('data-theme') === 'dark';
 }
 function setTheme(mode) {
-  if (!THEMES.includes(mode)) mode = 'light';
-  const body = document.body;
-  if (mode === 'light') body.removeAttribute('data-theme');
-  else body.setAttribute('data-theme', mode);
+  if (!THEMES.includes(mode)) mode = 'default';
+  _applyThemeAttr(mode);
   // 세그먼트 컨트롤 활성 표시
   THEMES.forEach(t => {
     const b = document.getElementById('theme-seg-' + t);
@@ -1804,13 +1843,11 @@ function setTheme(mode) {
   // 현금 흐름 차트는 렌더 시점에 CSS 토큰을 hex로 해석해 쓰므로 테마 변경 시 재렌더
   if (activeView && activeView.id === 'view-cashflow') { try{ renderCashFlow(); }catch(e){} }
 }
-// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(기본 라이트) 반영.
+// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(없으면 기본) 반영.
 // (이 시점엔 파일 후반부 let 변수들이 TDZ 상태라 setTheme→applyChartTheme 전체 호출은 금지)
 try{
-  const _t0=localStorage.getItem('theme');
-  const _m0=THEMES.includes(_t0)?_t0:'light';
-  if(_m0==='light') document.body.removeAttribute('data-theme');
-  else document.body.setAttribute('data-theme',_m0);
+  const _m0=_savedTheme();
+  _applyThemeAttr(_m0);
   THEMES.forEach(t=>{const b=document.getElementById('theme-seg-'+t); if(b){const selected=t===_m0;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',selected?'true':'false');}});
 }catch(e){}
 
@@ -3068,6 +3105,30 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   el.innerHTML='';el.appendChild(input);input.focus();input.select();
 }
 
+// 보유 목록 화면 상태 — 자산군 탭·검색·시세 미조회만 보기. 메모리에만 두고 저장하지 않는다.
+let _holdingsTab='주식', _holdingsQ='', _holdingsStaleOnly=false;
+const HOLDINGS_TABS=['주식','가상화폐','금','현금'];
+// 표시 필터 — 행을 숨길 뿐 그룹 합계·숫자 카드 계산에는 영향을 주지 않는다.
+function holdingsRowMatches(i){
+  if(_holdingsStaleOnly && !i._priceStale) return false;
+  const q=(_holdingsQ||'').trim().toLowerCase();
+  if(!q) return true;
+  return [i.name,i.tkr,i.broker,i.acc,i.owner].some(v=>String(v||'').toLowerCase().includes(q));
+}
+function setHoldingsTab(g){
+  if(!HOLDINGS_TABS.includes(g)) return;
+  _holdingsTab=g; renderPortfolio(currentOwner);
+  document.querySelector(`#portfolio-tables .holdings-tab[data-grp="${g}"]`)?.focus();
+}
+function holdingsSearch(v){
+  _holdingsQ=String(v||''); renderPortfolio(currentOwner);
+  const inp=document.getElementById('holdings-search');
+  if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+function holdingsToggleStale(on){
+  _holdingsStaleOnly=!!on; renderPortfolio(currentOwner);
+  document.getElementById('holdings-stale-only')?.focus();
+}
 function renderPortfolio(owner) {
   const items=getFilteredAssets(owner);
   const groups={'주식':[],'가상화폐':[],'금':[],'현금':[]};
@@ -3081,13 +3142,14 @@ function renderPortfolio(owner) {
   });
   stockCombos.sort((a,b)=>{const br=a.broker.localeCompare(b.broker);return br!==0?br:a.acc.localeCompare(b.acc);});
   if(_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
-  const brokerFilterHtml=`<span class="holdings-broker-filter-inline" onclick="event.stopPropagation()" style="align-items:center;gap:6px;margin-left:10px">`
-    +`<span style="font-size:.72rem;color:var(--t3);font-weight:600">증권사·계좌 필터</span>`
-    +`<select id="holdings-broker-filter" class="form-input" style="width:auto;padding:3px 8px;font-size:.75rem;height:auto" onchange="applyHoldingsBrokerFilter()">`
+  const brokerFilterHtml=`<label class="holdings-broker-filter-inline">`
+    +`<span>계좌</span>`
+    +`<select id="holdings-broker-filter" class="form-input" onchange="applyHoldingsBrokerFilter()">`
     +`<option value="전체"${_holdingsBrokerFilter==='전체'?' selected':''}>전체</option>`
     +stockCombos.map(c=>`<option value="${holdingsEsc(c.key)}"${_holdingsBrokerFilter===c.key?' selected':''}>${holdingsEsc(c.broker||'(미지정)')} / ${holdingsEsc(c.acc||'(미지정)')}</option>`).join('')
-    +`</select></span>`;
+    +`</select></label>`;
   let html='',totalPfolioValue=0;
+  const grpStats={};
   const showOwner=owner==='전체';
   // [2] 가상화폐 포함 전체 원화 환산
   items.forEach(i=>{
@@ -3117,6 +3179,7 @@ function renderPortfolio(owner) {
     if(grpItems.length===0){rowsHtml=`<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--t3)">등록된 자산 내역이 없습니다.</td></tr>`;}
     else{
       grpItems.forEach(i=>{
+        const _rowStart=rowsHtml.length;
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${holdingsEsc(i.owner||'미지정')}</span></td>`:'';
         const brokerCell=getHoldingsBrokerCellHtml(i);
@@ -3191,7 +3254,7 @@ function renderPortfolio(owner) {
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';
           const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString()}</button> <span style="font-size:.65rem;color:var(--t3)">주</span>`;
           const fAvg=`${sym}<button type="button" class="editable-val editable-val-button" aria-label="평균단가 수정" onclick="makeEditable(this,'','','avgP',false,${pIdx})">${(Number(i.avgP)||0).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})}</button>`;
-          const staleTag=i._priceStale?`<span title="현재가 조회 실패 - 평균단가 기준" style="font-size:.6rem;background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 4px;border-radius:4px;margin-left:4px">미조회</span>`:'';
+          const staleTag=i._priceStale?`<span class="price-stale-tag" title="현재가 조회 실패 - 평균단가 기준" style="font-size:.6rem;background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 4px;border-radius:4px;margin-left:4px">미조회</span>`:'';
           const fCurP=sym+(Number(i.curP)||0).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})+staleTag;
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
@@ -3201,8 +3264,12 @@ function renderPortfolio(owner) {
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
           rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
+        // 검색·시세 미조회 필터는 행만 숨긴다(합계는 위에서 이미 더했다). 현금은 이 시점에 _priceStale 이 정해진다.
+        if(!holdingsRowMatches(i)) rowsHtml=rowsHtml.slice(0,_rowStart);
       });
+      if(!rowsHtml) rowsHtml=`<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--t3)">검색 조건에 맞는 자산이 없습니다.</td></tr>`;
     }
+    grpStats[grpName]={count:grpItems.length,total:grpTotal,invest:grpInvest,known:grpKnownTotal,knownCount:grpKnownCount};
     let grpProfit=grpKnownTotal-grpInvest,grpProfitPct=grpInvest>0?(grpProfit/grpInvest)*100:0;
     let gCls=grpProfit>0?'c-up':(grpProfit<0?'c-dn':''),gSign=grpProfit>0?'+':'';
     if(grpName==='현금'||grpItems.length===0){gCls='';gSign='';}
@@ -3217,11 +3284,6 @@ function renderPortfolio(owner) {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
       theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가금액(KRW)')}${portfolioSortHeader(grpName,'profit','수익금(KRW)')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     }
-    let displayState=window.portToggleState[grpName]?'block':'none';
-    const arrowTransform=displayState==='block'?'transform:rotate(180deg);':'';
-    const inlineBrokerFilter=grpName==='주식'
-      ? brokerFilterHtml.replace('style="align-items:', `style="display:${displayState==='block'?'inline-flex':'none'};align-items:`)
-      : '';
     // 주식/가상화폐/금 표 컬럼 폭 동일화: 동일 colgroup + table-layout:fixed → 세 표가 세로로 줄 맞음
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
@@ -3235,9 +3297,32 @@ function renderPortfolio(owner) {
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
     const grpProfitText=grpItems.length===0||grpName==='현금'?'-':(grpKnownCount===0?'산정 제외':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)');
-    html+=`<div class="pt-group"><div class="pt-group-header f-between" role="button" tabindex="0" style="flex-wrap:wrap;gap:12px" onclick="const b=this.nextElementSibling;const isHidden=b.style.display==='none';b.style.display=isHidden?'block':'none';window.portToggleState['${grpName}']=isHidden;const f=this.querySelector('.holdings-broker-filter-inline');if(f)f.style.display=isHidden?'inline-flex':'none';const arr=this.querySelector('.pt-arrow');if(arr)arr.style.transform=isHidden?'rotate(180deg)':'';"><div class="pt-group-title f-row">${grpName}<span style="font-size:.75rem;color:var(--t3);font-weight:normal;margin-left:6px">(${grpItems.length}종목)</span>${inlineBrokerFilter}</div><div class="pt-group-stats f-row" style="gap:24px;flex-wrap:wrap;justify-content:flex-end"><span style="color:var(--t2)">총 평가: <strong style="color:var(--t1)">₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익: ${grpProfitText}</span><button class="api-btn" style="padding:4px 10px;font-size:.7rem;" onclick="event.stopPropagation();openAddModal('${grpName}')">＋ 추가</button><span class="pt-arrow" style="font-size:.8rem;color:var(--t3);transition:transform .2s;${arrowTransform}">▼</span></div></div><div class="pt-table-wrap" style="display:${displayState}"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></div>`;
+    // 자산군 탭 — 지금 탭의 표만 보인다. 머리 줄은 더 이상 접고 펴지 않는다(탭이 그 역할).
+    html+=`<section class="pt-group holdings-group" id="holdings-panel-${grpName}" role="tabpanel" aria-labelledby="holdings-tab-${grpName}"${grpName===_holdingsTab?'':' hidden'}><div class="pt-group-header f-between"><div class="pt-group-title f-row">${grpName}<span class="holdings-group-count">${grpItems.length}종목</span></div><div class="pt-group-stats f-row"><span>총 평가 <strong>₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익 ${grpProfitText}</span></div></div><div class="pt-table-wrap"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></section>`;
   });
-  document.getElementById('portfolio-tables').innerHTML=html;
+  // 숫자 카드 — 위 그룹 합계를 더할 뿐 새 계산은 없다. 현금은 평가액에만 들어가고 손익에서 빠진다.
+  const sumOf=k=>HOLDINGS_TABS.reduce((t,g)=>t+(grpStats[g]?.[k]||0),0);
+  const investNonCash=HOLDINGS_TABS.filter(g=>g!=='현금').reduce((t,g)=>t+(grpStats[g]?.invest||0),0);
+  const knownNonCash=HOLDINGS_TABS.filter(g=>g!=='현금').reduce((t,g)=>t+(grpStats[g]?.known||0),0);
+  const profitAll=knownNonCash-investNonCash;
+  const staleCount=items.filter(i=>i._priceStale).length;
+  const money=v=>'₩'+Math.round(Math.abs(v)).toLocaleString();
+  const kpis=`<div class="holdings-kpis">`
+    +`<div class="holdings-kpi"><span>평가액</span><b>${money(sumOf('total'))}</b><small>${items.length}개 자산</small></div>`
+    +`<div class="holdings-kpi"><span>매입금액</span><b>${money(investNonCash)}</b><small>현금 제외 · 평균단가 × 수량</small></div>`
+    +`<div class="holdings-kpi"><span>평가손익</span><b class="${profitAll>0?'c-up':profitAll<0?'c-dn':''}">${profitAll<0?'-':profitAll>0?'+':''}${money(profitAll)}</b><small>${investNonCash>0?(profitAll>=0?'+':'')+(profitAll/investNonCash*100).toFixed(2)+'% · 매입금액 대비':'매입금액 없음'}</small></div>`
+    +`<div class="holdings-kpi${staleCount?' is-warn':''}"><span>시세 미조회</span><b>${staleCount}개</b><small>${staleCount?'직전 값으로 계산 중':'모두 수신'}</small></div>`
+    +`</div>`;
+  const tabs=`<div class="holdings-tabs" role="tablist" aria-label="자산군">`
+    +HOLDINGS_TABS.map(g=>`<button type="button" role="tab" class="holdings-tab" id="holdings-tab-${g}" data-grp="${g}" aria-controls="holdings-panel-${g}" aria-selected="${g===_holdingsTab}" tabindex="${g===_holdingsTab?0:-1}" onclick="setHoldingsTab('${g}')">${g}<span>${grpStats[g]?.count||0}</span></button>`).join('')
+    +`</div>`;
+  const toolbar=`<div class="holdings-toolbar">`
+    +`<label class="holdings-search"><span class="sr-only">보유 자산 검색</span><input type="search" id="holdings-search" placeholder="종목명·티커·계좌 검색" value="${holdingsEsc(_holdingsQ)}" oninput="holdingsSearch(this.value)"></label>`
+    +(_holdingsTab==='주식'?brokerFilterHtml:'')
+    +`<label class="holdings-stale-toggle"><input type="checkbox" id="holdings-stale-only"${_holdingsStaleOnly?' checked':''} onchange="holdingsToggleStale(this.checked)">시세 미조회만</label>`
+    +`<button type="button" class="holdings-add-btn" onclick="openAddModal('${_holdingsTab}')">＋ ${_holdingsTab} 추가</button>`
+    +`</div>`;
+  document.getElementById('portfolio-tables').innerHTML=kpis+`<div class="holdings-card">${tabs}${toolbar}${html}</div>`;
   if(typeof cbAssetMobile==='function'&&isMobileLayout())cbAssetMobile();
 }
 
@@ -3930,6 +4015,7 @@ async function deleteCF(idx){
 }
 function editCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
+  cfShowEntry(); // 접힌 폼을 펴서 수정 값을 보여 준다
 
   const item=cfData[idx];document.getElementById('cf-edit-index').value=idx;
   document.getElementById('cf-date').value=item.date;document.getElementById('cf-type').value=item.type;
@@ -4982,11 +5068,8 @@ function initDashboard(){
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
 
-  // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 라이트 기본
-  try{
-    const savedTheme=localStorage.getItem('theme');
-    setTheme(THEMES.includes(savedTheme) ? savedTheme : 'light');
-  }catch(e){ setTheme('light'); }
+  // 테마 복원 — 3테마 (default/light/dark), 저장값 없으면 기본
+  setTheme(_savedTheme());
 
   // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
   ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
@@ -5196,15 +5279,14 @@ const _SECTOR_HUES = {
 // sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
 const _BUBBLE_THEME_TONES = {
   light: { sectorSat:40, sectorLight:68, leafSat:32, leafSatRange:11, leafLight:72, leafLightRange:11 },
-  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 },
-  navy:  { sectorSat:50, sectorLight:64, leafSat:45, leafSatRange:12, leafLight:60, leafLightRange:10 }
+  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 }
 };
+// 기본·라이트는 본문이 같으므로 같은 톤을 쓴다.
 function _bubbleThemeKey(){
-  const theme=document.body.getAttribute('data-theme');
-  return theme==='dark'?'dark':theme==='navy'?'navy':'light';
+  return document.body.getAttribute('data-theme')==='dark'?'dark':'light';
 }
 function _bubbleSectorColor(sector){
-  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat,tone.sectorLight);
 }
@@ -5218,7 +5300,7 @@ const _BUBBLE_OWNER_SECTORS = {
   '아버지': 'Communications Services'
 };
 function _bubbleOwnerColor(owner){
-  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
   const sector=_BUBBLE_OWNER_SECTORS[owner]||'Other';
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
@@ -5263,7 +5345,7 @@ function _bubbleLeafColor(sector,key){
   const hash=_bubbleHash(`${sector}::${key}`);
   const base=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   const theme=_bubbleThemeKey();
-  const tone=_BUBBLE_THEME_TONES[theme]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[theme]||_BUBBLE_THEME_TONES.light;
   const hue=base+((hash%13)-6);
   const sat=tone.leafSat+((hash>>>8)%tone.leafSatRange);
   const light=tone.leafLight+((hash>>>16)%tone.leafLightRange);
@@ -5395,22 +5477,6 @@ function _bubbleLeafLabel(item) {
   return tStrip || item.name || '';
 }
 
-// Plotly resize 후 도넛 실제 중심에 center label 재배치
-function _repositionBubbleCenter(container) {
-  const centerEl = document.getElementById('bubble-center-summary');
-  const m = container && container._lastBubbleMargin;
-  if (!centerEl || !m) return;
-  const cw = container.clientWidth;
-  const ch = container.clientHeight;
-  if (cw < 10 || ch < 10) return;
-  const cx = m.l + (cw - m.l - m.r) / 2;
-  const cy = m.t + (ch - m.t - m.b) / 2;
-  centerEl.style.left = cx + 'px';
-  centerEl.style.top = cy + 'px';
-  centerEl.style.transform = 'translate(-50%, -50%)';
-}
-
-// 모바일 전용 버블 폴백 — Plotly sunburst 대신 종목별 비중 막대 리스트 (비중 가독성 우선)
 function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
   const fmt = v => typeof cbDisp === 'function' ? cbDisp(v) : '₩' + Math.round(v).toLocaleString();
   const showOwner = _bubbleOwner === '전체';
@@ -5466,12 +5532,6 @@ function renderBubbleChart(mode) {
   // 드릴 상태 추적 — 재렌더(소유주 변경/모드 변경) 시 root 로 리셋되어 Plotly.react 의 초기 root 와 동기화
   container._bubbleCurrentRoot = '__TOTAL__';
 
-  // center summary div 보존 — 차트 렌더 전에 컨테이너 바깥으로 분리
-  const centerEl = document.getElementById('bubble-center-summary');
-  if (centerEl) {
-    try { centerEl.parentNode.removeChild(centerEl); } catch (e) {}
-  }
-
   const filterOwner = _bubbleOwner === '전체' ? null : _bubbleOwner;
   const usdRate = RATES.USD || 1380;
 
@@ -5483,15 +5543,12 @@ function renderBubbleChart(mode) {
 
   if (baseItems.length === 0) {
     try { if (typeof Plotly !== 'undefined') Plotly.purge(container); } catch (e) {}
-    container._bubbleExtLabelsHookAttached = false;
     container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:60px;font-family:\'Noto Sans KR\',\'Manrope\',sans-serif;font-weight:700" data-bubble-empty="1">표시할 자산이 없습니다.</div>';
-    if (centerEl) container.appendChild(centerEl);
     return;
   }
   if (container.querySelector('[data-bubble-empty]')) {
     try { if (typeof Plotly !== 'undefined') Plotly.purge(container); } catch (e) {}
     container.innerHTML = '';
-    container._bubbleExtLabelsHookAttached = false;
   }
 
   const totalVal = baseItems.reduce((s, x) => s + x.val, 0) || 1;
@@ -5501,11 +5558,11 @@ function renderBubbleChart(mode) {
 
   // ── 계층 구축: ROOT → (전체 모드일 때) owner → grp → name ──
   // Plotly sunburst 는 ids / labels / parents / values 배열로 트리를 받는다.
-  // root 라벨은 빈 문자열 — 중앙은 composition 오버레이가 차지한다.
+  // root 라벨은 트리맵 위 경로 막대(pathbar)의 첫 칸이다 — 드릴다운 중 '어디에 있는지'를 알려 준다.
   const rootId = '__TOTAL__';
-  const rootDisplay = filterOwner ? `${filterOwner} 포트폴리오` : '[TOTAL]';
+  const rootDisplay = filterOwner ? `${filterOwner} 포트폴리오` : '전체';
   const ids = [rootId];
-  const labels = [''];
+  const labels = [rootDisplay];
   const parents = [''];
   const values = [totalVal];
   const colors = ['rgba(0,0,0,0)'];
@@ -5530,9 +5587,7 @@ function renderBubbleChart(mode) {
   // ── 모바일: Plotly 대신 종목별 비중 리스트 + 섹터 비중표 ──
   if (listFallback) {
     try { Plotly.purge(container); } catch (e) {}
-    container._bubbleExtLabelsHookAttached = false;
     _renderBubbleMobileWeights(container, itemsAug, totalVal);
-    if (centerEl) container.appendChild(centerEl); // 분리된 center 엘리먼트 유실 방지 (CSS로 숨김)
     _renderBubbleSectorTable(itemsAug, totalVal, isDark);
     return;
   }
@@ -5594,8 +5649,8 @@ function renderBubbleChart(mode) {
         const displayName = _bubbleLeafLabel(i);
         const leafId = `L::${owner}::${sector}::${i.tkr || i.name}::${li}`;
         ids.push(leafId);
-        // leaf 라벨은 내부에 표시하지 않음 — 외부 리더라인 + 텍스트로 대체
-        labels.push('');
+        // 트리맵은 칸 안에 이름을 쓴다(면적이 작으면 Plotly 가 글자를 숨긴다 — uniformtext)
+        labels.push(displayName);
         parents.push(gid);
         values.push(val);
         colors.push(_bubbleLeafColor(sector,`${owner}::${i.tkr||i.name}::${li}`));
@@ -5632,45 +5687,43 @@ function renderBubbleChart(mode) {
     return `<b>${_cfEsc(d.owner)} · ${_cfEsc(d.name)}${tkrPart}</b>${secLine}<br><span style="opacity:.8">비중 ${d.weight.toFixed(2)}%</span><br><span style="opacity:.9">평가액 ${fmtKRW(d.value)}</span>`;
   });
 
+  // 사각형 면적 그림(트리맵) — 원형(선버스트)과 같은 계층·같은 색이지만 작은 조각의 이름이
+  // 잘리지 않고 면적으로 크기를 바로 비교할 수 있다. 바깥 리더라인 라벨·가운데 라벨이 필요 없다.
   const trace = {
-    type: 'sunburst',
+    type: 'treemap',
     ids, labels, parents, values,
     branchvalues: 'total',
     marker: {
       colors,
       line: {
-        color: _bubbleThemeKey()==='light'?'rgba(255,255,255,.86)':'rgba(245,249,255,.28)',
-        width: 1.35
+        color: _bubbleThemeKey()==='light'?'rgba(255,255,255,.95)':'rgba(13,14,18,.9)',
+        width: 2
       }
     },
-    leaf: { opacity: 0.82 },
-    // 내부 라벨: owner/섹터 만 노출 (leaf 는 라벨 비어있음 → 외부 리더라인으로 노출)
-    textinfo: 'label',
-    insidetextorientation: 'horizontal',
+    tiling: { packing: 'squarify', pad: 3 },
+    pathbar: { visible: true, side: 'top', thickness: 26, textfont: { family: "'Noto Sans KR','Manrope',sans-serif", size: 13, color: textColor } },
+    textinfo: 'label+percent root',
+    textposition: 'top left',
+    // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
+    // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
     textfont: {
       family: "'Noto Sans KR','Manrope',sans-serif",
       size: 13,
-      color: textColor
+      color: customdata.map(d => (d.kind === 'root' || d.kind === 'owner') ? textColor : '#18213a')
     },
     hovertext: hoverText,
     hoverinfo: 'text',
     customdata
   };
 
-  const longestLeafLabel=Math.max(0,...customdata
-    .filter(d=>d.kind==='leaf')
-    .map(d=>Array.from(String(d.displayName||d.name||'')).length));
-  const labelMargin=Math.min(240,Math.max(165,Math.round(38+longestLeafLabel*6.4)));
   const layout = {
-    // 외부 종목 라벨(국문명 최대 길이) 확보를 위한 넉넉한 좌우 여백
-    // 가장 긴 라벨 길이에 따라 여백을 늘리되 차트 본체가 지나치게 작아지지 않게 상한을 둔다.
-    margin: { t: 72, l: labelMargin, r: Math.min(265,labelMargin+(filterOwner?25:0)), b: 68 },
+    margin: { t: 6, l: 4, r: 4, b: 4 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
     showlegend: false,
-    // 내부 텍스트 최소 크기 — 이 값 아래로 내려가야 하는 슬라이스는 글자 대신 숨김
-    uniformtext: { minsize: 8, mode: 'hide' },
+    // 이 크기 아래로 내려가야 하는 칸은 글자 대신 숨김 — 호버로 확인한다
+    uniformtext: { minsize: 10, mode: 'hide' },
     hoverlabel: {
       bgcolor: cssVar('--tipbg',isDark?'#f4f7fb':'#18213a'),
       bordercolor: cssVar('--tipbd',isDark?'#ffffff':'#31405e'),
@@ -5680,7 +5733,7 @@ function renderBubbleChart(mode) {
         color: cssVar('--tiptx',isDark?'#111827':'#f8fafc')
       }
     },
-    transition: { duration: 600, easing: 'cubic-in-out' }
+    transition: { duration: 450, easing: 'cubic-in-out' }
   };
 
   try {
@@ -5694,347 +5747,11 @@ function renderBubbleChart(mode) {
     container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:40px">차트 렌더링 실패</div>';
   }
 
-  // margin을 컨테이너에 저장 — _repositionBubbleCenter()가 참조
-  container._lastBubbleMargin = layout.margin;
-
-  // Center label — 개별 소유주 선택 시 소유주명, 전체 모드에서는 "전체"
-  if (centerEl) {
-    const pctsEl = centerEl.querySelector('#bubble-summary-pcts');
-    if (pctsEl) {
-      const labelText = filterOwner || '전체';
-      const c = filterOwner
-        ? ((typeof BENCH_OWNER_COLORS!=='undefined'&&BENCH_OWNER_COLORS[filterOwner])||cssVar('--acc','#2a6fdb'))
-        : cssVar('--acc','#2a6fdb');
-      pctsEl.innerHTML = `<span style="color:${c};font-family:'Manrope','Noto Sans KR',sans-serif;font-weight:800">${labelText}</span>`;
-    }
-    container.appendChild(centerEl);
-    requestAnimationFrame(() => _repositionBubbleCenter(container));
-    setTimeout(() => _repositionBubbleCenter(container), 250);
-    setTimeout(() => _repositionBubbleCenter(container), 700);
-  }
-
   // 우측 섹터 비중표 렌더링 (현재 필터 기준 합계)
   _renderBubbleSectorTable(itemsAug, totalVal, isDark);
 
-  // 외부 리더라인 + 종목명 라벨 — Plotly 렌더 완료 후 후처리
-  // 최신 컨텍스트(ids/customdata/테마)를 컨테이너에 스태시하고 이벤트 훅이 읽는다.
-  container._lastBubbleCtx = { ids, customdata, isDark, textColor };
-  const ownerLabelNames=new Set(customdata.filter(d=>d.kind==='owner').map(d=>d.owner));
-  const ownerLabelWeights=new Map(customdata.filter(d=>d.kind==='owner').map(d=>[d.owner,Number(d.weight)||0]));
-  const _fixOwnerLabelAlign = () => {
-    const svgEl = container.querySelector('svg.main-svg') || container.querySelector('svg');
-    if (!svgEl) return;
-    svgEl.querySelectorAll('.sunburstlayer path').forEach(path=>{
-      const dnode=path.__data__;
-      const nodeId=(dnode?.data&&dnode.data.id)||dnode?.id||'';
-      if(String(nodeId).startsWith('O::')){
-        const ownerName=String(nodeId).slice(3);
-        path.style.fill=_bubbleOwnerFill(ownerName,panelColor);
-        path.style.fillOpacity='1';
-        path.style.stroke=_bubbleOwnerStroke(ownerName,panelColor);
-        path.style.strokeWidth='1.6px';
-        path.style.strokeLinejoin='round';
-        path.style.strokeDasharray='none';
-      }
-    });
-    svgEl.querySelectorAll('.sunburstlayer text').forEach(t => {
-      t.setAttribute('text-anchor', 'middle');
-      t.setAttribute('dominant-baseline', 'central');
-      const ownerName=(t.textContent||'').replace(/^●\s*/,'').trim();
-      const isOwnerLabel=ownerLabelNames.has(ownerName);
-      const ownerWeight=isOwnerLabel?(ownerLabelWeights.get(ownerName)||0):0;
-      // 작은 소유주 조각에 16px 라벨과 컬러 점을 강제로 넣으면 인접 링/차트 경계에서
-      // 글자가 잘린다. 비중에 맞춰 글자와 점을 단계적으로 줄여 조각 안에 유지한다.
-      // 점은 비중과 무관하게 모든 소유주에 붙인다 — 예전엔 10% 미만이면 빼서 자녀1·아버지만
-      // 점이 없는 범례처럼 보였다. 작은 조각은 점·공백을 함께 줄여 폭 증가를 최소화한다.
-      const ownerFontSize=ownerWeight>=20?15:(ownerWeight>=10?13:11);
-      t.style.fontSize=isOwnerLabel?ownerFontSize+'px':'13px';
-      t.style.fontWeight=isOwnerLabel?'800':'650';
-      if(isOwnerLabel) {
-        t.setAttribute('data-cb-bubble-owner',ownerName);
-        t.style.letterSpacing='0';
-        while(t.firstChild) t.removeChild(t.firstChild);
-        const labelSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
-        labelSpan.textContent=ownerName;
-        labelSpan.setAttribute('fill',textColor);
-        labelSpan.style.fontSize=ownerFontSize+'px';
-        labelSpan.style.fontWeight='800';
-        const dotSpan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
-        dotSpan.textContent=ownerWeight>=10?'● ':'●\u2009';
-        dotSpan.setAttribute('fill',_bubbleOwnerColor(ownerName));
-        dotSpan.style.fontSize=Math.max(7,ownerFontSize-4)+'px';
-        dotSpan.style.fontWeight='900';
-        t.append(dotSpan);
-        t.append(labelSpan);
-      } else {
-        t.removeAttribute('data-cb-bubble-owner');
-      }
-      t.querySelectorAll('tspan').forEach(s=>{
-        if(!isOwnerLabel){
-          s.style.fontSize='13px';
-          s.style.fontWeight='650';
-        }
-      });
-    });
-  };
-  const drawLabels = () => {
-    const ctx = container._lastBubbleCtx;
-    if (!ctx) return;
-    _drawBubbleExternalLabels(container, ctx.ids, ctx.customdata, ctx.isDark, ctx.textColor);
-    _fixOwnerLabelAlign();
-  };
-  // 즉시 시도 + 안전망 — Plotly.react 직후 DOM 이 준비되지 않은 프레임이 있을 수 있음
-  requestAnimationFrame(() => requestAnimationFrame(drawLabels));
-  setTimeout(drawLabels, 200);
-  setTimeout(drawLabels, 700); // 600ms 트랜지션 완료 후 재적용
-  // 이벤트 훅은 컨테이너당 1회만 등록. 드릴다운 클릭은 transition 완료 후 재그림.
-  if (!container._bubbleExtLabelsHookAttached) {
-    container._bubbleExtLabelsHookAttached = true;
-    try {
-      container.on && container.on('plotly_afterplot', () => {
-        requestAnimationFrame(() => requestAnimationFrame(drawLabels));
-      });
-      container.on && container.on('plotly_sunburstclick', (evtData) => {
-        // 드릴다운 transition 이 끝난 뒤 라벨을 다시 계산 (slice 기하가 바뀌므로 필수)
-        // 소유주·섹터 중첩 방지: 드릴다운 시 center overlay 숨김, 루트 복귀 시 복원
-        // Plotly: 현재 표시된 root slice 를 클릭하면 부모로 navigate UP. 이때도 pt.id 는
-        // 그 slice 의 id 라서 단순히 pt.id 로만 isAtRoot 를 판정하면 복귀 시 라벨이 가려진다.
-        // → 컨테이너에 현재 root 를 저장해 비교한다.
-        const pt = evtData && evtData.points && evtData.points[0];
-        const cEl = document.getElementById('bubble-center-summary');
-        if (pt && cEl) {
-          const currentRoot = container._bubbleCurrentRoot || '__TOTAL__';
-          const clickedId = pt.id || '';
-          const newRoot = (clickedId === currentRoot) ? (pt.parent || '__TOTAL__') : clickedId;
-          container._bubbleCurrentRoot = newRoot;
-          const isAtRoot = !newRoot || newRoot === '__TOTAL__';
-          cEl.style.transition = 'opacity .25s ease';
-          cEl.style.opacity = isAtRoot ? '1' : '0';
-        }
-        setTimeout(drawLabels, 520);
-        setTimeout(drawLabels, 900);
-      });
-    } catch (e) {}
-  }
 }
 
-// Plotly sunburst 렌더 후 leaf 슬라이스 외부에 리더라인 + 종목명 라벨을 그린다.
-// 드릴다운 등으로 현재 보이는 leaf 집합이 바뀌어도 매번 재계산한다.
-// 비중이 작은 슬라이스도 포함해 전부 노출하되, 인접 라벨의 Y 좌표를 상/하로
-// 밀어내는 anti-collision 으로 텍스트가 겹치지 않게 한다.
-function _drawBubbleExternalLabels(container, ids, customdata, isDark, textColor) {
-  if (!container) return;
-  const svg = container.querySelector('svg.main-svg') || container.querySelector('svg');
-  if (!svg) return;
-  const layer = svg.querySelector('.sunburstlayer');
-  if (!layer) return;
-
-  // 기존 오버레이 제거 (재렌더 중복 방지)
-  const old = svg.querySelector('g.bubble-ext-labels');
-  if (old) old.parentNode.removeChild(old);
-
-  // 차트 중심 · 반경 계산 — 현재 렌더된 슬라이스 기하에서 계산
-  let layerBB;
-  try { layerBB = layer.getBBox(); } catch (e) { return; }
-  if (!layerBB || !isFinite(layerBB.width) || layerBB.width < 10) return;
-  const cx = layerBB.x + layerBB.width / 2;
-  const cy = layerBB.y + layerBB.height / 2;
-  const R = Math.min(layerBB.width, layerBB.height) / 2;
-  if (R < 20) return;
-  // 우측 라벨이 COMPOSITION 패널과 겹치지 않도록 SVG 너비 기준으로 x 상한 계산
-  const svgClientW = container.getBoundingClientRect().width;
-  const svgViewW = parseFloat(svg.getAttribute('width')) || svgClientW;
-  // SVG 좌표계와 실제 픽셀 좌표계의 스케일 비율 보정
-  const svgScaleX = svgClientW > 0 ? svgViewW / svgClientW : 1;
-  // 라벨이 SVG 내 좌/우 10px 마진 안쪽에 머물도록 x 한계 설정
-  const rightXMax = svgViewW - 10 * svgScaleX;
-  const leftXMin = 10 * svgScaleX;
-
-  // 현재 '실제로 보이는' leaf 슬라이스만 수집. 드릴다운 후에는 범위 밖 슬라이스의
-  // 폭/높이가 0 이 되므로 이를 제외해야 더미 라벨이 남지 않는다.
-  const leafs = [];
-  const paths = layer.querySelectorAll('path');
-  paths.forEach(p => {
-    const dnode = p.__data__;
-    if (!dnode) return;
-    const nodeId = (dnode.data && dnode.data.id) || dnode.id;
-    if (!nodeId || String(nodeId).indexOf('L::') !== 0) return;
-    const idx = ids.indexOf(nodeId);
-    if (idx < 0) return;
-    const info = customdata[idx];
-    if (!info) return;
-    let bb;
-    try { bb = p.getBBox(); } catch (e) { return; }
-    // 드릴다운 영역 밖 슬라이스는 크기 0 (또는 거의 0) — 이걸 정확히 걸러냄
-    if (!bb || bb.width < 0.5 || bb.height < 0.5) return;
-    // 가시성 체크 (opacity 0 이거나 display:none 조상 제외)
-    const style = window.getComputedStyle(p);
-    if (style && (style.display === 'none' || parseFloat(style.opacity) === 0)) return;
-    let bx = bb.x + bb.width / 2;
-    let by = bb.y + bb.height / 2;
-    let dx = bx - cx, dy = by - cy;
-    let dist = Math.hypot(dx, dy);
-    // 100% 단일 슬라이스(거의 360°)는 bbox 중심이 차트 중심과 일치 → 라벨이 중앙에 떨어짐.
-    // 이 경우 path 위 한 점을 샘플링해 실제 각도를 구한다 (없으면 3시 방향으로 폴백).
-    if (dist < R * 0.15) {
-      try {
-        const len = p.getTotalLength ? p.getTotalLength() : 0;
-        const pt = (len > 0 && p.getPointAtLength) ? p.getPointAtLength(len * 0.25) : null;
-        if (pt && isFinite(pt.x) && isFinite(pt.y)) {
-          dx = pt.x - cx;
-          dy = pt.y - cy;
-          dist = Math.hypot(dx, dy);
-        }
-      } catch (e) {}
-      if (dist < R * 0.15) { dx = R; dy = 0; dist = R; } // 최종 폴백: 3시 방향
-    }
-    if (!dist) dist = 1;
-    const angle = Math.atan2(dy, dx);
-    leafs.push({ info, angle, dx: dx / dist, dy: dy / dist });
-  });
-  if (!leafs.length) return;
-
-  // SVG 네임스페이스 & 오버레이 그룹
-  const NS = 'http://www.w3.org/2000/svg';
-  const overlay = document.createElementNS(NS, 'g');
-  overlay.setAttribute('class', 'bubble-ext-labels');
-  overlay.setAttribute('pointer-events', 'none');
-
-  const lineColor = cssVar('--border-dark',isDark?'#2c313c':'#c9d3e6');
-  const labelFill = cssVar('--t2',textColor);
-  const labelOpacity = 1;
-
-  const startR = R - 2;
-  const lineR = R + 15;
-  const textR = R + 29;
-  // 라벨이 들어갈 수 있는 세로 가용 공간 (사이드별 동일)
-  const availH = (R + 40) * 2;
-  const yMax = cy + R + 40;
-  const yMin = cy - R - 40;
-  // 사이드별 라벨 간격을 가용 높이에 맞춰 적응적으로 결정 — 라벨이 적으면 여유,
-  // 많으면 최소 11px 까지 압축해 모든 종목명을 노출한다.
-  const computeLabelH = (count) => {
-    if (count <= 1) return 15;
-    return Math.max(9, Math.min(15, availH / count));
-  };
-
-  // 좌/우 분리하여 Y 좌표 기준 anti-collision — 비중이 작아도 모든 종목을 노출한다.
-  const right = [];
-  const left = [];
-  leafs.forEach(lf => {
-    const lx = cx + lf.dx * lineR;
-    const ly = cy + lf.dy * lineR;
-    const tx = cx + lf.dx * textR + (lf.dx >= 0 ? 6 : -6);
-    const sx = cx + lf.dx * startR;
-    const sy = cy + lf.dy * startR;
-    const entry = { info: lf.info, sx, sy, lx, ly, tx, desiredY: ly, dx: lf.dx };
-    (lf.dx >= 0 ? right : left).push(entry);
-  });
-
-  // 각 사이드: 위→아래 순으로 정렬 후 적응적 간격(labelH) 으로 anti-collision
-  const resolve = (arr, labelH) => {
-    arr.sort((a, b) => (a.desiredY - b.desiredY) || ((b.info.value||0)-(a.info.value||0)));
-    // 1차: 위→아래로 누르며 최소 간격 확보
-    for (let i = 1; i < arr.length; i++) {
-      if (arr[i].desiredY - arr[i - 1].desiredY < labelH) {
-        arr[i].desiredY = arr[i - 1].desiredY + labelH;
-      }
-    }
-    // 2차: 끝이 yMax 초과면 마지막을 yMax 로 고정 후 위로 밀어 정상화
-    if (arr.length && arr[arr.length - 1].desiredY > yMax) {
-      arr[arr.length - 1].desiredY = yMax;
-      for (let i = arr.length - 2; i >= 0; i--) {
-        if (arr[i + 1].desiredY - arr[i].desiredY < labelH) {
-          arr[i].desiredY = arr[i + 1].desiredY - labelH;
-        }
-      }
-    }
-    // 3차: 시작이 yMin 미만이면 첫 라벨을 yMin 으로 고정 후 아래로 밀어 정상화
-    if (arr.length && arr[0].desiredY < yMin) {
-      arr[0].desiredY = yMin;
-      for (let i = 1; i < arr.length; i++) {
-        if (arr[i].desiredY - arr[i - 1].desiredY < labelH) {
-          arr[i].desiredY = arr[i - 1].desiredY + labelH;
-        }
-      }
-    }
-  };
-  const labelH_R = computeLabelH(right.length);
-  const labelH_L = computeLabelH(left.length);
-  resolve(right, labelH_R);
-  resolve(left, labelH_L);
-
-  // 적응적 간격이 좁아지면 폰트도 약간 축소 (가독성 균형)
-  const fontFor = (lh) => (lh >= 14 ? 12 : lh >= 12 ? 11 : lh >= 10 ? 10 : 9);
-
-  // overlay 를 먼저 SVG 에 삽입 — paint() 내에서 getComputedTextLength() 로 라벨 폭 측정 가능
-  if (layer.parentNode) layer.parentNode.appendChild(overlay);
-
-  // 라벨이 가용 폭을 초과하면 끝부분을 자르고 '…' 표시 — 좌/우 모두 SVG 마진 안쪽에 유지
-  const fitText = (textEl, fullText, maxWidth) => {
-    if (!fullText) return;
-    textEl.textContent = fullText;
-    let w = 0;
-    try { w = textEl.getComputedTextLength(); } catch (e) { return; }
-    if (w <= maxWidth || maxWidth <= 0) return;
-    const originalSize=parseFloat(textEl.getAttribute('font-size'))||10;
-    const fittedSize=Math.max(8,Math.floor(originalSize*maxWidth/w*10)/10);
-    textEl.setAttribute('font-size',String(fittedSize));
-    try { w=textEl.getComputedTextLength(); } catch(e){}
-    if(w<=maxWidth) return;
-    let lo = 0, hi = fullText.length;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      textEl.textContent = fullText.slice(0, mid) + '…';
-      let cw = 0;
-      try { cw = textEl.getComputedTextLength(); } catch (e) { cw = Infinity; }
-      if (cw <= maxWidth) lo = mid;
-      else hi = mid - 1;
-    }
-    textEl.textContent = (lo > 0 ? fullText.slice(0, lo) : '') + '…';
-  };
-
-  const paint = (arr, labelH) => {
-    const fontSize = fontFor(labelH);
-    arr.forEach(({ info, sx, sy, lx, ly, tx, desiredY, dx }) => {
-      const finalY = desiredY;
-      // 원주의 각도를 따라 라벨 X를 유지하고, SVG 경계만 클램프한다.
-      // 상·하단 라벨은 원에 가깝게, 좌·우 라벨은 자연스럽게 바깥으로 퍼진다.
-      const finalTx = dx >= 0 ? Math.min(tx, rightXMax) : Math.max(tx, leftXMin);
-      const line = document.createElementNS(NS, 'polyline');
-      // 슬라이스 → 방사형 끝점 → 수평(라벨까지) 의 3-세그먼트 L자 리더
-      const hx = lx + (dx >= 0 ? 10 : -10);
-      line.setAttribute('points', `${sx},${sy} ${lx},${ly} ${hx},${finalY} ${finalTx - (dx >= 0 ? 4 : -4)},${finalY}`);
-      line.setAttribute('fill', 'none');
-      line.setAttribute('stroke', lineColor);
-      line.setAttribute('stroke-width', '0.9');
-      line.setAttribute('stroke-dasharray', '2 2.5');
-      line.setAttribute('stroke-linecap', 'round');
-      overlay.appendChild(line);
-
-      const text = document.createElementNS(NS, 'text');
-      text.setAttribute('x', String(finalTx));
-      text.setAttribute('y', String(finalY));
-      text.setAttribute('text-anchor', dx >= 0 ? 'start' : 'end');
-      text.setAttribute('dominant-baseline', 'middle');
-      text.setAttribute('font-family', "'Noto Sans KR','Manrope',sans-serif");
-      text.setAttribute('font-size', String(fontSize));
-      text.setAttribute('font-weight', '700');
-      text.setAttribute('fill', labelFill);
-      text.setAttribute('opacity', String(labelOpacity));
-      overlay.appendChild(text);
-      // dx >= 0: 라벨이 finalTx → 우측으로 늘어남, 가용 폭 = rightXMax - finalTx
-      // dx < 0:  라벨이 finalTx → 좌측으로 늘어남, 가용 폭 = finalTx - leftXMin
-      const maxWidth = (dx >= 0 ? (rightXMax - finalTx) : (finalTx - leftXMin)) - 2;
-      fitText(text, info.displayName || info.name || '', maxWidth);
-    });
-  };
-  paint(right, labelH_R);
-  paint(left, labelH_L);
-}
-
-// 우측 섹터 비중표 — 현재 필터(전체/소유주) 기준 섹터별 합계 + 진행 막대
-// 현재 드릴된 섹터(클릭으로 우측에 종목 패널 노출 중인 섹터). 필터/뷰 변경 시 초기화.
 let _bubbleDrilledSector = null;
 // 마지막 렌더 컨텍스트 — 우측 패널 토글 시 다시 사용
 let _bubbleLastCtx = null;
@@ -6175,43 +5892,18 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
 function _applyBubbleDrillState(drilled) {
   const lp = document.getElementById('bubble-leaves-panel');
   const lt = document.getElementById('bubble-leaves-table');
-  const centerEl = document.getElementById('bubble-center-summary');
   if (!lp) return;
-
-  // 트랜지션 중 center label 을 숨김:
-  // sunburst-container 가 flex 트랜지션으로 좁아지는 동안 left:50% 가 먼저 이동하고
-  // Plotly 차트는 resize() 전까지 옛 위치에 머물러 둘이 따로 움직여 보이는 문제 방지.
-  if (centerEl) { centerEl.style.transition = 'none'; centerEl.style.opacity = '0'; }
-
-  if (drilled) {
-    lp.style.flexBasis = '0';
-    lp.style.maxWidth = '0';
-    lp.style.padding = '0';
-    if (lt) requestAnimationFrame(() => { lt.style.opacity = '1'; });
-  } else {
-    if (lt) lt.style.opacity = '0';
-    lp.style.flexBasis = '0';
-    lp.style.maxWidth = '0';
-    lp.style.padding = '0';
-  }
-  // Plotly 차트가 영역 변화에 맞춰 re-layout 되도록 트리거
-  // resize 완료 후 center label 위치 재계산 및 페이드인
+  lp.style.flexBasis = '0';
+  lp.style.maxWidth = '0';
+  lp.style.padding = '0';
+  if (drilled) { if (lt) requestAnimationFrame(() => { lt.style.opacity = '1'; }); }
+  else if (lt) lt.style.opacity = '0';
+  // 차트 영역 폭이 바뀌면 트리맵을 다시 배치한다
   setTimeout(() => {
     try {
-      if (typeof Plotly !== 'undefined') {
-        const c = document.getElementById('sunburst-container');
-        if (c) {
-          Plotly.Plots.resize(c);
-          // resize 후 한 프레임 뒤에 재배치 (Plotly가 새 크기로 layout 반영한 뒤)
-          requestAnimationFrame(() => _repositionBubbleCenter(c));
-          setTimeout(() => _repositionBubbleCenter(c), 120);
-        }
-      }
+      const c = document.getElementById('sunburst-container');
+      if (c && typeof Plotly !== 'undefined') Plotly.Plots.resize(c);
     } catch (e) {}
-    if (centerEl) {
-      centerEl.style.transition = 'opacity .2s ease';
-      centerEl.style.opacity = '1';
-    }
   }, 380);
 }
 

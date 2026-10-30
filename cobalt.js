@@ -1118,22 +1118,28 @@ function cbRenderDash(){
   cbSetHead(`${ownerF?cbEsc(ownerF)+' 투자자산':'가족 투자자산'} · <span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 포함하지 않습니다.">전일 종가 기준</span>`,cbOwnerBtns(_cdashOwner,'cbDashOwner'));
 
   // 요약 배지 — 라벨(작은 글씨)이 옆 원화 금액의 세로 중앙에 오도록 inline-flex 정렬
-  const badge=(lab,val,valStyle,bg,click)=>`<span ${click?`onclick="${click}" role="button" tabindex="0" `:''}style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:16px;background:${bg};${click?'cursor:pointer':''}">
-      <span style="font-size:12px;font-weight:600;color:var(--mut)">${lab}</span>
-      <span style="font-size:12.5px;font-weight:700;${valStyle||''}">${val}</span></span>`;
+  // 숫자 카드 — 예전 작은 배지 4개와 같은 값이다(새 계산 없음). 총액만 강조 카드이고
+  // 나머지는 눌러서 해당 화면으로 가는 진짜 button 이다(소유주 범위는 navPrepare 가 이어 준다).
+  const kpi=(label,value,valStyle,sub,view)=>`<button type="button" class="cb-dash-kpi" onclick="switchView('${view}')">
+      <span class="cb-dash-kpi-label">${label}<span class="cb-dash-kpi-go" aria-hidden="true">›</span></span>
+      <b class="cb-dash-kpi-value" style="${valStyle||''}">${value}</b>
+      <span class="cb-dash-kpi-sub">${sub}</span></button>`;
+  const checks=cbDashChecks(ownerF, mergedRows);
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-      <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.02em">${cbDisp(nw)}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        ${badge('<span data-tip="전일 종가 대비 오늘 하루 평가액 변동 (시세 연동된 주식·가상화폐 기준)">일일손익</span>',
-          dayBase>0 ? cbSignDisp(dayAbs)+' · '+cbPct(dayAbs/dayBase) : '—',
-          dayBase>0 ? cbUpDn(dayAbs) : 'color:var(--lab)', 'var(--upSoft)')}
-        ${badge('<span data-tip="현재 평가액 − 총 매입원가">평가손익</span>', cbSignDisp(gainAbs)+' · '+cbPct(gainAbs/costTot), cbUpDn(gainAbs), 'var(--upSoft)')}
-        ${badge('연 배당', cbDisp(divAnnual), 'color:var(--tx)', 'var(--accSoft)')}
-        ${badge('리스크', risk.score+'점 · '+risk.grade, 'color:var(--tx)', 'var(--accSoft)', "switchView('risk2')")}
+    ${checks.length?`<div class="cb-dash-checks" role="status"><b>확인 필요 ${checks.length}</b>${checks.map((c,n)=>`<button type="button" onclick="cbDashCheckGo(${n})">${cbEsc(c.label)} ›</button>`).join('')}</div>`:''}
+    <div class="cb-dash-kpis">
+      <div class="cb-dash-kpi is-total">
+        <span class="cb-dash-kpi-label"><span data-tip="주식·가상화폐·금·현금 평가액 합계입니다. 부동산·기타 자산과 부채는 포함하지 않습니다.">투자자산 총액</span></span>
+        <b class="cb-dash-kpi-value">${cbDisp(nw)}</b>
+        <span class="cb-dash-kpi-sub">${mergedRows.length}종목 · 전일 종가 기준</span>
       </div>
-
+      ${kpi('<span data-tip="전일 종가 대비 오늘 하루 평가액 변동 (시세 연동된 주식·가상화폐 기준)">오늘 손익</span>',
+        dayBase>0 ? cbSignDisp(dayAbs) : '—', dayBase>0 ? cbUpDn(dayAbs) : 'color:var(--lab)',
+        dayBase>0 ? cbPct(dayAbs/dayBase)+' · 전일 대비' : '시세 연동 종목 없음', 'perf2')}
+      ${kpi('<span data-tip="현재 평가액 − 총 매입원가">평가손익</span>', cbSignDisp(gainAbs), cbUpDn(gainAbs), cbPct(gainAbs/costTot)+' · 매입원가 대비', 'holdings')}
+      ${kpi('연 배당', cbDisp(divAnnual), '', '월평균 '+cbDisp(divAnnual/12), 'divm')}
+      ${kpi('리스크', risk.score+'점', '', cbEsc(risk.grade)+(risk.warns?` · 주의·경고 ${risk.warns}개`:''), 'risk2')}
     </div>
 
     <div class="cb-dash-insight-grid">
@@ -1246,6 +1252,7 @@ function cbHomeHoldings(rows){
   const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
+  const maxVal=Math.max(0,...rows.map(r=>r.val||0));
   // 선택은 행 전체가 받는다 — 예전에는 종목명을 감싼 button 만 눌렸고 티커·수량·금액 칸은 죽어 있었다.
   // 키는 data-key 로만 넘긴다(인라인 JS 문자열에 넣지 않는다). Enter·Space 는 script.js 의 문서 위임이
   // 처리하므로 인라인 onkeydown 을 붙이지 않는다 — 붙이면 이중 실행된다.
@@ -1256,13 +1263,16 @@ function cbHomeHoldings(rows){
     // 취득가 미상은 cbCostKRW 가 0 을 돌려주므로 그대로 그리면 ₩0 이 찍힌다 — 평가손익 칸과 같은 가드를 쓴다.
     +`<td>${r.i.costUnknown?'—':cbDisp(r.cost)}</td>`
     +`<td>${cbDisp(r.val)}</td>`
+    // 비중은 검색하지 않은 소유주 범위(nw) 기준, 막대 길이는 가장 큰 종목 대비
+    +`<td class="home-weight"><span class="home-weight-bar" aria-hidden="true"><i style="width:${maxVal>0?Math.max(2,r.val/maxVal*100).toFixed(1):0}%;background:${CB_CLS[r.cls]?.color||'var(--acc)'}"></i></span>${nw>0?(r.val/nw*100).toFixed(1):'0.0'}%</td>`
     +`<td style="${cbUpDn(r.gain)}">${r.i.costUnknown?'—':cbSignDisp(r.gain)}</td>`
-    +`<td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td></tr>`;
+    +`<td style="${cbUpDn(r.gainPct||0)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</td>`
+    +`<td class="home-price-state">${r.i.grp==='현금'?'':cbRowPriceStale(r)?'<span class="home-price-dot is-stale" title="시세 미조회 · 직전 값으로 계산"></span><span class="sr-only">시세 미조회</span>':'<span class="home-price-dot" title="시세 정상"></span><span class="sr-only">시세 정상</span>'}</td></tr>`;
   return `<div class="home-holdings-layout">`
     +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3>`
     +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
-    +`<div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목명 · 티커</th><th>수량</th><th>매입금액</th><th>평가금액</th><th>평가손익</th><th>수익률</th></tr></thead>`
-    +`<tbody>${rows.map(row).join('')||'<tr><td colspan="7">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
+    +`<div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목명 · 티커</th><th>수량</th><th>매입금액</th><th>평가금액</th><th>비중</th><th>평가손익</th><th>수익률</th><th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
+    +`<tbody>${rows.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
     +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
@@ -1279,6 +1289,35 @@ function cbDashSecToggle(n){
   _cdashSecOpen = (_cdashSecOpen===label ? null : label);
   cbRenderDash();
 }
+
+// 홈 '확인 필요' 줄 — 이미 다른 화면이 계산하는 경고를 개수로만 모은다(새 판정을 만들지 않는다).
+// 할 일 목록이 아니다: 해당 경고가 하나도 없으면 줄 자체를 그리지 않는다.
+// 소유주로 나눌 수 있는 항목(시세·리밸런싱·고정비)은 선택한 소유주 기준이고, 데이터 상태는 가구 공통이다.
+let _cdashChecks=[];
+function cbDashChecks(ownerF, mergedRows){
+  const list=[];
+  const stale=(mergedRows||[]).filter(r=>r.i.grp!=='현금' && cbRowPriceStale(r)).length;
+  if(stale) list.push({key:'stale',label:`시세 미조회 ${stale}종목`,go:()=>switchView('holdings')});
+  try{
+    const ta=typeof finTargetAnalysis==='function'?finTargetAnalysis(ownerF):null;
+    const th=Number(ta?.threshold)||0;
+    // 리밸런싱 화면의 막대(finRebalBulletHtml)와 같은 '범위 밖' 기준: |편차| > 허용 편차
+    const out=ta&&ta.total>0?ta.result.filter(x=>Math.abs(x.drift)>th).length:0;
+    if(out) list.push({key:'rebal',label:`리밸런싱 범위 밖 ${out}개 자산군`,go:()=>switchView('rebal2')});
+  }catch(e){}
+  try{
+    const pending=typeof finMonthlyFixedCost==='function'?finMonthlyFixedCost(ownerF).pendingCount:0;
+    if(pending) list.push({key:'fixed',label:`미분류 자동이체 ${pending}건`,go:()=>{ switchView('cashflow'); if(typeof switchCashFlowSection==='function') switchCashFlowSection('fixed'); }});
+  }catch(e){}
+  try{
+    // 시세 행은 위 '시세 미조회'가 이미 세므로 뺀다 — 같은 문제를 두 번 세지 않는다.
+    const warn=typeof finDataStatusRows==='function'?finDataStatusRows().filter(x=>x.state==='warn'&&x.key!=='prices').length:0;
+    if(warn) list.push({key:'data',label:`데이터 확인 ${warn}건`,go:()=>switchView('data2')});
+  }catch(e){}
+  _cdashChecks=list;
+  return list;
+}
+function cbDashCheckGo(n){ const c=_cdashChecks[n]; if(c) c.go(); }
 
 // ───────────────────────── 배당 조회 완결성 ─────────────────────────
 // API가 무배당 종목도 "조회 완료"로 기록하므로 데이터 행 수가 아니라 verified 목록으로
@@ -3274,6 +3313,18 @@ function cbDcaScheduledOn(i,date){
   }
   return false;
 }
+// 앞으로 N일의 매수 예정일을 날짜별로 묶는다 — 판정은 cbDcaScheduledOn(휴장일 이월 포함) 그대로다.
+// 실제 체결이 아니라 규칙상 예정일이며, 금액은 회당 원화 환산(cbDcaPerOrderKRW)이다.
+function cbDcaUpcoming(list, asOf, days=30){
+  const start=cbDcaDateAt(asOf), out=[];
+  for(let n=0;n<days;n++){
+    const d=new Date(start); d.setDate(start.getDate()+n);
+    const hits=(list||[]).filter(x=>cbDcaScheduledOn(x.i,d));
+    if(!hits.length) continue;
+    out.push({key:cbDcaDateKey(d),date:new Date(d),items:hits,amount:hits.reduce((s,x)=>s+cbDcaPerOrderKRW(x.i),0)});
+  }
+  return out;
+}
 function cbDcaScheduleSummary(i, asOf){
   const today=cbDcaDateAt(asOf);
   const todayKey=cbDcaDateKey(today);
@@ -3381,6 +3432,15 @@ function cbRenderDca(){
         <div class="cb-dca-summary-sub">${remainingCount?cbDisp(remainingAmount)+' 예정':'이번 달 일정 완료'}</div>
       </div>
     </div>
+    ${(()=>{
+      const up=cbDcaUpcoming(active);
+      if(!active.length) return '';
+      const WD=['일','월','화','수','목','금','토'];
+      return `<section class="cb-panel cb-dca-upcoming" aria-label="앞으로 30일 매수 일정">
+        <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 30일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small></div>
+        ${up.length?`<ol class="cb-dca-upcoming-list">${up.map(d=>`<li><b>${d.date.getMonth()+1}/${d.date.getDate()} <span>(${WD[d.date.getDay()]})</span></b>${d.items.map(x=>`<span class="cb-dca-upcoming-item"><i style="background:${cbOwnerColor(x.i.owner)}"></i>${cbEsc(cbStrip(x.i.tkr)||x.r.title)}</span>`).join('')}<em>${cbDisp(d.amount)}</em></li>`).join('')}</ol>`:'<div class="cb-dca-upcoming-empty">30일 안에 예정된 매수가 없습니다.</div>'}
+      </section>`;
+    })()}
     <div class="cb-dca-detail-grid">
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>

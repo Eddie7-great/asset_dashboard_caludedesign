@@ -1,12 +1,24 @@
-    /* ── 디자인 토큰 ─ 라이트 ────────────────────────────── */
+    /* ── 디자인 토큰 ─ 기본(밝은 본문 + 진한 사이드바) ─────────
+       기본 테마만 data-theme 속성이 없다. 라이트는 사이드바 토큰만, 다크는 전체를 덮어쓴다.
+       카드에는 그림자를 쓰지 않는다(얇은 테두리만) — 떠 있는 모달·툴팁만 자체 그림자. */
     :root {
-      --bg1:#f4f6fa;--bg2:#e9edf5;--bg3:#dfe5f0;
+      --bg1:#f4f6fa;--bg2:#f4f6fa;--bg3:#dfe5f0;
       --glass:#ffffff;--glass-hover:#f7f9fc;
       --panel-border:#e2e7f0;--inner-bg:#f2f5fa;
       --header-bg:#ffffff;--hover-bg:rgba(42,111,219,.06);
       --modal-bg:#ffffff;--border-light:#e2e7f0;--border-dark:#c9d3e6;
-      --gshadow:0 8px 24px -14px rgba(30,50,90,.20);
-      --acc:#2a6fdb;--acc2:#0f9488;--acc3:#7c3aed;
+      --gshadow:none;
+      /* 사이드바 — 테마마다 따로 정한다 */
+      --side-bg:#18213a;--side-border:#18213a;--side-tx:#ffffff;--side-mut:#c9d3e6;--side-dim:#9fb0cf;
+      --side-hover:rgba(255,255,255,.08);--side-active-bg:#ffffff;--side-active-tx:#18213a;
+      --side-inner:#24314f;--side-line:rgba(255,255,255,.12);
+      /* 글자 크기 단계 — 페이지 제목 / 카드 제목 / 큰 숫자 / 본문 / 보조 */
+      --fs-title:22px;--fs-card:15px;--fs-kpi:26px;--fs-body:13px;--fs-cap:12px;
+      /* 소유주·기간 탭 같은 세그먼트 컨트롤 — 회색 바탕 + 선택 항목 흰 바탕 */
+      --seg-bg:#e9edf5;--seg-on:#ffffff;
+      /* 강조 숫자 카드(홈 투자자산 총액) */
+      --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
+      --acc:#2a6fdb;--on-acc:#ffffff;--acc2:#0f9488;--acc3:#7c3aed;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
@@ -128,7 +140,7 @@
 @media (max-width:1100px){.fin-goal-grid,.fin-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-data-support-grid{grid-template-columns:1fr}}
 @media (max-width:768px){.fin-goal-grid,.fin-data-grid{grid-template-columns:1fr}.fin-form-grid{grid-template-columns:1fr}.fin-data-hero{align-items:flex-start;flex-direction:column}.fin-data-card{grid-template-columns:minmax(0,1fr) auto}.fin-guidance,.fin-price-steps,.fin-price-bottom{grid-template-columns:1fr}.fin-price-actions{flex-wrap:wrap}.fin-section{padding:14px}.fin-nw-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fin-nw-stats>div:nth-child(3){grid-column:1/-1}
   /* 모바일은 조회 전용 — 폼과 편집 버튼을 감추는 대신 왜 안 보이는지 안내를 띄운다 */
-  #fin-goal-form,.fin-form-actions,.fin-row-actions,.fin-target-inputs>button,.cb-tax-import{display:none!important}
+  #fin-goal-form,.fin-goal-add-btn,.fin-form-actions,.fin-row-actions,.fin-target-inputs>button,.cb-tax-import{display:none!important}
   .fin-mobile-note{display:block}}
     /* ── 디자인 토큰 ─ 다크 ──────────────────────────────── */
     [data-theme="dark"] {
@@ -138,27 +150,24 @@
       --header-bg:#15181e;--hover-bg:rgba(122,162,255,.07);
       --modal-bg:#15181e;--border-light:#1f232b;--border-dark:#2c313c;
       --gshadow:none;
-      --acc:#7aa2ff;--acc2:#38bdf8;--acc3:#a78bfa;
+      --acc:#7aa2ff;--on-acc:#0b1020;--acc2:#38bdf8;--acc3:#a78bfa;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#a5abb8;--t3:#8a909b;
       --up:#34d399;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
       --grid:#1f232b;
-      --tipbg:#f4f7fb;--tiptx:#111827;--tipbd:#ffffff
+      --tipbg:#f4f7fb;--tiptx:#111827;--tipbd:#ffffff;
+      --side-bg:#08090c;--side-border:#1f232b;--side-tx:#e7e9ee;--side-mut:#a5abb8;--side-dim:#8a909b;
+      --side-hover:rgba(255,255,255,.06);--side-active-bg:#1f232b;--side-active-tx:#ffffff;
+      --side-inner:#15181e;--side-line:#1f232b;
+      --seg-bg:#0e1014;--seg-on:#1f232b;
+      --kpi-hi-bg:#1f2a44;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6
     }
-    /* ── 디자인 토큰 ─ 네이비 ───────────────────────────── */
-    [data-theme="navy"] {
-      --bg1:#0c1a3a;--bg2:#080f24;--bg3:#060b1c;
-      --glass:#0e1c3f;--glass-hover:#122349;
-      --panel-border:#17274a;--inner-bg:#0a1836;
-      --header-bg:#0e1c3f;--hover-bg:rgba(77,141,255,.08);
-      --modal-bg:#0e1c3f;--border-light:#17274a;--border-dark:#24396b;
-      --gshadow:none;
-      --acc:#5b9bff;--acc2:#4ecdc4;--acc3:#c084fc;
-      --acc-soft:rgba(77,141,255,.14);--acc-soft2:rgba(77,141,255,.26);
-      --t1:#e6edfb;--t2:#9fb0cf;--t3:#7d93bf;
-      --up:#4ade80;--dn:#fb7185;--warn:#fbbf24;--gold:#d4b24a;--purple:#c084fc;
-      --grid:#17274a;
-      --tipbg:#edf3ff;--tiptx:#0a1633;--tipbd:#ffffff
+    /* ── 디자인 토큰 ─ 라이트(사이드바까지 밝게) ─────────────── */
+    [data-theme="light"] {
+      --bg2:#e9edf5;
+      --side-bg:#ffffff;--side-border:#e2e7f0;--side-tx:#18213a;--side-mut:#4a5878;--side-dim:#596783;
+      --side-hover:rgba(42,111,219,.06);--side-active-bg:rgba(42,111,219,.10);--side-active-tx:#18213a;
+      --side-inner:#f2f5fa;--side-line:#e2e7f0
     }
     /* ── 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
        주의: 테마 토큰이 body[data-theme]에 정의되므로, var() 참조 별칭은 body에도
@@ -172,7 +181,6 @@
       --upSoft:rgba(23,138,82,.10);
     }
     [data-theme="dark"]{--upSoft:rgba(52,211,153,.12)}
-    [data-theme="navy"]{--upSoft:rgba(77,222,128,.12)}
     /* 시안식 용어 툴팁 — 점선 밑줄 + 호버 말풍선 */
     [data-tip]{position:relative;cursor:help;border-bottom:1px dashed var(--dim)}
     /* 말풍선은 전 페이지 공통 body 포털(.table-float-tip)에서 표시한다.
@@ -265,6 +273,28 @@
     .side-seg-btn{flex:1;text-align:center;padding:5px 0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:var(--t3);border:none;background:transparent;font-family:inherit;transition:background .15s,color .15s}
     .side-seg-btn:hover{color:var(--t1)}
     .side-seg-btn.active{background:var(--acc-soft2);color:var(--t1)}
+    /* ── 사이드바 테마 — 색은 --side-* 토큰만 쓴다(기본: 진한 남색, 라이트: 흰 카드, 다크: 검정) ──
+       데스크톱과 모바일 드로어가 같은 규칙을 쓴다. .glass-panel.menu-col 로 써서
+       공용 .glass-panel 배경과 모바일 드로어의 --modal-bg 배경을 함께 이긴다. */
+    .glass-panel.menu-col{background:var(--side-bg);border-color:var(--side-border);color:var(--side-tx)}
+    .menu-col .menu-btn{color:var(--side-mut);min-height:40px}
+    .menu-col .menu-btn:hover{background:var(--side-hover);color:var(--side-tx)}
+    .menu-col .menu-btn.active,.menu-col .menu-btn[aria-current="page"]{background:var(--side-active-bg);color:var(--side-active-tx);font-weight:700}
+    .menu-col .side-rates{background:var(--side-inner);border-color:var(--side-line)}
+    .menu-col .side-rates-date{color:var(--side-mut);border-bottom-color:var(--side-line)}
+    .menu-col .side-rate-label,.menu-col #gold-unit-select{color:var(--side-dim)}
+    .menu-col .side-rate-val{color:var(--side-tx)}
+    .menu-col .side-rates-sep{background:var(--side-line)}
+    .menu-col .sidebar-footer{border-top-color:var(--side-line)}
+    .menu-col .footer-btn{background:var(--side-inner);border-color:var(--side-line);color:var(--side-tx)}
+    .menu-col .footer-btn:hover,.menu-col .footer-btn.active{background:var(--side-hover);border-color:var(--side-mut);box-shadow:none}
+    .menu-col .side-seg-label{color:var(--side-dim)}
+    .menu-col .side-seg{background:var(--side-inner);border-color:var(--side-line)}
+    .menu-col .side-seg-btn{color:var(--side-dim)}
+    .menu-col .side-seg-btn:hover{color:var(--side-tx)}
+    .menu-col .side-seg-btn.active{background:var(--side-active-bg);color:var(--side-active-tx)}
+    .menu-col .footer-status-btn,.menu-col .footer-status-go{color:var(--side-dim)}
+    .menu-col .footer-status-btn:hover,.menu-col .footer-status-btn.active{background:var(--side-hover);color:var(--side-tx)}
     .content-area{position:relative;overflow-y:auto;overflow-x:auto;padding-right:5px;height:100%;min-width:0}
     .content-area::-webkit-scrollbar{width:6px}.content-area::-webkit-scrollbar-thumb{background:rgba(120,140,190,.32);border-radius:3px}
 
@@ -286,7 +316,7 @@
     .c-up{color:var(--up);font-weight:600}.c-dn{color:var(--dn);font-weight:600}
     .card-title{font-size:.85rem;font-weight:700;color:var(--t2);margin-bottom:8px;flex-shrink:0}
 
-    .pt-group{margin-bottom:12px;border:1px solid var(--border-dark);border-radius:10px;background:var(--glass);box-shadow:0 2px 8px rgba(0,0,0,.02);flex-shrink:0}
+    .pt-group{margin-bottom:12px;border:1px solid var(--border-dark);border-radius:10px;background:var(--glass);box-shadow:none;flex-shrink:0}
     .pt-group-header{padding:12px 16px;background:var(--header-bg);cursor:pointer;transition:.2s;border-bottom:1px solid var(--border-light);border-radius:10px 10px 0 0;overflow:hidden}
     .pt-group-header:hover{background:var(--hover-bg)}
     .pt-group-title{font-weight:700;font-size:.95rem;gap:8px;color:var(--t1)}
@@ -425,9 +455,9 @@
     /* 네온/홀로/파티클/스캔라인 효과 제거됨 (플랫 미니멀) */
     /* 소유주 버튼 — 세그먼트 컨트롤 (사이드바 테마 선택과 동일 계열) */
     .owner-tabs, #cf-owner-bar, #bubble-owner-bar {
-      background: var(--inner-bg);
-      border: 1px solid var(--border-dark);
-      border-radius: 10px;
+      background: var(--seg-bg);
+      border: 0;
+      border-radius: 9px;
       padding: 3px;
     }
     .owner-btn {
@@ -435,10 +465,10 @@
       border-radius: 7px;
       border: none;
       background: transparent;
-      font-weight: 700;
-      font-size: .76rem;
+      font-weight: 500;
+      font-size: var(--fs-body);
       cursor: pointer;
-      color: var(--t3);
+      color: var(--t2);
       transition: background .15s, color .15s;
       font-family: inherit;
     }
@@ -446,9 +476,11 @@
       background: var(--hover-bg);
       color: var(--t1);
     }
+    /* 선택 항목은 강조색이 아니라 흰(다크: 한 단계 밝은) 바탕 — 강조색은 링크·버튼 전용 */
     .owner-btn.active {
-      background: var(--acc-soft2);
+      background: var(--seg-on);
       color: var(--t1);
+      font-weight: 700;
     }
     /* 선버스트 패널 내부 owner-btn은 공통 스타일 그대로 사용 (다른 페이지와 통일) */
     #sunburst-container {
@@ -825,7 +857,7 @@
     .cb-thead,
     .pt-table th{
       font-family:'Noto Sans KR','Manrope',sans-serif;
-      font-size:10.5px;font-weight:600;letter-spacing:.08em;color:var(--dim)
+      font-size:var(--fs-cap);font-weight:600;letter-spacing:0;color:var(--mut)
     }
     .cb-thead{position:sticky;top:0;z-index:3;background:var(--panelSolid);background-clip:padding-box}
     .cb-table-panel{overflow-x:visible!important}
@@ -962,7 +994,7 @@
 .cb-meter-fill{position:absolute;left:0;top:1px;bottom:1px;border-radius:0 3px 3px 0;min-width:0}
 /* 통화 구성 막대(cbFxMixHtml). 색은 CVD 검증을 통과한 범주 팔레트(라이트·다크 각각 validate_palette 통과). */
 .cb-fx-mix{--fx-usd:#2a78d6;--fx-jpy:#eb6834;--fx-aud:#1baf7a;--fx-other:#eda100;--fx-krw:var(--bd2);margin-top:8px}
-[data-theme="dark"] .cb-fx-mix,[data-theme="navy"] .cb-fx-mix{--fx-usd:#3987e5;--fx-jpy:#d95926;--fx-aud:#199e70;--fx-other:#c98500}
+[data-theme="dark"] .cb-fx-mix{--fx-usd:#3987e5;--fx-jpy:#d95926;--fx-aud:#199e70;--fx-other:#c98500}
 .cb-fx-bar{position:relative;display:flex;gap:2px;height:8px;border-radius:3px;overflow:hidden;background:var(--inner)}
 .cb-fx-seg{display:block;min-width:0;height:100%}
 .cb-fx-seg.usd{background:var(--fx-usd)}.cb-fx-seg.jpy{background:var(--fx-jpy)}.cb-fx-seg.aud{background:var(--fx-aud)}.cb-fx-seg.other{background:var(--fx-other)}.cb-fx-seg.krw{background:var(--fx-krw)}
@@ -1231,7 +1263,6 @@
       #view-bubble .sunburst-panel{flex:0 0 auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
       #view-bubble .bubble-body-flex{flex:0 0 auto!important;height:auto!important;min-height:0!important}
       #sunburst-container{flex:0 0 auto!important;min-height:0!important;height:auto!important}
-      #bubble-center-summary{display:none!important}
       #bubble-sector-panel{flex:0 0 auto!important;width:100%;overflow:visible!important}
       #bubble-leaves-panel{display:none!important}
       .bubble-inline-leaves{display:block}
@@ -1285,7 +1316,6 @@
 }
 
 .bubble-list-fallback{overflow:auto!important}
-.bubble-list-fallback #bubble-center-summary{display:none!important}
 .bubble-weight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
 .bubble-weight-item{min-width:0}
 @media(max-width:520px){.bubble-weight-grid{grid-template-columns:1fr}}

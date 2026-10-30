@@ -42,8 +42,9 @@ assert.match(indexSource, /class="footer-status-btn" onclick="switchView\('data2
 assert.match(indexSource, /view-plan2[\s\S]*view-data2/, '목표 리밸런싱·데이터 상태 화면 유지')
 assert.doesNotMatch(indexSource, /id="view-balance2"/, '요청에 따라 재무상태표 화면 제거; 계산·저장 데이터는 유지')
 assert.match(indexSource, /script\.js\?v=\d+[\s\S]*finance\.js\?v=\d+[\s\S]*cobalt\.js\?v=\d+/, '데이터 엔진 다음에 재무 기능을 로드하고 cobalt 라우터와 연결')
-assert.match(indexSource, /class="side-seg-btn active" id="theme-seg-light"[\s\S]*class="side-seg-btn" id="theme-seg-navy"/, '첫 렌더의 테마 선택 상태를 라이트로 표시')
-assert.match(scriptSource, /if \(!THEMES\.includes\(mode\)\) mode = 'light'[\s\S]*const _m0=THEMES\.includes\(_t0\)\?_t0:'light'[\s\S]*THEMES\.includes\(savedTheme\) \? savedTheme : 'light'/, '저장값이 없거나 잘못된 경우 라이트 테마를 기본값으로 사용')
+assert.match(indexSource, /class="side-seg-btn active" id="theme-seg-default"[\s\S]*class="side-seg-btn" id="theme-seg-light"[\s\S]*class="side-seg-btn" id="theme-seg-dark"/, '첫 렌더의 테마 선택 상태를 기본으로 표시 (기본·라이트·다크 순)')
+assert.doesNotMatch(indexSource, /theme-seg-navy/, '네이비 테마는 없앴다')
+assert.match(scriptSource, /if \(!THEMES\.includes\(mode\)\) mode = 'default'[\s\S]*const _m0=_savedTheme\(\)[\s\S]*setTheme\(_savedTheme\(\)\)/, '저장값이 없거나 잘못된 경우 기본 테마를 쓰고, 로드 직후와 초기화 때 같은 함수로 복원')
 assert.match(cobaltSource, /fam2:'구성원별 보유'[\s\S]*plan2:'목표·리밸런싱'[\s\S]*data2:'데이터 상태'/, '신규 화면 라우팅 제목 등록')
 assert.doesNotMatch(cobaltSource, /balance2:/, '도달 불가였던 재무상태표 라우팅 제거 — 옛 링크는 navResolve 가 홈으로 보낸다')
 assert.doesNotMatch(cobaltSource, /finDashboardFocus\(ownerF\)/, '홈에서 이번 달 할 일 제거')
@@ -100,7 +101,7 @@ const context = {
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
 vm.runInContext(`const FIN_GOAL_BUCKET_META=${JSON.stringify({ net: { label: '전체 순자산', color: '#94a3c8' }, investment: { label: '가족 투자자산', color: '#7aa2ff' }, manual: { label: '직접 입력', color: '#b48ead' } })};`, context)
-vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
+vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finGoalFormOpen=false; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
 for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }

@@ -219,3 +219,135 @@
 .fin-bullet-note{text-align:right;font-size:11px;color:var(--dim)}
 .fin-bullet-row.out .fin-bullet-note{color:var(--warn);font-weight:700}
 @media(max-width:768px){.fin-bullet-row{grid-template-columns:72px minmax(0,1fr) 44px;gap:6px}}
+
+/* ===== 홈 (2026-10-30) — 확인 필요 줄 · 숫자 카드 5개 · 보유 표 비중/시세 칸 ===== */
+.cb-dash-checks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-bottom:12px;padding:6px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,var(--bd));border-radius:10px;background:color-mix(in srgb,var(--warn) 8%,var(--panel));font-size:var(--fs-body)}
+.cb-dash-checks b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
+.cb-dash-checks button{min-height:32px;padding:4px 2px;border:0;background:transparent;color:var(--acc);font:600 var(--fs-body)/1.4 'Noto Sans KR',sans-serif;cursor:pointer}
+.cb-dash-checks button:hover{text-decoration:underline}
+.cb-dash-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.cb-dash-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--panel);color:var(--tx);font-family:inherit;text-align:left}
+button.cb-dash-kpi{cursor:pointer}
+button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
+.cb-dash-kpi.is-total{border-color:var(--kpi-hi-bg);background:var(--kpi-hi-bg);color:var(--kpi-hi-tx)}
+.cb-dash-kpi-label{display:flex;align-items:center;gap:6px;font-size:var(--fs-body);color:var(--mut)}
+.cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--kpi-hi-mut)}
+.cb-dash-kpi-go{margin-left:auto;color:var(--acc);font-weight:700}
+.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
+.cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
+.cb-dash-kpi-sub{font-size:var(--fs-cap);color:var(--lab)}
+.home-weight{white-space:nowrap}
+.home-weight-bar{display:inline-block;width:56px;height:5px;margin-right:8px;overflow:hidden;border-radius:3px;background:var(--inner);vertical-align:middle}
+.home-weight-bar i{display:block;height:100%;border-radius:3px}
+.home-table-column td.home-price-state,.home-table-column th:last-child{text-align:center}
+.home-price-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--up)}
+.home-price-dot.is-stale{background:var(--warn)}
+@media(max-width:1100px){.cb-dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:768px){.cb-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.cb-dash-kpi.is-total{grid-column:1/-1}.cb-dash-kpi{padding:12px}.cb-dash-kpi-value{font-size:19px}.cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:22px}}
+
+/* ===== 보유 목록 (2026-10-30) — 숫자 카드 · 자산군 탭 · 한 줄 도구 · 오른쪽 수정 패널 ===== */
+.holdings-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.holdings-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--panel)}
+.holdings-kpi span{font-size:var(--fs-body);color:var(--mut)}
+.holdings-kpi b{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
+.holdings-kpi small{font-size:var(--fs-cap);color:var(--lab)}
+.holdings-kpi.is-warn b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
+.holdings-card{border:1px solid var(--bd);border-radius:12px;background:var(--panel);min-width:0}
+.holdings-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 14px 0;border-bottom:1px solid var(--bd)}
+.holdings-tab{min-height:44px;padding:0 14px;border:0;background:transparent;color:var(--mut);font:500 14px/1 'Noto Sans KR',sans-serif;cursor:pointer}
+.holdings-tab span{margin-left:6px;font-size:var(--fs-cap);color:var(--lab)}
+.holdings-tab[aria-selected="true"]{color:var(--tx);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+.holdings-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 14px}
+.holdings-toolbar input[type="search"]{width:220px;max-width:100%;min-height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);font:var(--fs-body) 'Noto Sans KR',sans-serif}
+.holdings-broker-filter-inline{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-body);color:var(--mut)}
+.holdings-broker-filter-inline select{width:auto;min-height:38px;padding:0 10px;font-size:var(--fs-body)}
+.holdings-stale-toggle{display:inline-flex;align-items:center;gap:6px;min-height:38px;font-size:var(--fs-body);color:var(--mut);cursor:pointer}
+.holdings-stale-toggle input{width:18px;height:18px;margin:0}
+.holdings-add-btn{margin-left:auto;min-height:38px;padding:0 16px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+#view-holdings .holdings-group{margin:0;border:0;border-radius:0;background:transparent}
+#view-holdings .holdings-group[hidden]{display:none}
+#view-holdings .holdings-group .pt-group-header{cursor:default;padding:4px 16px 10px;background:transparent;border:0;border-radius:0}
+#view-holdings .holdings-group .pt-group-header:hover{background:transparent}
+.holdings-group .pt-group-title{font-size:var(--fs-card);font-weight:700}
+.holdings-group-count{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--lab)}
+.holdings-group .pt-group-stats{gap:20px;flex-wrap:wrap;justify-content:flex-end;font-size:var(--fs-body);color:var(--mut)}
+.holdings-group .pt-group-stats strong{color:var(--tx)}
+.holdings-group .pt-table-wrap{padding:0 14px 14px}
+/* 시세 미조회 행 — 색만이 아니라 현재가 칸의 '미조회' 표식이 글자로도 알린다 */
+#view-holdings .pt-table tbody tr:has(.price-stale-tag){background:color-mix(in srgb,var(--warn) 9%,transparent)}
+@media(max-width:1100px){.holdings-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.holdings-kpis{gap:8px}.holdings-kpi{padding:12px}.holdings-kpi b{font-size:19px}}
+/* 수정 창 — 넓은 화면에서는 가운데 팝업 대신 오른쪽 패널로 붙여 표를 보면서 고친다.
+   같은 #add-modal DOM·같은 저장 함수를 쓰고 모양만 바꾼다. 좁은 화면은 기존 팝업 그대로다. */
+@media(min-width:1101px){
+  #add-modal.modal-overlay{left:auto;right:0;width:440px;background:transparent;justify-content:flex-end;align-items:stretch;pointer-events:none}
+  #add-modal .modal-content{pointer-events:auto;width:440px;max-width:none!important;height:100%;max-height:none;box-sizing:border-box;border-radius:0;border-width:0 0 0 1px;box-shadow:-12px 0 32px -18px rgba(15,23,42,.35);overflow:auto!important}
+  body:has(#add-modal.active) .content-area{padding-right:440px;box-sizing:border-box}
+  /* 패널이 열려 본문이 좁아지면 숫자 카드는 2열, 표는 줄이지 않고 옆으로 밀어 본다(금액이 잘리거나 두 줄로 꺾이지 않게) */
+  body:has(#add-modal.active) .holdings-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body:has(#add-modal.active) #view-holdings .pt-table-wrap{overflow-x:auto}
+  body:has(#add-modal.active) #view-holdings .pt-table-fixed{min-width:960px}
+}
+.holdings-kpi b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== 현금 흐름 입력 폼 접기 (2026-10-30) ===== */
+.cf-entry-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.cf-entry-bar-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
+.cf-entry-bar-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.cf-entry-open,.cf-entry-close{min-height:36px;padding:0 14px;border-radius:8px;font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.cf-entry-open{border:0;background:var(--acc);color:var(--on-acc)}
+.cf-entry-close{border:1px solid var(--bd2);background:var(--panel);color:var(--mut)}
+.cf-entry-close[hidden]{display:none}
+#cf-entry-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)}
+#cf-entry-body[hidden]{display:none}
+.fin-goal-add-btn{margin-left:auto;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+
+/* ===== 적립식 매수: 앞으로 30일 일정 (2026-10-30) ===== */
+.cb-dca-upcoming{margin-top:12px;padding:14px 16px}
+.cb-dca-upcoming-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
+.cb-dca-upcoming-head small{font-size:var(--fs-cap);color:var(--lab)}
+.cb-dca-upcoming-list{display:flex;gap:8px;margin:0;padding:0 0 4px;list-style:none;overflow-x:auto}
+.cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--inner)}
+.cb-dca-upcoming-list b{font-size:var(--fs-body)}
+.cb-dca-upcoming-list b span{font-weight:500;color:var(--lab)}
+.cb-dca-upcoming-item{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-dca-upcoming-item i{width:7px;height:7px;border-radius:50%;flex:none}
+.cb-dca-upcoming-list em{margin-top:auto;font-style:normal;font-weight:700;font-size:var(--fs-cap);color:var(--tx)}
+.cb-dca-upcoming-empty{font-size:var(--fs-body);color:var(--lab)}
+
+/* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
+   색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
+   파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
+.compact-menu .menu-btn{min-height:40px;padding:8px 12px;font-size:13px}
+#page-head #main-title{font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
+#page-head #main-title-sub{font-size:var(--fs-body)}
+/* 세부 화면 링크 — 밑줄형 텍스트 링크. 현재 위치만 강조색 + 아래 2px 막대 */
+#page-sections a{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif;box-shadow:none}
+#page-sections a:hover{background:transparent;color:var(--tx)}
+#page-sections a[aria-current]{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+/* 소유주·기간 탭 — 회색 세그먼트 안의 버튼. 예전 공용 테두리 버튼 규칙을 여기서 끊는다 */
+#owner-tabs-container .owner-btn,#cb-head-widgets .owner-tabs .owner-btn{min-height:32px;padding:5px 12px;border:0;border-radius:7px;background:transparent;color:var(--mut);font:500 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif}
+#owner-tabs-container .owner-btn.active,#cb-head-widgets .owner-tabs .owner-btn.active{background:var(--seg-on);color:var(--tx);font-weight:700}
+/* 카드 제목 — 15px 굵게. 제목 옆 회색 보조 설명은 12px 보통 굵기로 낮춘다 */
+.cb-panel-title,.cb-insight-title{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
+.cb-panel-title [style*="color:var(--dim)"],.cb-insight-title [style*="color:var(--dim)"]{font-size:var(--fs-cap);font-weight:500;letter-spacing:0}
+/* 숫자 카드의 큰 숫자 — Manrope 800, 같은 크기 */
+.cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:var(--fs-kpi);font-weight:800;letter-spacing:-.02em}
+@media(max-width:768px){
+  .compact-menu .menu-btn{min-height:44px}
+  .cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-size:22px}
+}
+/* 예전 작은 회색 제목(자간 넓은 10.5~12px)들도 같은 카드 제목 모양으로 — 현금 흐름 카드(.cb-label)·
+   재무 섹션 머리(.fin-section-head>span)·리스크 보조 진단(.cb-risk-insight-title) */
+.cb-label,.fin-section-head>span{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
+#cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
+.cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
+/* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
+.sim-view-tabs{gap:4px;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.sim-view-tabs>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
+.sim-view-tabs>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+/* 현금 흐름의 '월별 현금흐름 / 고정비 관리' 전환은 헤더의 세부 화면 링크와 같은 밑줄형 */
+.cf-section-tabs{background:transparent;border:0;padding:0;gap:4px}
+#cf-header-tabs.cf-section-tabs .cf-section-tab{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif;box-shadow:none}
+#cf-header-tabs.cf-section-tabs .cf-section-tab:hover{background:transparent;color:var(--tx)}
+#cf-header-tabs.cf-section-tabs .cf-section-tab.active{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}

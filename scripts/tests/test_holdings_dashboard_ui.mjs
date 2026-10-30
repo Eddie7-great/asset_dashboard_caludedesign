@@ -192,8 +192,8 @@ assert.match(cobaltSource, /<aside class="cb-panel home-stock-summary"/, '선택
 // 선택은 행 전체가 받는다. 종목명만 감싼 버튼은 티커·수량·금액 칸을 죽은 영역으로 만들었다.
 assert.match(cobaltSource, /<tr class="\$\{r\.key===_cdashSel\?'is-selected':''\}" role="button" tabindex="0"[\s\S]{0,120}data-key="\$\{cbEsc\(r\.key\)\}" onclick="cbDashPick\(this\.dataset\.key\)"/, '행 전체가 선택 대상이며 키는 data-key 로만 전달')
 assert.doesNotMatch(cobaltSource, /home-stock-pick/, '중첩 버튼 제거 — 남기면 클릭이 두 번 발생')
-assert.match(cobaltSource, /<th>소유주<\/th><th>종목명 · 티커<\/th><th>수량<\/th><th>매입금액<\/th><th>평가금액<\/th><th>평가손익<\/th><th>수익률<\/th>/, '홈 보유 목록 7개 칼럼 (매입금액 포함)')
-assert.match(cobaltSource, /colspan="7"/, '빈 상태 colspan 이 칼럼 수와 일치')
+assert.match(cobaltSource, /<th>소유주<\/th><th>종목명 · 티커<\/th><th>수량<\/th><th>매입금액<\/th><th>평가금액<\/th><th>비중<\/th><th>평가손익<\/th><th>수익률<\/th><th><span class="sr-only">시세 상태<\/span>/, '홈 보유 목록 9개 칼럼 (매입금액·비중·시세 상태 포함)')
+assert.match(cobaltSource, /colspan="9">검색 결과가 없습니다/, '빈 결과 행도 9칸을 덮는다')
 // cbCostKRW 는 취득가 미상일 때 0 을 돌려준다 — 그대로 그리면 ₩0 이 찍힌다.
 assert.match(cobaltSource, /\$\{r\.i\.costUnknown\?'—':cbDisp\(r\.cost\)\}/, '취득가 미상 매입금액은 0원이 아니라 —')
 assert.match(workspaceSource, /\.home-table-column thead th\{position:sticky;top:0/, '홈 보유 목록 헤더를 목록 스크롤 중 고정')
