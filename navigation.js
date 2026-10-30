@@ -32,7 +32,6 @@ function navPrepare(id){
     if(id==='plan2'||id==='rebal2')_finPlanOwner=owner;
     if(id==='dca2')_cbDcaOwner=owner;
     if(id==='sim2')_simOwner=owner;
-    if(id==='balance2')_finBalanceOwner=owner;
     if(id==='divm')_cbDivOwner=owner;
     if(id==='risk2')_cbRiskOwner=owner;
   }

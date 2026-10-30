@@ -2,7 +2,7 @@
 
 ### Compact navigation and FunETF (2026-09-10)
 
-- Each ETF-page entry and manual refresh revalidates the published snapshot and queries held ETF symbols through the authenticated, no-store dashboard API. Use only bounded HTTP adapters (FunETF domestically; supported issuers then stockanalysis abroad), never the long KRX/browser retry chain in a function. Limit browser concurrency to two; ignore responses from superseded page entries. Preserve dated/full last-good observations on failures, older dates or undated/partial regressions; display the latest attempt separately from composition asOf. Live observations are session-only; scheduled collection persists history.
+- Each ETF-page entry and manual refresh revalidates the published snapshot and queries — through the authenticated, no-store dashboard API — **only the held ETFs whose snapshot is not reliable under its refresh cycle** (`etfQuality(...).reliable === false`: delayed for its cycle, partial, retained or missing); current ones show '주기상 최신 · 원본 조회 생략'. A per-row re-check still queries that ETF. Use only bounded HTTP adapters (FunETF domestically; supported issuers then stockanalysis abroad), never the long KRX/browser retry chain in a function. Limit browser concurrency to two; ignore responses from superseded page entries. Preserve dated/full last-good observations on failures, older dates or undated/partial regressions; display the latest attempt separately from composition asOf. Live observations are session-only; scheduled collection persists history.
 
 - `snap`(한눈에 보기) 화면은 제거됐다 — 고유 내용이던 순자산 추이는 성과 페이지의 투자자산 추이 카드가 대신한다. `navResolve` 의 `snap`→`cdash` 매핑은 옛 링크 호환으로 남긴다.
 - The current navigation has seven main destinations. Balance-sheet UI is retired and its renderer, CRUD handlers and CSS are gone; old `balance2` links resolve to home through `navResolve`. **Preserve the stored `_balanceSheet` values and the snapshot jobs** — `finBalanceTotals`/`finSum` still feed goals (`finGoalCurrent`) and the cash buffer (`finCashSafety`) on live pages, and `cashTargetMonths` is edited from the goals page (투자 계획 > 목표). 부동산·부채 자체는 대시보드에서 관리하지 않는다. Home omits duplicate net-worth totals, monthly actions and the trend chart; its allocation, sector and contribution cards sit beside vertically stacked gain/loss rankings, with equal combined heights. Tax summary cards share one desktop row, with responsive wrapping on small screens. Tax/dividend/gift source disclosures remain accessible at the bottom. Section links share button typography and align right.
@@ -28,7 +28,7 @@
 - 주식 비중 합계가 **100%를 넘으면 그 사실을 숫자 옆에서 설명한다**(담보 위에 기초자산이 명시된 스왑을 얹은 구조). 자르거나 재정규화하지 않는다 — `etfWeightSum` 이 그 합의 단일 출처다.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
 - Each ETF retains up to 30 source/date snapshots. Same-date corrections replace that observation; an older response cannot overwrite a newer dated snapshot. Failed retrieval preserves the prior valid data and date with retained=true. Only full lists from the same source prove entries/exits; partial lists compare shared tickers only. Weight changes include price effects and never imply actual trades.
-- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
+- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Every collected ETF now carries its refresh cycle and follows it instead: monthly disclosure (1629) uses 35 weekdays, weekly (active ETFs) 7 weekdays, and quarterly (every other index ETF) is delayed only when the snapshot predates the latest rebalance settle date by more than 5 weekdays — see the ETF 구성종목 수집 section. The 2/5-weekday rule remains only for entries without a stamped cycle. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
 - ETF exploration uses a stable, selectable horizontal weight chart; never replace it asynchronously with 3D blocks. Korean constituents display company names. **해외 종목은 한글 병기가 필요 없다** — `etfIdentityHtml`이 티커를 `<b>` 주값으로 쓰고 회사명은 `title` 속성에만 남긴다(`etfIdentity(...).kr`로 분기). Neighboring desktop cards stretch to equal height, and long lists retain compact pagination.
 - **구성종목 표의 `편입`·`편출` 라벨은 남기고 `비중 증가`·`비중 감소` 라벨은 지운다.** 옆의 %p 값이 증감을 이미 말해 주지만, 신규 편입·편출은 숫자만으로 구분되지 않는다(`etfCompareSnapshots`의 `kind`).
 - **툴바의 보유 수량·평균 매입단가·포트 비중은 `etfFundStats`/`etfPortfolioPct`(순수 함수, etf-explorer.js) 하나씩만 쓴다.** 평균 매입단가는 여러 계좌를 KRW 로 합친 `Σ매입금액/Σ수량`이고, 포트 비중의 분모는 `etfExposureHtml` 각주와 같은 정의(그 소유주의 주식·ETF·가상화폐·금·현금 합계, 부동산·부채 제외)다 — 새 분모를 만들지 않는다.
@@ -61,7 +61,7 @@ This is a Vercel-hosted single-page app — there is no build step.
 
 - Scripts load in the order listed in Consolidated workspace above. `cobalt.js` wraps `switchView`, `changeOwner`, `saveAssetsToKV`, `loadAssetsFromKV`, `loadExtDataFromKV`, `fetchDivData`, `setTheme`, `liveRefresh`, `refreshPyData` to re-render the active page and stamp data-freshness. It must follow the finance/navigation/simulator/editor definitions it references in `CB_VIEWS`. The optional 3D enhancement loads after Cobalt.
 - `index.html` defines every view as `<div id="view-*">` siblings; `switchView(viewId)` toggles `.active`. A new page needs a view/container, a renderer in `CB_VIEWS`, and an entry in the appropriate `APP_NAV` family. Keep seven top-level destinations rather than adding a menu button per page. Legacy pages use `CB_LEGACY_SUB` for header descriptions.
-- `script.js` is a single ~9,100-line file with all logic. Globals shared across modules are real `window.` globals — `pfolioData`, `currentOwner`, `_bubbleOwner`, `_divDataCache`, `RATES`, `benchData`, `divHistory`, `_netWorthHistory`, `_balanceSheet`, `_targetAlloc`, `goalData`, etc. There is no module system; ordering in the file matters.
+- `script.js` is a single ~7,300-line file with most of the legacy logic. Globals shared across modules are real `window.` globals — `pfolioData`, `currentOwner`, `_bubbleOwner`, `_divDataCache`, `RATES`, `benchData`, `divHistory`, `_netWorthHistory`, `_balanceSheet`, `_targetAlloc`, `goalData`, etc. There is no module system; ordering in the file matters.
 - Charting: **Chart.js 4.4.1** for the 현금 흐름 bar/donut charts and **Plotly 2.26.0** for the bubble/sunburst-trace chart (`renderBubbleChart` in `script.js`) — both loaded from CDN in `index.html` with SRI. Highcharts was dropped when the legacy views went: its only user was the 히트맵 treemap in `view-analysis`. **Cobalt pages use no chart library at all** — they render inline SVG (`cbDonutSvg`, `cbRingSvg`, `finNwChartSvg`), because a page redrawn by `innerHTML` replacement would otherwise need chart-instance lifecycle management.
 - Persistent state is stored in **Upstash Redis (KV)** via `getKV` / `setKV` (`saveAssetsToKV`, `loadAssetsFromKV`), which call the server-side proxy `api/kv.ts` — the Upstash credentials live in Vercel env vars (`KV_REST_API_URL`, `KV_REST_API_TOKEN`), never in the client. Local `localStorage` is used only for short-lived caches (e.g. `divCache_<YYYY-MM-DD>`, `cfData`).
 
@@ -83,7 +83,8 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 함수 제한시간을 넘겨 룩스루가 자주 비었다. 긴 재시도와 영구 이력 수집은 CI에서 처리하고, 페이지 진입 시에는 인증 API의 제한된 HTTP 소스도 별도로 조회한다.
 
 - `.github/workflows/etf-holdings.yml` — 미국 장 마감 뒤 평일 KST 07:30(cron `30 22 * * 1-5` UTC) + 수동 실행.
-  스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
+  갱신 기준일 확인(`--due`) → 스모크 테스트(5행 미만 실패, 30행 미만 경고 — **예약 실행에서 받을 ETF 가 없으면 건너뜀**)
+  → 파서 단위 테스트 → 수집 → 변경 시에만 커밋. 실행은 매 평일이지만 구성종목은 주기에 맞는 것만 받는다(아래).
   리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요. KRX 경로를 쓰려면 `KRX_ID` / `KRX_PW` 도 함께 설정한다 — 없으면 스모크가 대체 소스로 내려가 조용히 통과할 수 있다.
 - `scripts/collect_etf_holdings.py` — KV `assets` 에서 보유 ETF를 추려 수집한다.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
@@ -102,21 +103,37 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   공개 조회 소스가 상위 N개만 주는 해외 ETF(1629·SPYM·DRAM)를 위해 운용사 공시 파일을 리포에 커밋해 쓴다.
   순서를 바꿔 GitHub Actions 에서 실제로 돌려 봐도 셋 다 그대로였고(run 35073894717), funetf.co.kr 은
   국내 상장 ETF 카탈로그라 해당 없다. **표준 라이브러리만 쓴다** — xlsx 는 `zipfile`+`ElementTree`,
-  PDF 는 콘텐츠 스트림의 `BT`/`Td`/`Tj` 좌표를 직접 읽는다(openpyxl·pypdf 를 넣지 않는다).
+  CSV 는 `csv` 모듈로 읽는다(openpyxl 을 넣지 않는다).
   - 등록은 `data/etf_sources/index.json`. **검증에 하나라도 실패하면 조용히 기존 체인으로 폴백한다**
     (식별자 불일치 / 기준일 파싱 실패 / 헤더 불일치 / 비중 합계가 97~103% 밖 / 기대 행 수 미달).
   - `coverage='full'` 의 근거는 **파일의 비중이 순자산 100%를 설명한다는 것**이다 — 상위 N개 목록은
     이 밴드에 들어올 수 없다. 출처가 '파일'이라는 사실 자체는 근거가 아니다.
-  - PDF 의 `BT`…`ET` 블록을 정규식으로 찾지 않는다. 본문에 `DRAM ETF Holdings` 같은 문자열이 있으면
-    ` ET` 가 먼저 걸려 블록이 잘린다(실제로 표지 제목이 통째로 사라졌다). 줄 단위로 읽고 괄호 깊이를 센다.
   - 반올림 후 `0.0000%` 인 행은 버린다 — SPDR 표의 `CONTRA …`(합병 대기 자리표시자)가 여기 해당한다.
   - `005930 KS` 같은 Bloomberg 접미사는 **알려진 거래소 목록에 한해서만** 뗀다. 공백 뒤를 무조건 버리지 않는다.
-  - **한계: 파일이 고정이라 기준일이 멈춘다.** `etfQuality` 기준을 넘기면 '기준일 지연'으로 표시되는데
-    그게 사실 그대로다. 갱신은 같은 경로에 새 파일을 덮어쓰고 `expect` 를 맞추면 된다.
-    등록에 `url` 을 채우면 `fetch_local_source` 가 매 수집 때 그 주소에서 새 파일을 먼저 받아
-    검증하고, 실패(네트워크·형식·검증 모두 포함)하면 조용히 커밋된 파일로 내려간다 — 일일
-    공시 상품(SPYM·DRAM)은 이 경로로 고정 기준일 문제 자체를 없앨 수 있다. `url` 없이 두면
-    지금처럼 커밋된 파일만 쓴다(동작 변화 없음).
+  - **세 상품 모두 운용사 다운로드 주소(`url`)가 등록돼 있다.** `fetch_local_source` 가 그 주소의 새
+    파일을 먼저 받아 커밋된 파일과 **같은 검증**을 거치고, 실패(네트워크·형식·검증)하면 커밋된 파일로
+    내려가며 그 사실을 로그(`다운로드 실패 → 커밋된 파일로 폴백`)에 남긴다. SPYM 은 State Street 의
+    `holdings-daily-us-en-spym.xlsx`, 1629 는 노무라(`www.nomura-am.co.jp`)의 `1629_brd_data.xlsx`.
+    **DRAM 의 운용사는 Roundhill 이다**(예전 등록의 'Tema' 는 오기). 사이트의 보유명세 PDF 는 브라우저가
+    즉석 생성하는 것이라 고정 주소가 없고, 원본은 파일명에 기준일이 들어간 전 상품 CSV
+    (`FilepointRoundhill.40RU.RU_Holdings_MMDDYYYY.csv`)다 — 주소의 `{MMDDYYYY}` 를 오늘부터
+    `urlLookbackDays` 일 거슬러 평일로 바꿔 차례로 시도하고(사이트도 그렇게 찾는다), 아직 없는 날짜는
+    HTML 404 페이지라 검증에서 걸러진다. CSV 의 `Date` 열은 **다음 거래일**이라 기준일은 그 직전 평일이다.
+  - **매일 받지 않는다 — 리밸런싱·공시 주기에 맞춘다(모든 보유 ETF).** `schedule_for(spec, name)` 이 주기를 정한다:
+    `index.json` 등록값이 우선이고, 없으면 이름이 액티브(`액티브|ACTIVE`)면 `weekly`(그 주 월요일이 기준일 —
+    TIME 두 상품은 2026-09~10 의 6주에 구성이 15·7번 바뀌었다), 그 외 지수형은 전부 `quarterly` 다(국내 지수의
+    정기 변경은 둘째 목요일 다음 날이라 '셋째 금요일 + 7일'이 함께 담는다). 한 번도 못 받은 ETF(BMNU 처럼 구성을
+    공개하지 않는 상품)는 `doc['attempts']` 에 마지막 시도일을 남겨 같은 기준일 안에서 다시 시도하지 않는다 — 그동안은
+    ETF 탐색 진입 시 실시간 조회가 대신 보여 준다. `run()` 은 모든 엔트리에 주기를 스탬프한다.
+    `index.json` 의 `rebalance:'quarterly'`(SPYM·DRAM)는
+    3·6·9·12월 셋째 금요일 주간에 리밸런싱하는 상품이다(S&P 500 정기 변경일; DRAM 은 투자설명서상
+    "최소 분기 1회·그 사이 매매 안 함"이고 2026-06·09 실제 교체가 셋째 금요일 직후였다).
+    `collect_etf_holdings.py` 의 `collection_due` 가 기준일을 정하고 `run()` 은 그 이후의 완전한 자료
+    (coverage full·retained 아님)가 이미 있으면 **네트워크 요청 없이** 스냅샷을 그대로 둔다 — 실패가
+    아니므로 retained 를 켜지 않는다. 분기 상품의 기준일은 (셋째 금요일 + 7일)과 전월 마지막 평일 중
+    늦은 날짜다: +7일은 매매가 그 주에 걸쳐 끝나는 경우(DRAM 2026-06-22·24), 월말은 리밸런싱 사이의
+    수시 편입(DRAM 2026-07 CXMT 스왑 4.7% 등)을 한 달 안에 담는 **월 1회 점검**이다. 월간 공시 상품은
+    전월 마지막 평일. 이름 규칙으로 정해지는 다른 지수형 ETF(국내·QQQ·QLD 등)도 같은 분기 + 월 1회 점검이다.
   - **월 1회만 공시하는 상품은 `disclosure:'monthly'` 로 등록한다.** 1629(NEXT FUNDS)처럼 월말에만
     구성종목을 공시하는 상품을 평일 5일 기준으로 재면 매달 대부분의 날짜가 '지연'이 된다 — 파일을
     갱신해도 구조적으로 반복된다. `scripts/collect_etf_holdings.py` 의 `run()` 이 `index.json` 의
@@ -125,16 +142,23 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
     (collect_etf_holdings.py) 이 그 항목엔 5평일 대신 `ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS`
     (35평일 — 월간 주기 약 21평일 + 공시 유예 약 2주)를 쓴다. **두 상수는 반드시 같은 값이어야
     한다** — 프런트가 권위이고 Python 쪽이 이를 따라간다.
-- **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `parse_tema_pdf` 안에서만.**
+  - **분기 리밸런싱 상품의 신선도는 나이가 아니라 '마지막 리밸런싱 이후 자료인가'다.** `run()` 이
+    `rebalance` 도 엔트리에 옮겨 적고, `etfQuality`(`etfQuarterlyRebalanceDue`)와 `snapshot_stale`
+    (`quarterly_rebalance_due`)은 `asOf` 가 (셋째 금요일 + 7일) 이전이고 그 날로부터 5평일이 지났을 때만
+    지연으로 본다(월 1회 점검 실패만으로는 지연이 아니다). `ETF_REBALANCE_SETTLE_DAYS`(7)·
+    `ETF_REBALANCE_GRACE_WEEKDAYS`(5)는 두 파일에서 같은 값이어야 하고, 두 테스트가 같은 날짜표로 고정한다.
+- **기초자산이 명시된 스왑(TRS)은 그 종목의 노출로 센다 — `_merge_named_swaps`(Roundhill DRAM 파서 `parse_roundhill_csv`) 안에서만.**
   QLD 금지 규칙은 스왑 바스켓 내용을 **알 수 없어서** 둔 것이라 여기에 해당하지 않는다. 근거는 이름
   추측이 아니라 운용사가 쓴 식별자다 — 스왑 행 Identifier 의 첫 토큰이 기초자산의 CUSIP/SEDOL 이고
   그 값이 **같은 표의 현물 주식 행 Identifier 와 일치**한다(`595112103`→MU, `6771720`→005930,
   `6450267`→000660). 현물 행에 없는 기초자산(비상장 CXMT `BTMTQT8`)은 식별자를 코드로 남긴다 —
   어떤 직접 보유와도 매칭되지 않으므로 허위 룩스루를 만들 수 없다.
+  편입 직후 파일에는 이름 없이 `6283601 SWP` 로만 적힌 스왑 행도 섞여 나와 `SWP` 도 스왑으로 본다.
   `NON_EQUITY_NAME_RE` 의 `스왑|SWAP` 제외는 그대로 두고, 다른 어댑터로 넓히지 않는다.
-  **총 노출이 100%를 넘을 수 있다**(DRAM 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
+  **총 노출이 100%를 넘을 수 있다**(DRAM 2026-09-15 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
   재정규화하지 않는다.
-- `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,
+- `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물/옵션 행은 버리고
+  (커버드콜 ETF 의 지수 옵션은 이름에 '옵션'이 없고 `NDXP US 10/28/26 C29275 INDEX` 처럼 **이름이 INDEX 로 끝난다**),
   **비중은 100%로 재정규화하지 않는다**(ETF 순자산 대비 원값 유지 → `equityWeight` 로 주식 비중 합 노출).
   삼성전자/삼성전자우, GOOGL/GOOG 는 통합하지 않는다.
 - **`coverage` 는 출처 이름이 아니라 '전부 받았다는 근거'로 정한다.** `collect_one` 이 다섯 번째 값으로
@@ -202,9 +226,9 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - **목표 연결 자산군 도넛**(`finGoalAllocationCard`, 투자 계획 > 목표)은 `goalData`를 `linkClass`로 묶어 `cbDonutSvg`로 그린다. CB_CLS 키(crypto/us/kr/jp/gold/cash)는 그 자산군 버킷으로, `net`/`investment`/`manual`은 `FIN_GOAL_BUCKET_META`의 순자산·투자자산·직접 입력 버킷으로 묶는다. 버킷 금액은 **`finGoalCurrent`가 이미 계산한 값을 그대로 합산**하며 새로 계산하지 않는다. 목표는 가구 공통이라(소유주 필드 없음) 오너 필터를 받지 않는다. `clickFn`을 넘기지 않는다 — onclick이 붙으면 `test_layout_guards.mjs`가 `role="button" tabindex="0"`을 요구한다. 연결된 목표가 없으면(버킷 합계 0) 카드를 렌더하지 않는다.
 - **"월 필수지출" has exactly one definition**: `finMonthlyFixedCost(ownerF)` in `finance.js` — 지출 autoTransfers with `isFixedCost === true`, excluding `FIN_SAVING_CATS` ('저축/투자', an asset transfer that doesn't reduce net worth), sized by `_autoTransferMonthlyEquivalent`. Unclassified (`isFixedCost == null`) rows are **not** summed; they come back as `pendingCount`/`pendingMonthly` so the UI can nag. The 리스크 진단 liquidity card delegates to `finCashSafety` so both pages show the same number — don't re-derive it.
 - **Net worth history**: `updateNetWorthSnapshot()` rewrites today's entry in `window._netWorthHistory` (max 365 days) **in memory only** — the caller decides whether to persist, so 재무상태표 CRUD can refresh the KPI without an extra KV write. `saveNetWorthSnapshot()` does update + save. Persisted in KV `ext_data`.
-  Entries come in three shapes and `finSnapshotKind(entry)` is the only thing that may classify them: `schemaV >= 2` → `full`; `schemaV === 1` → `investment`; **no `schemaV` at all → look at the structure** (`nonInvestmentAssets` or `netByOwner` present ⇒ `full`, else `investment`), because an intermediate build wrote full net worth without stamping a version. Treating every unversioned entry as v1 throws away comparable history. `finSnapshotNet` / `finSnapshotOwnerNet` build on it; comparing shapes blindly makes the day a user registers real estate look like a market move. 차트는 **투자 분석 > 성과**의 '투자자산 추이' 카드(`finInvestTrendCard`)에 있다 — 한눈에 보기와 재무상태표 화면이 사라지면서 옮겼다. 소유주 버튼과 기간 버튼은 `.fin-trend-tabs` 안의 **서로 다른 `.owner-tabs` 두 개**다(하나로 이어 붙이면 '전체'가 두 번 나오고 경계가 사라진다). hover 가이드(`#fin-nw-guide` 세로 점선 + `#fin-nw-marker`)는 **SVG 안**에 둔다 — 성과 차트처럼 HTML 오버레이로 하면 `viewBox` 의 padL/padR 을 퍼센트로 다시 계산해야 하는데, 렌더 시점에 이미 정확한 좌표를 알고 있다. 부동산·부채는 대시보드에서 관리하지 않으므로 순자산이 아니라 **스냅샷의 `portfolio` / `portfolioByOwner`(투자자산)만** 그린다(`finSnapshotInvestment`). `portfolio` 가 없는 과거 'full' 항목은 `total - nonInvestmentAssets + liabilities` 로 역산하고, 구성요소마저 없으면 버린다. 이 기준은 v1·v2 가 바로 비교되므로 순자산 기준보다 커버리지가 넓다. 성과 비교는 백캐스트라 실제 금액 추이가 아니며, 그 각주가 이 카드를 가리킨다.
+  Entries come in three shapes and `finSnapshotKind(entry)` is the only thing that may classify them: `schemaV >= 2` → `full`; `schemaV === 1` → `investment`; **no `schemaV` at all → look at the structure** (`nonInvestmentAssets` or `netByOwner` present ⇒ `full`, else `investment`), because an intermediate build wrote full net worth without stamping a version. Treating every unversioned entry as v1 throws away comparable history. `finSnapshotInvestment` / `finSnapshotOwnerInvestment` build on it; comparing shapes blindly makes the day a user registers real estate look like a market move. 차트는 **투자 분석 > 성과**의 '투자자산 추이' 카드(`finInvestTrendCard`)에 있다 — 한눈에 보기와 재무상태표 화면이 사라지면서 옮겼다. 소유주 버튼과 기간 버튼은 `.fin-trend-tabs` 안의 **서로 다른 `.owner-tabs` 두 개**다(하나로 이어 붙이면 '전체'가 두 번 나오고 경계가 사라진다). hover 가이드(`#fin-nw-guide` 세로 점선 + `#fin-nw-marker`)는 **SVG 안**에 둔다 — 성과 차트처럼 HTML 오버레이로 하면 `viewBox` 의 padL/padR 을 퍼센트로 다시 계산해야 하는데, 렌더 시점에 이미 정확한 좌표를 알고 있다. 부동산·부채는 대시보드에서 관리하지 않으므로 순자산이 아니라 **스냅샷의 `portfolio` / `portfolioByOwner`(투자자산)만** 그린다(`finSnapshotInvestment`). `portfolio` 가 없는 과거 'full' 항목은 `total - nonInvestmentAssets + liabilities` 로 역산하고, 구성요소마저 없으면 버린다. 이 기준은 v1·v2 가 바로 비교되므로 순자산 기준보다 커버리지가 넓다. 성과 비교는 백캐스트라 실제 금액 추이가 아니며, 그 각주가 이 카드를 가리킨다.
   **순자산 계산은 이제 두 곳에 있다** — 앱의 `updateNetWorthSnapshot`(브라우저를 열 때)과 배치의 `scripts/net_worth_snapshot.py` `build_entry`(매일 KST 16:40, 아래 참조). 둘은 같은 `netWorthHistory` 배열에 번갈아 `schemaV: 2` 항목을 쓰므로 **한쪽만 고치면 같은 그래프에 기준이 다른 점이 섞이고** 브리지의 '설명되지 않는 차이'가 통째로 왜곡된다. 한쪽을 고치면 반드시 다른 쪽도 고치고, `scripts/tests/test_net_worth_snapshot.py`가 같은 입력을 양쪽에 넣어 결과를 대조한다(node 를 못 돌리면 로컬에서만 SKIP, **CI 에서는 실패**).
-  기록이 선택 기간을 못 채우면 `finNwCoverage` / `finNwCoverageNote`가 실제 표시 구간을 한 줄로 밝힌다 — 이걸 숨기면 기간 버튼을 눌러도 MDD 가 안 변하는 것이 고장으로 보인다. 재무상태표와 한눈에 보기가 같은 함수를 쓴다.
+  기록이 선택 기간을 못 채우면 `finNwCoverage` / `finNwCoverageNote`가 실제 표시 구간을 한 줄로 밝힌다 — 이걸 숨기면 기간 버튼을 눌러도 MDD 가 안 변하는 것이 고장으로 보인다. 지금은 성과 페이지의 '투자자산 추이' 카드(`finInvestTrendCard`)가 쓴다.
 - **Dates use local time, never `toISOString()`**: `finLocalDateKey(date)` in `finance.js`. `toISOString().slice(0,10)` is UTC, so in KST it returns *yesterday* before 09:00 — snapshot keys, the bridge's "exclude today", and cashflow ranges all silently shift by a day.
 - **KV load state gates writes**: `window._kvLoadState = {assets, ext}` (`'pending' | 'ready'`). `saveAssetsToKV` / `saveExtDataToKV` refuse to write while the matching source is not `ready`, so a failed load never overwrites real KV data with empty defaults. `api/kv.ts` returns 502 on an upstream failure or malformed body rather than passing it through as success.
 - **Refresh is per-source**: `manualRefresh(source)` where source is `'all'` or a `finDataStatusRows` key (`assets`/`ext`/`prices`/`dividends`/`rates`/`benchmark`). It skips work that depends on an unloaded ledger and returns `{ok, results}`. Data-status cards call it with their own key.
@@ -233,9 +257,9 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - The frontend uses the Cobalt 3-theme system — `light` (default) / `dark` / `navy` — via `document.body.dataset.theme` (`light` = attribute removed). Switch with `setTheme(mode)` in `script.js`; `isDarkTheme()` is true for both `dark` and `navy`. CSS variables (`--t1`, `--t3`, `--inner-bg`, `--acc`, `--acc-soft`, `--tipbg`, etc.) in `style.css` are the source of truth — never hard-code colors that need to flip with the theme. Chart JS constants (`ownerColors`, `cfColors`) use the Cobalt palette (`#5b9bff`, `#4ecdc4`, `#f2a33c`, `#c084fc`, `#4ade80`, …).
 - When adding a new owner-aware widget, sync from `currentOwner` in `changeOwner()` and re-render in `switchView()` for the relevant `viewId`. Cobalt pages instead keep their own owner state and render owner buttons via `cbSetHead(sub, cbOwnerBtns(state, 'handlerName'))`. **Every calculation a page shows must respect that filter** — pass the owner through rather than computing household totals under an owner tab; if a number genuinely can't be filtered (e.g. the net worth bridge, which only has household snapshots), label it "가구 전체" on the card.
 - **Sidebar menu** is a flat list of the seven `.menu-btn` destinations in `index.html` — the four collapsible `.menu-group` sections were retired along with their state, CSS and `localStorage.menuGroupState`. 데이터 상태 is reached from the sidebar footer status button (`.footer-status-btn`), not a menu row.
-- **Mobile (≤768px) is read-only on the finance pages** — the 768px media query hides `#fin-bs-form`, `#fin-goal-form`, `.fin-form-actions`, `.fin-row-actions`. Any new form there must render a `finMobileNote(...)` callout so the missing controls are explained rather than just absent.
+- **Mobile (≤768px) is read-only on the finance pages** — the 768px media query hides `#fin-goal-form`, `.fin-form-actions`, `.fin-row-actions`, `.fin-target-inputs>button` (리밸런싱 목표 저장) and `.cb-tax-import`. Any new form there must render a `finMobileNote(...)` callout so the missing controls are explained rather than just absent.
 - **사람이 읽는 판본은 `docs/invariants.md`** — 같은 규칙을 증상 중심으로 풀어 쓴 문서이고, `npm test` 로는 검증되지 않는 영역(워크플로·모바일 레이아웃·CDN 실패·터치)을 따로 정리해 두었다. 새 불변조건이 생기면 **이 파일과 그 문서를 같은 커밋에서 함께** 고친다.
-- **List row actions key off item `id`, not array index** — the balance-sheet and goal lists are owner-filtered, so an index from the rendered list points at the wrong row. Use `finBalanceFind` / `finGoalFind`, and edit in place with `splice(i, 1, row)` so the row doesn't jump to the bottom. `finEnsureState()` backfills `id` on legacy rows.
+- **List row actions key off item `id`, not array index** — an index from a rendered (filtered or sorted) list points at the wrong stored row. Goal rows use `finGoalFind`; edit in place with `splice(i, 1, row)` so the row doesn't jump to the bottom. `finEnsureState()` backfills `id` on legacy rows.
 
 ### Historical simulation and compact controls (2026-09-11)
 

@@ -64,7 +64,10 @@ NON_EQUITY_NAME_RE = re.compile(
     r'(원화\s*예금|설정\s*현금|예치금|현금성|^현금$|^KRW$|\bCASH\b|'
     r'선물|\bFUT(?:URES?)?\b|\bE[ -]?MINI\b|스왑|\bSWAP\b|옵션|\bOPTION\b|'
     r'MONEY\s*MARKET|GOVERNMENT\s*OBLIG|TREASURY|머니마켓|단기금융|'
-    r'국고채|통안채|회사채|국채|\bBONDS?\b|T-?BILL|T-?NOTE|\bREPO\b|CD\d)', re.I)
+    r'국고채|통안채|회사채|국채|\bBONDS?\b|T-?BILL|T-?NOTE|\bREPO\b|CD\d|'
+    # 커버드콜 ETF 의 지수 옵션 행은 이름에 '옵션' 이 없다 — 'NDXP US 10/28/26 C29275 INDEX'·
+    # 'QNCWV6C4 29440 INDEX' 처럼 이름이 INDEX 로 끝난다(FunETF 490590). 주식 이름에는 쓰이지 않는다.
+    r'\sINDEX\s*$)', re.I)
 
 
 def is_kr_code(t):

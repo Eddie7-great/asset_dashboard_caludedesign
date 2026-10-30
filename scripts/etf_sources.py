@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """운용사 공식 보유명세 파일 → 구성종목.
 
-해외 ETF 중 `1629`(NEXT FUNDS) · `SPYM`(State Street) · `DRAM`(Tema)은 공개 조회 소스가
+해외 ETF 중 `1629`(NEXT FUNDS) · `SPYM`(State Street) · `DRAM`(Roundhill)은 공개 조회 소스가
 상위 10종목(또는 3종목)만 돌려준다. stockanalysis 를 yfinance 앞으로 옮겨 GitHub Actions 에서
 실제로 돌려 봤지만 세 펀드 모두 그대로였다(run 35073894717). funetf.co.kr 은 국내 상장 ETF
 카탈로그라 해당 없다. 그래서 운용사가 공시하는 보유명세 파일 자체를 리포에 커밋해 쓴다.
 
 **표준 라이브러리만 쓴다.** 수집기는 모듈 최상단에서 서드파티를 import 하지 않는 구조이고
-CI 는 numpy/pandas 만 설치한다. xlsx 는 zipfile+ElementTree 로, PDF 는 콘텐츠 스트림의
-BT/Td/Tj 좌표로 직접 읽는다(openpyxl·pypdf 를 쓰지 않는다).
+CI 는 numpy/pandas 만 설치한다. xlsx 는 zipfile+ElementTree 로, CSV 는 csv 모듈로 읽는다
+(openpyxl 을 쓰지 않는다).
 
-한계: 파일이 고정이라 기준일이 멈춘다. etfQuality 기준을 넘기면 '기준일 지연'으로 표시되는데
-그건 사실 그대로다. 갱신은 같은 경로에 새 파일을 덮어쓰면 된다.
+index.json 에 `url` 이 있으면 커밋된 파일보다 운용사 사이트의 새 파일을 먼저 써 보고, 실패하면
+커밋된 파일로 내려간다. 언제 받을지는 수집기가 상품의 리밸런싱·공시 주기로 정한다
+(collect_etf_holdings.py 의 rebalance_due) — 매일 받지 않는다.
 """
 
+import csv
 import datetime
 import json
 import os
@@ -30,7 +32,7 @@ from etf_common import UA, is_equity_row, merge_holdings, norm_holding_code
 # 않도록 EXTERNAL_SOURCE_TIMEOUT(12s, collect_etf_holdings.py)과 같은 자리수로 둔다.
 DOWNLOAD_TIMEOUT = 12
 # 커밋된 파일과 같은 형식이어야 파서가 읽으므로 저장 확장자를 맞춘다.
-_FORMAT_SUFFIX = {'nextfunds_xlsx': '.xlsx', 'spdr_xlsx': '.xlsx', 'tema_pdf': '.pdf'}
+_FORMAT_SUFFIX = {'nextfunds_xlsx': '.xlsx', 'spdr_xlsx': '.xlsx', 'roundhill_csv': '.csv'}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE_DIR = os.path.join(ROOT, 'data', 'etf_sources')
@@ -50,8 +52,10 @@ EXCHANGE_SUFFIXES = {
 }
 _SUFFIX_RE = re.compile(r'^([0-9A-Z.\-]{1,10})\s+([A-Z0-9]{1,2})$')
 
-_SWAP_RE = re.compile(r'\bSWAP\b|\bTRS\b', re.I)
-_SWAP_TAIL_RE = re.compile(r'[\s,\-]*\bSWAP\b.*$', re.I)
+# Roundhill 표의 스왑 행은 이름에 SWAP, 식별자에 TRS 가 붙고, 편입 직후에는 'SWP' 로만
+# 적힌 행(이름도 식별자와 같음)이 섞여 나온다 — 셋 다 스왑이다.
+_SWAP_RE = re.compile(r'\bSWAP\b|\bTRS\b|\bSWP\b', re.I)
+_SWAP_TAIL_RE = re.compile(r'[\s,\-]*\b(?:SWAP|SWP)\b.*$', re.I)
 
 
 def strip_exchange_suffix(code):
@@ -123,85 +127,6 @@ def xlsx_rows(path, sheet_name):
 def _cell(cells, col):
     # 엑셀이 셀 안의 줄바꿈을 _x000D_\n 으로 이스케이프한다 — 헤더 비교 전에 푼다.
     return str(cells.get(col, '')).replace('_x000D_', '').replace('　', ' ').strip()
-
-
-# ── PDF (콘텐츠 스트림의 BT/Td/Tj) ──────────────────────────────
-_STREAM_RE = re.compile(rb'stream\r?\n(.*?)endstream', re.S)
-_TD_RE = re.compile(r'(-?[\d.]+)\s+(-?[\d.]+)\s+Td')
-_TJ_RE = re.compile(r'\(((?:\\.|[^\\()])*)\)\s*Tj', re.S)
-_PDF_ESC_RE = re.compile(r'\\([()\\])')
-
-
-def _text_blocks(body):
-    """콘텐츠 스트림 → BT…ET 블록 목록.
-
-    정규식으로 BT…ET 를 찾지 않는다 — 본문에 'DRAM ETF Holdings' 같은 문자열이 있으면
-    ' ET' 가 먼저 걸려 블록이 잘린다(실제로 표지 제목이 통째로 사라졌다).
-    PDF 연산자는 한 줄에 하나씩 오므로 줄 단위로 읽고, 괄호 문자열 안쪽은 건드리지 않는다.
-    """
-    blocks, cur, depth = [], None, 0
-    for line in body.splitlines():
-        if depth == 0 and line.strip() == 'BT':
-            cur = []
-            continue
-        if depth == 0 and line.strip() == 'ET':
-            if cur is not None:
-                blocks.append('\n'.join(cur))
-            cur = None
-            continue
-        if cur is not None:
-            cur.append(line)
-        # 괄호 문자열이 여러 줄에 걸쳐도 BT/ET 로 오인하지 않게 깊이를 센다.
-        esc = False
-        for ch in line:
-            if esc:
-                esc = False
-            elif ch == '\\':
-                esc = True
-            elif ch == '(':
-                depth += 1
-            elif ch == ')':
-                depth = max(0, depth - 1)
-    return blocks
-
-
-def pdf_text_rows(path):
-    """PDF → 시각적 행 목록 [[셀문자열, …]]. 위→아래, 왼→오 순서.
-
-    이 운용사 PDF 는 콘텐츠 스트림이 압축되어 있지 않다. 언젠가 FlateDecode 로 바뀌어도
-    zlib 로 흡수한다. 셀 하나가 BT…ET 블록 하나다.
-    """
-    with open(path, 'rb') as f:
-        raw = f.read()
-    items = []
-    for page, m in enumerate(_STREAM_RE.finditer(raw)):
-        body = m.group(1)
-        if body[:1] == b'\x78':                      # zlib 헤더
-            try:
-                import zlib
-                body = zlib.decompress(body)
-            except Exception:
-                continue
-        try:
-            body = body.decode('latin-1')
-        except Exception:
-            continue
-        for blk in _text_blocks(body):
-            td = _TD_RE.search(blk)
-            tj = _TJ_RE.findall(blk)
-            if not td or not tj:
-                continue
-            text = _PDF_ESC_RE.sub(r'\1', ''.join(tj))
-            items.append((page, float(td.group(2)), float(td.group(1)), text))
-    items.sort(key=lambda it: (it[0], -it[1], it[2]))
-    rows, cur, key = [], None, None
-    for page, y, x, text in items:
-        k = (page, round(y, 1))
-        if cur is None or k != key:
-            cur, key = [], k
-            rows.append(cur)
-        cur.append(text)
-    return rows
 
 
 # ── 운용사별 파서 ────────────────────────────────────────────────
@@ -290,42 +215,30 @@ def parse_spdr_xlsx(path, want_ticker):
     return out, as_of, bool(out) and WEIGHT_SUM_MIN <= total <= WEIGHT_SUM_MAX
 
 
-_TEMA_DATE_RE = re.compile(r'As of (\d{2})-(\d{2})-(\d{4})')
-_TEMA_HEADERS = ('Ticker', 'Name', 'Identifier', 'Weight')
+_ROUNDHILL_HEADERS = ('Date', 'Account', 'StockTicker', 'CUSIP', 'SecurityName', 'Weightings')
 
 
-def parse_tema_pdf(path, want_ticker):
-    """Tema ETF holdings PDF.
+def _previous_weekday(day):
+    day -= datetime.timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= datetime.timedelta(days=1)
+    return day
+
+
+def _merge_named_swaps(rows):
+    """[(티커, 이름, 식별자, 비중%)] → ([(코드, 이름, 비중%)], 표 전체 비중 합계).
 
     **기초자산이 명시된 스왑(TRS)을 그 종목의 노출로 센다.** 추론이 아니다 — 스왑 행의
-    Identifier 첫 토큰이 기초자산의 CUSIP/SEDOL 이고, 그 값이 같은 표의 현물 주식 행
-    Identifier 와 일치한다(595112103→MU, 6771720→005930, 6450267→000660).
+    식별자 첫 토큰이 기초자산의 CUSIP/SEDOL 이고, 그 값이 같은 표의 현물 주식 행 식별자와
+    일치한다(595112103→MU, 6771720→005930, 6450267→000660).
     QLD 금지 규칙은 바스켓 내용을 **알 수 없어서** 둔 것이라 여기에 해당하지 않는다.
     현물 행에 없는 기초자산(BTMTQT8 = 비상장 CXMT)은 식별자를 코드로 남긴다 —
     어떤 직접 보유와도 매칭되지 않으므로 허위 룩스루를 만들 수 없다.
+    합계는 현금·국채·Cash&Other 까지 포함한 값이다(완전한 목록인지 판단하는 근거).
     """
-    rows = pdf_text_rows(path)
-    flat = ' '.join(' '.join(r) for r in rows[:6])
-    m = _TEMA_DATE_RE.search(flat)
-    if not m:
-        raise ValueError('기준일을 찾지 못함')
-    as_of = datetime.date(int(m.group(3)), int(m.group(1)), int(m.group(2))).isoformat()
-    hdr = next((i for i, r in enumerate(rows)
-                if len(r) >= 4 and all(h in ' '.join(r) for h in _TEMA_HEADERS)), None)
-    if hdr is None:
-        raise ValueError('헤더 행을 찾지 못함')
-    if want_ticker and want_ticker.upper() not in flat.upper():
-        raise ValueError('펀드 식별자를 찾지 못함: %r' % want_ticker)
-
     cash, swaps, total = [], [], 0.0
-    for r in rows[hdr + 1:]:
-        if len(r) < 4:
-            continue
-        w = _num(r[3])
-        if w is None:
-            continue
+    for ticker, name, ident, w in rows:
         total += w
-        ticker, name, ident = r[0].strip(), r[1].strip(), r[2].strip()
         if _SWAP_RE.search(name) or _SWAP_RE.search(ident):
             swaps.append((ident, name, w))
             continue
@@ -348,14 +261,49 @@ def parse_tema_pdf(path, want_ticker):
         if not code:
             continue
         out.append((code, _SWAP_TAIL_RE.sub('', name).strip(' -,') or code, w))
+    return out, total
+
+
+def parse_roundhill_csv(path, want_ticker):
+    """Roundhill 전 상품 보유명세 CSV(FilepointRoundhill.40RU.RU_Holdings_MMDDYYYY.csv).
+
+    한 파일에 모든 Roundhill 펀드가 들어 있어 `Account` 로 거른다. 사이트의 보유명세 PDF 는
+    브라우저가 이 CSV 로 즉석 생성하는 것이라 같은 자료다.
+    `Date` 열은 그 보유가 적용되는 **다음 거래일**이다(금요일 장 마감 기준 파일의 Date 는
+    월요일) — 기준일은 그 직전 평일이다. 거래소 휴일은 저장소의 다른 평일 규칙처럼 반영하지 않는다.
+    """
+    with open(path, encoding='utf-8-sig', newline='') as f:
+        reader = csv.DictReader(f)
+        missing = [h for h in _ROUNDHILL_HEADERS if h not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError('헤더 불일치: %s 없음' % ', '.join(missing))
+        want = str(want_ticker or '').strip().upper()
+        mine = [r for r in reader if (r.get('Account') or '').strip().upper() == want]
+    if not mine:
+        raise ValueError('펀드 행 없음: %r' % want_ticker)
+    dates = {(r.get('Date') or '').strip() for r in mine}
+    if len(dates) != 1:
+        raise ValueError('적용일이 섞여 있음: %r' % sorted(dates))
+    try:
+        effective = datetime.datetime.strptime(dates.pop(), '%m/%d/%Y').date()
+    except ValueError:
+        raise ValueError('기준일을 찾지 못함')
+    rows = []
+    for r in mine:
+        w = _num(r.get('Weightings'))
+        if w is None:
+            continue
+        rows.append(((r.get('StockTicker') or '').strip(), (r.get('SecurityName') or '').strip(),
+                     (r.get('CUSIP') or '').strip(), w))
+    out, total = _merge_named_swaps(rows)
     # 표가 순자산 100%를 설명하면(현금·국채·Cash&Other 포함) 잘리지 않은 전체 목록이다.
-    return out, as_of, bool(out) and WEIGHT_SUM_MIN <= total <= WEIGHT_SUM_MAX
+    return out, _previous_weekday(effective).isoformat(), bool(out) and WEIGHT_SUM_MIN <= total <= WEIGHT_SUM_MAX
 
 
 PARSERS = {
     'nextfunds_xlsx': parse_nextfunds_xlsx,
     'spdr_xlsx': parse_spdr_xlsx,
-    'tema_pdf': parse_tema_pdf,
+    'roundhill_csv': parse_roundhill_csv,
 }
 
 
@@ -392,16 +340,40 @@ def _parse_and_validate(parser, path, expect, code):
     return holdings, as_of, complete
 
 
-def fetch_local_source(code, verbose=True):
+_URL_DATE_TOKEN = '{MMDDYYYY}'
+
+
+def source_urls(spec, today=None):
+    """등록된 다운로드 주소 → 시도할 URL 목록(앞이 우선).
+
+    `{MMDDYYYY}` 자리표시자가 있으면(Roundhill 처럼 파일명에 기준일이 들어가는 운용사)
+    오늘부터 `urlLookbackDays` 일 거슬러 평일 후보를 만든다 — 운용사 사이트도 같은 방식으로
+    최신 파일을 찾는다. 아직 안 올라온 날짜는 404 페이지가 돌아와 검증에서 걸러진다.
+    """
+    url = spec.get('url')
+    if not url:
+        return []
+    if _URL_DATE_TOKEN not in url:
+        return [url]
+    today = today or datetime.date.today()
+    days = max(1, int(spec.get('urlLookbackDays') or 7))
+    out = []
+    for i in range(days):
+        day = today - datetime.timedelta(days=i)
+        if day.weekday() < 5:
+            out.append(url.replace(_URL_DATE_TOKEN, day.strftime('%m%d%Y')))
+    return out
+
+
+def fetch_local_source(code, verbose=True, today=None):
     """→ (holdings, asOf, complete, label). 등록·검증 실패는 조용히 ([], None, False, None).
 
     검증에 하나라도 걸리면 기존 수집 체인으로 폴백한다 — 지금보다 나빠지지 않는다.
 
-    `url` 이 등록돼 있으면 매 수집 때 운용사 사이트에서 새 파일을 내려받아 먼저 써 본다
-    (SPYM·DRAM 처럼 일일 공시라 고정 파일이 며칠 만에 낡는 상품용). 다운로드·파싱·검증
-    중 하나라도 실패하면 조용히 리포에 커밋된 파일로 내려간다 — url 이 없거나 깨져도
-    지금보다 나빠지지 않는다. 검증 기준(식별자·기준일·헤더·비중 합계·행 수)은 다운로드본과
-    커밋된 파일에 동일하게 적용한다.
+    `url` 이 등록돼 있으면 운용사 사이트에서 새 파일을 내려받아 먼저 써 본다. 다운로드·파싱·
+    검증 중 하나라도 실패하면 리포에 커밋된 파일로 내려간다 — url 이 없거나 깨져도 지금보다
+    나빠지지 않는다. 검증 기준(식별자·기준일·헤더·비중 합계·행 수)은 다운로드본과 커밋된
+    파일에 동일하게 적용한다. 언제 부를지는 수집기가 리밸런싱·공시 주기로 정한다.
     """
     spec = load_index().get(str(code).upper()) or load_index().get(str(code))
     if not spec:
@@ -412,31 +384,37 @@ def fetch_local_source(code, verbose=True):
     expect = spec.get('expect') or {}
     label = spec.get('label') or 'file'
 
-    url = spec.get('url')
-    if url:
+    urls = source_urls(spec, today)
+    failure = None
+    for url in urls:
         raw = _download_source(url)
-        if raw:
-            suffix = _FORMAT_SUFFIX.get(spec.get('format'), '')
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-                    tmp.write(raw)
-                    tmp_path = tmp.name
-                holdings, as_of, complete = _parse_and_validate(parser, tmp_path, expect, code)
-                if verbose:
-                    print('[file] %s: %s %d종목 (기준일 %s, 주식비중 %.2f%%, %s, 다운로드)'
-                          % (code, label, len(holdings), as_of,
-                             sum(h['w'] for h in holdings), '전체' if complete else '부분'))
-                return holdings, as_of, complete, label
-            except Exception as e:
-                if verbose:
-                    print('[file] %s: 다운로드본 사용 불가 → 커밋된 파일로 폴백 (%s)' % (code, e))
-            finally:
-                if tmp_path:
-                    try:
-                        os.unlink(tmp_path)
-                    except OSError:
-                        pass
+        if not raw:
+            failure = '다운로드 실패', url
+            continue
+        suffix = _FORMAT_SUFFIX.get(spec.get('format'), '')
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(raw)
+                tmp_path = tmp.name
+            holdings, as_of, complete = _parse_and_validate(parser, tmp_path, expect, code)
+            if verbose:
+                print('[file] %s: %s %d종목 (기준일 %s, 주식비중 %.2f%%, %s, 다운로드)'
+                      % (code, label, len(holdings), as_of,
+                         sum(h['w'] for h in holdings), '전체' if complete else '부분'))
+            return holdings, as_of, complete, label
+        except Exception as e:
+            failure = '다운로드본 사용 불가', e
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+    if failure and verbose:
+        # 조용히 넘어가면 Actions 로그만 봐서는 등록한 주소가 살아 있는지 알 수 없다.
+        tried = ', 주소 %d개 시도' % len(urls) if len(urls) > 1 else ''
+        print('[file] %s: %s → 커밋된 파일로 폴백 (%s%s)' % (code, failure[0], failure[1], tried))
 
     path = os.path.join(SOURCE_DIR, spec.get('file') or '')
     if not os.path.isfile(path):

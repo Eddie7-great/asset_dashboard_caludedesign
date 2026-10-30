@@ -995,6 +995,97 @@ def preserve_history(entry, old):
 # 대부분의 날짜가 '지연'이 된다. 통상적인 월간 주기(약 21평일) + 약 2주 공시 유예.
 ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS = 35
 
+# 분기 리밸런싱 상품(index.json 의 rebalance=='quarterly', 예: SPYM·DRAM)의 기준일.
+# etf-explorer.js 의 ETF_REBALANCE_SETTLE_DAYS / ETF_REBALANCE_GRACE_WEEKDAYS 와 같은 값이어야
+# 한다. 3·6·9·12월 셋째 금요일에 리밸런싱하고, DRAM 처럼 매매가 그 주에 걸쳐 끝나는 경우가
+# 있어(2026-06 은 6/22·6/24 에 나눠 편입) 7일 뒤를 '리밸런싱 후 자료' 기준일로 본다.
+# 거래소 휴일은 저장소의 다른 평일 규칙처럼 반영하지 않는다.
+REBALANCE_QUARTER_MONTHS = (3, 6, 9, 12)
+ETF_REBALANCE_SETTLE_DAYS = 7
+ETF_REBALANCE_GRACE_WEEKDAYS = 5
+# 액티브 ETF(rebalance=='weekly')는 매주 한 번 받는다 — 매니저가 수시로 매매해 2026-09~10 의
+# 6주 동안 TIME 두 상품의 구성이 15번·7번 바뀌었다. 신선도 한도는 주 1회 주기 + 2평일 여유.
+# etf-explorer.js 의 ETF_WEEKLY_LIMIT_WEEKDAYS 와 같은 값이어야 한다.
+ETF_WEEKLY_LIMIT_WEEKDAYS = 7
+ETF_ACTIVE_RE = re.compile(r'액티브|\bACTIVE\b', re.I)
+
+
+def _weekdays_after(start, end):
+    """start 다음 날부터 end 까지(포함)의 평일 수."""
+    return sum((start + datetime.timedelta(days=i)).weekday() < 5 for i in range(1, (end - start).days + 1))
+
+
+def third_friday(year, month):
+    first = datetime.date(year, month, 1)
+    return first + datetime.timedelta(days=(4 - first.weekday()) % 7 + 14)
+
+
+def quarterly_rebalance_due(today):
+    """today 이하인 가장 최근의 (3·6·9·12월 셋째 금요일 + 7일)."""
+    for year in (today.year, today.year - 1):
+        for month in reversed(REBALANCE_QUARTER_MONTHS):
+            due = third_friday(year, month) + datetime.timedelta(days=ETF_REBALANCE_SETTLE_DAYS)
+            if due <= today:
+                return due
+    return None
+
+
+def previous_month_end(today):
+    """전월 마지막 평일 — 월말 기준 공시·월 1회 점검의 기준일."""
+    day = today.replace(day=1) - datetime.timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= datetime.timedelta(days=1)
+    return day
+
+
+def schedule_for(spec, name):
+    """ETF 하나의 갱신 주기 필드 — 매일 받지 않고 이 주기에 한 번만 받는다.
+
+    data/etf_sources/index.json 에 등록된 값(1629 월간 공시, SPYM·DRAM 분기)이 우선이다.
+    없으면 이름으로 정한다: 액티브는 weekly, 그 외 지수형은 전부 quarterly. 국내 지수
+    (KOSPI200 6·12월, 테마 지수 분기·반기)의 정기 변경은 둘째 목요일 다음 날이라 '셋째 금요일
+    + 7일' 기준일이 그보다 늦어 함께 담기고, 수시 교체는 월 1회 점검이 담는다.
+    """
+    fields = {k: spec[k] for k in ('disclosure', 'rebalance') if (spec or {}).get(k)}
+    if fields:
+        return fields
+    return {'rebalance': 'weekly' if ETF_ACTIVE_RE.search(name or '') else 'quarterly'}
+
+
+def collection_due(schedule, today):
+    """이 날짜 이후 자료가 이미 있으면 다시 받지 않는다. 주기가 없으면 None(매 평일 수집).
+
+    분기 리밸런싱 상품은 리밸런싱 후 기준일과 전월 마지막 평일 중 늦은 날짜다 — 리밸런싱 사이의
+    수시 편입(DRAM 2026-07 의 CXMT 스왑 4.7% 등)을 늦어도 한 달 안에 담기 위한 월 1회 점검.
+    액티브(weekly)는 그 주 월요일, 월 1회만 공시하는 상품은 전월 마지막 평일이다.
+    """
+    schedule = schedule or {}
+    if schedule.get('rebalance') == 'quarterly':
+        return max(quarterly_rebalance_due(today), previous_month_end(today))
+    if schedule.get('rebalance') == 'weekly':
+        return today - datetime.timedelta(days=today.weekday())
+    if schedule.get('disclosure') == 'monthly':
+        return previous_month_end(today)
+    return None
+
+
+def collection_not_due(old, due):
+    """직전 스냅샷이 기준일 이후의 완전한 자료라 다시 받을 필요가 없는가."""
+    return bool(due and old and old.get('holdings') and old.get('coverage') == 'full'
+                and not old.get('retained') and (old.get('asOf') or '') >= due.isoformat())
+
+
+def needs_collection(old, due, last_attempt=None):
+    """이번 실행에서 원본을 받아야 하는가.
+
+    받은 적 있는 ETF 는 기준일 이후의 완전한 자료가 없을 때만. 한 번도 못 받은 ETF(BMNU 처럼
+    구성종목을 공개하지 않는 상품)는 같은 기준일 안에서 이미 시도했으면 다시 시도하지 않는다 —
+    그동안 화면은 ETF 탐색 진입 시 실시간 조회가 대신 보여 준다.
+    """
+    if old and old.get('holdings'):
+        return not collection_not_due(old, due)
+    return not (due and (last_attempt or '') >= due.isoformat())
+
 
 def snapshot_stale(entry, today):
     try:
@@ -1003,10 +1094,16 @@ def snapshot_stale(entry, today):
         return True
     if day > today:
         return True
-    age = sum((day + datetime.timedelta(days=i)).weekday() < 5 for i in range(1, (today-day).days+1))
+    age = _weekdays_after(day, today)
+    if entry.get('rebalance') == 'quarterly':
+        # 나이가 아니라 '마지막 리밸런싱 이후 자료인가'로 본다(월 1회 점검 실패만으로는 지연이 아님).
+        due = quarterly_rebalance_due(today)
+        return bool(due) and day < due and _weekdays_after(due, today) > ETF_REBALANCE_GRACE_WEEKDAYS
+    if entry.get('rebalance') == 'weekly':
+        return age > ETF_WEEKLY_LIMIT_WEEKDAYS
     if entry.get('disclosure') == 'monthly':
         return age > ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS
-    active = entry.get('active') or re.search(r'액티브|\bACTIVE\b', entry.get('name') or '', re.I)
+    active = entry.get('active') or ETF_ACTIVE_RE.search(entry.get('name') or '')
     return age > (2 if active else 5)
 
 
@@ -1035,14 +1132,49 @@ def has_persisted_changes(previous, current):
     return persisted_projection(previous) != persisted_projection(current)
 
 
+def kst_today():
+    return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
+
+
+def due_codes(targets, today=None):
+    """이번 실행에서 원본을 받아야 하는 ETF 코드 — 워크플로가 스모크 테스트를 건너뛸지 정한다."""
+    today = today or kst_today()
+    prev, sources = load_previous(), load_index()
+    attempts = prev.get('attempts') or {}
+    out = []
+    for code, name, _ in targets:
+        due = collection_due(schedule_for(sources.get(code) or {}, name), today)
+        if needs_collection(clean_snapshot(prev['etfs'].get(code)), due, attempts.get(code)):
+            out.append(code)
+    return out
+
+
 def run(targets, dry_run=False):
     prev = load_previous()
     etfs, failures = {}, []
-    today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date().isoformat()
+    today = kst_today().isoformat()
     summary = {'complete': 0, 'partial': 0, 'retained': 0, 'missing': 0}
 
+    sources = load_index()
+    attempts = dict(prev.get('attempts') or {})
     for code, name, lookup in targets:
         old = clean_snapshot(prev['etfs'].get(code))
+        # 구성종목은 매일 받지 않는다 — 상품의 리밸런싱·공시 주기(schedule_for)로 정한 기준일 이후의
+        # 완전한 자료가 이미 있으면 네트워크 요청 없이 그대로 둔다. 실패가 아니므로 retained 를 켜지 않는다.
+        schedule = schedule_for(sources.get(code) or {}, name)
+        due = collection_due(schedule, datetime.date.fromisoformat(today))
+        if not needs_collection(old, due, attempts.get(code)):
+            if old and old.get('holdings'):
+                etfs[code] = {**prev['etfs'][code], **schedule}
+                summary['complete'] += 1
+                print('  %-8s %-28s 갱신 기준일 %s 이후 자료 보유(%s) → 수집 생략'
+                      % (code, name[:28], due.isoformat(), old.get('asOf')))
+            else:
+                failures.append(name or code)
+                summary['missing'] += 1
+                print('  %-8s %-28s 기준일 %s 이후 이미 시도(%s) → 다음 기준일까지 재시도 생략'
+                      % (code, name[:28], due.isoformat(), attempts.get(code)))
+            continue
         holdings, eq, as_of, source, full = collect_one(code, name, lookup)
         if holdings and old and as_of and old.get('asOf') and as_of < old['asOf']:
             holdings = []  # A stale provider response must not roll the fund backwards.
@@ -1054,13 +1186,12 @@ def run(targets, dry_run=False):
                           'equityWeight': eq, 'holdings': holdings, 'coverage': coverage,
                           'fetchedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                           'lastAttempt': today, 'retained': False,
-                          'active': bool(re.search(r'액티브|\bACTIVE\b', name, re.I))}
-            # 운용사가 월 1회만 공시하는 상품은 etfQuality/snapshot_stale 이 넓은 임계값을
-            # 쓰도록 스냅샷에 함께 적는다(data/etf_sources/index.json 이 유일한 출처).
+                          'active': bool(ETF_ACTIVE_RE.search(name))}
+            # 공시·리밸런싱 주기는 etfQuality/snapshot_stale 이 신선도를 판정할 때 쓰도록
+            # 스냅샷에 함께 적는다(index.json 등록값 또는 schedule_for 의 이름 규칙).
             # 프런트는 이 JSON만 읽으므로 index.json 자체를 내려받지 않는다 — 여기서 옮겨 적는다.
-            disclosure = (load_index().get(code) or {}).get('disclosure')
-            if disclosure:
-                etfs[code]['disclosure'] = disclosure
+            etfs[code].update(schedule)
+            attempts.pop(code, None)
             summary['complete' if coverage == 'full' else 'partial'] += 1
             print('  %-8s %-28s %4d종목  주식비중 %5.1f%%  (%s, %s)'
                   % (code, name[:28], len(holdings), eq, source, as_of))
@@ -1073,12 +1204,18 @@ def run(targets, dry_run=False):
             else:
                 failures.append(name or code)
                 summary['missing'] += 1
+                attempts[code] = today
                 print('  %-8s %-28s 수집 실패' % (code, name[:28]))
         if code in etfs:
             preserve_history(etfs[code], old)
 
     stale_count = sum(snapshot_stale(e, datetime.date.fromisoformat(today)) for e in etfs.values())
     doc = {'asOf': today, 'etfs': etfs, 'failures': failures, 'summary': {**summary, 'staleOrUndated': stale_count}, 'schemaVersion': 2}
+    # 한 번도 못 받은 ETF 의 마지막 시도일 — 같은 기준일 안에서는 다시 시도하지 않는다.
+    held = {code for code, _, _ in targets}
+    attempts = {code: day for code, day in attempts.items() if code in held and code not in etfs}
+    if attempts:
+        doc['attempts'] = attempts
     print('품질 요약: 전체 %d / 일부 %d / 이전 유지 %d / 미조회 %d' % tuple(summary.values()))
     print('기준일 지연·미확인: %d' % stale_count)
     if summary['partial'] or summary['retained'] or summary['missing'] or stale_count:
@@ -1143,6 +1280,8 @@ def main():
     ap.add_argument('--tickers', help='쉼표로 구분한 수집 대상 (미지정 시 KV 보유 ETF)')
     ap.add_argument('--smoke', metavar='CODE', help='단일 국내 ETF 스모크 테스트')
     ap.add_argument('--dry-run', action='store_true', help='파일을 쓰지 않고 요약만 출력')
+    ap.add_argument('--due', action='store_true',
+                    help='이번 실행에서 받아야 할 ETF 만 출력하고 GITHUB_OUTPUT 에 due=true|false 를 쓴다')
     args = ap.parse_args()
 
     if args.smoke:
@@ -1152,6 +1291,13 @@ def main():
     targets = resolve_targets(explicit)
     if not targets:
         print('수집 대상 ETF가 없습니다.', file=sys.stderr)
+        return 0
+    if args.due:
+        codes = due_codes(targets)
+        print('갱신 기준일이 지난 ETF %d/%d종목: %s' % (len(codes), len(targets), ', '.join(codes) or '없음'))
+        if os.environ.get('GITHUB_OUTPUT'):
+            with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+                f.write('due=%s\n' % ('true' if codes else 'false'))
         return 0
     print('수집 대상 %d종목' % len(targets))
     run(targets, dry_run=args.dry_run)
