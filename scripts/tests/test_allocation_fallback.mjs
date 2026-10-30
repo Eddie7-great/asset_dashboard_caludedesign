@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const source=fs.readFileSync('script.js','utf8');
-const fn=source.slice(source.indexOf('function renderBubbleChart(mode)'),source.indexOf('function _drawBubbleExternalLabels('));
+const fn=source.slice(source.indexOf('function renderBubbleChart(mode)'),source.indexOf('let _bubbleDrilledSector'));
 let rendered;
 const container={classList:{toggle(){}},getBoundingClientRect:()=>({width:0,height:0}),querySelector:()=>null};
 const item=(owner,grp,tkr,val)=>({owner,grp,tkr,val});

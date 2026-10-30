@@ -1263,7 +1263,6 @@
       #view-bubble .sunburst-panel{flex:0 0 auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
       #view-bubble .bubble-body-flex{flex:0 0 auto!important;height:auto!important;min-height:0!important}
       #sunburst-container{flex:0 0 auto!important;min-height:0!important;height:auto!important}
-      #bubble-center-summary{display:none!important}
       #bubble-sector-panel{flex:0 0 auto!important;width:100%;overflow:visible!important}
       #bubble-leaves-panel{display:none!important}
       .bubble-inline-leaves{display:block}
@@ -1317,7 +1316,6 @@
 }
 
 .bubble-list-fallback{overflow:auto!important}
-.bubble-list-fallback #bubble-center-summary{display:none!important}
 .bubble-weight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
 .bubble-weight-item{min-width:0}
 @media(max-width:520px){.bubble-weight-grid{grid-template-columns:1fr}}
