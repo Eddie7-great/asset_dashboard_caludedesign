@@ -6,6 +6,7 @@ import vm from 'node:vm';
 const root = new URL('../../', import.meta.url);
 const script = fs.readFileSync(new URL('script.js', root), 'utf8');
 const style = fs.readFileSync(new URL('style.css', root), 'utf8');
+const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
 
 const themes = script.match(/const THEMES = \[[^\]]*\];/)[0];
 const savedTheme = script.match(/function _savedTheme\(\)\{[\s\S]*?\n\}/)[0];
@@ -43,5 +44,8 @@ assert.match(style, /\[data-theme="dark"\] \{[^}]*--side-bg:/, '다크도 사이
 assert.doesNotMatch(style, /data-theme="navy"/, '네이비 토큰 삭제');
 assert.match(style, /:root \{[^}]*--gshadow:none;/, '카드 그림자 없음');
 assert.match(style, /\.glass-panel\.menu-col\{background:var\(--side-bg\)/, '사이드바는 --side-* 토큰으로만 칠한다');
+
+// 세그먼트·전환 탭은 선택 항목을 강조색 바탕으로 칠하지 않는다 — 시뮬레이터 종류 탭은 밑줄형
+assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\]\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
 
 console.log('ok - theme');
