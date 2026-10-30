@@ -302,6 +302,19 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-entry-body[hidden]{display:none}
 .fin-goal-add-btn{margin-left:auto;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
 
+/* ===== 적립식 매수: 앞으로 30일 일정 (2026-10-30) ===== */
+.cb-dca-upcoming{margin-top:12px;padding:14px 16px}
+.cb-dca-upcoming-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
+.cb-dca-upcoming-head small{font-size:var(--fs-cap);color:var(--lab)}
+.cb-dca-upcoming-list{display:flex;gap:8px;margin:0;padding:0 0 4px;list-style:none;overflow-x:auto}
+.cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--inner)}
+.cb-dca-upcoming-list b{font-size:var(--fs-body)}
+.cb-dca-upcoming-list b span{font-weight:500;color:var(--lab)}
+.cb-dca-upcoming-item{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-dca-upcoming-item i{width:7px;height:7px;border-radius:50%;flex:none}
+.cb-dca-upcoming-list em{margin-top:auto;font-style:normal;font-weight:700;font-size:var(--fs-cap);color:var(--tx)}
+.cb-dca-upcoming-empty{font-size:var(--fs-body);color:var(--lab)}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
@@ -324,3 +337,8 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .compact-menu .menu-btn{min-height:44px}
   .cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-size:22px}
 }
+/* 예전 작은 회색 제목(자간 넓은 10.5~12px)들도 같은 카드 제목 모양으로 — 현금 흐름 카드(.cb-label)·
+   재무 섹션 머리(.fin-section-head>span)·리스크 보조 진단(.cb-risk-insight-title) */
+.cb-label,.fin-section-head>span{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
+#cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
+.cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
