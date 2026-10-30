@@ -18,7 +18,7 @@
       --seg-bg:#e9edf5;--seg-on:#ffffff;
       /* 강조 숫자 카드(홈 투자자산 총액) */
       --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
-      --acc:#2a6fdb;--acc2:#0f9488;--acc3:#7c3aed;
+      --acc:#2a6fdb;--on-acc:#ffffff;--acc2:#0f9488;--acc3:#7c3aed;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
@@ -150,7 +150,7 @@
       --header-bg:#15181e;--hover-bg:rgba(122,162,255,.07);
       --modal-bg:#15181e;--border-light:#1f232b;--border-dark:#2c313c;
       --gshadow:none;
-      --acc:#7aa2ff;--acc2:#38bdf8;--acc3:#a78bfa;
+      --acc:#7aa2ff;--on-acc:#0b1020;--acc2:#38bdf8;--acc3:#a78bfa;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#a5abb8;--t3:#8a909b;
       --up:#34d399;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
