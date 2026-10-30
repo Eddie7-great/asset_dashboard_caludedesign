@@ -400,8 +400,8 @@
         <!-- [5] 주식=주 고정, 코인=개 고정, 금만 단위 선택 -->
         <div style="display:flex;gap:5px">
           <input type="text" class="form-input" id="add-qty" placeholder="0" inputmode="numeric" style="flex:1">
-          <div id="unit-fixed" style="padding:10px 12px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:8px;font-weight:600;color:var(--t2);white-space:nowrap;flex-shrink:0">주</div>
-          <select id="add-unit" class="form-input" style="flex:0.7;padding:10px 4px;display:none;"><option value="g">g</option><option value="돈">돈</option><option value="kg">kg</option></select>
+          <div id="unit-fixed" style="display:flex;align-items:center;padding:0 12px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:8px;font-weight:600;color:var(--t2);white-space:nowrap;flex-shrink:0">주</div>
+          <select id="add-unit" class="form-input" style="flex:0.7;padding:0 4px;display:none;"><option value="g">g</option><option value="돈">돈</option><option value="kg">kg</option></select>
         </div>
       </div>
       <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="numeric" oninput="handleAvgPriceInput(this)"></div>

@@ -6,6 +6,7 @@ import vm from 'node:vm';
 const root = new URL('../../', import.meta.url);
 const script = fs.readFileSync(new URL('script.js', root), 'utf8');
 const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
+const html = fs.readFileSync(new URL('index.html', root), 'utf8');
 
 const helper = script.match(/let _holdingsTab='주식'[\s\S]*?\nfunction holdingsRowMatches\(i\)\{[\s\S]*?\n\}/)[0];
 const ctx = vm.createContext({});
@@ -31,5 +32,10 @@ assert.match(script, /class="holdings-add-btn" onclick="openAddModal\('\$\{_hold
 // 수정 창은 같은 DOM 을 넓은 화면에서만 오른쪽 패널로 — 좁은 화면은 팝업 유지
 assert.match(ws, /@media\(min-width:1101px\)\{\n\s*#add-modal\.modal-overlay\{[^}]*right:0;width:440px/);
 assert.match(ws, /body:has\(#add-modal\.active\) \.content-area\{padding-right:440px/, '패널이 표를 가리지 않도록 본문 오른쪽을 비운다');
+
+// 수량 옆 단위 상자(주/개)·단위 선택(g/돈/kg)은 세로 padding 없이 입력칸 높이를 따른다 —
+// padding:10px 이면 상자가 46px 로 커져 '수량' 제목이 옆 '평균단가' 제목보다 10px 위로 떴다
+assert.match(html, /<div id="unit-fixed" style="display:flex;align-items:center;padding:0 12px;/);
+assert.match(html, /<select id="add-unit" class="form-input" style="flex:0\.7;padding:0 4px;/);
 
 console.log('ok - holdings tabs');
