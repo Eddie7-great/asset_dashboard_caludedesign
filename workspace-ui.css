@@ -220,6 +220,31 @@
 .fin-bullet-row.out .fin-bullet-note{color:var(--warn);font-weight:700}
 @media(max-width:768px){.fin-bullet-row{grid-template-columns:72px minmax(0,1fr) 44px;gap:6px}}
 
+/* ===== 홈 (2026-10-30) — 확인 필요 줄 · 숫자 카드 5개 · 보유 표 비중/시세 칸 ===== */
+.cb-dash-checks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-bottom:12px;padding:6px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,var(--bd));border-radius:10px;background:color-mix(in srgb,var(--warn) 8%,var(--panel));font-size:var(--fs-body)}
+.cb-dash-checks b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
+.cb-dash-checks button{min-height:32px;padding:4px 2px;border:0;background:transparent;color:var(--acc);font:600 var(--fs-body)/1.4 'Noto Sans KR',sans-serif;cursor:pointer}
+.cb-dash-checks button:hover{text-decoration:underline}
+.cb-dash-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.cb-dash-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--panel);color:var(--tx);font-family:inherit;text-align:left}
+button.cb-dash-kpi{cursor:pointer}
+button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
+.cb-dash-kpi.is-total{border-color:var(--kpi-hi-bg);background:var(--kpi-hi-bg);color:var(--kpi-hi-tx)}
+.cb-dash-kpi-label{display:flex;align-items:center;gap:6px;font-size:var(--fs-body);color:var(--mut)}
+.cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--kpi-hi-mut)}
+.cb-dash-kpi-go{margin-left:auto;color:var(--acc);font-weight:700}
+.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
+.cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
+.cb-dash-kpi-sub{font-size:var(--fs-cap);color:var(--lab)}
+.home-weight{white-space:nowrap}
+.home-weight-bar{display:inline-block;width:56px;height:5px;margin-right:8px;overflow:hidden;border-radius:3px;background:var(--inner);vertical-align:middle}
+.home-weight-bar i{display:block;height:100%;border-radius:3px}
+.home-table-column td.home-price-state,.home-table-column th:last-child{text-align:center}
+.home-price-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--up)}
+.home-price-dot.is-stale{background:var(--warn)}
+@media(max-width:1100px){.cb-dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:768px){.cb-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.cb-dash-kpi.is-total{grid-column:1/-1}.cb-dash-kpi{padding:12px}.cb-dash-kpi-value{font-size:19px}.cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:22px}}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */

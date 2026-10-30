@@ -16,6 +16,8 @@
       --fs-title:22px;--fs-card:15px;--fs-kpi:26px;--fs-body:13px;--fs-cap:12px;
       /* 소유주·기간 탭 같은 세그먼트 컨트롤 — 회색 바탕 + 선택 항목 흰 바탕 */
       --seg-bg:#e9edf5;--seg-on:#ffffff;
+      /* 강조 숫자 카드(홈 투자자산 총액) */
+      --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
       --acc:#2a6fdb;--acc2:#0f9488;--acc3:#7c3aed;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
@@ -157,7 +159,8 @@
       --side-bg:#08090c;--side-border:#1f232b;--side-tx:#e7e9ee;--side-mut:#a5abb8;--side-dim:#8a909b;
       --side-hover:rgba(255,255,255,.06);--side-active-bg:#1f232b;--side-active-tx:#ffffff;
       --side-inner:#15181e;--side-line:#1f232b;
-      --seg-bg:#0e1014;--seg-on:#1f232b
+      --seg-bg:#0e1014;--seg-on:#1f232b;
+      --kpi-hi-bg:#1f2a44;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6
     }
     /* ── 디자인 토큰 ─ 라이트(사이드바까지 밝게) ─────────────── */
     [data-theme="light"] {
