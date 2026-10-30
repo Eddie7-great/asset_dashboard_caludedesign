@@ -44,6 +44,11 @@ assert.equal(ctx.etfQuality(quarterly({asOf:'2026-09-14'}),kst('2026-10-30')).st
 assert.equal(ctx.etfQuality(quarterly({asOf:'2026-09-14'}),kst('2026-09-30')).stale,false,'기준일 뒤 5평일 이내');
 assert.equal(vm.runInContext('ETF_REBALANCE_SETTLE_DAYS',ctx),7);
 assert.equal(vm.runInContext('ETF_REBALANCE_GRACE_WEEKDAYS',ctx),5);
+// 액티브(rebalance:'weekly')는 주 1회 받으므로 7평일까지 정상 — 예전 2평일 규칙을 대신한다.
+const weekly=extra=>s([h('A',50)],{rebalance:'weekly',asOf:'2026-10-20',name:'TIME 미국S&P500액티브',...extra});
+assert.equal(ctx.etfQuality(weekly(),kst('2026-10-29')).stale,false,'7평일 — 주 1회 주기 안');
+assert.equal(ctx.etfQuality(weekly(),kst('2026-10-30')).stale,true,'8평일 — 지연');
+assert.equal(vm.runInContext('ETF_WEEKLY_LIMIT_WEEKDAYS',ctx),7);
 const old=s([h('A',30),h('B',20)]),current=s([h('A',35),h('C',10)],{asOf:'2026-09-08'});
 let d=ctx.etfCompareSnapshots(current,old);
 assert.equal(d.complete,true);assert.equal(d.rows.find(x=>x.t==='B').kind,'편출');assert.equal(d.rows.find(x=>x.t==='C').kind,'편입');

@@ -8,7 +8,7 @@ function etfLiveMessage(code){
   const state=_etfLiveStates[code];
   if(!state)return '페이지 진입 시 원본 자료 확인';
   const time=state.at?new Date(state.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
-  return ({cancelled:'이전 요청 중단 · 다시 확인',loading:'원본 조회 중…',ok:'원본 확인 완료',failed:'조회 실패 · 마지막 자료 유지',older:'이전 기준일 응답 · 마지막 자료 유지',undated:'기준일 미확인 응답 · 마지막 자료 유지'})[state.status]+(time?' · '+time:'');
+  return ({current:'주기상 최신 · 원본 조회 생략',cancelled:'이전 요청 중단 · 다시 확인',loading:'원본 조회 중…',ok:'원본 확인 완료',failed:'조회 실패 · 마지막 자료 유지',older:'이전 기준일 응답 · 마지막 자료 유지',undated:'기준일 미확인 응답 · 마지막 자료 유지'})[state.status]+(time?' · '+time:'');
 }
 function etfRetainLive(code){
   const old=cbEtfDoc()?.etfs?.[code];
@@ -39,7 +39,13 @@ async function etfRefreshOnOpen(onlyCode=null){
   await cbEnsureEtfHoldings(true);
   if(generation!==_etfRefreshGeneration)return;
   // All owners' held ETFs; filtering and redraws do not restart network requests.
-  const codes=[...new Set(cbAllRows().filter(r=>cbIsEtf(r.i)).map(r=>cbStrip(r.i.tkr)))].filter(code=>!onlyCode||code===onlyCode);
+  const held=[...new Set(cbAllRows().filter(r=>cbIsEtf(r.i)).map(r=>cbStrip(r.i.tkr)))].filter(code=>!onlyCode||code===onlyCode);
+  // 구성종목은 리밸런싱 주기로 갱신하므로, 주기상 최신이고 완전한 자료가 있는 ETF 는 진입할 때마다
+  // 원본을 다시 묻지 않는다. 점검 행의 개별 '다시 확인'(onlyCode)은 사용자가 고른 것이라 그대로 조회한다.
+  const codes=onlyCode?held:held.filter(code=>!etfQuality(cbEtfDoc()?.etfs?.[code]).reliable);
+  held.filter(code=>!codes.includes(code)).forEach(code=>{
+    if(!_etfLiveStates[code]||_etfLiveStates[code].status==='cancelled')_etfLiveStates[code]={status:'current'};
+  });
   codes.forEach(code=>{_etfLiveStates[code]={status:'loading'};});
   etfRenderLiveUpdate();
   async function worker(){
@@ -90,6 +96,9 @@ const ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS=35;
 // 자료면 기준일로부터 5평일이 지났을 때만 지연이다. 거래소 휴일은 반영하지 않는다.
 // snapshot_stale(scripts/collect_etf_holdings.py)과 같은 값이어야 한다 — 프런트가 권위다.
 const ETF_REBALANCE_SETTLE_DAYS=7, ETF_REBALANCE_GRACE_WEEKDAYS=5;
+// 액티브 ETF(entry.rebalance==='weekly')는 매주 한 번 받는다 — 주 1회 주기 + 2평일 여유.
+// snapshot_stale(Python)의 ETF_WEEKLY_LIMIT_WEEKDAYS 와 같은 값이어야 한다.
+const ETF_WEEKLY_LIMIT_WEEKDAYS=7;
 function etfQuarterlyRebalanceDue(now=new Date()){
   const today=now.toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'}),key=d=>
     `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
@@ -104,7 +113,8 @@ function etfQuarterlyRebalanceDue(now=new Date()){
 function etfQuality(entry,now=new Date()){
   const rows=etfStockRows(entry),active=entry?.active||/액티브|\bACTIVE\b/i.test(entry?.name||'');
   const age=etfBusinessAge(entry?.asOf,now);
-  const limit=entry?.disclosure==='monthly'?ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS:(active?2:5);
+  const limit=entry?.disclosure==='monthly'?ETF_MONTHLY_DISCLOSURE_LIMIT_WEEKDAYS
+    :entry?.rebalance==='weekly'?ETF_WEEKLY_LIMIT_WEEKDAYS:(active?2:5);
   const full=entry?.coverage==='full'&&rows.length===entry?.holdings?.length;
   const due=entry?.rebalance==='quarterly'?etfQuarterlyRebalanceDue(now):null, reasons=[];
   const stale=age!==null&&(due?entry.asOf<due&&etfBusinessAge(due,now)>ETF_REBALANCE_GRACE_WEEKDAYS:age>limit);

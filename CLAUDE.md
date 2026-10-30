@@ -2,7 +2,7 @@
 
 ### Compact navigation and FunETF (2026-09-10)
 
-- Each ETF-page entry and manual refresh revalidates the published snapshot and queries held ETF symbols through the authenticated, no-store dashboard API. Use only bounded HTTP adapters (FunETF domestically; supported issuers then stockanalysis abroad), never the long KRX/browser retry chain in a function. Limit browser concurrency to two; ignore responses from superseded page entries. Preserve dated/full last-good observations on failures, older dates or undated/partial regressions; display the latest attempt separately from composition asOf. Live observations are session-only; scheduled collection persists history.
+- Each ETF-page entry and manual refresh revalidates the published snapshot and queries — through the authenticated, no-store dashboard API — **only the held ETFs whose snapshot is not reliable under its refresh cycle** (`etfQuality(...).reliable === false`: delayed for its cycle, partial, retained or missing); current ones show '주기상 최신 · 원본 조회 생략'. A per-row re-check still queries that ETF. Use only bounded HTTP adapters (FunETF domestically; supported issuers then stockanalysis abroad), never the long KRX/browser retry chain in a function. Limit browser concurrency to two; ignore responses from superseded page entries. Preserve dated/full last-good observations on failures, older dates or undated/partial regressions; display the latest attempt separately from composition asOf. Live observations are session-only; scheduled collection persists history.
 
 - `snap`(한눈에 보기) 화면은 제거됐다 — 고유 내용이던 순자산 추이는 성과 페이지의 투자자산 추이 카드가 대신한다. `navResolve` 의 `snap`→`cdash` 매핑은 옛 링크 호환으로 남긴다.
 - The current navigation has seven main destinations. Balance-sheet UI is retired and its renderer, CRUD handlers and CSS are gone; old `balance2` links resolve to home through `navResolve`. **Preserve the stored `_balanceSheet` values and the snapshot jobs** — `finBalanceTotals`/`finSum` still feed goals (`finGoalCurrent`) and the cash buffer (`finCashSafety`) on live pages, and `cashTargetMonths` is edited from the goals page (투자 계획 > 목표). 부동산·부채 자체는 대시보드에서 관리하지 않는다. Home omits duplicate net-worth totals, monthly actions and the trend chart; its allocation, sector and contribution cards sit beside vertically stacked gain/loss rankings, with equal combined heights. Tax summary cards share one desktop row, with responsive wrapping on small screens. Tax/dividend/gift source disclosures remain accessible at the bottom. Section links share button typography and align right.
@@ -28,7 +28,7 @@
 - 주식 비중 합계가 **100%를 넘으면 그 사실을 숫자 옆에서 설명한다**(담보 위에 기초자산이 명시된 스왑을 얹은 구조). 자르거나 재정규화하지 않는다 — `etfWeightSum` 이 그 합의 단일 출처다.
 - Collection success is not completeness or freshness. KRX rows with missing equity weights must fall through, not return a domestic/futures subset. Exclude cash, money-market funds and derivatives from stock look-through; keep original NAV weights and distinct share classes. TIME and Invesco adapters use their actual constituent dates. Undated top-holdings data remains partial; fetchedAt never substitutes for asOf.
 - Each ETF retains up to 30 source/date snapshots. Same-date corrections replace that observation; an older response cannot overwrite a newer dated snapshot. Failed retrieval preserves the prior valid data and date with retained=true. Only full lists from the same source prove entries/exits; partial lists compare shared tickers only. Weight changes include price effects and never imply actual trades.
-- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Issuer-file ETFs follow their own cycle instead: monthly disclosure (1629) uses 35 weekdays, quarterly rebalance (SPYM·DRAM) is delayed only when the snapshot predates the latest rebalance settle date by more than 5 weekdays — see the ETF 구성종목 수집 section. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
+- Freshness uses weekdays (exchange holidays not modeled): active ETFs older than 2 weekdays, others older than 5, are delayed. Every collected ETF now carries its refresh cycle and follows it instead: monthly disclosure (1629) uses 35 weekdays, weekly (active ETFs) 7 weekdays, and quarterly (every other index ETF) is delayed only when the snapshot predates the latest rebalance settle date by more than 5 weekdays — see the ETF 구성종목 수집 section. The 2/5-weekday rule remains only for entries without a stamped cycle. Unknown dates, partial and retained data keep ETF overlap and overall risk grades provisional. `etfQuality` is the frontend authority; match its thresholds in `snapshot_stale`. Check scheduled collection warnings as well as job success.
 - ETF exploration uses a stable, selectable horizontal weight chart; never replace it asynchronously with 3D blocks. Korean constituents display company names. **해외 종목은 한글 병기가 필요 없다** — `etfIdentityHtml`이 티커를 `<b>` 주값으로 쓰고 회사명은 `title` 속성에만 남긴다(`etfIdentity(...).kr`로 분기). Neighboring desktop cards stretch to equal height, and long lists retain compact pagination.
 - **구성종목 표의 `편입`·`편출` 라벨은 남기고 `비중 증가`·`비중 감소` 라벨은 지운다.** 옆의 %p 값이 증감을 이미 말해 주지만, 신규 편입·편출은 숫자만으로 구분되지 않는다(`etfCompareSnapshots`의 `kind`).
 - **툴바의 보유 수량·평균 매입단가·포트 비중은 `etfFundStats`/`etfPortfolioPct`(순수 함수, etf-explorer.js) 하나씩만 쓴다.** 평균 매입단가는 여러 계좌를 KRW 로 합친 `Σ매입금액/Σ수량`이고, 포트 비중의 분모는 `etfExposureHtml` 각주와 같은 정의(그 소유주의 주식·ETF·가상화폐·금·현금 합계, 부동산·부채 제외)다 — 새 분모를 만들지 않는다.
@@ -83,7 +83,8 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 함수 제한시간을 넘겨 룩스루가 자주 비었다. 긴 재시도와 영구 이력 수집은 CI에서 처리하고, 페이지 진입 시에는 인증 API의 제한된 HTTP 소스도 별도로 조회한다.
 
 - `.github/workflows/etf-holdings.yml` — 미국 장 마감 뒤 평일 KST 07:30(cron `30 22 * * 1-5` UTC) + 수동 실행.
-  스모크 테스트(5행 미만 실패, 30행 미만 경고) → 파서 단위 테스트 → 수집 → 변경 시에만 커밋.
+  갱신 기준일 확인(`--due`) → 스모크 테스트(5행 미만 실패, 30행 미만 경고 — **예약 실행에서 받을 ETF 가 없으면 건너뜀**)
+  → 파서 단위 테스트 → 수집 → 변경 시에만 커밋. 실행은 매 평일이지만 구성종목은 주기에 맞는 것만 받는다(아래).
   리포 시크릿 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 필요. KRX 경로를 쓰려면 `KRX_ID` / `KRX_PW` 도 함께 설정한다 — 없으면 스모크가 대체 소스로 내려가 조용히 통과할 수 있다.
 - `scripts/collect_etf_holdings.py` — KV `assets` 에서 보유 ETF를 추려 수집한다.
   국내는 KRX 내부 JSON API(`bld=dbms/MDC/STAT/standard/MDCSTAT05001`, `isuCd`=12자리 ISIN;
@@ -118,7 +119,13 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
     (`FilepointRoundhill.40RU.RU_Holdings_MMDDYYYY.csv`)다 — 주소의 `{MMDDYYYY}` 를 오늘부터
     `urlLookbackDays` 일 거슬러 평일로 바꿔 차례로 시도하고(사이트도 그렇게 찾는다), 아직 없는 날짜는
     HTML 404 페이지라 검증에서 걸러진다. CSV 의 `Date` 열은 **다음 거래일**이라 기준일은 그 직전 평일이다.
-  - **매일 받지 않는다 — 리밸런싱·공시 주기에 맞춘다.** `index.json` 의 `rebalance:'quarterly'`(SPYM·DRAM)는
+  - **매일 받지 않는다 — 리밸런싱·공시 주기에 맞춘다(모든 보유 ETF).** `schedule_for(spec, name)` 이 주기를 정한다:
+    `index.json` 등록값이 우선이고, 없으면 이름이 액티브(`액티브|ACTIVE`)면 `weekly`(그 주 월요일이 기준일 —
+    TIME 두 상품은 2026-09~10 의 6주에 구성이 15·7번 바뀌었다), 그 외 지수형은 전부 `quarterly` 다(국내 지수의
+    정기 변경은 둘째 목요일 다음 날이라 '셋째 금요일 + 7일'이 함께 담는다). 한 번도 못 받은 ETF(BMNU 처럼 구성을
+    공개하지 않는 상품)는 `doc['attempts']` 에 마지막 시도일을 남겨 같은 기준일 안에서 다시 시도하지 않는다 — 그동안은
+    ETF 탐색 진입 시 실시간 조회가 대신 보여 준다. `run()` 은 모든 엔트리에 주기를 스탬프한다.
+    `index.json` 의 `rebalance:'quarterly'`(SPYM·DRAM)는
     3·6·9·12월 셋째 금요일 주간에 리밸런싱하는 상품이다(S&P 500 정기 변경일; DRAM 은 투자설명서상
     "최소 분기 1회·그 사이 매매 안 함"이고 2026-06·09 실제 교체가 셋째 금요일 직후였다).
     `collect_etf_holdings.py` 의 `collection_due` 가 기준일을 정하고 `run()` 은 그 이후의 완전한 자료
@@ -126,7 +133,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
     아니므로 retained 를 켜지 않는다. 분기 상품의 기준일은 (셋째 금요일 + 7일)과 전월 마지막 평일 중
     늦은 날짜다: +7일은 매매가 그 주에 걸쳐 끝나는 경우(DRAM 2026-06-22·24), 월말은 리밸런싱 사이의
     수시 편입(DRAM 2026-07 CXMT 스왑 4.7% 등)을 한 달 안에 담는 **월 1회 점검**이다. 월간 공시 상품은
-    전월 마지막 평일. 그 외 ETF(국내·QQQ·QLD 등)는 지금처럼 매 평일 수집한다.
+    전월 마지막 평일. 이름 규칙으로 정해지는 다른 지수형 ETF(국내·QQQ·QLD 등)도 같은 분기 + 월 1회 점검이다.
   - **월 1회만 공시하는 상품은 `disclosure:'monthly'` 로 등록한다.** 1629(NEXT FUNDS)처럼 월말에만
     구성종목을 공시하는 상품을 평일 5일 기준으로 재면 매달 대부분의 날짜가 '지연'이 된다 — 파일을
     갱신해도 구조적으로 반복된다. `scripts/collect_etf_holdings.py` 의 `run()` 이 `index.json` 의
@@ -150,7 +157,8 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
   `NON_EQUITY_NAME_RE` 의 `스왑|SWAP` 제외는 그대로 두고, 다른 어댑터로 넓히지 않는다.
   **총 노출이 100%를 넘을 수 있다**(DRAM 2026-09-15 100.19% — 국채·MMF 담보 위에 스왑을 얹은 구조).
   재정규화하지 않는다.
-- `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물 행은 버리고,
+- `scripts/etf_common.py` — 코드 정규화·주식 판별·소스별 파서. 현금/채권/선물/옵션 행은 버리고
+  (커버드콜 ETF 의 지수 옵션은 이름에 '옵션'이 없고 `NDXP US 10/28/26 C29275 INDEX` 처럼 **이름이 INDEX 로 끝난다**),
   **비중은 100%로 재정규화하지 않는다**(ETF 순자산 대비 원값 유지 → `equityWeight` 로 주식 비중 합 노출).
   삼성전자/삼성전자우, GOOGL/GOOG 는 통합하지 않는다.
 - **`coverage` 는 출처 이름이 아니라 '전부 받았다는 근거'로 정한다.** `collect_one` 이 다섯 번째 값으로

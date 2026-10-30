@@ -51,7 +51,19 @@ jobs:
       # 네트워크가 불안정한 해외주식형 ETF를 하드 게이트로 쓰지 않고, 실제 보유 중이며
       # KRX가 비중까지 공시하는 KODEX·TIGER·SOL 국내주식형 ETF로 수집 경로를 검증한다.
       # 운용사 공식 API와 외부 HTML 파서는 아래 네트워크 없는 단위 테스트에서 별도 검증한다.
+      # 구성종목은 매일 받지 않는다 — ETF 마다 리밸런싱 주기(분기 + 월 1회 점검, 액티브는 주 1회)로
+      # 정한 기준일이 지난 것만 받는다(collect_etf_holdings.py 의 schedule_for/collection_due).
+      # 받을 것이 없는 예약 실행은 스모크 테스트도 건너뛴다. 수집 단계는 그대로 돌되 요청을 보내지 않는다.
+      - name: 갱신 기준일 확인
+        id: due
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          uv run --frozen python scripts/collect_etf_holdings.py --due
+
       - name: 여러 운용사 스모크 테스트
+        if: github.event_name != 'schedule' || steps.due.outputs.due == 'true'
         env:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}

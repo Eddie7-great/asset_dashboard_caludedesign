@@ -15,6 +15,10 @@ def snapshot(day='2026-09-07', weight=5, source='provider:TIME', coverage='full'
 
 for name in ['S&P500 EMINI FUT SEPT2026', 'NASDAQ E-MINI INDEX', 'First American Government Obligations', 'ProShares GENIUS Money Market ETF']:
     assert not is_equity_row('ESU6', name), name
+# 커버드콜 ETF(490590)의 지수 콜옵션 행 — 이름에 '옵션' 이 없어 주식으로 새던 것.
+for code, name in [('NDXPV6C29275', 'NDXP US 10/28/26 C29275 INDEX'), ('QNCWV6C29440', 'QNCWV6C4 29440 INDEX')]:
+    assert not is_equity_row(code, name), name
+assert is_equity_row('NVDA', 'NVIDIA CORP') and is_equity_row('005930', '삼성전자')
 assert norm_holding_code('005930.KQ') == '005930'
 assert norm_holding_code('BRK/B') == 'BRK.B'
 assert norm_holding_code('005935') != norm_holding_code('005930')

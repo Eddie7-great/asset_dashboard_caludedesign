@@ -458,9 +458,73 @@ class RebalanceScheduleTests(unittest.TestCase):
         self.assertTrue(stale({**entry, 'asOf': '2026-09-14'}, '2026-10-30'), '9월 리밸런싱 전 자료는 지연')
         self.assertFalse(stale({**entry, 'asOf': '2026-09-14'}, '2026-09-30'), '기준일(9/25) 뒤 5평일 이내')
 
+    def test_every_etf_gets_a_cycle(self):
+        # 등록값이 우선이고, 없으면 이름으로 — 액티브는 주 1회, 그 외 지수형은 분기 + 월 1회 점검.
+        self.assertEqual(collector.schedule_for({'disclosure': 'monthly'}, 'NEXT FUNDS'), {'disclosure': 'monthly'})
+        self.assertEqual(collector.schedule_for({}, 'TIME 미국S&P500액티브'), {'rebalance': 'weekly'})
+        self.assertEqual(collector.schedule_for({}, 'Fidelity Active Fund'), {'rebalance': 'weekly'})
+        self.assertEqual(collector.schedule_for({}, 'TIGER 미국나스닥100'), {'rebalance': 'quarterly'})
+        self.assertEqual(collector.schedule_for({}, 'RISE 200TR'), {'rebalance': 'quarterly'})
+
+    def test_weekly_cycle_is_due_from_monday(self):
+        weekly = {'rebalance': 'weekly'}
+        self.assertEqual(collector.collection_due(weekly, self.D('2026-10-30')).isoformat(), '2026-10-26')  # 금
+        self.assertEqual(collector.collection_due(weekly, self.D('2026-11-03')).isoformat(), '2026-11-02')  # 화
+
+    def test_weekly_snapshot_is_stale_after_seven_weekdays(self):
+        entry = {'asOf': '2026-10-20', 'rebalance': 'weekly', 'name': 'TIME 미국S&P500액티브'}
+        self.assertFalse(collector.snapshot_stale(entry, self.D('2026-10-29')), '7평일 — 주 1회 주기 안')
+        self.assertTrue(collector.snapshot_stale(entry, self.D('2026-10-30')), '8평일 — 지연')
+
+    def test_never_collected_etf_is_retried_once_per_cycle(self):
+        due = self.D('2026-09-30')
+        self.assertTrue(collector.needs_collection(None, due, None), '시도한 적 없으면 받는다')
+        self.assertTrue(collector.needs_collection(None, due, '2026-09-29'), '기준일 전 시도는 다시')
+        self.assertFalse(collector.needs_collection(None, due, '2026-10-02'), '같은 기준일 안에서는 재시도 안 함')
+
+    def _run_missing(self, previous, due='2026-09-30', collected=None):
+        result = collected or ([], 0.0, None, None, False)
+        with patch.object(collector, 'collect_one', return_value=result) as one, \
+             patch.object(collector, 'collection_due', return_value=self.D(due)), \
+             patch.object(collector, 'load_index', return_value={}), \
+             patch.object(collector, 'load_previous', return_value=previous), \
+             contextlib.redirect_stdout(io.StringIO()):
+            doc = collector.run([('BMNU', 'T-REX 2X Long BMNR Daily Target', None)], dry_run=True)
+        return doc, one
+
+    def test_run_records_and_respects_failed_attempts(self):
+        doc, one = self._run_missing({'etfs': {}})
+        one.assert_called_once()
+        self.assertIn('BMNU', doc['attempts'], '못 받은 ETF 는 시도일을 남긴다')
+        self.assertEqual(doc['failures'], ['T-REX 2X Long BMNR Daily Target'])
+        doc, one = self._run_missing({'etfs': {}, 'attempts': {'BMNU': '2026-10-01'}})
+        one.assert_not_called()
+        self.assertEqual(doc['failures'], ['T-REX 2X Long BMNR Daily Target'], '생략해도 미조회로 남는다')
+        self.assertEqual(doc['attempts'], {'BMNU': '2026-10-01'})
+
+    def test_attempt_record_is_dropped_once_collected(self):
+        holdings = [{'t': 'BMNR', 'n': 'BitMine', 'w': 100.0}]
+        doc, _ = self._run_missing({'etfs': {}, 'attempts': {'BMNU': '2026-09-01'}},
+                                   collected=(holdings, 100.0, '2026-10-29', 'provider', True))
+        self.assertNotIn('attempts', doc)
+        self.assertEqual(doc['etfs']['BMNU']['rebalance'], 'quarterly')
+
+    def test_due_codes_lists_only_what_this_run_must_fetch(self):
+        prev = {'etfs': {
+            'QQQ': {'name': 'Invesco QQQ', 'asOf': '2026-10-28', 'coverage': 'full', 'holdings': [{'t': 'A', 'n': 'A', 'w': 1}]},
+            '426020': {'name': 'TIME 미국S&P500액티브', 'asOf': '2026-10-23', 'coverage': 'full',
+                       'holdings': [{'t': 'A', 'n': 'A', 'w': 1}]},
+        }}
+        with patch.object(collector, 'load_previous', return_value=prev), \
+             patch.object(collector, 'load_index', return_value={}):
+            codes = collector.due_codes([('QQQ', 'Invesco QQQ', None), ('426020', 'TIME 미국S&P500액티브', None),
+                                         ('NEW', 'New Fund', None)], today=self.D('2026-10-30'))
+        # QQQ: 10/28 ≥ 기준일 9/30 → 생략 / 액티브: 10/23 < 이번 주 월요일 10/26 → 받음 / 처음 보는 ETF → 받음
+        self.assertEqual(codes, ['426020', 'NEW'])
+
     def test_constants_match_frontend_etfquality(self):
         js = (Path(__file__).resolve().parents[2] / 'etf-explorer.js').read_text(encoding='utf-8')
-        for name in ('ETF_REBALANCE_SETTLE_DAYS', 'ETF_REBALANCE_GRACE_WEEKDAYS'):
+        for name in ('ETF_REBALANCE_SETTLE_DAYS', 'ETF_REBALANCE_GRACE_WEEKDAYS', 'ETF_WEEKLY_LIMIT_WEEKDAYS'):
             m = __import__('re').search(name + r'=(\d+)', js)
             self.assertIsNotNone(m, name)
             self.assertEqual(getattr(collector, name), int(m.group(1)), name)
