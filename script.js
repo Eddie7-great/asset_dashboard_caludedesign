@@ -1409,6 +1409,31 @@ function toggleCfMode() {
   toggleAtCycleFields();
 }
 
+// 입력 폼 펼침/접힘 — 폼은 기본으로 접혀 있고, 버튼을 누르거나 내역을 수정할 때만 편다.
+// 저장·편집 로직(submitCfEntry/editCF/resetCfForm)은 그대로이며 여기서는 보이기만 바꾼다.
+function cfShowEntry(){
+  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
+  if(body) body.hidden=false;
+  if(close) close.hidden=false;
+}
+function cfOpenEntry(kind){
+  if (isMobileLayout()) return; // 모바일은 조회 전용
+  if (typeof resetCfForm==='function') resetCfForm();
+  const auto=kind==='auto';
+  const radio=document.getElementById(auto?'cfmode-auto':'cfmode-oneshot');
+  if(radio && !radio.checked){ radio.checked=true; toggleCfMode(); }
+  const typeEl=document.getElementById(auto?'at-type':'cf-type');
+  if(typeEl && !auto) typeEl.value=kind==='in'?'수입':'지출';
+  cfShowEntry();
+  document.getElementById(auto?'at-amt':'cf-amt')?.focus();
+}
+function cfCloseEntry(){
+  if (typeof resetCfForm==='function') resetCfForm();
+  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
+  if(body) body.hidden=true;
+  if(close) close.hidden=true;
+}
+
 function submitCfEntry() {
   if (isMobileLayout()) return; // 모바일은 조회 전용
 
@@ -3990,6 +4015,7 @@ async function deleteCF(idx){
 }
 function editCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
+  cfShowEntry(); // 접힌 폼을 펴서 수정 값을 보여 준다
 
   const item=cfData[idx];document.getElementById('cf-edit-index').value=idx;
   document.getElementById('cf-date').value=item.date;document.getElementById('cf-type').value=item.type;

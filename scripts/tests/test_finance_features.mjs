@@ -101,7 +101,7 @@ const context = {
 vm.createContext(context)
 vm.runInContext(`const FIN_DEFAULT_TARGET=${JSON.stringify({ crypto: 5, us: 35, kr: 25, jp: 5, gold: 10, cash: 20 })};`, context)
 vm.runInContext(`const FIN_GOAL_BUCKET_META=${JSON.stringify({ net: { label: '전체 순자산', color: '#94a3c8' }, investment: { label: '가족 투자자산', color: '#7aa2ff' }, manual: { label: '직접 입력', color: '#b48ead' } })};`, context)
-vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
+vm.runInContext(`const FIN_SAVING_CATS=['저축/투자']; const FIN_NW_TFS={'1M':30,'3M':90,'6M':180,'1Y':365,'전체':null}; let _finGoalEdit=null; let _finGoalFormOpen=false; let _finPlanOwner='전체'; let _finNwTf='6M'; let _finNwOwner='전체'; const FIN_SESSION_ID='test-session';`, context)
 for (const name of ['finNewId', 'finLocalDateKey', 'finOwnerF', 'finRows', 'finEnsureState', 'finSum', 'finBalanceTotals', 'finMonthlyFixedCost', 'finCashSafety', 'finTargetAnalysis']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }

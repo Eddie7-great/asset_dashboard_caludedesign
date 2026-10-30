@@ -7,6 +7,8 @@ const FIN_DEFAULT_TARGET={crypto:5,us:35,kr:25,jp:5,gold:10,cash:20};
 // 순자산이 줄지 않는 자산 이동 카테고리 — 필수지출·순현금흐름 계산에서 모두 제외한다.
 const FIN_SAVING_CATS=['저축/투자'];
 let _finGoalEdit=null;
+// 목표 입력 폼은 '새 목표 추가'를 누르거나 수정할 때만 편다. 목표가 하나도 없으면 처음부터 펴 둔다.
+let _finGoalFormOpen=false;
 let _finPlanOwner='전체';
 let _finNwTf='6M';
 let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성과 페이지는 자체 소유주 필터가 없다)
@@ -421,7 +423,8 @@ function finGoalCurrent(g){
 }
 function finGoalFind(id){ return (goalData||[]).findIndex(g=>String(g.id)===String(id)); }
 function finGoalEdit(id){_finGoalEdit=id;cbRenderPlan();document.getElementById('fin-goal-form')?.scrollIntoView({behavior:'smooth',block:'center'});}
-function finGoalCancel(){_finGoalEdit=null;cbRenderPlan();}
+function finGoalCancel(){_finGoalEdit=null;_finGoalFormOpen=false;cbRenderPlan();}
+function finGoalOpenForm(){_finGoalFormOpen=true;cbRenderPlan();document.getElementById('fin-goal-name')?.focus();}
 function finGoalDelete(id){
   const idx=finGoalFind(id); if(idx<0) return;
   if(!confirm(`'${goalData[idx].name}' 목표를 삭제할까요?`))return;
@@ -431,7 +434,7 @@ function finGoalSubmit(){
   const idx=_finGoalEdit!=null?finGoalFind(_finGoalEdit):-1;
   const g={id:idx>=0?_finGoalEdit:finNewId(),name:(document.getElementById('fin-goal-name')?.value||'').trim(),targetAmount:Number(document.getElementById('fin-goal-target')?.value)||0,targetDate:document.getElementById('fin-goal-date')?.value||'',linkClass:document.getElementById('fin-goal-link')?.value||'investment',currentAmount:Number(document.getElementById('fin-goal-current')?.value)||0};
   if(!g.name||g.targetAmount<=0){alert('목표명과 목표 금액을 입력해 주세요.');return;}
-  if(idx>=0)goalData.splice(idx,1,g);else goalData.push(g);_finGoalEdit=null;finSaveAndRender(cbRenderPlan);
+  if(idx>=0)goalData.splice(idx,1,g);else goalData.push(g);_finGoalEdit=null;_finGoalFormOpen=false;finSaveAndRender(cbRenderPlan);
 }
 function finGoalLinkChange(){ const manual=document.getElementById('fin-goal-link')?.value==='manual'; const f=document.getElementById('fin-goal-current-wrap'); if(f)f.style.display=manual?'flex':'none'; }
 function finSaveTarget(){
@@ -581,18 +584,19 @@ function cbRenderPlan(){
     cbOwnerBtns(_finPlanOwner,'finPlanOwner'));
   const geIdx=_finGoalEdit!=null?finGoalFind(_finGoalEdit):-1;
   const ge=geIdx>=0?goalData[geIdx]:null;
+  const showGoalForm=!!ge||_finGoalFormOpen||!(goalData||[]).length;
   // 목표 비중 입력은 모바일에서 저장 버튼이 숨겨지므로 readonly 로 내려 오해를 줄인다.
   const ro=(typeof isMobileLayout==='function'&&isMobileLayout())?' readonly':'';
   const goalCards=(goalData||[]).map(g=>{const cur=finGoalCurrent(g),pct=Math.max(0,Math.min(100,g.targetAmount?cur/g.targetAmount*100:0)),days=g.targetDate?Math.ceil((new Date(g.targetDate)-Date.now())/86400000):null,safeId=cbEsc(String(g.id||''));return`<div class="cb-panel fin-goal-card"><div><small>${cbEsc(g.targetDate||'목표일 미정')}${days!=null?` · ${days>=0?'D-'+days:'기한 경과'}`:''}</small><strong>${cbEsc(g.name)}</strong><span>${cbDisp(cur)} / ${cbDisp(g.targetAmount)}</span></div><b>${pct.toFixed(1)}%</b><div class="fin-meter"><i style="width:${pct}%"></i></div><p class="fin-goal-gap">${finGoalPace(g,cur)}</p><div class="fin-row-actions"><button data-id="${safeId}" onclick="finGoalEdit(this.dataset.id)">수정</button><button data-id="${safeId}" onclick="finGoalDelete(this.dataset.id)">삭제</button></div></div>`;}).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
   el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-comparison"><div class="fin-rebal-main">${finRebalBulletHtml(ta)}<div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>`<div class="${Math.abs(x.drift)>=ta.threshold?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span class="${x.drift>=0?'up':'down'}">${x.drift>=0?'+':''}${x.drift.toFixed(1)}%p</span><span class="${x.diff>=0?'up':'down'}">${x.diff>=0?'매수 ':'축소 '}${cbDisp(Math.abs(x.diff))}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
     <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div><div class="fin-account-table"><div class="head"><span>소유주 · 증권사 · 계좌</span><span>평가액</span><span>비중</span><span>진단</span></div>${accounts.map(x=>`<div><span><b>${cbEsc(x.key)}</b><small>${x.count}개 자산 · ${cbEsc(x.status)} · ${cbEsc(x.taxLabel)}</small></span><span>${cbDisp(x.value)}</span><span>${x.share.toFixed(1)}%</span><span>${cbEsc(x.finding)}</span></div>`).join('')||'<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>'}</div></div>`:`
-    ${finGoalContext(ownerF)}${finGoalAllocationCard()}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 목표는 가구 공통입니다</small></div><div class="fin-goal-grid">${goalCards}</div>
+    ${finGoalContext(ownerF)}${finGoalAllocationCard()}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 목표는 가구 공통입니다</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
-    <div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
+    ${showGoalForm?`<div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
       <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="number" min="0" step="10000" value="${Number.isFinite(Number(ge?.targetAmount))?Number(ge.targetAmount):''}"></label><label>목표일<input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"></label>
       <label>현재 금액 연결<select id="fin-goal-link" onchange="finGoalLinkChange()"><option value="investment" ${ge?.linkClass==='investment'?'selected':''}>가족 투자자산</option><option value="net" ${ge?.linkClass==='net'?'selected':''}>전체 순자산</option>${Object.keys(FIN_DEFAULT_TARGET).map(k=>`<option value="${k}" ${ge?.linkClass===k?'selected':''}>${cbEsc(CB_CLS[k].label)}</option>`).join('')}<option value="manual" ${ge?.linkClass==='manual'?'selected':''}>직접 입력</option></select></label>
       <label id="fin-goal-current-wrap" style="display:${ge?.linkClass==='manual'?'flex':'none'}">현재 금액(원)<input id="fin-goal-current" type="number" min="0" value="${Number.isFinite(Number(ge?.currentAmount))?Number(ge.currentAmount):''}"></label>
-    <div class="fin-form-actions"><button class="primary" onclick="finGoalSubmit()">${ge?'수정 저장':'목표 추가'}</button>${ge?'<button onclick="finGoalCancel()">취소</button>':''}</div></div></div>
+    <div class="fin-form-actions"><button class="primary" onclick="finGoalSubmit()">${ge?'수정 저장':'목표 추가'}</button><button onclick="finGoalCancel()">${ge?'취소':'닫기'}</button></div></div></div>`:''}
 `;
 }
 

@@ -154,7 +154,18 @@
         <!-- 입력부는 좌측 열만 쓰고, 우측 첫 행에는 선택한 달의 요약을 둔다.
              (예전에는 입력부가 두 열을 모두 차지해 우측 절반이 통째로 빈 여백이었다) -->
         <div id="cf-input-panel" class="glass-panel cf-entry-panel">
-            <div class="cb-label f-between" style="margin-bottom:10px">수입 / 지출 내역 관리
+            <!-- 입력 폼은 기본으로 접어 두고 버튼을 누르거나 내역을 수정할 때만 편다(cfOpenEntry/cfShowEntry). -->
+            <div class="cf-entry-bar">
+              <span class="cf-entry-bar-title">수입·지출 기록</span>
+              <div class="cf-entry-bar-actions">
+                <button type="button" class="cf-entry-open" onclick="cfOpenEntry('in')">＋ 수입</button>
+                <button type="button" class="cf-entry-open" onclick="cfOpenEntry('out')">－ 지출</button>
+                <button type="button" class="cf-entry-open" onclick="cfOpenEntry('auto')">자동이체</button>
+                <button type="button" class="cf-entry-close" id="cf-entry-close" onclick="cfCloseEntry()" hidden>닫기</button>
+              </div>
+            </div>
+            <div id="cf-entry-body" hidden>
+            <div class="cb-label f-between" style="margin-bottom:10px">입력 방식
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="display:flex;gap:8px">
                   <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()" style="accent-color:var(--acc)"> 일회성</label>
@@ -184,6 +195,7 @@
               </div>
               <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
               <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()" style="margin-top:auto">저장</button>
+            </div>
             </div>
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>

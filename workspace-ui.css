@@ -290,6 +290,18 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 }
 .holdings-kpi b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* ===== 현금 흐름 입력 폼 접기 (2026-10-30) ===== */
+.cf-entry-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.cf-entry-bar-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
+.cf-entry-bar-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.cf-entry-open,.cf-entry-close{min-height:36px;padding:0 14px;border-radius:8px;font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.cf-entry-open{border:0;background:var(--acc);color:#fff}
+.cf-entry-close{border:1px solid var(--bd2);background:var(--panel);color:var(--mut)}
+.cf-entry-close[hidden]{display:none}
+#cf-entry-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)}
+#cf-entry-body[hidden]{display:none}
+.fin-goal-add-btn{margin-left:auto;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
