@@ -1776,17 +1776,32 @@ if (sideDate) sideDate.innerText = `${now.getFullYear()}.${String(now.getMonth()
 // =============================================
 // 테마
 // =============================================
-// 3-테마: 'light' | 'dark' | 'navy' (기본: light)
-const THEMES = ['light','dark','navy'];
+// 3-테마: 'default'(밝은 본문 + 진한 사이드바) | 'light'(사이드바까지 밝게) | 'dark'
+// 'default'만 data-theme 속성이 없다 — :root 토큰이 곧 기본 테마다.
+const THEMES = ['default','light','dark'];
+// 저장된 테마를 읽는다. 예전 판(라이트/다크/네이비, 라이트=속성 없음)의 저장값은
+// 한 번만 새 구성으로 옮긴다: 라이트·미저장 → 기본, 네이비 → 다크.
+function _savedTheme(){
+  try{
+    let t=localStorage.getItem('theme');
+    if(localStorage.getItem('themeV')!=='2'){
+      t = t==='dark'||t==='navy' ? 'dark' : 'default';
+      localStorage.setItem('theme',t);
+      localStorage.setItem('themeV','2');
+    }
+    return THEMES.includes(t)?t:'default';
+  }catch(e){ return 'default'; }
+}
+function _applyThemeAttr(mode){
+  if (mode === 'default') document.body.removeAttribute('data-theme');
+  else document.body.setAttribute('data-theme', mode);
+}
 function isDarkTheme() {
-  const t = document.body.getAttribute('data-theme');
-  return t === 'dark' || t === 'navy';
+  return document.body.getAttribute('data-theme') === 'dark';
 }
 function setTheme(mode) {
-  if (!THEMES.includes(mode)) mode = 'light';
-  const body = document.body;
-  if (mode === 'light') body.removeAttribute('data-theme');
-  else body.setAttribute('data-theme', mode);
+  if (!THEMES.includes(mode)) mode = 'default';
+  _applyThemeAttr(mode);
   // 세그먼트 컨트롤 활성 표시
   THEMES.forEach(t => {
     const b = document.getElementById('theme-seg-' + t);
@@ -1804,13 +1819,11 @@ function setTheme(mode) {
   // 현금 흐름 차트는 렌더 시점에 CSS 토큰을 hex로 해석해 쓰므로 테마 변경 시 재렌더
   if (activeView && activeView.id === 'view-cashflow') { try{ renderCashFlow(); }catch(e){} }
 }
-// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(기본 라이트) 반영.
+// 스크립트 로드 즉시 테마 적용 — 로그인 화면부터 저장 테마(없으면 기본) 반영.
 // (이 시점엔 파일 후반부 let 변수들이 TDZ 상태라 setTheme→applyChartTheme 전체 호출은 금지)
 try{
-  const _t0=localStorage.getItem('theme');
-  const _m0=THEMES.includes(_t0)?_t0:'light';
-  if(_m0==='light') document.body.removeAttribute('data-theme');
-  else document.body.setAttribute('data-theme',_m0);
+  const _m0=_savedTheme();
+  _applyThemeAttr(_m0);
   THEMES.forEach(t=>{const b=document.getElementById('theme-seg-'+t); if(b){const selected=t===_m0;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',selected?'true':'false');}});
 }catch(e){}
 
@@ -4982,11 +4995,8 @@ function initDashboard(){
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
 
-  // 테마 복원 — 3테마 (light/dark/navy), 저장값 없으면 라이트 기본
-  try{
-    const savedTheme=localStorage.getItem('theme');
-    setTheme(THEMES.includes(savedTheme) ? savedTheme : 'light');
-  }catch(e){ setTheme('light'); }
+  // 테마 복원 — 3테마 (default/light/dark), 저장값 없으면 기본
+  setTheme(_savedTheme());
 
   // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
   ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
@@ -5196,15 +5206,14 @@ const _SECTOR_HUES = {
 // sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
 const _BUBBLE_THEME_TONES = {
   light: { sectorSat:40, sectorLight:68, leafSat:32, leafSatRange:11, leafLight:72, leafLightRange:11 },
-  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 },
-  navy:  { sectorSat:50, sectorLight:64, leafSat:45, leafSatRange:12, leafLight:60, leafLightRange:10 }
+  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 }
 };
+// 기본·라이트는 본문이 같으므로 같은 톤을 쓴다.
 function _bubbleThemeKey(){
-  const theme=document.body.getAttribute('data-theme');
-  return theme==='dark'?'dark':theme==='navy'?'navy':'light';
+  return document.body.getAttribute('data-theme')==='dark'?'dark':'light';
 }
 function _bubbleSectorColor(sector){
-  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat,tone.sectorLight);
 }
@@ -5218,7 +5227,7 @@ const _BUBBLE_OWNER_SECTORS = {
   '아버지': 'Communications Services'
 };
 function _bubbleOwnerColor(owner){
-  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
   const sector=_BUBBLE_OWNER_SECTORS[owner]||'Other';
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
@@ -5263,7 +5272,7 @@ function _bubbleLeafColor(sector,key){
   const hash=_bubbleHash(`${sector}::${key}`);
   const base=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   const theme=_bubbleThemeKey();
-  const tone=_BUBBLE_THEME_TONES[theme]||_BUBBLE_THEME_TONES.navy;
+  const tone=_BUBBLE_THEME_TONES[theme]||_BUBBLE_THEME_TONES.light;
   const hue=base+((hash%13)-6);
   const sat=tone.leafSat+((hash>>>8)%tone.leafSatRange);
   const light=tone.leafLight+((hash>>>16)%tone.leafLightRange);

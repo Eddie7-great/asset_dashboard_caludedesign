@@ -219,3 +219,26 @@
 .fin-bullet-note{text-align:right;font-size:11px;color:var(--dim)}
 .fin-bullet-row.out .fin-bullet-note{color:var(--warn);font-weight:700}
 @media(max-width:768px){.fin-bullet-row{grid-template-columns:72px minmax(0,1fr) 44px;gap:6px}}
+
+/* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
+   색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
+   파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
+.compact-menu .menu-btn{min-height:40px;padding:8px 12px;font-size:13px}
+#page-head #main-title{font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
+#page-head #main-title-sub{font-size:var(--fs-body)}
+/* 세부 화면 링크 — 밑줄형 텍스트 링크. 현재 위치만 강조색 + 아래 2px 막대 */
+#page-sections a{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif;box-shadow:none}
+#page-sections a:hover{background:transparent;color:var(--tx)}
+#page-sections a[aria-current]{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+/* 소유주·기간 탭 — 회색 세그먼트 안의 버튼. 예전 공용 테두리 버튼 규칙을 여기서 끊는다 */
+#owner-tabs-container .owner-btn,#cb-head-widgets .owner-tabs .owner-btn{min-height:32px;padding:5px 12px;border:0;border-radius:7px;background:transparent;color:var(--mut);font:500 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif}
+#owner-tabs-container .owner-btn.active,#cb-head-widgets .owner-tabs .owner-btn.active{background:var(--seg-on);color:var(--tx);font-weight:700}
+/* 카드 제목 — 15px 굵게. 제목 옆 회색 보조 설명은 12px 보통 굵기로 낮춘다 */
+.cb-panel-title,.cb-insight-title{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
+.cb-panel-title [style*="color:var(--dim)"],.cb-insight-title [style*="color:var(--dim)"]{font-size:var(--fs-cap);font-weight:500;letter-spacing:0}
+/* 숫자 카드의 큰 숫자 — Manrope 800, 같은 크기 */
+.cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:var(--fs-kpi);font-weight:800;letter-spacing:-.02em}
+@media(max-width:768px){
+  .compact-menu .menu-btn{min-height:44px}
+  .cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-size:22px}
+}

@@ -63,9 +63,9 @@
       <div>
         <div class="side-seg-label">테마</div>
         <div class="side-seg" id="theme-seg" role="group" aria-label="화면 테마">
-          <button class="side-seg-btn active" id="theme-seg-light" onclick="setTheme('light')" aria-pressed="true">라이트</button>
+          <button class="side-seg-btn active" id="theme-seg-default" onclick="setTheme('default')" aria-pressed="true">기본</button>
+          <button class="side-seg-btn" id="theme-seg-light" onclick="setTheme('light')" aria-pressed="false">라이트</button>
           <button class="side-seg-btn" id="theme-seg-dark" onclick="setTheme('dark')" aria-pressed="false">다크</button>
-          <button class="side-seg-btn" id="theme-seg-navy" onclick="setTheme('navy')" aria-pressed="false">네이비</button>
         </div>
       </div>
       <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
@@ -82,11 +82,11 @@
     <div class="f-between" id="page-head" style="padding:11px 22px;border-bottom:1px solid var(--border-dark);flex-shrink:0;gap:10px;">
       <button id="sidebar-toggle" class="hamburger-btn" onclick="toggleSidebar()" aria-label="메뉴 열기" aria-expanded="false">☰</button>
       <div class="page-heading-line">
-      <h2 class="page-title" id="main-title" style="font-size:1.4rem;margin:0;">가족 자산 관리</h2>
+      <h2 class="page-title" id="main-title" style="margin:0;">가족 자산 관리</h2>
       <!-- 모바일은 폭이 없어 소제목을 접어 둔다. 면책·기준 설명이 통째로 사라지지 않도록 토글로 편다. -->
       <button id="page-sub-toggle" class="page-sub-toggle" type="button" onclick="toggleHeadSub()" aria-expanded="false" aria-controls="main-title-sub" aria-label="이 화면 설명 보기">ⓘ</button>
       <!-- 페이지 소제목 (메인 제목 옆 작은 글씨) + 페이지 컨트롤 — cobalt.js cbSetHead()가 채움 -->
-      <span id="main-title-sub" style="font-size:11.5px;color:var(--lab);min-width:0"></span>
+      <span id="main-title-sub" style="color:var(--lab);min-width:0"></span>
       </div>
       <div class="page-control-line">
       <nav id="page-sections" class="page-sections" aria-label="세부 메뉴" hidden></nav>
