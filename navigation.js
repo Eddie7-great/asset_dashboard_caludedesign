@@ -56,11 +56,20 @@ function navSync(id){
   bar.innerHTML=group&&group.views.length>1?group.views.map(([view,label])=>
     `<a href="#view=${view}"${view===id?' aria-current="page"':''} onclick="if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();switchView('${view}');">${label}</a>`).join(''):'';
 }
-let _assetQ='';
-function cbAssetMobile(){
+let _assetQ='',_assetMobileHead='';
+// 휴대폰 보유 목록: renderPortfolio 가 계산한 숫자 카드(head) → 자산군 탭 → 조회 전용 카드 목록.
+// 숫자 카드는 보관해 두고 검색으로 다시 그릴 때도 그대로 둔다(검색은 행만 숨기고 합계는 바꾸지 않는다).
+// 탭 옆 개수는 이 목록에 실제로 보이는 행(계좌 합침 후) 수다.
+function cbAssetMobile(head){
+  if(head!==undefined)_assetMobileHead=head;
   const q=_assetQ.trim().toLowerCase();
-  const rows=cbMergeRows(finRows(finOwnerF(currentOwner))).filter(r=>!q||[r.title,r.subTitle,r.i.tkr,r.i.owner].join(' ').toLowerCase().includes(q));
-  document.getElementById('portfolio-tables').innerHTML=cbMobileHoldings(cbSortOwnerNameVal(rows),_assetQ,'cbAssetSearch');
+  const all=cbMergeRows(finRows(finOwnerF(currentOwner)));
+  const counts={};all.forEach(r=>{counts[r.i.grp]=(counts[r.i.grp]||0)+1;});
+  const rows=all.filter(r=>r.i.grp===_holdingsTab&&(!q||[r.title,r.subTitle,r.i.tkr,r.i.owner].join(' ').toLowerCase().includes(q)));
+  const tabs='<div class="holdings-tabs holdings-tabs-mobile" role="tablist" aria-label="자산군">'
+    +HOLDINGS_TABS.map(g=>`<button type="button" role="tab" class="holdings-tab" data-grp="${g}" aria-selected="${g===_holdingsTab}" tabindex="${g===_holdingsTab?0:-1}" onclick="setHoldingsTab('${g}')">${g}<span>${counts[g]||0}</span></button>`).join('')
+    +'</div>';
+  document.getElementById('portfolio-tables').innerHTML=_assetMobileHead+tabs+cbMobileHoldings(cbSortOwnerNameVal(rows),_assetQ,'cbAssetSearch');
 }
 function cbAssetSearch(value){
   _assetQ=value;cbAssetMobile();

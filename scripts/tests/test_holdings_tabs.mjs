@@ -7,6 +7,7 @@ const root = new URL('../../', import.meta.url);
 const script = fs.readFileSync(new URL('script.js', root), 'utf8');
 const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
 const html = fs.readFileSync(new URL('index.html', root), 'utf8');
+const nav = fs.readFileSync(new URL('navigation.js', root), 'utf8');
 
 const helper = script.match(/let _holdingsTab='주식'[\s\S]*?\nfunction holdingsRowMatches\(i\)\{[\s\S]*?\n\}/)[0];
 const ctx = vm.createContext({});
@@ -37,5 +38,32 @@ assert.match(ws, /body:has\(#add-modal\.active\) \.content-area\{padding-right:4
 // padding:10px 이면 상자가 46px 로 커져 '수량' 제목이 옆 '평균단가' 제목보다 10px 위로 떴다
 assert.match(html, /<div id="unit-fixed" style="display:flex;align-items:center;padding:0 12px;/);
 assert.match(html, /<select id="add-unit" class="form-input" style="flex:0\.7;padding:0 4px;/);
+
+// 휴대폰: 같은 숫자 카드(kpis) → 자산군 탭 → 조회 전용 카드 목록. 추가 버튼은 없다.
+assert.match(script, /if\(_mobileHoldings&&typeof cbAssetMobile==='function'\)\{cbAssetMobile\(kpis\);return;\}/);
+assert.match(script, /_holdingsBrokerFilter!=='전체'&&!_mobileHoldings/, '휴대폰엔 계좌 필터가 없으니 숫자 카드에 필터를 걸지 않는다');
+const mobileSrc = nav.match(/let _assetQ=''[^\n]*\n[\s\S]*?\nfunction cbAssetSearch\(value\)\{[\s\S]*?\n\}/)[0];
+const dom = { innerHTML: '', focus() {}, setSelectionRange() {} };
+const rowsAll = [
+  { title: 'VOO', subTitle: '', i: { grp: '주식', tkr: 'VOO', owner: '본인' } },
+  { title: '삼성전자', subTitle: '', i: { grp: '주식', tkr: '005930', owner: '아내' } },
+  { title: '달러 예수금', subTitle: '', i: { grp: '현금', tkr: 'USD_1', owner: '본인' } },
+];
+const mctx = vm.createContext({
+  document: { getElementById: () => dom }, currentOwner: '전체', _holdingsTab: '주식', HOLDINGS_TABS: ['주식', '가상화폐', '금', '현금'],
+  finOwnerF: () => null, finRows: () => rowsAll, cbMergeRows: r => r, cbSortOwnerNameVal: r => r,
+  cbMobileHoldings: (rows) => '<list>' + rows.map(r => r.title).join(',') + '</list>',
+});
+vm.runInContext(mobileSrc.replace(/^let /, 'var '), mctx);
+mctx.cbAssetMobile('<KPI/>');
+assert.ok(dom.innerHTML.startsWith('<KPI/><div class="holdings-tabs holdings-tabs-mobile" role="tablist"'), '숫자 카드 다음에 탭');
+assert.match(dom.innerHTML, /<list>VOO,삼성전자<\/list>$/, '선택한 자산군 행만 목록에');
+assert.match(dom.innerHTML, /data-grp="주식" aria-selected="true"[^>]*>주식<span>2<\/span>/);
+assert.match(dom.innerHTML, /현금<span>1<\/span>/, '탭 개수는 목록에 보이는 행 수');
+assert.doesNotMatch(dom.innerHTML, /holdings-add-btn/, '휴대폰은 조회 전용');
+mctx.cbAssetSearch('삼성');
+assert.ok(dom.innerHTML.startsWith('<KPI/>'), '검색으로 다시 그려도 숫자 카드는 그대로');
+assert.match(dom.innerHTML, /<list>삼성전자<\/list>$/);
+assert.match(dom.innerHTML, /주식<span>2<\/span>/, '검색은 행만 숨기고 탭 개수는 바꾸지 않는다');
 
 console.log('ok - holdings tabs');
