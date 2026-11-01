@@ -3150,6 +3150,7 @@ function renderPortfolio(owner) {
     +`</select></label>`;
   let html='',totalPfolioValue=0;
   const grpStats={};
+  const _mobileHoldings=typeof isMobileLayout==='function'&&isMobileLayout();
   const showOwner=owner==='전체';
   // [2] 가상화폐 포함 전체 원화 환산
   items.forEach(i=>{
@@ -3161,7 +3162,8 @@ function renderPortfolio(owner) {
   ['주식','가상화폐','금','현금'].forEach(grpName=>{
     let grpItems=groups[grpName];
     // 주식 그룹만 선택된 증권사·계좌 조합으로 필터링
-    if(grpName==='주식'&&_holdingsBrokerFilter!=='전체'){
+    // 휴대폰에는 계좌 필터가 없으므로 PC 에서 고른 필터가 휴대폰 숫자 카드를 몰래 줄이지 않게 '전체'로 본다
+    if(grpName==='주식'&&_holdingsBrokerFilter!=='전체'&&!_mobileHoldings){
       const _si=_holdingsBrokerFilter.indexOf(_BROKER_ACC_SEP);
       const fb=_holdingsBrokerFilter.slice(0,_si),fa=_holdingsBrokerFilter.slice(_si+_BROKER_ACC_SEP.length);
       grpItems=grpItems.filter(i=>(i.broker||'')===fb&&(i.acc||'')===fa);
@@ -3322,8 +3324,9 @@ function renderPortfolio(owner) {
     +`<label class="holdings-stale-toggle"><input type="checkbox" id="holdings-stale-only"${_holdingsStaleOnly?' checked':''} onchange="holdingsToggleStale(this.checked)">시세 미조회만</label>`
     +`<button type="button" class="holdings-add-btn" onclick="openAddModal('${_holdingsTab}')">＋ ${_holdingsTab} 추가</button>`
     +`</div>`;
+  // 휴대폰은 조회 전용 카드 목록이다 — 같은 숫자 카드를 넘겨 그 위에 두고, 탭·목록은 cbAssetMobile 이 그린다
+  if(_mobileHoldings&&typeof cbAssetMobile==='function'){cbAssetMobile(kpis);return;}
   document.getElementById('portfolio-tables').innerHTML=kpis+`<div class="holdings-card">${tabs}${toolbar}${html}</div>`;
-  if(typeof cbAssetMobile==='function'&&isMobileLayout())cbAssetMobile();
 }
 
 

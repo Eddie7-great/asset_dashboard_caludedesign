@@ -315,6 +315,14 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dca-upcoming-list em{margin-top:auto;font-style:normal;font-weight:700;font-size:var(--fs-cap);color:var(--tx)}
 .cb-dca-upcoming-empty{font-size:var(--fs-body);color:var(--lab)}
 
+/* 휴대폰 보유 목록의 자산군 탭 — 카드 목록 위 한 줄, 네 칸이 390px 에 들어가도록 균등 분배 */
+.holdings-tabs-mobile{flex-wrap:nowrap;gap:0;margin-bottom:10px;padding:0 4px;border:1px solid var(--bd);border-radius:12px;background:var(--panel)}
+.holdings-tabs-mobile .holdings-tab{flex:1 1 0;min-width:0;padding:0 4px;font-size:var(--fs-body);white-space:nowrap}
+.holdings-tabs-mobile .holdings-tab span{margin-left:4px}
+/* #portfolio-tables 의 12px 간격 하나로 카드 → 탭 → 목록을 같은 간격으로 띄운다 */
+#portfolio-tables>.holdings-kpis,#portfolio-tables>.holdings-tabs-mobile{margin-bottom:0}
+.holdings-tabs-mobile+.cb-mobile-holdings{margin-top:0}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
