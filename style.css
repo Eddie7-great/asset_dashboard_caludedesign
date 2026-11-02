@@ -18,7 +18,10 @@
       --seg-bg:#e9edf5;--seg-on:#ffffff;
       /* 강조 숫자 카드(홈 투자자산 총액) */
       --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
-      --acc:#2a6fdb;--on-acc:#ffffff;--acc2:#0f9488;--acc3:#7c3aed;
+      --acc:#2a6fdb;--on-acc:#ffffff;
+      /* 움직임 토큰 — 나타날 때 이즈 아웃, 사라질 때 이즈 인. 스프링·바운스(1 을 넘는 곡선)는 쓰지 않는다 */
+      --ease-out:cubic-bezier(.22,1,.36,1);--ease-in:cubic-bezier(.4,0,1,1);--dur-fast:150ms;--dur:240ms;--stagger:30ms;
+      --acc2:#0f9488;--acc3:#7c3aed;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
@@ -298,7 +301,7 @@
     .content-area{position:relative;overflow-y:auto;overflow-x:auto;padding-right:5px;height:100%;min-width:0}
     .content-area::-webkit-scrollbar{width:6px}.content-area::-webkit-scrollbar-thumb{background:rgba(120,140,190,.32);border-radius:3px}
 
-    .view-section{display:none;animation:fadeIn .3s ease;gap:10px;height:100%;flex:1;min-height:0}
+    .view-section{display:none;animation:fadeIn var(--dur) var(--ease-out);gap:10px;height:100%;flex:1;min-height:0}
     .view-section.active{display:flex;flex-direction:column}
     @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
     .page-title{margin:0;font-weight:700;font-size:1.3rem}
@@ -547,7 +550,8 @@
       dominant-baseline: central !important;
     }
 
-    /* 로그인 오버레이 */
+    /* 로그인 오버레이 — 공통 디자인 규칙(테두리 카드·토큰 색·글자 크기)과 움직임 토큰을 따른다.
+       색은 모두 토큰이라 다크 테마에서도 대비가 유지된다(예전엔 버튼 색을 고정값으로 박아 두었다). */
     #login-overlay {
       position: fixed;
       inset: 0;
@@ -555,68 +559,119 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+      background: var(--bg2, var(--bg1));
+      transition: opacity 160ms var(--ease-in);
     }
+    #login-overlay.is-leaving { opacity: 0; }
     .login-card {
       width: 100%;
-      max-width: 360px;
-      padding: 40px 36px;
+      max-width: 380px;
+      padding: 36px 32px 32px;
       text-align: center;
       gap: 0;
-      animation: fadeIn .4s ease;
+      background: var(--panel);
+      border: 1px solid var(--bd);
+      border-radius: 16px;
+      box-shadow: none;
+      animation: cbLoginRise calc(var(--dur) * 1.5) var(--ease-out) both;
     }
-
+    @keyframes cbLoginRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .login-mark {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 16px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--kpi-hi-bg);
+    }
+    .login-mark svg { fill: var(--kpi-hi-tx); }
+    .login-mark rect:last-child { fill: #5b9bff; }
     .login-title {
       margin: 0 0 6px;
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--acc);
+      font-size: var(--fs-title);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--tx);
     }
     .login-sub {
       margin: 0 0 24px;
-      font-size: 0.88rem;
-      color: var(--t2);
+      font-size: var(--fs-body);
+      color: var(--mut);
     }
     .login-input-wrap {
+      position: relative;
       margin-bottom: 12px;
     }
     .login-input {
       width: 100%;
       box-sizing: border-box;
-      padding: 12px 16px;
+      height: 48px;
+      padding: 0 48px 0 16px;
       border-radius: 10px;
-      border: 1px solid var(--border-dark);
+      border: 1px solid var(--bd2);
       background: var(--inner-bg);
       color: var(--t1);
       font-family: inherit;
       font-size: 1rem;
       outline: none;
-      transition: border-color .2s;
+      transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
     }
     .login-input:focus {
       border-color: var(--acc);
+      box-shadow: 0 0 0 3px var(--acc-soft);
     }
+    .login-input[aria-invalid="true"] {
+      border-color: var(--dn);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--dn) 14%, transparent);
+    }
+    .login-reveal {
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--mut);
+      cursor: pointer;
+      transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+    }
+    .login-reveal:hover { color: var(--tx); background: var(--hover-bg, var(--inner-bg)); }
+    .login-reveal[aria-pressed="false"] .login-reveal-slash { display: none; }
+    .login-caps {
+      margin: -4px 0 12px;
+      font-size: var(--fs-cap);
+      font-weight: 600;
+      color: var(--warn);
+      text-align: left;
+    }
+    .login-caps[hidden] { display: none; }
     .login-btn {
       width: 100%;
-      padding: 12px;
+      height: 48px;
       border: none;
       border-radius: 10px;
-      background: #1f5fbf;
-      color: #fff;
+      background: var(--acc);
+      color: var(--on-acc);
       font-family: inherit;
       font-size: 1rem;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity .2s, transform .15s;
+      transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
     }
-    .login-btn:hover {
-      opacity: 0.88;
-      transform: translateY(-1px);
-    }
+    .login-btn:hover { filter: brightness(1.06); }
     .login-error {
-      margin: 10px 0 0;
-      font-size: 0.85rem;
+      margin: 12px 0 0;
+      font-size: var(--fs-body);
       color: var(--dn);
+      animation: cbFade var(--dur) var(--ease-out) both;
     }
 
     /* =================================================== */

@@ -4915,6 +4915,31 @@ function _startDashboardAfterAuth(){
   setTimeout(_fitActiveCharts, 2500);
 }
 
+// 로그인 화면 편의 기능 — 인증 경로(attemptLogin → /api/auth)는 건드리지 않는다.
+// 비밀번호 보기: 잘못 친 비밀번호를 눈으로 확인한다. force 로 강제로 숨길 수 있다(로그인 성공 시).
+function loginToggleReveal(force){
+  const pw=document.getElementById('login-pw'),btn=document.getElementById('login-reveal');
+  if(!pw||!btn) return;
+  const show=typeof force==='boolean'?force:pw.type==='password';
+  pw.type=show?'text':'password';
+  btn.setAttribute('aria-pressed',String(show));
+  btn.setAttribute('aria-label',show?'비밀번호 숨기기':'비밀번호 보기');
+}
+// Caps Lock 이 켜져 있으면 입력칸 아래에 알린다(대소문자 비밀번호가 틀리는 가장 흔한 이유).
+function loginCapsCheck(ev){
+  const el=document.getElementById('login-caps');
+  if(!el||!ev||typeof ev.getModifierState!=='function') return;
+  el.hidden=!ev.getModifierState('CapsLock');
+}
+// 로그인 성공 시 오버레이를 짧게(160ms, 이즈 인) 흐리게 한 뒤 대시보드를 띄운다.
+function _loginFadeOut(){
+  const overlay=document.getElementById('login-overlay');
+  const reduce=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!overlay||reduce) return Promise.resolve();
+  overlay.classList.add('is-leaving');
+  return new Promise(r=>setTimeout(()=>{overlay.classList.remove('is-leaving');r();},160));
+}
+
 async function attemptLogin() {
   const pwEl = document.getElementById('login-pw');
   const errEl = document.getElementById('login-error');
@@ -4938,6 +4963,8 @@ async function attemptLogin() {
       try { sessionStorage.removeItem('_dashAuth'); } catch(e) {}
       pwEl.value='';
       pwEl.setAttribute('aria-invalid','false');
+      loginToggleReveal(false);
+      await _loginFadeOut();
       _startDashboardAfterAuth();
     } else {
       let message = res.status===429 ? '로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.' : '비밀번호가 올바르지 않습니다.';

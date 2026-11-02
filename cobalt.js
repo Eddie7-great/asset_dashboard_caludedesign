@@ -3550,6 +3550,15 @@ function cbSyncFeedStatus(){
 }
 
 const _cbOrigSwitchView = switchView;
+// 페이지에 '들어갈 때만' 순차 등장·막대 채움이 돌도록 잠깐 is-entering 을 붙인다.
+// 시세 갱신(cbRerender)·필터·탭 전환은 이 클래스가 없을 때 다시 그려지므로 움직이지 않는다.
+let _cbEnterTimer=null;
+function cbMarkEntering(id){
+  document.querySelectorAll('.view-section.is-entering').forEach(e=>e.classList.remove('is-entering'));
+  const v=document.getElementById('view-'+id); if(!v) return;
+  void v.offsetWidth; v.classList.add('is-entering');
+  clearTimeout(_cbEnterTimer); _cbEnterTimer=setTimeout(()=>v.classList.remove('is-entering'),700);
+}
 switchView = function(id, btn){
   id=navResolve(id);
   navPrepare(id);
@@ -3562,6 +3571,7 @@ switchView = function(id, btn){
     _cobaltActive=null; cbSetHead(CB_LEGACY_SUB[id] || null, null);
     _cbOrigSwitchView(id, btn);
     navSync(id);
+    cbMarkEntering(id);
     return;
   }
   _cobaltActive = id;
@@ -3575,6 +3585,7 @@ switchView = function(id, btn){
   if (mbtn && mbtn.classList){ mbtn.classList.add('active'); mbtn.setAttribute('aria-current','page'); }
   document.querySelectorAll('.view-section').forEach(v=>v.classList.remove('active'));
   const v = document.getElementById('view-'+id); if(v) v.classList.add('active');
+  cbMarkEntering(id);
   const title = document.getElementById('main-title'); if (title) title.textContent = CB_TITLES[id];
   ['owner-tabs-container','cf-owner-bar','bubble-owner-bar'].forEach(x=>{
     const e=document.getElementById(x); if(e) e.style.display='none';

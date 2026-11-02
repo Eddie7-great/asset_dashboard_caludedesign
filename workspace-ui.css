@@ -342,6 +342,39 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .etf-toolbar>.etf-fund-stats{padding-top:8px;border-top:1px solid var(--bd)}
 }
 
+/* ===== 움직임 (2026-11-02) — 이즈 아웃·페이드·순차 등장·슬라이드·막대 채움만 쓴다 =====
+   순차 등장·막대 채움은 페이지에 '들어갈 때'(cbMarkEntering 이 붙이는 .is-entering, 700ms)만 돈다.
+   시세 갱신으로 다시 그려질 때는 이 클래스가 없으므로 움직이지 않는다. 시작 상태만 숨기고(fill both)
+   끝 상태가 기본값이라, 움직임 줄이기 설정(전역 reduced-motion 규칙)에서도 내용이 숨지 않는다. */
+@keyframes cbRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes cbGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes cbSlideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes cbFade{from{opacity:0}to{opacity:1}}
+.is-entering .cb-scroll>*,.is-entering #portfolio-tables>*{animation:cbRise var(--dur) var(--ease-out) both}
+.is-entering .cb-scroll>*:nth-child(2),.is-entering #portfolio-tables>*:nth-child(2){animation-delay:calc(var(--stagger)*1)}
+.is-entering .cb-scroll>*:nth-child(3),.is-entering #portfolio-tables>*:nth-child(3){animation-delay:calc(var(--stagger)*2)}
+.is-entering .cb-scroll>*:nth-child(4),.is-entering #portfolio-tables>*:nth-child(4){animation-delay:calc(var(--stagger)*3)}
+.is-entering .cb-scroll>*:nth-child(5),.is-entering #portfolio-tables>*:nth-child(5){animation-delay:calc(var(--stagger)*4)}
+.is-entering .cb-scroll>*:nth-child(6),.is-entering #portfolio-tables>*:nth-child(6){animation-delay:calc(var(--stagger)*5)}
+.is-entering .cb-scroll>*:nth-child(7),.is-entering #portfolio-tables>*:nth-child(7){animation-delay:calc(var(--stagger)*6)}
+.is-entering .cb-scroll>*:nth-child(n+8),.is-entering #portfolio-tables>*:nth-child(n+8){animation-delay:calc(var(--stagger)*7)}
+/* 숫자 카드 줄 안의 카드도 한 칸씩 */
+.is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*{animation:cbRise var(--dur) var(--ease-out) both}
+.is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(2){animation-delay:calc(var(--stagger)*1)}
+.is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(3){animation-delay:calc(var(--stagger)*2)}
+.is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(4){animation-delay:calc(var(--stagger)*3)}
+.is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(5){animation-delay:calc(var(--stagger)*4)}
+/* 막대 채움 — 왼쪽부터 */
+.is-entering :is(.home-weight-bar i,.fin-bullet-bar,.etf-rank-track>i){transform-origin:left center;animation:cbGrow calc(var(--dur)*2) var(--ease-out) both;animation-delay:calc(var(--stagger)*3)}
+/* 오른쪽 수정 패널은 오른쪽에서 밀려 들어온다(넓은 화면). 좁은 화면 팝업은 페이드 */
+#add-modal.active .modal-content{animation:cbFade var(--dur) var(--ease-out) both}
+@media(min-width:1101px){#add-modal.active .modal-content{animation:cbSlideIn var(--dur) var(--ease-out) both}}
+/* 상호작용 — 색·바탕·밑줄은 같은 짧은 시간·곡선으로, 누르면 살짝 눌린다 */
+:is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+:is(button.cb-dash-kpi,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.login-btn):active:not(:disabled){transform:scale(.98)}
+/* 움직임 줄이기 — 전역 규칙은 시간만 줄이고 지연(stagger)은 남겨 그 사이 카드가 숨어 있으므로, 여기서는 아예 끈다 */
+@media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-error{animation:none!important}#login-overlay{transition:none}}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
