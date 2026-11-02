@@ -5493,7 +5493,7 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
       <div style="display:flex;align-items:center;gap:6px;min-width:0">
         ${ownerTag}
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;font-weight:600;color:var(--t1)">${name}</span>
-        <span style="flex-shrink:0;font-size:.78rem;font-weight:800;color:${color};font-family:'Manrope','Noto Sans KR',sans-serif">${w.toFixed(1)}%</span>
+        <span class="bubble-weight-pct" style="flex-shrink:0;font-size:.78rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${w.toFixed(1)}%</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <div style="flex:1;height:6px;border-radius:3px;background:var(--inner-bg);overflow:hidden">
@@ -5505,7 +5505,7 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
   }).join('');
   container.innerHTML = `<div style="padding:4px 2px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 8px">
-      <span style="font-size:.8rem;font-weight:700;color:var(--t3)">종목별 비중 (${rows.length}종목)</span>
+      <span class="bubble-weight-title">종목별 비중 <small>${rows.length}종목</small></span>
       <span style="font-size:.74rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(totalVal)}</span>
     </div><div class="bubble-weight-grid">${html}</div></div>`;
 }

@@ -323,6 +323,25 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #portfolio-tables>.holdings-kpis,#portfolio-tables>.holdings-tabs-mobile{margin-bottom:0}
 .holdings-tabs-mobile+.cb-mobile-holdings{margin-top:0}
 
+/* ===== 휴대폰 화면 다듬기 (2026-11-02) ===== */
+/* 비중 분석 휴대폰 목록 제목 — 다른 카드 제목과 같은 모양 */
+.bubble-weight-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
+.bubble-weight-title small{margin-left:6px;font-size:var(--fs-cap);font-weight:500;color:var(--lab)}
+/* 적립식 '이번 달 남은 매수' — 강조색 윗선은 쓰지 않는다(강조색은 링크·현재 위치 표시에만).
+   휴대폰에서는 혼자 한 줄을 쓰므로 큰 빈 카드 대신 라벨 | 값·예정액 한 줄 요약으로 놓는다. */
+.cb-dca-remaining-card{box-shadow:none}
+@media(max-width:768px){
+  .cb-dca-remaining-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;column-gap:12px;min-height:0}
+  .cb-dca-remaining-card>.cb-dca-summary-label{grid-row:1/3}
+  .cb-dca-remaining-card>.cb-dca-summary-value{margin-top:0;text-align:right}
+  .cb-dca-remaining-card>.cb-dca-summary-sub{text-align:right}
+  /* ETF 탐색 요약 — 라벨과 값이 줄바꿈으로 떨어지지 않게 '라벨 | 값' 줄로 쌓는다 */
+  .etf-toolbar>.etf-fund-value,.etf-toolbar>.etf-fund-stats{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:5px 12px;width:100%;padding-left:0;border-left:0}
+  .etf-toolbar>.etf-fund-value>span:not(:first-child),.etf-toolbar>.etf-fund-stats>span:not(:first-child){margin-left:0}
+  .etf-toolbar>.etf-fund-value>b,.etf-toolbar>.etf-fund-stats>b{text-align:right}
+  .etf-toolbar>.etf-fund-stats{padding-top:8px;border-top:1px solid var(--bd)}
+}
+
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
