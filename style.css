@@ -324,9 +324,6 @@
     .pt-group-header:hover{background:var(--hover-bg)}
     .pt-group-title{font-weight:700;font-size:.95rem;gap:8px;color:var(--t1)}
     .pt-group-stats{font-size:.8rem;font-weight:600}
-    /* 아코디언 화살표 고정폭 — 자산군 헤더마다 ＋ 추가 버튼 x좌표를 맞춘다 */
-    .pt-arrow{
-      width:14px;flex-shrink:0;display:inline-block;text-align:center}
     .pt-table-wrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 10px 10px;overflow:hidden}
     .pt-table{width:100%;border-collapse:collapse;text-align:right;font-size:12.5px;white-space:nowrap;color:var(--mut)}
     .pt-table th{padding:10px 12px;background:var(--panel);color:var(--lab);font-size:10.5px;letter-spacing:.08em;font-weight:600;text-align:right;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 var(--border-dark)}
@@ -544,11 +541,6 @@
       .layout { grid-template-columns: 160px 1fr; gap: 8px; padding: 8px; }
     }
 
-    /* Plotly sunburst 내부 텍스트 가운데 정렬 */
-    .sunburstlayer text {
-      text-anchor: middle !important;
-      dominant-baseline: central !important;
-    }
 
     /* 로그인 오버레이 — 공통 디자인 규칙(테두리 카드·토큰 색·글자 크기)과 움직임 토큰을 따른다.
        색은 모두 토큰이라 다크 테마에서도 대비가 유지된다(예전엔 버튼 색을 고정값으로 박아 두었다). */
@@ -1262,7 +1254,6 @@
       #portfolio-tables .pt-group-stats{display:contents}
       #portfolio-tables .pt-group-stats > span:nth-of-type(1){font-size:.78rem}
       #portfolio-tables .pt-group-stats > span:nth-of-type(2){order:2;flex:1 1 100%;font-size:.78rem}
-      #portfolio-tables .pt-group-stats > .pt-arrow{margin-left:auto}
 
       /* ── cashflow: 두 컬럼 자연 높이 + 상세 표는 패널 내부 가로 스크롤 ── */
       /* grid 행 높이가 좌측 컬럼을 콘텐츠보다 작게 잡아(전체 소유주 다건 시) 상세 리스트가

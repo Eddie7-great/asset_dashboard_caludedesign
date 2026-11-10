@@ -35,12 +35,15 @@ function extractFunction(source, name) {
 const escapeContext = {}
 vm.createContext(escapeContext)
 vm.runInContext([
+  extractFunction(scriptSource, 'escHtml'),
   extractFunction(scriptSource, '_cfEsc'),
   extractFunction(scriptSource, 'holdingsEsc'),
   extractFunction(cobaltSource, 'cbEsc'),
 ].join('\n'), escapeContext)
 const payload = `<img src=x onerror="alert('xss')">&'`
-for (const name of ['_cfEsc', 'holdingsEsc', 'cbEsc']) {
+// 구현은 escHtml 하나이고 나머지는 별칭이다 — 치환식을 다시 복사해 넣지 않는다
+assert.equal((scriptSource + cobaltSource).match(/replace\(\/&\/g,'&amp;'\)\.replace\(\/<\/g,'&lt;'\)/g).length, 1, 'HTML 이스케이프 구현은 한 곳')
+for (const name of ['escHtml', '_cfEsc', 'holdingsEsc', 'cbEsc']) {
   const escaped = escapeContext[name](payload)
   assert.doesNotMatch(escaped, /[<>"']/, `${name}는 HTML/속성 경계 문자를 남기지 않음`)
   assert.match(escaped, /&lt;img/, `${name}는 태그 시작을 엔티티로 변환`)

@@ -329,6 +329,7 @@ assert.match(cobaltSource, /annualCumulative = cbTaxCumulativeByEntry\(list, own
 
 const dcaScheduleContext = { cbRate:cur=>cur==='USD'?1400:1 }
 vm.createContext(dcaScheduleContext)
+vm.runInContext(fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8').match(/function finLocalDateKey\([\s\S]*?\n\}/)[0], dcaScheduleContext)
 for (const name of [
   'cbDcaPerMonthKRW','cbDcaPerOrderKRW','cbDcaExpectedQty','cbDcaDateAt','cbDcaDateKey',
   'cbDcaMarket','cbDcaIsHoliday','cbDcaScheduledOn','cbDcaScheduleSummary',

@@ -32,7 +32,7 @@ async function btSearch(){
   if(!q||q.length>80){box.textContent='종목명 또는 티커를 80자 이내로 입력해 주세요.';return;}
   box.textContent='검색 중…';const controller=new AbortController();_btController=controller;const timer=setTimeout(()=>controller.abort(),20000);
   try{
-    const response=await fetch('/api/get-stock?query='+encodeURIComponent(q),{credentials:'same-origin',signal:_btController.signal});
+    const response=await authFetch('/api/get-stock?query='+encodeURIComponent(q),{credentials:'same-origin',signal:_btController.signal});
     const data=await response.json();if(epoch!==_btEpoch)return;
     if(!response.ok||!data.success||!data.symbol)throw Error('종목을 찾지 못했습니다. 정확한 티커나 일본 종목의 .T 코드를 입력해 주세요.');
     const symbol=String(data.symbol).toUpperCase();if(!/^[A-Z0-9.^=_-]{1,24}$/.test(symbol))throw Error('지원하지 않는 종목 코드입니다.');
@@ -48,7 +48,7 @@ async function btRun(){
   status.textContent='과거 가격 조회 중…';const controller=new AbortController();_btController=controller;const timer=setTimeout(()=>controller.abort(),40000);
   const selected={..._bt.selected},settings={..._bt};
   try{
-    const response=await fetch('/api/price?type=ohlcv&tkr='+encodeURIComponent(selected.symbol)+'&range='+encodeURIComponent(settings.range),{credentials:'same-origin',cache:'no-store',signal:_btController.signal});
+    const response=await authFetch('/api/price?type=ohlcv&tkr='+encodeURIComponent(selected.symbol)+'&range='+encodeURIComponent(settings.range),{credentials:'same-origin',cache:'no-store',signal:_btController.signal});
     const data=await response.json();if(epoch!==_btEpoch)return;
     if(!response.ok||!data.success)throw Error('과거 가격을 조회하지 못했습니다. 종목이나 기간을 바꿔 다시 시도해 주세요.');
     if(String(data.rawTicker)!==selected.symbol)throw Error('조회 종목이 일치하지 않습니다.');

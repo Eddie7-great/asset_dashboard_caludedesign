@@ -217,6 +217,7 @@ context.fetch = async url => {
     json:async () => ({chart:{result:[{timestamp:benchmarkTimestamps,indicators:{quote:[{close:[100,101,102]}]}}]}}),
   }
 }
+vm.runInContext(extractFunction('_cfLocalDateKey'), context)
 const fallbackBenchmark=await context._jsBenchmarkFallback([['BAD',100]])
 assert.equal(Object.values(fallbackBenchmark).every(row => row.portfolio.length===0), true, '해결된 보유 티커가 없으면 포트폴리오 시계열을 비워 둠')
 

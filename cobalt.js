@@ -91,7 +91,7 @@ function cbFmtNative(n, cur){
   const loc = cur==='JPY' ? 'ja-JP' : cur==='KRW' ? 'ko-KR' : 'en-US';
   return meta.symbol + Number(n).toLocaleString(loc,{minimumFractionDigits:0,maximumFractionDigits:meta.cashDecimals});
 }
-function cbEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function cbEsc(s){ return escHtml(s); }   // 단일 구현은 script.js 의 escHtml
 function cbUpDn(v){ return 'color:' + (v>=0 ? 'var(--up)' : 'var(--dn)'); }
 function cbOwnerColor(o){ return (typeof ownerColors!=='undefined' && ownerColors[o]) || '#8a97b0'; }
 
@@ -3282,8 +3282,7 @@ function cbDcaDateAt(value){
   return raw;
 }
 function cbDcaDateKey(value){
-  const d=value instanceof Date?value:cbDcaDateAt(value);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return finLocalDateKey(value instanceof Date?value:cbDcaDateAt(value));
 }
 function cbDcaMarket(i){
   if (typeof _getDcaMarket==='function') return _getDcaMarket(i);

@@ -15,6 +15,8 @@ let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성�
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
 function finNewId(){ return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
+// 날짜 키의 형식은 script.js 의 _cfLocalDateKey 와 같아야 한다(둘 다 지역 시간 YYYY-MM-DD). script.js 는 이 파일보다
+// 먼저 실행돼 자기 구현이 필요하고, 그 밖의 화면(cbDcaDateKey 등)은 모두 이 함수를 쓴다.
 function finLocalDateKey(date=new Date()){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }

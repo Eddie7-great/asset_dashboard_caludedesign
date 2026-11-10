@@ -26,6 +26,11 @@ function curRateKnown(cur){
 
 // 원화 환산 환율·종목 가격 표기도 여기 하나만 쓴다. RATES 는 지원 통화마다 시드값이 있어(조회 실패에도 지우지 않는다)
 // 호출부가 `||1380` 같은 숫자를 따로 들고 있을 이유가 없고, USD/JPY 만 분기하면 호주달러가 1:1 로 환산된다.
+// HTML 이스케이프는 여기 하나다. _cfEsc·holdingsEsc(script.js)·cbEsc(cobalt.js)는 이름만 남긴 별칭이다
+// — 같은 치환식을 네 군데 두면 한 곳만 고쳐져도 그 화면에서만 태그가 살아난다.
+function escHtml(value){
+  return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function curRate(cur){
   const c = String(cur||'KRW').toUpperCase();
   if (c === 'KRW') return 1;
@@ -475,15 +480,6 @@ function syncDivHistory() {
       divHistory[y][o]=Array(12).fill(0);
     });
   });
-  // divHistoryGross: 세전 배당 (기존 호환성), divHistory: 세후 배당 (세제 혜택 반영)
-  if (!window.divHistoryGross) window.divHistoryGross = _emptyDivHistory();
-  YEARS.forEach(y=>{
-    if(!window.divHistoryGross[y]) window.divHistoryGross[y]={};
-    ALL_OWNERS.forEach(o=>{
-      window.divHistoryGross[y][o]=Array(12).fill(0);
-    });
-  });
-
   // ── 1회 지급 배당금(eps) 계산 helper ─────────────────
   //   eps 가 없으면 yld (%) × 현재가 / cycle 횟수 로 보조 계산
   function _perPayoutEps(info, item) {
@@ -497,29 +493,8 @@ function syncDivHistory() {
     return refPrice * yldNum / 100 / cycleN;
   }
 
-  // 1단계: 세전 배당 집계
-  pfolioData.forEach(item=>{
-    if(item.grp!=='주식'||item.qty<=0) return;
-    const tkr6 = normDivTkr(item.tkr);
-    const cached = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
-    const info = cached || DIV_INFO_DB[tkr6] || DIV_INFO_DB[item.tkr];
-    if (!info) return;
-    const epsVal = _perPayoutEps(info, item);
-    if (epsVal <= 0) return;
-    let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
-    if (!months) months = [2,5,8,11];
-    const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
-    YEARS.forEach(y=>{
-      months.forEach(m=>{
-        if(m>=0&&m<12){
-          window.divHistoryGross[y][item.owner][m]+=payout;
-          window.divHistoryGross[y]['전체'][m]+=payout;
-        }
-      });
-    });
-  });
-
-  // 2단계: 연간 세전 배당을 공통 세금 엔진에 한 번 모은 뒤 월별 세후 금액으로 배분한다.
+  // 세전 합계(divHistoryGross)는 읽는 곳이 없어 만들지 않는다 — 세전·세후는 화면이 세금 엔진 결과에서 직접 구한다.
+  // 연간 세전 배당을 공통 세금 엔진에 한 번 모은 뒤 월별 세후 금액으로 배분한다.
   // 이 과정을 종목별 루프 안에서 처리하면 ISA 200만원 공제가 종목 수만큼 중복된다.
   const taxEntries=[];
   pfolioData.forEach((item,itemIndex)=>{
@@ -1457,9 +1432,7 @@ function submitCfEntry() {
   }
 }
 
-function _cfEsc(value) {
-  return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+function _cfEsc(value) { return escHtml(value); }
 
 function _cfMonthKey(date=new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
@@ -2750,10 +2723,7 @@ function getDcaAmountCellHtml(item){
     : sym + (Number(item.dcaAmt)||0).toLocaleString();
   return `<span class="dca-amount">${amt}</span>`;
 }
-function holdingsEsc(s){
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+function holdingsEsc(s){ return escHtml(s); }
 function updateOverflowTooltip(el){
   if (!el) return false;
   const watches = el.querySelectorAll('[data-overflow-watch]');
@@ -3374,7 +3344,7 @@ function openAddModal(grp) {
   if(currentOwner!=='전체'){
     ownerSel.innerHTML=`<option value="${currentOwner}">${currentOwner}</option>`;
   } else {
-    ownerSel.innerHTML='<option value="본인">본인</option><option value="아내">아내</option><option value="자녀1">자녀1</option><option value="아버지">아버지</option>';
+    ownerSel.innerHTML=OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('');
   }
   const brokerSel=document.getElementById('add-broker'),accSel=document.getElementById('add-account');
   let brokers=[],accs=[];
@@ -3416,7 +3386,7 @@ function editItem(owner,tkr,idx=-1) {
   document.getElementById('modal-title').innerText='자산 정보 수정';
   // 소유주 복원
   const ownerSel=document.getElementById('add-owner');
-  ownerSel.innerHTML='<option value="본인">본인</option><option value="아내">아내</option><option value="자녀1">자녀1</option><option value="아버지">아버지</option>';
+  ownerSel.innerHTML=OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('');
   ownerSel.value=item.owner;
   document.getElementById('add-grp').value=item.grp;
   // [2] broker 복원: select에 없으면 option 추가
@@ -4697,6 +4667,7 @@ async function _checkSplitAdjustmentsOnce(force){
 // =============================================
 // 자산이력 데이터
 // =============================================
+// 화면에서 쓰지 않는다. 원격에 저장돼 있는 값을 다음 저장 때 지우지 않으려고 읽은 그대로 다시 싣기만 한다.
 let assetHistory = [];
 
 
@@ -5404,11 +5375,6 @@ function _bubbleOwnerColor(owner){
 function _bubbleOwnerFill(owner,panelColor){
   const theme=_bubbleThemeKey();
   const mixToPanel=theme==='light'?0.82:theme==='dark'?0.72:0.68;
-  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
-}
-function _bubbleOwnerStroke(owner,panelColor){
-  const theme=_bubbleThemeKey();
-  const mixToPanel=theme==='light'?0.24:theme==='dark'?0.18:0.14;
   return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
 }
 function _bubbleBlend(hex,target,amount){
@@ -6809,8 +6775,8 @@ async function refreshPyData(options={}) {
 async function _jsBenchmarkFallback(tickersWithWeights) {
   // 오늘(intraday) 제외 — YYYY-MM-DD 문자열 비교
   const _today = new Date();
-  const _todayKey = `${_today.getFullYear()}-${(_today.getMonth()+1).toString().padStart(2,'0')}-${_today.getDate().toString().padStart(2,'0')}`;
-  const _dayKey = (d) => `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+  const _todayKey = _cfLocalDateKey(_today);
+  const _dayKey = _cfLocalDateKey;
 
   // Yahoo Finance 1y 차트 → 기간별 자료 (종가만, 오늘 제외)
   async function fetchYahoo(sym) {

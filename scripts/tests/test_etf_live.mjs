@@ -6,7 +6,7 @@ let requests=0,fail=false,release;
 const ctx=vm.createContext({console,Date,Map,Set,AbortController,setTimeout,clearTimeout,window:{},
   cbStrip:x=>x,cbIsEtf:()=>true,cbAllRows:()=>[{i:{tkr:'133690'}}],
   cbEnsureEtfHoldings:async()=>{},cbEtfDoc:()=>({etfs:{133690:ctx.window._etfLiveEntries?.['133690']||old}}),
-  fetch:async()=>{requests++;if(release)await new Promise(resolve=>{release=resolve;});if(fail)throw Error('offline');return {ok:true,json:async()=>({success:true,code:'133690',entry:{...old,asOf:'2026-09-10'}})};}});
+  authFetch:async()=>{requests++;if(release)await new Promise(resolve=>{release=resolve;});if(fail)throw Error('offline');return {ok:true,json:async()=>({success:true,code:'133690',entry:{...old,asOf:'2026-09-10'}})};}});
 vm.runInContext(fs.readFileSync('etf-explorer.js','utf8'),ctx);
 vm.runInContext('etfRenderLiveUpdate=()=>{}',ctx);
 assert.equal(ctx.etfAcceptLive(old,{...old,asOf:'2026-09-08'}),null);
@@ -39,7 +39,7 @@ const before=requests;await ctx.etfRefreshOnOpen("not-held");assert.equal(reques
   const ctx2=vm.createContext({console,Date,Map,Set,AbortController,setTimeout,clearTimeout,window:{},
     cbStrip:x=>x,cbIsEtf:()=>true,cbAllRows:()=>[{i:{tkr:'133690'}},{i:{tkr:'426020'}}],
     cbEnsureEtfHoldings:async()=>{},cbEtfDoc:()=>({etfs:{133690:fresh,426020:old}}),
-    fetch:async url=>{const code=new URL(url,'https://x').searchParams.get('ticker');asked.push(code);
+    authFetch:async url=>{const code=new URL(url,'https://x').searchParams.get('ticker');asked.push(code);
       return {ok:true,json:async()=>({success:true,code,entry:{...(code==='133690'?fresh:old),asOf:code==='133690'?today:'2026-09-10'}})};}});
   vm.runInContext(fs.readFileSync('etf-explorer.js','utf8'),ctx2);
   vm.runInContext('etfRenderLiveUpdate=()=>{}',ctx2);
