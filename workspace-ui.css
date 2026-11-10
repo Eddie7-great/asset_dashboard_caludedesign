@@ -233,7 +233,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dash-kpi-label{display:flex;align-items:center;gap:6px;font-size:var(--fs-body);color:var(--mut)}
 .cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--kpi-hi-mut)}
 .cb-dash-kpi-go{margin-left:auto;color:var(--acc);font-weight:700}
-.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
+.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
 .cb-dash-kpi-sub{font-size:var(--fs-cap);color:var(--lab)}
 .home-weight{white-space:nowrap}
@@ -366,6 +366,10 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(5){animation-delay:calc(var(--stagger)*4)}
 /* 막대 채움 — 왼쪽부터 */
 .is-entering :is(.home-weight-bar i,.fin-bullet-bar,.etf-rank-track>i){transform-origin:left center;animation:cbGrow calc(var(--dur)*2) var(--ease-out) both;animation-delay:calc(var(--stagger)*3)}
+/* 추이 그래프 선은 왼쪽부터 그려지고(pathLength=1 기준) 면은 뒤따라 나타난다. 숫자 카운트업은 cbCountUp(cobalt.js) */
+@keyframes cbDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.is-entering .fin-nw-line{stroke-dasharray:1;animation:cbDraw calc(var(--dur)*2.5) var(--ease-out) both}
+.is-entering .fin-nw-area{animation:cbFade var(--dur) var(--ease-out) both;animation-delay:calc(var(--dur)*1.5)}
 /* 오른쪽 수정 패널은 오른쪽에서 밀려 들어온다(넓은 화면). 좁은 화면 팝업은 페이드 */
 #add-modal.active .modal-content{animation:cbFade var(--dur) var(--ease-out) both}
 @media(min-width:1101px){#add-modal.active .modal-content{animation:cbSlideIn var(--dur) var(--ease-out) both}}

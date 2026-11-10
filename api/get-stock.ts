@@ -8,6 +8,9 @@ import * as cheerio from 'cheerio';
 
 const { authenticateRequest, sendAuthFailure } = require('./_auth.js');
 
+// KRX 단축코드: 숫자로 시작하는 영숫자 6자리(005930, 0117V0). 숫자 6자리만 보면 새 영숫자 코드를 해외 종목으로 오인한다.
+const KR_SHORT_CODE_RE = /^[0-9][0-9A-Z]{5}$/;
+
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -77,7 +80,7 @@ async function searchNaver(query: string): Promise<StockResult | null> {
     }
 
     if (price && name) {
-      const isKR = /^\d{6}$/.test(symbol);
+      const isKR = KR_SHORT_CODE_RE.test(symbol);
       currency = isKR ? 'KRW' : 'USD';
       const fullSymbol = isKR ? symbol + '.KS' : symbol;
       return { success: true, name, symbol: fullSymbol || query, price, change, changeRate, currency };
@@ -92,7 +95,7 @@ async function searchNaver(query: string): Promise<StockResult | null> {
 
 // 네이버 금융 종목 상세 페이지에서 현재가 가져오기
 async function fetchNaverFinance(code: string, fallbackName: string): Promise<StockResult | null> {
-  const isKR = /^\d{6}$/.test(code);
+  const isKR = KR_SHORT_CODE_RE.test(code);
   const url = isKR
     ? `https://finance.naver.com/item/main.naver?code=${code}`
     : `https://finance.naver.com/world/sise.naver?symbol=${code}`;
@@ -326,7 +329,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   try {
     const hasKorean = /[가-힣]/.test(query);
-    const isKrCode = /^\d{5,6}$/.test(query);
+    const isKrCode = /^\d{5,6}$/.test(query) || KR_SHORT_CODE_RE.test(query.toUpperCase());
     const isJpCode = /^\d{4}$/.test(query) || /\.T$/i.test(query);
 
     // 0. 일본 주식 코드 (4자리 숫자 또는 .T 접미사)
@@ -341,7 +344,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     // 1. 6자리 국내 종목코드
     if (isKrCode) {
-      const result = await fetchNaverFinance(query.padStart(6, '0'), '');
+      const result = await fetchNaverFinance(query.toUpperCase().padStart(6, '0'), '');
       if (result && result.price > 0) return res.status(200).json(result);
       // Yahoo 폴백
       const yhResult = await searchYahoo(query);

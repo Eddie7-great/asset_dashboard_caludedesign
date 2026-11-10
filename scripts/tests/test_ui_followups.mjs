@@ -34,6 +34,7 @@ const sectorContext = {
     { grp: '현금', owner: '본인', qty: 1, value: 100 },
   ],
   RATES: { USD: 1 },
+  curRate:()=>1,
   _bubbleItemValueKRW: item => item.value,
   _gicsSector: item => item.sector,
   cbValKRW: item => item.value,

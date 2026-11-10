@@ -369,7 +369,7 @@ function cbSectors(includeCrypto, ownerFilter){
   const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
   const itemValue = i => typeof _bubbleItemValueKRW==='function'
-    ? _bubbleItemValueKRW(i, RATES.USD||1380)
+    ? _bubbleItemValueKRW(i, curRate('USD'))
     : cbValKRW(i);
   // 대시보드와 비중 차트 모두 현금·금까지 포함한 전체 포트폴리오를 분모로 사용한다.
   // 표시 목록은 섹터 집중도 성격에 맞게 주식(+선택 시 가상화폐)만 유지한다.
@@ -2227,8 +2227,9 @@ function cbGiftOwnerScope(owner){
 function cbGiftCfg(){ return (window._giftActual = window._giftActual || {}); }
 function cbGiftSave(){
   try{ localStorage.setItem('giftActual', JSON.stringify(cbGiftCfg())); }catch(e){}
-  try{ saveExtDataToKV(); }catch(e){}
   cbRenderGift();
+  // 저장은 비동기라 try/catch 로는 실패를 잡을 수 없다. 실패 시 되돌리기·다시 그리기·안내는 saveExtDataToKV 가 맡는다.
+  Promise.resolve(saveExtDataToKV()).catch(e=>console.error('[gift save]',e));
 }
 function cbGiftBirth(){ const b=cbGiftCfg().birth; return /^\d{4}-\d{2}$/.test(b||'') ? b : '2023-08'; }
 function cbGiftMarriage(){ const m=cbGiftCfg().marriage; return /^\d{4}-\d{2}-\d{2}$/.test(m||'') ? m : '2020-05-30'; }
@@ -3559,6 +3560,40 @@ function cbMarkEntering(id){
   void v.offsetWidth; v.classList.add('is-entering');
   clearTimeout(_cbEnterTimer); _cbEnterTimer=setTimeout(()=>v.classList.remove('is-entering'),700);
 }
+// 숫자 카드의 큰 숫자를 0 에서 최종값까지 올린다(들어갈 때만). 통화 기호와 숫자는 같은 텍스트 노드에
+// 둔 채 통째로 바꾼다 — 기호를 다른 요소로 떼면 금액 가리기(_maskAmountText)가 금액을 못 알아본다.
+function cbCountUpParts(text){
+  const m=String(text==null?'':text).match(/^(\D*?)(\d[\d,]*)(\.\d+)?(\D*)$/);
+  if(!m) return null;
+  const dec=m[3]?m[3].length-1:0, num=Number(m[2].replace(/,/g,'')+(m[3]||''));
+  if(!Number.isFinite(num)||num===0) return null;
+  return {pre:m[1], num, dec, post:m[4]};
+}
+function cbCountUpText(parts,p){
+  const eased=1-Math.pow(1-Math.min(1,Math.max(0,p)),4);
+  return parts.pre+(parts.num*eased).toLocaleString('en-US',{minimumFractionDigits:parts.dec,maximumFractionDigits:parts.dec})+parts.post;
+}
+const CB_COUNT_UP_MS=600;   // is-entering(700ms) 안에 끝난다
+function cbCountUp(id){
+  if(typeof requestAnimationFrame!=='function') return;
+  if(typeof _amountPrivacyEnabled!=='undefined'&&_amountPrivacyEnabled) return;
+  if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const v=document.getElementById('view-'+id); if(!v) return;
+  const items=[];
+  v.querySelectorAll('.cb-dash-kpi-value,.holdings-kpi>b').forEach(el=>{
+    if(el.childNodes.length!==1||el.firstChild.nodeType!==3) return;
+    const parts=cbCountUpParts(el.textContent); if(parts) items.push({el,parts,final:el.textContent});
+  });
+  if(!items.length) return;
+  const t0=performance.now();
+  const tick=now=>{
+    const p=(now-t0)/CB_COUNT_UP_MS, done=p>=1||_amountPrivacyEnabled;
+    let alive=false;
+    items.forEach(x=>{ if(!x.el.isConnected) return; alive=true; x.el.textContent=done?x.final:cbCountUpText(x.parts,p); });
+    if(alive&&!done) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 switchView = function(id, btn){
   id=navResolve(id);
   navPrepare(id);
@@ -3572,6 +3607,7 @@ switchView = function(id, btn){
     _cbOrigSwitchView(id, btn);
     navSync(id);
     cbMarkEntering(id);
+    cbCountUp(id);
     return;
   }
   _cobaltActive = id;
@@ -3593,6 +3629,7 @@ switchView = function(id, btn){
   if (id==='divm') cbVerifyDividendDataOnOpen();
   if (id==='perf2') cbVerifyPerfOwnersOnOpen();
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
+  cbCountUp(id);
   if(id==='etf2')etfRefreshOnOpen();
   navSync(id);
   if(typeof _recordViewHistory==='function') _recordViewHistory(id);

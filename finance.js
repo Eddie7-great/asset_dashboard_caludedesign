@@ -351,8 +351,8 @@ function finNwChartSvg(series,w,h){
   return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
     ${grid}
-    <path d="${area}" fill="${stroke}" opacity=".10"></path>
-    <path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path class="fin-nw-area" d="${area}" fill="${stroke}" fill-opacity=".10"></path>
+    <path class="fin-nw-line" pathLength="1" d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     <circle cx="${pts[pts.length-1].x.toFixed(1)}" cy="${pts[pts.length-1].y.toFixed(1)}" r="3.4" fill="${stroke}"></circle>
     ${guide}${ticks}${hit}
   </svg></div></div>`;

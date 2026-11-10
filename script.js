@@ -24,6 +24,18 @@ function curRateKnown(cur){
   return Number.isFinite(RATES[c]) && RATES[c] > 0;
 }
 
+// 원화 환산 환율·종목 가격 표기도 여기 하나만 쓴다. RATES 는 지원 통화마다 시드값이 있어(조회 실패에도 지우지 않는다)
+// 호출부가 `||1380` 같은 숫자를 따로 들고 있을 이유가 없고, USD/JPY 만 분기하면 호주달러가 1:1 로 환산된다.
+function curRate(cur){
+  const c = String(cur||'KRW').toUpperCase();
+  if (c === 'KRW') return 1;
+  return Number.isFinite(RATES[c]) && RATES[c] > 0 ? RATES[c] : 1;
+}
+function fmtPriceNative(price, cur){
+  const meta = curMeta(cur), d = meta.cashDecimals;
+  return meta.symbol + (Number(price)||0).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+
 function _taxRuleValue(path, fallback, when) {
   return typeof assetTaxRuleValue === 'function'
     ? assetTaxRuleValue(path, fallback, when)
@@ -2433,9 +2445,7 @@ async function searchStockByApi() {
       const nameEl = document.getElementById('result-name');
       const symEl = document.getElementById('result-symbol');
       const priceEl = document.getElementById('result-price');
-      const priceStr = data.currency === 'KRW'
-        ? '₩' + Math.round(data.price).toLocaleString()
-        : '$' + (data.price || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+      const priceStr = fmtPriceNative(data.price, data.currency);
 
       if (nameEl) nameEl.textContent = data.name;
       if (symEl) symEl.textContent = data.symbol;
@@ -2469,7 +2479,8 @@ function confirmManualStock() {
     return;
   }
   // 종목 시장 판별
-  const isKR = /^\d{6}$/.test(rawTkr);
+  // KRX 단축코드는 숫자로 시작하는 영숫자 6자리다(0117V0). 숫자만 보면 그런 종목이 미국 주식·달러로 등록된다.
+  const isKR = /^[0-9][0-9A-Z]{5}$/.test(rawTkr);
   const isJP = /^\d{4}$/.test(rawTkr) || rawTkr.endsWith('.T');
   const isCrypto = ['BTC','ETH','XRP','SOL','BNB','DOGE','ADA','AVAX','MATIC','DOT','LINK','UNI','ATOM','LTC','TRX'].includes(rawTkr);
   const market = isKR ? 'KR' : (isJP ? 'JP' : (isCrypto ? 'CRYPTO' : 'US'));
@@ -2506,11 +2517,7 @@ function confirmManualStock() {
   const priceOutEl = document.getElementById('result-price');
   if (nameOutEl) nameOutEl.textContent = name + ' (수동 입력)';
   if (symOutEl) symOutEl.textContent = rawTkr;
-  if (priceOutEl) priceOutEl.textContent = cur === 'KRW'
-    ? '₩' + Math.round(price).toLocaleString()
-    : cur === 'JPY'
-      ? '¥' + Math.round(price).toLocaleString()
-      : '$' + price.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  if (priceOutEl) priceOutEl.textContent = fmtPriceNative(price, cur);
   if (result) result.style.display = 'block';
   const manual = document.getElementById('stock-manual-entry'); if (manual) manual.style.display = 'none';
   const errBox = document.getElementById('stock-search-error'); if (errBox) errBox.style.display = 'none';
@@ -3228,7 +3235,7 @@ function renderPortfolio(owner) {
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
           // cur='USD'이면 USD → KRW 변환 (기존 avgP가 KRW로 저장된 경우와 USD로 저장된 경우 모두 처리)
-          const _cRate = i.cur==='USD' ? (RATES.USD||1380) : 1;
+          const _cRate = curRate(i.cur);
           // avgP가 USD 단위라면 환산, KRW 단위라면 그대로 (safeguard: avgP > 1000이고 curP > 100이면 USD 기준 가능성)
           const _avgIsUSD = i.cur==='USD' && i.avgP > 0 && i.avgP < 10000000;
           const avgPKRW = _avgIsUSD ? Math.round(i.avgP * _cRate) : Math.round(i.avgP);
@@ -3248,7 +3255,7 @@ function renderPortfolio(owner) {
         } else {
           // 주식 (국내/해외)
           const rate=RATES[i.cur]||1;
-          const dec=i.cur==='USD'?2:(i.cur==='JPY'?1:0);
+          const dec=i.cur==='JPY'?1:curMeta(i.cur).cashDecimals;
           const sym=curSymbol(i.cur);
           const invest=i.qty*i.avgP*rate, current=i.qty*i.curP*rate;
           const {profit, pct:profitPct}=calcProfit(current, invest);
@@ -3429,7 +3436,7 @@ function editItem(owner,tkr,idx=-1) {
   const mktEl=document.getElementById('add-market');if(mktEl)mktEl.value=mkt;
   const curEl=document.getElementById('add-currency-stock');if(curEl)curEl.value=item.cur||'USD';
   updateAvgpDecimalMode();
-  const dec = item.cur === 'USD' ? 2 : (item.cur === 'JPY' ? 1 : 0);
+  const dec = item.cur === 'JPY' ? 1 : curMeta(item.cur).cashDecimals;
   document.getElementById('add-qty').value=item.qty.toLocaleString();
   const unitSel=document.getElementById('add-unit');
   if(unitSel)unitSel.value=item.unit||'g';
@@ -3796,7 +3803,7 @@ async function autoAddDividendCashFlow(silent=false) {
     const months=[...new Set((Array.isArray(s.months)?s.months:[])
       .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12))];
     if(eps<=0||months.length===0) return;
-    const rate = s.cur === 'USD' ? (RATES.USD||1380) : (s.cur === 'JPY' ? (RATES.JPY||9.2) : 1);
+    const rate = curRate(s.cur);
     const tkrNorm = String(s.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
     // 캐시/API에서 확인한 일정만 파괴적 stale 정리의 근거로 사용한다.
     // 정적 DB 폴백은 조회 실패 때도 나타날 수 있어 기존 행 삭제 근거로는 부족하다.
@@ -4450,6 +4457,21 @@ function _chunkTickers(list, size = API_TICKER_CHUNK) {
   return out;
 }
 
+// 시세 응답의 환율·금값 반영. 유한한 양수만 쓰고, 금 시세를 이번에 받았는지 돌려준다.
+function _applyLiveRates(rates){
+  const ok=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
+  if(!rates) return false;
+  const fmt2=v=>v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const show=(id,text,newVal,oldVal)=>{const el=document.getElementById(id);if(el){el.textContent=text;if(Math.abs(newVal-(oldVal||0))>0.01)flash(el,newVal>(oldVal||0)?'up':'down');}};
+  if(ok(rates.USD)){show('side-usd-rate',fmt2(rates.USD),rates.USD,RATES.USD);RATES.USD=rates.USD;}
+  if(ok(rates.USDJPY)){show('side-usdjpy-rate',fmt2(rates.USDJPY),rates.USDJPY,RATES.USDJPY);RATES.USDJPY=rates.USDJPY;}
+  if(ok(rates.JPY)){show('side-jpy-rate',fmt2(rates.JPY*100),rates.JPY*100,RATES.JPY*100);RATES.JPY=rates.JPY;}
+  if(ok(rates.AUD))RATES.AUD=rates.AUD;
+  if(!ok(rates.GOLD_G_KRW)) return false;
+  show('side-gold-rate','₩'+rates.GOLD_G_KRW.toLocaleString(),rates.GOLD_G_KRW,window._GOLD_G_KRW);
+  window._GOLD_G_KRW=rates.GOLD_G_KRW;
+  return true;
+}
 async function liveRefresh() {
   const tickers=new Set();
   pfolioData.forEach(i=>{if((i.grp==='주식'||i.grp==='가상화폐')&&quoteKey(i.tkr))tickers.add(quoteKey(i.tkr));});
@@ -4467,7 +4489,8 @@ async function liveRefresh() {
         const d=await resp.json();
         if(!d.success) throw new Error(d.error||'시세 응답 오류');
         Object.assign(quotes,d.quotes||{});
-        if(!mergedRates&&d.rates) mergedRates=d.rates;
+        // 청크마다 환율·금값이 실려 온다 — 먼저 받은 유효한 값을 쓰고, 빈 칸만 뒤 청크로 채운다.
+        if(d.rates){mergedRates=mergedRates||{};Object.keys(d.rates).forEach(k=>{if(mergedRates[k]==null)mergedRates[k]=d.rates[k];});}
       }catch(e){ failedChunks++; lastChunkError=e; console.error('[EOD Price Chunk]',chunk.length+'개',e?.message); }
     }
     if(failedChunks===chunks.length) throw (lastChunkError||new Error('시세 조회 실패'));
@@ -4477,29 +4500,20 @@ async function liveRefresh() {
     const dt=document.getElementById('side-date-display');
     if(dt)dt.textContent=`${nowD.getFullYear()}.${String(nowD.getMonth()+1).padStart(2,'0')}.${String(nowD.getDate()).padStart(2,'0')} (${days[nowD.getDay()]})`;
 
-    if(data.rates){
-      const updateFX=(id,newVal,oldVal)=>{const el=document.getElementById(id);if(el){el.textContent=newVal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});if(Math.abs(newVal-oldVal)>0.01)flash(el,newVal>oldVal?'up':'down');}};
-      updateFX('side-usd-rate',data.rates.USD,RATES.USD);
-      updateFX('side-usdjpy-rate',data.rates.USDJPY,RATES.USDJPY);
-      const jpy100=data.rates.JPY*100;
-      const oldJpy100=RATES.JPY*100;
-      const jpyEl=document.getElementById('side-jpy-rate');
-      if(jpyEl){jpyEl.textContent=jpy100.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});if(Math.abs(jpy100-oldJpy100)>0.01)flash(jpyEl,jpy100>oldJpy100?'up':'down');}
-      RATES.USD=data.rates.USD;RATES.JPY=data.rates.JPY;
-      const oldGold=window._GOLD_G_KRW||0;
-      const hG=document.getElementById('side-gold-rate');
-      if(hG){hG.textContent='₩'+data.rates.GOLD_G_KRW.toLocaleString();if(data.rates.GOLD_G_KRW!==oldGold)flash(hG,data.rates.GOLD_G_KRW>oldGold?'up':'down');}
-      window._GOLD_G_KRW=data.rates.GOLD_G_KRW;
-    }
+    // 서버가 못 받은 값은 null 로 온다 — 받은 값만 반영하고 나머지는 직전 값을 그대로 둔다.
+    const goldFresh=_applyLiveRates(data.rates);
 
     pfolioData.forEach(i=>{
       if(i.grp==='금'){
         // 금: curP는 단위당 원화. 단위에 맞는 per-unit 가격으로 업데이트
-        if(window._GOLD_G_KRW){
+        if(goldFresh){
           const gm = i.unit==='돈'?3.75:(i.unit==='kg'?1000:1);
           i.curP = window._GOLD_G_KRW * gm;
           // 켜기만 하고 끄지 않으면 KV 에 저장된 표시가 영구 빨간불로 남는다.
           i._priceStale = false;
+        }else{
+          // 이번 조회에서 금 시세를 못 받았다 — 직전 값은 유지하고 미조회로 드러낸다(다음 수신 때 꺼진다).
+          i._priceStale = true;
         }
       } else if(i.grp==='현금'){
         i._priceStale = !curRateKnown(i.cur);
@@ -4745,6 +4759,51 @@ async function saveNetWorthSnapshot() {
 // =============================================
 // 확장 데이터 KV 저장/로드
 // =============================================
+// ── 저장 실패 시 되돌리기 ─────────────────────────────────────────────
+// 기준은 '마지막으로 원격과 같았던 상태'(불러온 직후 또는 저장에 성공한 직후)다. 저장이 실패하면 메모리와
+// localStorage 사본을 그 상태로 되돌리고 화면을 다시 그린다 — 예전엔 실패 토스트만 뜨고 화면 값은 바뀐 채 남아
+// 저장된 것처럼 보였다. 호출부마다 백업을 뜨지 않도록 저장 함수 안 한 곳에서 처리한다.
+//  - 충돌(409)·로드 전 차단은 기존 안내가 맡으므로 되돌리지 않는다.
+//  - 같은 키의 더 새 저장이 대기 중이면 되돌리지 않는다(그 저장이 현재 상태 전체를 싣고 있다).
+//  - 순자산 스냅샷(_netWorthHistory)과 시세 필드는 사용자의 입력이 아니므로 되돌리는 대상이 아니다.
+let _extLastGood=null,_assetsLastGood=null;
+const KV_REVERT_MSG='⚠️ 저장하지 못해 방금 변경을 되돌렸습니다. 네트워크 상태를 확인하고 다시 시도해 주세요.';
+function _extSnapshot(){
+  return JSON.stringify({goalData,monthlyPLData,cfData,autoTransferData,cfDeletedKeys,
+    targetAlloc:window._targetAlloc||null,balanceSheet:window._balanceSheet||null,giftActual:window._giftActual||null});
+}
+function _extRestore(snapshot){
+  const d=JSON.parse(snapshot);
+  goalData=d.goalData;monthlyPLData=d.monthlyPLData;cfData=d.cfData;autoTransferData=d.autoTransferData;cfDeletedKeys=d.cfDeletedKeys;
+  window._targetAlloc=d.targetAlloc;window._balanceSheet=d.balanceSheet;window._giftActual=d.giftActual;
+  try{
+    localStorage.setItem('monthlyPLData',JSON.stringify(monthlyPLData));
+    localStorage.setItem('cfData',JSON.stringify(cfData));
+    localStorage.setItem('autoTransferData',JSON.stringify(autoTransferData));
+    if(window._giftActual) localStorage.setItem('giftActual',JSON.stringify(window._giftActual)); else localStorage.removeItem?.('giftActual');
+  }catch(e){}
+  if(typeof saveCfDeletedKeys==='function') saveCfDeletedKeys();
+}
+function _assetsRestore(snapshot){
+  // 그 사이 받은 시세는 버리지 않는다 — 같은 행(소유주·티커·계좌)의 시세 필드를 옮겨 싣는다.
+  const live=new Map(pfolioData.map(i=>[_splitRowKey(i),i]));
+  pfolioData=JSON.parse(snapshot).map(row=>{
+    const cur=live.get(_splitRowKey(row));
+    if(cur)['curP','prevP','dayP','_priceStale'].forEach(k=>{ if(k in cur) row[k]=cur[k]; });
+    return row;
+  });
+}
+function _kvShouldRevert(key,res,lastGood,current){
+  return !!(lastGood!=null&&current!==lastGood&&!res?.conflict&&!res?.blocked&&!_kvWriteQueues.has(key));
+}
+function _rerenderAfterRevert(){
+  try{ if(typeof syncDivHistory==='function') syncDivHistory(); }catch(e){}
+  try{ changeOwner(currentOwner,null); }catch(e){}
+  try{
+    if(document.getElementById('view-cashflow')?.classList.contains('active')){ renderAutoTransfers(); renderFixedCostView(); renderCashFlow(); }
+  }catch(e){}
+  try{ if(typeof cbRerender==='function') cbRerender(); }catch(e){}
+}
 async function saveExtDataToKV() {
   if(window._kvLoadState?.ext!=='ready') {
     showSaveError('⚠️ 재무 데이터를 정상적으로 불러오기 전에는 저장할 수 없습니다. 데이터 상태에서 다시 확인해 주세요.');
@@ -4752,11 +4811,16 @@ async function saveExtDataToKV() {
     return {ok:false,blocked:true,status:null};
   }
   const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null };
+  const sent=_extSnapshot();
   const res = await setKV('ext_data', ext);
   const ok=!!(res&&res.result==="OK");
-  if (!ok) showSaveError();
+  let reverted=false;
+  if(ok) _extLastGood=sent;
+  else if(_kvShouldRevert('ext_data',res,_extLastGood,_extSnapshot())){ _extRestore(_extLastGood); reverted=true; }
+  if (!ok) showSaveError(reverted?KV_REVERT_MSG:undefined);
+  if(reverted) _rerenderAfterRevert();
   if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',ok,ok?'확장 데이터 저장 완료':`저장 실패${res?.status?' ('+res.status+')':''}`);
-  return {ok,status:res?.status||null};
+  return {ok,status:res?.status||null,reverted};
 }
 
 async function loadExtDataFromKV() {
@@ -4771,6 +4835,7 @@ async function loadExtDataFromKV() {
   }
   if (data==null) {
     window._kvLoadState.ext='ready';
+    _extLastGood=null;   // 원격에 아무것도 없다 — 되돌릴 기준이 없다
     clearKvLoadError('ext');
     return {ok:true,empty:true,detail:'저장된 확장 데이터 없음'};
   }
@@ -4830,6 +4895,7 @@ async function loadExtDataFromKV() {
     }
     changeOwner(currentOwner, null);
     window._kvLoadState.ext='ready';
+    _extLastGood=_extSnapshot();
     clearKvLoadError('ext');
     return {ok:true,detail:`목표 ${goalData.length}개 · 순자산 기록 ${(window._netWorthHistory||[]).length}개`};
   }
@@ -5275,7 +5341,7 @@ function _bubbleItemValueKRW(i, usdRate) {
     const gm = i.unit === '돈' ? 3.75 : (i.unit === 'kg' ? 1000 : 1);
     return (i.qty || 0) * gm * (window._GOLD_G_KRW || i.curP || 0);
   }
-  const rate = i.cur === 'USD' ? usdRate : (i.cur === 'JPY' ? (RATES.JPY || 9.2) : 1);
+  const rate = i.cur === 'USD' ? usdRate : curRate(i.cur);
   return (i.qty || 0) * (i.curP || 0) * rate;
 }
 
@@ -5563,7 +5629,7 @@ function renderBubbleChart(mode) {
   container._bubbleCurrentRoot = '__TOTAL__';
 
   const filterOwner = _bubbleOwner === '전체' ? null : _bubbleOwner;
-  const usdRate = RATES.USD || 1380;
+  const usdRate = curRate('USD');
 
   // ── 부동산 제외 · 소유주 필터 적용 ──
   const baseItems = pfolioData
@@ -6023,11 +6089,16 @@ async function saveAssetsToKV(){
     if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
     return {ok:false,blocked:true,status:null};
   }
+  const sent=JSON.stringify(pfolioData);
   const res=await setKV('assets',pfolioData);
   const ok=!!(res&&res.result==='OK');
-  if(ok) console.log('KV 저장 성공'); else showSaveError();
+  let reverted=false;
+  if(ok) _assetsLastGood=sent;
+  else if(_kvShouldRevert('assets',res,_assetsLastGood,JSON.stringify(pfolioData))){ _assetsRestore(_assetsLastGood); reverted=true; }
+  if(ok) console.log('KV 저장 성공'); else showSaveError(reverted?KV_REVERT_MSG:undefined);
+  if(reverted) _rerenderAfterRevert();
   if(typeof finMarkFresh==='function') finMarkFresh('assets','투자자산 원장','Vercel KV',ok,ok?`${pfolioData.length}개 항목 저장`:`저장 실패${res?.status?' ('+res.status+')':''}`);
-  return {ok,status:res?.status||null};
+  return {ok,status:res?.status||null,reverted};
 }
 
 // 알려진 US 주식 티커 목록 (cur 자동 교정용)
@@ -6167,6 +6238,7 @@ async function loadAssetsFromKV(){
       return {ok:false,error:e?.message||'투자자산 원장 해석 오류'};
     }
     window._kvLoadState.assets='ready';
+    _assetsLastGood=JSON.stringify(pfolioData);
     clearKvLoadError('assets');
     changeOwner(currentOwner, null);
     // 잘못된 티커 자동 보정 실행
@@ -6397,11 +6469,7 @@ async function liveRefreshDomesticEtfs() {
   ));
   if (tickers.length === 0) return {ok:true,skipped:true,updated:0,attempted:0,stale:0};
   // 네이버 과요청 방지: 10개씩 청크
-  const CHUNK = 10;
-  const chunks = [];
-  for (let i = 0; i < tickers.length; i += CHUNK) {
-    chunks.push(tickers.slice(i, i + CHUNK));
-  }
+  const chunks = _chunkTickers(tickers, 10);
 
   const updatedTickers=new Set();
   for (const chunk of chunks) {
@@ -6409,7 +6477,8 @@ async function liveRefreshDomesticEtfs() {
       const resp = await authFetch(`/api/stock-price?tickers=${chunk.join(',')}`);
       if (!resp.ok) continue;
       const data = await resp.json();
-      const result = (data && data.result) || {};
+      // 서버가 한 종목을 평탄한 응답으로 줘도 버리지 않는다(예전 배포·캐시 응답 호환).
+      const result = (data && data.result) || (data && data.ticker ? { [data.ticker]: data } : {});
       pfolioData.forEach(i => {
         if (!_isDomesticEquity(i)) return;
         const t6 = String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase();
