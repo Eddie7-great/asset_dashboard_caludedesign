@@ -411,6 +411,35 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .cal-list-title{grid-column:1}
 }
 
+/* 증여 기록장 (2026-11-10) — 가족 증여 화면 하단. 입력 폼·삭제 버튼은 휴대폰에서 숨기고 finMobileNote 가 이유를 알린다 */
+.cb-gift-ledger{margin-top:12px;padding:16px 18px}
+.cb-gift-ledger-sums{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.cb-gift-ledger-sum{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--inner)}
+.cb-gift-ledger-sum>span,.cb-gift-ledger-sum>small{font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-ledger-sum>b{font-size:17px}
+.cb-gift-ledger-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:12px}
+.cb-gift-ledger-form>label{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-cap);font-weight:600;color:var(--lab);flex:0 1 150px;min-width:0}
+.cb-gift-ledger-form>label.cb-gift-ledger-memo{flex:1 1 200px}
+.cb-gift-ledger-form .cb-input{padding:7px 9px;width:100%;box-sizing:border-box}
+.cb-gift-ledger-form #cb-gift-rec-amt{text-align:right}
+.cb-gift-ledger-error{flex-basis:100%;margin:0;font-size:var(--fs-cap);color:var(--warn);font-weight:600}
+.cb-gift-ledger-out{display:block;padding:7px 9px;text-align:right;background:var(--inner);color:var(--mut)}
+.cb-gift-ledger-table{margin-top:12px;overflow-x:auto}
+.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 34px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.cb-gift-ledger-row.is-head{font-size:var(--fs-cap);color:var(--dim)}
+.cb-gift-ledger-row>:nth-child(3){text-align:right}
+.cb-gift-ledger-memo-cell{min-width:0;overflow-wrap:anywhere;color:var(--mut)}
+.cb-gift-ledger-row .is-in{color:var(--tx);font-weight:600}.cb-gift-ledger-row .is-out{color:var(--lab)}
+.cb-gift-ledger-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
+@media(max-width:768px){.cb-gift-ledger-form,.cb-gift-ledger-row>:last-child{display:none}.cb-gift-ledger-row{grid-template-columns:96px 76px 120px minmax(100px,1fr) 64px;min-width:520px}}
+
+/* 내보내기(CSV) (2026-11-10) — 데이터 상태 화면 하단 */
+.fin-export{margin-top:12px}
+.fin-export-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fin-export-buttons .cb-btn>span{margin-left:6px;font-weight:500;color:var(--mut)}
+.fin-export-msg{margin:10px 0 0;font-size:var(--fs-body);font-weight:600;color:var(--tx)}
+.fin-export-note{margin:10px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
+
 /* ===== 움직임 (2026-11-02) — 이즈 아웃·페이드·순차 등장·슬라이드·막대 채움만 쓴다 =====
    순차 등장·막대 채움은 페이지에 '들어갈 때'(cbMarkEntering 이 붙이는 .is-entering, 700ms)만 돈다.
    시세 갱신으로 다시 그려질 때는 이 클래스가 없으므로 움직이지 않는다. 시작 상태만 숨기고(fill both)

@@ -1002,6 +1002,13 @@ function _normalizeGiftActual(value){
     spouse:normalizeAmounts(value.spouse),
     childPrior:normalizePrior(value.childPrior),
     spousePrior:normalizePrior(value.spousePrior),
+    // 증여 기록장(2026-11-10): 실제로 한 증여를 건별로 적는다. 형식이 틀린 행은 버린다.
+    records:(Array.isArray(value.records)?value.records:[]).slice(0,500).map((item,index)=>{
+      if(!item||typeof item!=='object'||Array.isArray(item))return null;
+      const amt=Math.round(_safeStoredNumber(item.amt,{min:0,max:1_000_000_000_000}));
+      if(!_isStoredDateKey(item.date)||!(amt>0)||!['child','spouse'].includes(item.kind))return null;
+      return {id:_safeStoredToken(item.id,`gift-${index}`),kind:item.kind,date:String(item.date),amt,memo:_boundedStoredText(item.memo,120)};
+    }).filter(Boolean),
   };
 }
 let cfData = _normalizeCfRows(CF_DEFAULT);
