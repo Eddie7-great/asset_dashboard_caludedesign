@@ -254,7 +254,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const divTickers = tickers;
       if (!divTickers.length) return res.status(200).json({ success: true, result: {} });
       const fxRates = await getExchangeRates();
-      const usdRate = fxRates?.['KRW'] ?? 1380;
+      // 환율을 못 받으면 지어내지 않고 null 로 알린다(화면은 이 값을 쓰지 않는다).
+      const usdRate = fxRates?.['KRW'] ?? null;
       const KR_RE = /^[0-9][0-9A-Z]{5}$/i;
 
       // 월배열에서 cycle/ months 도출
@@ -614,17 +615,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     // ── 일반 시세 (마지막 거래일 종가) ───────────────────────
     // 환율 조회
     const fxRates = await getExchangeRates();
-    let currentUSD = 1380, currentJPY = 9.2, currentUSDJPY = 150;
-    if (fxRates) {
-      currentUSD = fxRates['KRW'] ?? 1380;
-      const jpyPerUsd = fxRates['JPY'] ?? 150;
-      currentUSDJPY = jpyPerUsd;
-      currentJPY = currentUSD / jpyPerUsd;
-    }
+    // 조회에 실패한 값은 고정값으로 지어내지 않고 null 로 돌려준다 — 화면은 null 이면 직전 값을 유지하고
+    // '시세 미조회'로 드러낸다. 예전엔 1380원·15만원/g 을 실제 시세처럼 내려보내 화면이 그대로 저장했다.
+    const posRate = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+    const currentUSD = posRate(fxRates?.['KRW']);
+    const currentUSDJPY = posRate(fxRates?.['JPY']);
+    const audPerUsd = posRate(fxRates?.['AUD']);
+    const currentJPY = currentUSD && currentUSDJPY ? currentUSD / currentUSDJPY : null;
+    const currentAUD = currentUSD && audPerUsd ? currentUSD / audPerUsd : null;
     console.log(`[Rates] USD/KRW=${currentUSD}`);
 
-    // 금 시세
-    const goldPriceG_KRW = (await getGoldPriceKRW(currentUSD)) ?? 150_000;
+    // 금 시세 — 달러 환율이 없으면 원화로 바꿀 수 없으므로 조회하지 않는다
+    const goldPriceG_KRW = currentUSD ? await getGoldPriceKRW(currentUSD) : null;
     console.log(`[Gold] ₩${goldPriceG_KRW}/g`);
 
     // 가상화폐: Yahoo Finance 심볼 (BTC-USD 등)
@@ -673,7 +675,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     return res.status(200).json({
       success: true,
-      rates: { USD: currentUSD, JPY: currentJPY, USDJPY: currentUSDJPY, GOLD_G_KRW: goldPriceG_KRW },
+      rates: { USD: currentUSD, JPY: currentJPY, AUD: currentAUD, USDJPY: currentUSDJPY, GOLD_G_KRW: goldPriceG_KRW },
       quotes: quoteResults,
     });
 

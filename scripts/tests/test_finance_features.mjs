@@ -141,6 +141,7 @@ Object.assign(context, {
       ? { type: '연금', normalRate: 0, exempt: Infinity, label: '연금, 과세이연' }
       : { type: '일반', normalRate: 0.154, exempt: 0, label: '일반, 15.4%' }),
   isMobileLayout: () => false,
+  finExportPanelHtml: () => '',   // 내보내기 패널은 test_export_csv.mjs 가 따로 본다
   cbEsc: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;'),
   cbDisp: value => `₩${Math.round(value).toLocaleString('ko-KR')}`,
   cbSignDisp: value => `${value >= 0 ? '+' : ''}₩${Math.round(value).toLocaleString('ko-KR')}`,

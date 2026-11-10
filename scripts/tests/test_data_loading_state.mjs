@@ -38,6 +38,7 @@ function extractFunction(name) {
 const notices = []
 const freshMarks = []
 let setCalls = 0
+let rerenders = 0
 const context = {
   window: { _kvLoadState:{assets:'pending',ext:'pending'}, _dataFreshness:{}, _netWorthHistory:[] },
   pfolioData: [{ id:'local-asset', grp:'현금', cur:'KRW' }],
@@ -78,9 +79,12 @@ const context = {
   renderCashFlow: () => {},
   renderAutoTransfers: () => {},
   renderFixedCostView: () => {},
+  // 저장 실패 되돌리기(2026-11-10)가 쓰는 상태 — script.js 에서는 let 이지만 vm 에서는 전역 속성으로 둔다
+  _extLastGood: null, _assetsLastGood: null, KV_REVERT_MSG: 'REVERTED', _kvWriteQueues: new Map(),
+  syncDivHistory: () => {}, cbRerender: () => { rerenders++ },
 }
 vm.createContext(context)
-for (const name of ['loadAssetsFromKV','saveAssetsToKV','loadExtDataFromKV','saveExtDataToKV']) {
+for (const name of ['loadAssetsFromKV','saveAssetsToKV','loadExtDataFromKV','saveExtDataToKV','_extSnapshot','_extRestore','_assetsRestore','_kvShouldRevert','_rerenderAfterRevert','_splitRowKey']) {
   vm.runInContext(extractFunction(name), context)
 }
 
@@ -112,6 +116,39 @@ result = await context.saveAssetsToKV()
 assert.equal(result.ok, false, '자산 SET 실패 반환')
 assert.equal(freshMarks.at(-1)[0], 'assets', '자산 저장 실패를 데이터 상태에 반영')
 assert.equal(freshMarks.at(-1)[3], false, '자산 저장 실패 상태값')
+assert.equal(result.reverted, false, '바뀐 것이 없으면 되돌릴 것도 없다')
+
+// 저장 실패 시 되돌리기: 사용자의 변경은 마지막으로 원격과 같았던 상태로 돌아가고, 그 사이 받은 시세는 남는다.
+context.pfolioData[0].qty = 999               // 사용자 변경
+context.pfolioData[0].curP = 123              // 그 사이 받은 시세
+context.pfolioData.push({ id:'unsaved-new', grp:'주식', owner:'본인', tkr:'NEW' })
+rerenders = 0
+result = await context.saveAssetsToKV()
+assert.equal(result.reverted, true, '자산 저장 실패 → 되돌림')
+assert.equal(context.pfolioData.length, 1, '저장되지 않은 새 행 제거')
+assert.equal(context.pfolioData[0].qty, undefined, '저장되지 않은 수량 변경 되돌림')
+assert.equal(context.pfolioData[0].curP, 123, '시세 필드는 되돌리지 않는다')
+assert.equal(notices.at(-1).message, 'REVERTED', '되돌렸다는 사실을 알린다')
+assert.ok(rerenders > 0, '되돌린 뒤 화면을 다시 그린다')
+// 충돌(409)·대기 중인 더 새 저장이 있으면 되돌리지 않는다
+context.pfolioData[0].qty = 5
+context.setKV = async () => ({ ok:false, conflict:true, status:409 })
+result = await context.saveAssetsToKV()
+assert.equal(result.reverted, false, '충돌은 기존 안내가 맡는다')
+assert.equal(context.pfolioData[0].qty, 5)
+context.setKV = async () => ({ ok:false, status:502 })
+context._kvWriteQueues.set('assets', Promise.resolve())
+result = await context.saveAssetsToKV()
+assert.equal(result.reverted, false, '더 새 저장이 대기 중이면 그 저장에 맡긴다')
+context._kvWriteQueues.clear()
+// 성공하면 그 상태가 새 기준이 된다
+context.setKV = async () => ({ result:'OK' })
+result = await context.saveAssetsToKV()
+assert.equal(result.ok, true)
+context.pfolioData[0].qty = 7
+context.setKV = async () => ({ ok:false, status:502 })
+result = await context.saveAssetsToKV()
+assert.equal(context.pfolioData[0].qty, 5, '되돌리는 기준은 마지막 저장 성공 시점')
 
 // 확장 데이터 GET 실패·빈 객체: 기존 목표/현금흐름을 보존하고 저장을 잠근다.
 context.getKV = async () => { throw new Error('ext down') }
@@ -149,6 +186,17 @@ result = await context.saveExtDataToKV()
 assert.equal(result.ok, false, '확장 SET 실패 반환')
 assert.equal(freshMarks.at(-1)[0], 'ext', '확장 저장 실패를 데이터 상태에 반영')
 assert.equal(freshMarks.at(-1)[3], false, '확장 저장 실패 상태값')
+// 확장 데이터도 같은 방식 — 순자산 스냅샷은 사용자의 입력이 아니라 되돌리지 않는다
+context.goalData.push({ name:'unsaved-goal' })
+context.cfData.push({ id:'unsaved-cf' })
+context.window._giftActual = { birth:'2099-01' }
+context.window._netWorthHistory = [{ date:'2026-11-10', total:1 }]
+result = await context.saveExtDataToKV()
+assert.equal(result.reverted, true, '확장 저장 실패 → 되돌림')
+assert.equal(context.goalData.map(g => g.name).join(), 'remote-goal')
+assert.equal(context.cfData.length, 0)
+assert.equal(context.window._giftActual, null)
+assert.equal(context.window._netWorthHistory.length, 1, '순자산 스냅샷은 그대로')
 
 // 프론트 KV 계약: HTTP 오류·result 누락은 예외, 정상 JSON 문자열만 파싱.
 vm.runInContext(extractFunction('getKV'), context)
@@ -169,6 +217,7 @@ context.fetch = async url => {
     json:async () => ({chart:{result:[{timestamp:benchmarkTimestamps,indicators:{quote:[{close:[100,101,102]}]}}]}}),
   }
 }
+vm.runInContext(extractFunction('_cfLocalDateKey'), context)
 const fallbackBenchmark=await context._jsBenchmarkFallback([['BAD',100]])
 assert.equal(Object.values(fallbackBenchmark).every(row => row.portfolio.length===0), true, '해결된 보유 티커가 없으면 포트폴리오 시계열을 비워 둠')
 

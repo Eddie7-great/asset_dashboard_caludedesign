@@ -61,3 +61,24 @@ lctx.loginCapsCheck({ getModifierState: k => k === 'CapsLock' }); assert.equal(c
 lctx.loginCapsCheck({ getModifierState: () => false }); assert.equal(caps.hidden, true);
 
 console.log('ok - motion');
+
+// 숫자 카운트업(2026-11-10): 기호·부호·단위는 그대로 두고 숫자만 0 → 최종값. 들어갈 때만, 금액 가리기·움직임 줄이기에서는 돌지 않는다.
+const cu = cobalt.match(/function cbCountUpParts\(text\)\{[\s\S]*?\n\}\nfunction cbCountUpText\(parts,p\)\{[\s\S]*?\n\}/)[0];
+const cctx = vm.createContext({});
+vm.runInContext(cu, cctx);
+const p1 = cctx.cbCountUpParts('+₩1,284,500');
+assert.deepEqual({ ...p1 }, { pre: '+₩', num: 1284500, dec: 0, post: '' });
+assert.equal(cctx.cbCountUpText(p1, 1), '+₩1,284,500', '끝 값은 원래 글자와 같다');
+assert.equal(cctx.cbCountUpText(p1, 0), '+₩0');
+assert.equal(cctx.cbCountUpText(cctx.cbCountUpParts('62점'), 1), '62점');
+assert.equal(cctx.cbCountUpText(cctx.cbCountUpParts('-$1,234.50'), 1), '-$1,234.50', '소수 자릿수 유지');
+assert.equal(cctx.cbCountUpParts('—'), null, '숫자가 없으면 건드리지 않는다');
+assert.equal(cctx.cbCountUpParts('₩••••'), null, '가려진 금액은 건드리지 않는다');
+const cuFn = cobalt.match(/function cbCountUp\(id\)\{[\s\S]*?\n\}/)[0];
+assert.match(cuFn, /_amountPrivacyEnabled\) return;/, '금액 가리기 중에는 숫자를 움직이지 않는다');
+assert.match(cuFn, /prefers-reduced-motion: reduce\)'\)\.matches\) return;/);
+assert.match(cuFn, /isConnected/, '재렌더로 사라진 요소는 건드리지 않는다');
+assert.equal((cobalt.match(/\n\s*cbCountUp\(id\);/g) || []).length, 2, '코발트·레거시 두 경로');
+// 선 그리기는 들어갈 때만
+assert.match(block, /\.is-entering \.fin-nw-line\{stroke-dasharray:1;animation:cbDraw /);
+assert.match(read('finance.js'), /<path class="fin-nw-line" pathLength="1"/);

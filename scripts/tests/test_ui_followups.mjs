@@ -34,6 +34,7 @@ const sectorContext = {
     { grp: '현금', owner: '본인', qty: 1, value: 100 },
   ],
   RATES: { USD: 1 },
+  curRate:()=>1,
   _bubbleItemValueKRW: item => item.value,
   _gicsSector: item => item.sector,
   cbValKRW: item => item.value,
@@ -328,6 +329,7 @@ assert.match(cobaltSource, /annualCumulative = cbTaxCumulativeByEntry\(list, own
 
 const dcaScheduleContext = { cbRate:cur=>cur==='USD'?1400:1 }
 vm.createContext(dcaScheduleContext)
+vm.runInContext(fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8').match(/function finLocalDateKey\([\s\S]*?\n\}/)[0], dcaScheduleContext)
 for (const name of [
   'cbDcaPerMonthKRW','cbDcaPerOrderKRW','cbDcaExpectedQty','cbDcaDateAt','cbDcaDateKey',
   'cbDcaMarket','cbDcaIsHoliday','cbDcaScheduledOn','cbDcaScheduleSummary',

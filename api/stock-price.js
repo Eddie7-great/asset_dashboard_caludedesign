@@ -226,8 +226,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Too many tickers' });
     }
 
-    // 단일 조회 → 평탄한 응답, 복수 조회 → { result: { ticker: data } }
-    if (tickers.length === 1) {
+    // ticker= 단일 조회만 평탄한 응답이다. tickers= 로 물으면 한 종목이어도 { result: { ticker: data } } 로 준다
+    // — 화면이 10개씩 묶어 보내므로 묶음에 한 종목만 남을 때(1·11·21개) 모양이 달라지면 그 종목 시세가 버려진다.
+    if (tickers.length === 1 && !rawTickers) {
       const data = await fetchWithCache(tickers[0]);
       res.status(data.success ? 200 : 502).json(data);
       return;

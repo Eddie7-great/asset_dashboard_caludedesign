@@ -233,7 +233,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dash-kpi-label{display:flex;align-items:center;gap:6px;font-size:var(--fs-body);color:var(--mut)}
 .cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--kpi-hi-mut)}
 .cb-dash-kpi-go{margin-left:auto;color:var(--acc);font-weight:700}
-.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
+.cb-dash-kpi-value{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
 .cb-dash-kpi-sub{font-size:var(--fs-cap);color:var(--lab)}
 .home-weight{white-space:nowrap}
@@ -342,6 +342,104 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .etf-toolbar>.etf-fund-stats{padding-top:8px;border-top:1px solid var(--bd)}
 }
 
+/* ===== 계좌별 보기·통합 일정 (2026-11-10) — workspace-pages.js. 폭은 클래스로만 준다(인라인 폭은 미디어쿼리가 못 덮는다) ===== */
+.acct-kind-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.acct-kind-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 16px}
+.acct-kind-card.is-empty{opacity:.62}
+.acct-kind-label{font-size:var(--fs-body);color:var(--mut)}
+.acct-kind-value{font:800 22px/1.2 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.acct-kind-sub{font-size:var(--fs-cap);color:var(--lab)}
+.acct-kind-note{font-size:var(--fs-cap);color:var(--dim);margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)}
+.acct-table-panel{padding:16px 18px}
+.acct-table-wrap{overflow-x:auto;margin-top:10px}
+.acct-table{min-width:760px}
+.acct-row{display:grid;grid-template-columns:minmax(240px,1.8fr) 120px 64px minmax(150px,1fr) 130px 48px;gap:10px;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.acct-row>span:not(:first-child){text-align:right}
+.acct-head{font-size:var(--fs-cap);color:var(--dim)}
+.acct-group>summary{cursor:pointer;list-style:none}
+.acct-group>summary::-webkit-details-marker{display:none}
+.acct-group>summary:hover,.acct-group[open]>summary{background:var(--inner)}
+.acct-name{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.acct-name>i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.acct-name>span{color:var(--mut)}
+.acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
+.acct-stale-chip{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.acct-holdings{padding:6px 8px 12px 23px;border-bottom:1px solid var(--bd)}
+.acct-tax-line{font-size:var(--fs-cap);color:var(--dim);padding:2px 0 6px}
+.acct-holding{display:grid;grid-template-columns:minmax(0,1fr) 120px minmax(150px,220px);gap:10px;padding:5px 0;font-size:12px;border-top:1px dashed var(--bd)}
+.acct-holding>span:not(:first-child){text-align:right}
+.acct-holding small{color:var(--lab);font-family:'IBM Plex Mono',monospace}
+.acct-foot,.cal-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
+.cal-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.cal-title{font-size:var(--fs-card);min-width:104px;text-align:center}
+.cal-sum-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.cal-sum-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 16px}
+.cal-sum-card>b{font:800 22px/1.2 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cal-sum-card>small{font-size:var(--fs-cap);color:var(--lab)}
+.cal-kind{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.cal-kind>i,.cal-chip>i{width:8px;height:8px;border-radius:2px;flex-shrink:0;background:var(--cal-c)}
+.cal-kind.div,.cal-chip.div{--cal-c:var(--acc2)}.cal-kind.dca,.cal-chip.dca{--cal-c:var(--acc)}
+.cal-kind.out,.cal-chip.out{--cal-c:var(--warn)}.cal-kind.in,.cal-chip.in{--cal-c:var(--purple)}
+.cal-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:12px;align-items:stretch}
+.cal-grid-panel,.cal-list-panel{padding:16px 18px;min-width:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-dow{font-size:var(--fs-cap);color:var(--dim);text-align:center;padding-bottom:4px}
+.cal-cell{min-height:86px;min-width:0;padding:5px;border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;gap:3px}
+.cal-cell.is-blank{border-color:transparent}
+.cal-cell.is-today{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.cal-day{font:600 12px/1 'IBM Plex Mono',monospace;color:var(--mut)}
+.cal-cell.is-sun .cal-day,.cal-cell.is-sat .cal-day{color:var(--lab)}
+.cal-chip{display:flex;align-items:center;gap:4px;min-width:0;font-size:11px;color:var(--tx)}
+.cal-chip>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-more{font-size:10.5px;color:var(--dim)}
+.cal-list{display:flex;flex-direction:column;margin-top:8px;max-height:520px;overflow-y:auto}
+.cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12.5px}
+.cal-list-when{color:var(--mut);font-size:var(--fs-cap)}
+.cal-list-title{min-width:0;overflow-wrap:anywhere}
+.cal-list-title>small{margin-left:6px;color:var(--lab)}
+@media(max-width:1100px){.cal-layout{grid-template-columns:minmax(0,1fr)}.acct-kind-grid,.cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){
+  .acct-kind-grid,.cal-sum-grid{gap:8px}
+  .cal-cell{min-height:46px;padding:4px;align-items:center}
+  .cal-chip>span,.cal-more{display:none}
+  .cal-chip{justify-content:center}
+  .cal-cell{flex-direction:row;flex-wrap:wrap;align-content:flex-start;justify-content:center}
+  .cal-day{flex-basis:100%;text-align:center}
+  .cal-list{max-height:none}
+  .cal-list-row{grid-template-columns:minmax(0,1fr) auto;row-gap:2px}
+  .cal-list-when{grid-column:1}.cal-list-row>.cal-kind{grid-column:2;justify-self:end}
+  .cal-list-title{grid-column:1}
+}
+
+/* 증여 기록장 (2026-11-10) — 가족 증여 화면 하단. 입력 폼·삭제 버튼은 휴대폰에서 숨기고 finMobileNote 가 이유를 알린다 */
+.cb-gift-ledger{margin-top:12px;padding:16px 18px}
+.cb-gift-ledger-sums{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.cb-gift-ledger-sum{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--inner)}
+.cb-gift-ledger-sum>span,.cb-gift-ledger-sum>small{font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-ledger-sum>b{font-size:17px}
+.cb-gift-ledger-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:12px}
+.cb-gift-ledger-form>label{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-cap);font-weight:600;color:var(--lab);flex:0 1 150px;min-width:0}
+.cb-gift-ledger-form>label.cb-gift-ledger-memo{flex:1 1 200px}
+.cb-gift-ledger-form .cb-input{padding:7px 9px;width:100%;box-sizing:border-box}
+.cb-gift-ledger-form #cb-gift-rec-amt{text-align:right}
+.cb-gift-ledger-error{flex-basis:100%;margin:0;font-size:var(--fs-cap);color:var(--warn);font-weight:600}
+.cb-gift-ledger-out{display:block;padding:7px 9px;text-align:right;background:var(--inner);color:var(--mut)}
+.cb-gift-ledger-table{margin-top:12px;overflow-x:auto}
+.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 34px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.cb-gift-ledger-row.is-head{font-size:var(--fs-cap);color:var(--dim)}
+.cb-gift-ledger-row>:nth-child(3){text-align:right}
+.cb-gift-ledger-memo-cell{min-width:0;overflow-wrap:anywhere;color:var(--mut)}
+.cb-gift-ledger-row .is-in{color:var(--tx);font-weight:600}.cb-gift-ledger-row .is-out{color:var(--lab)}
+.cb-gift-ledger-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
+@media(max-width:768px){.cb-gift-ledger-form,.cb-gift-ledger-row>:last-child{display:none}.cb-gift-ledger-row{grid-template-columns:96px 76px 120px minmax(100px,1fr) 64px;min-width:520px}}
+
+/* 내보내기(CSV) (2026-11-10) — 데이터 상태 화면 하단 */
+.fin-export{margin-top:12px}
+.fin-export-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fin-export-buttons .cb-btn>span{margin-left:6px;font-weight:500;color:var(--mut)}
+.fin-export-msg{margin:10px 0 0;font-size:var(--fs-body);font-weight:600;color:var(--tx)}
+.fin-export-note{margin:10px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
+
 /* ===== 움직임 (2026-11-02) — 이즈 아웃·페이드·순차 등장·슬라이드·막대 채움만 쓴다 =====
    순차 등장·막대 채움은 페이지에 '들어갈 때'(cbMarkEntering 이 붙이는 .is-entering, 700ms)만 돈다.
    시세 갱신으로 다시 그려질 때는 이 클래스가 없으므로 움직이지 않는다. 시작 상태만 숨기고(fill both)
@@ -366,6 +464,10 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .is-entering :is(.cb-dash-kpis,.holdings-kpis,.cb-dca-summary-grid)>*:nth-child(5){animation-delay:calc(var(--stagger)*4)}
 /* 막대 채움 — 왼쪽부터 */
 .is-entering :is(.home-weight-bar i,.fin-bullet-bar,.etf-rank-track>i){transform-origin:left center;animation:cbGrow calc(var(--dur)*2) var(--ease-out) both;animation-delay:calc(var(--stagger)*3)}
+/* 추이 그래프 선은 왼쪽부터 그려지고(pathLength=1 기준) 면은 뒤따라 나타난다. 숫자 카운트업은 cbCountUp(cobalt.js) */
+@keyframes cbDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.is-entering .fin-nw-line{stroke-dasharray:1;animation:cbDraw calc(var(--dur)*2.5) var(--ease-out) both}
+.is-entering .fin-nw-area{animation:cbFade var(--dur) var(--ease-out) both;animation-delay:calc(var(--dur)*1.5)}
 /* 오른쪽 수정 패널은 오른쪽에서 밀려 들어온다(넓은 화면). 좁은 화면 팝업은 페이드 */
 #add-modal.active .modal-content{animation:cbFade var(--dur) var(--ease-out) both}
 @media(min-width:1101px){#add-modal.active .modal-content{animation:cbSlideIn var(--dur) var(--ease-out) both}}

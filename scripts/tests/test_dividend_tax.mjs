@@ -148,6 +148,7 @@ const cashContext = {
     owner:'본인', divKey:'div_AAA_본인_일반_2026_3',
   }], cfDeletedKeys: [], cfYear: 2026, cfMonth: 3,
   RATES: { KRW: 1, USD: 1380, JPY: 9.2 },
+  curRate:c=>({USD:1380,JPY:9.2})[c]||1,
   pfolioData: [
     { grp:'주식', qty:1_000_000, tkr:'AAA', owner:'본인', broker:'A증권', acc:'A ISA' },
     { grp:'주식', qty:1_000_000, tkr:'AAA', owner:'본인', broker:'B증권', acc:'B ISA' },

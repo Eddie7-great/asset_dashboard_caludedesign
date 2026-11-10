@@ -8,6 +8,7 @@ const pick = (name) => cobalt.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n
 const ctx = vm.createContext({});
 vm.runInContext([
   pick('cbDcaDateAt'), pick('cbDcaDateKey'), pick('cbDcaUpcoming'),
+  fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8').match(/function finLocalDateKey\([\s\S]*?\n\}/)[0],
   // 판정·금액은 테스트용 대역 — 이 함수가 새 판정을 만들지 않는다는 것을 확인한다
   "function cbDcaScheduledOn(i,d){ return i.dca && i.days.includes(d.getDate()); }",
   "function cbDcaPerOrderKRW(i){ return i.amt; }",

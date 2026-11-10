@@ -53,7 +53,7 @@ async function etfRefreshOnOpen(onlyCode=null){
       const code=codes.shift(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
       _etfLiveControllers.add(controller);
       try{
-        const response=await fetch('/api/dashboard?type=etf_holdings&ticker='+encodeURIComponent(code),{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+        const response=await authFetch('/api/dashboard?type=etf_holdings&ticker='+encodeURIComponent(code),{cache:'no-store',credentials:'same-origin',signal:controller.signal});
         if(!response.ok)throw new Error('lookup');
         const data=await response.json();
         if(!data.success||data.code!==code){const error=new Error('lookup');error.attempts=data.attempts;throw error;}

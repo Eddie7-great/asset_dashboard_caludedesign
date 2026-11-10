@@ -15,6 +15,8 @@ let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성�
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
 function finNewId(){ return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
+// 날짜 키의 형식은 script.js 의 _cfLocalDateKey 와 같아야 한다(둘 다 지역 시간 YYYY-MM-DD). script.js 는 이 파일보다
+// 먼저 실행돼 자기 구현이 필요하고, 그 밖의 화면(cbDcaDateKey 등)은 모두 이 함수를 쓴다.
 function finLocalDateKey(date=new Date()){
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
@@ -351,8 +353,8 @@ function finNwChartSvg(series,w,h){
   return `<div class="fin-nw-chart-scroll"><div class="fin-nw-chart-canvas"><svg viewBox="0 0 ${w} ${h+18}" width="100%" preserveAspectRatio="none" style="display:block;overflow:visible" role="img" aria-label="${cbEsc(chartLabel)}" onmouseleave="finNwHide()">
     <title>${cbEsc(chartLabel)}</title>
     ${grid}
-    <path d="${area}" fill="${stroke}" opacity=".10"></path>
-    <path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    <path class="fin-nw-area" d="${area}" fill="${stroke}" fill-opacity=".10"></path>
+    <path class="fin-nw-line" pathLength="1" d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     <circle cx="${pts[pts.length-1].x.toFixed(1)}" cy="${pts[pts.length-1].y.toFixed(1)}" r="3.4" fill="${stroke}"></circle>
     ${guide}${ticks}${hit}
   </svg></div></div>`;
@@ -626,6 +628,61 @@ function finDataStatusRows(){
     return row;
   });
 }
+// ── 내보내기(CSV) ─────────────────────────────────────────────
+// 지금 메모리에 있는 기록을 표 파일로 내려받는다(백업·엑셀 확인용). 서버로 보내지 않고 원장도 바꾸지 않는다.
+// 평가액·손익은 화면과 같은 cbRow 값이고 새로 계산하지 않는다.
+function finCsvCell(value){
+  let text=String(value==null?'':value);
+  // 엑셀이 수식으로 실행하지 않도록 =,+,-,@ 로 시작하는 '글자' 칸은 작은따옴표를 앞에 붙인다(숫자 칸은 그대로).
+  if(typeof value!=='number'&&/^[=+\-@\t\r]/.test(text)) text="'"+text;
+  return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
+}
+function finCsv(header,rows){
+  // 맨 앞 BOM 이 없으면 엑셀이 한글을 깨뜨린다.
+  return '\ufeff'+[header,...rows].map(r=>r.map(finCsvCell).join(',')).join('\r\n')+'\r\n';
+}
+function finExportSets(){
+  const num=v=>{ const n=Number(v); return Number.isFinite(n)?n:''; };
+  const krw=v=>{ const n=Number(v); return Number.isFinite(n)?Math.round(n):''; };
+  const list=v=>Array.isArray(v)?v:[];
+  const gift=list(window._giftActual&&window._giftActual.records);
+  return {
+    holdings:{label:'보유 종목',header:['소유주','자산군','증권사','계좌','종목명','티커','수량','단위','통화','평균단가','현재가','평가액(원)','매입금액(원)','평가손익(원)','시세 상태'],
+      rows:()=>finRows(null).map(r=>[r.i.owner,r.i.grp,r.i.broker,r.i.acc,r.name,r.i.tkr,num(r.i.qty),r.i.unit,r.i.cur,r.i.costUnknown?'':num(cbAvgNative(r.i)),num(r.i.curP),krw(r.val),r.i.costUnknown?'':krw(r.cost),(r.i.grp==='현금'||r.i.costUnknown)?'':krw(r.gain),r.i._priceStale?'미조회':'정상'])},
+    cashflow:{label:'현금 흐름 기록',header:['날짜','구분','분류','내용','금액(원)','소유주'],
+      rows:()=>list(typeof cfData!=='undefined'?cfData:[]).map(x=>[x.date,x.type,x.cat,x.desc,krw(x.amt),x.owner])},
+    realized:{label:'실현손익 기록',header:['월','구분','계좌','소유주','실현손익(원)','메모','규칙 버전'],
+      rows:()=>list(typeof monthlyPLData!=='undefined'?monthlyPLData:[]).map(x=>[x.month,x.category==='domestic'?'국내':'해외',x.account,x.owner,krw(x.amt),x.memo,x.ruleSetId])},
+    networth:{label:'투자자산 일별 기록',header:['날짜','투자자산(원)',...OWNERS.map(o=>o+'(원)')],
+      rows:()=>list(window._netWorthHistory).map(e=>[e.date,krw(finSnapshotInvestment(e)),...OWNERS.map(o=>krw(finSnapshotOwnerInvestment(e,o)))])},
+    gifts:{label:'증여 기록장',header:['증여일','구분','금액(원)','메모'],
+      rows:()=>gift.map(x=>[x.date,x.kind==='spouse'?'부부 증여':'자녀 증여',krw(x.amt),x.memo])},
+  };
+}
+function finExport(key){
+  const set=finExportSets()[key], msg=document.getElementById('fin-export-msg');
+  const say=text=>{ if(msg){ msg.textContent=text; msg.hidden=false; } };
+  if(!set) return;
+  // 금액을 가린 채 화면을 공유하는 중일 수 있다 — 그 상태에서 금액이 담긴 파일을 내려받지 않는다.
+  if(typeof _amountPrivacyEnabled!=='undefined'&&_amountPrivacyEnabled) return say('금액 가리기를 켠 동안에는 내보낼 수 없습니다. 금액 보이기로 바꾼 뒤 다시 눌러 주세요.');
+  const rows=set.rows();
+  if(!rows.length) return say(`${set.label}: 내보낼 기록이 없습니다.`);
+  const name=`asset-dashboard-${key}-${finLocalDateKey(new Date())}.csv`;
+  try{
+    const url=URL.createObjectURL(new Blob([finCsv(set.header,rows)],{type:'text/csv;charset=utf-8'}));
+    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    say(`${set.label} ${rows.length}건을 ${name} 파일로 내려받았습니다.`);
+  }catch(e){ console.error('[export]',e); say('파일을 만들지 못했습니다. 다른 브라우저에서 다시 시도해 주세요.'); }
+}
+function finExportPanelHtml(){
+  const sets=finExportSets();
+  return `<div class="cb-panel fin-section fin-export"><div class="fin-section-head"><span>내보내기(CSV)</span><small>엑셀에서 열 수 있는 표 파일 · 지금 화면에 불러온 기록 그대로</small></div>
+    <div class="fin-export-buttons">${Object.entries(sets).map(([key,set])=>{ let n=0; try{ n=set.rows().length; }catch(e){ n=0; }
+      return `<button type="button" class="cb-btn" onclick="finExport('${key}')"${n?'':' disabled'}>${set.label} <span>${n}건</span></button>`; }).join('')}</div>
+    <p id="fin-export-msg" class="fin-export-msg" role="status" hidden></p>
+    <p class="fin-export-note">파일에는 금액과 계좌 정보가 그대로 담깁니다. 다른 사람과 공유하거나 공용 기기에 남기지 않도록 주의해 주세요. 내보내기는 기록을 바꾸지 않으며, 이 파일을 다시 불러오는 기능은 없습니다.</p></div>`;
+}
 function cbRenderDataStatus(){
   const el=document.getElementById('cb-data2');if(!el)return;
   const rows=finDataStatusRows();
@@ -642,6 +699,6 @@ function cbRenderDataStatus(){
       : `최근 확인 · ${finFreshAge(x.updatedAt)}${x.sameSession?'':' <span data-tip="다른 기기나 이전 접속에서 확인한 기록입니다. 지금 값이 최신인지 보장하지 않습니다.">· 다른 접속 기록</span>'}`;
     const metaTip=`출처 · ${x.source||'내부 데이터'} · ${x.state==='pending'?'이번 접속에서 아직 확인하지 않음':`최근 확인 · ${finFreshAge(x.updatedAt)}${x.sameSession?'':' · 다른 접속 기록'}`}`;
     return `<div class="cb-panel fin-data-card ${st.cls}"><div class="fin-data-card-main"><div class="fin-data-card-head"><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${st.label}</em></div><strong class="cb-tip-block" data-overflow-tip="${cbEsc(x.detail||'상태 정보 없음')}" data-overflow-watch>${cbEsc(x.detail||'상태 정보 없음')}</strong><small class="fin-data-card-meta cb-tip-block" data-overflow-tip="${cbEsc(metaTip)}"><span data-overflow-watch>출처 · ${cbEsc(x.source||'내부 데이터')}</span><i aria-hidden="true">·</i><span data-overflow-watch>${when}</span></small></div><button onclick="manualRefresh('${x.key}')">다시 확인</button></div>`;
-  }).join('')}</div><div class="fin-data-support-grid"><div class="cb-panel fin-section fin-price-help"><div class="fin-section-head"><span>시장 시세 확인 방법</span><div class="fin-price-actions"><button class="cb-btn" onclick="manualRefresh('prices')">시장 시세 재조회</button><button class="cb-btn" onclick="switchView('holdings')">보유 종목 확인</button></div></div><div class="fin-price-steps"><span><b>1. 재조회</b>미확인 종목이 사라지는지 확인</span><span><b>2. 종목 정보</b>티커·거래소·통화 대조</span><span><b>3. 증권사 비교</b>현재가 또는 전일 종가 확인</span></div><div class="fin-price-bottom"><div class="fin-price-issues">${(pfolioData||[]).filter(i=>i&&i._priceStale).map(i=>`<div><b>${cbEsc(i.name||i.tkr)}</b><span>${cbEsc(i.tkr)} · ${cbEsc(i.owner)} · ${cbEsc(i.cur||'통화 미확인')}</span><small>최신 조회 미확인 · 화면 가격은 이전 값일 수 있습니다.</small></div>`).join('')||'<p>현재 미확인 종목 없음 · 상태가 계속 ‘확인 필요’이면 재조회하세요.</p>'}</div><p class="fin-price-note">한국은 6자리 코드, 일본은 거래소 코드가 필요합니다. ‘정상’은 조회 성공이며 실시간 체결가를 보장하지 않습니다.</p></div></div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 요청이 실패했거나 시세가 누락된 자산이 남아 있다는 뜻입니다.</p><p><b>확인 전</b>은 아직 조회를 실행하지 않은 상태로, 오류가 아닙니다.</p><p>최근 확인 시각은 기기별로 공유되므로 <b>다른 접속 기록</b> 표시가 붙은 항목은 다시 확인해 주세요.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div></div>`;
+  }).join('')}</div><div class="fin-data-support-grid"><div class="cb-panel fin-section fin-price-help"><div class="fin-section-head"><span>시장 시세 확인 방법</span><div class="fin-price-actions"><button class="cb-btn" onclick="manualRefresh('prices')">시장 시세 재조회</button><button class="cb-btn" onclick="switchView('holdings')">보유 종목 확인</button></div></div><div class="fin-price-steps"><span><b>1. 재조회</b>미확인 종목이 사라지는지 확인</span><span><b>2. 종목 정보</b>티커·거래소·통화 대조</span><span><b>3. 증권사 비교</b>현재가 또는 전일 종가 확인</span></div><div class="fin-price-bottom"><div class="fin-price-issues">${(pfolioData||[]).filter(i=>i&&i._priceStale).map(i=>`<div><b>${cbEsc(i.name||i.tkr)}</b><span>${cbEsc(i.tkr)} · ${cbEsc(i.owner)} · ${cbEsc(i.cur||'통화 미확인')}</span><small>최신 조회 미확인 · 화면 가격은 이전 값일 수 있습니다.</small></div>`).join('')||'<p>현재 미확인 종목 없음 · 상태가 계속 ‘확인 필요’이면 재조회하세요.</p>'}</div><p class="fin-price-note">한국은 6자리 코드, 일본은 거래소 코드가 필요합니다. ‘정상’은 조회 성공이며 실시간 체결가를 보장하지 않습니다.</p></div></div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 요청이 실패했거나 시세가 누락된 자산이 남아 있다는 뜻입니다.</p><p><b>확인 전</b>은 아직 조회를 실행하지 않은 상태로, 오류가 아닙니다.</p><p>최근 확인 시각은 기기별로 공유되므로 <b>다른 접속 기록</b> 표시가 붙은 항목은 다시 확인해 주세요.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div></div>${finExportPanelHtml()}`;
 }
 

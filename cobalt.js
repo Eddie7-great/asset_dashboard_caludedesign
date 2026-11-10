@@ -47,8 +47,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus };
-const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태' };
+const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar };
+const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
@@ -91,7 +91,7 @@ function cbFmtNative(n, cur){
   const loc = cur==='JPY' ? 'ja-JP' : cur==='KRW' ? 'ko-KR' : 'en-US';
   return meta.symbol + Number(n).toLocaleString(loc,{minimumFractionDigits:0,maximumFractionDigits:meta.cashDecimals});
 }
-function cbEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function cbEsc(s){ return escHtml(s); }   // 단일 구현은 script.js 의 escHtml
 function cbUpDn(v){ return 'color:' + (v>=0 ? 'var(--up)' : 'var(--dn)'); }
 function cbOwnerColor(o){ return (typeof ownerColors!=='undefined' && ownerColors[o]) || '#8a97b0'; }
 
@@ -369,7 +369,7 @@ function cbSectors(includeCrypto, ownerFilter){
   const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
   const itemValue = i => typeof _bubbleItemValueKRW==='function'
-    ? _bubbleItemValueKRW(i, RATES.USD||1380)
+    ? _bubbleItemValueKRW(i, curRate('USD'))
     : cbValKRW(i);
   // 대시보드와 비중 차트 모두 현금·금까지 포함한 전체 포트폴리오를 분모로 사용한다.
   // 표시 목록은 섹터 집중도 성격에 맞게 주식(+선택 시 가상화폐)만 유지한다.
@@ -2227,8 +2227,9 @@ function cbGiftOwnerScope(owner){
 function cbGiftCfg(){ return (window._giftActual = window._giftActual || {}); }
 function cbGiftSave(){
   try{ localStorage.setItem('giftActual', JSON.stringify(cbGiftCfg())); }catch(e){}
-  try{ saveExtDataToKV(); }catch(e){}
   cbRenderGift();
+  // 저장은 비동기라 try/catch 로는 실패를 잡을 수 없다. 실패 시 되돌리기·다시 그리기·안내는 saveExtDataToKV 가 맡는다.
+  Promise.resolve(saveExtDataToKV()).catch(e=>console.error('[gift save]',e));
 }
 function cbGiftBirth(){ const b=cbGiftCfg().birth; return /^\d{4}-\d{2}$/.test(b||'') ? b : '2023-08'; }
 function cbGiftMarriage(){ const m=cbGiftCfg().marriage; return /^\d{4}-\d{2}-\d{2}$/.test(m||'') ? m : '2020-05-30'; }
@@ -2257,11 +2258,86 @@ function cbGiftSetSpouse(k, raw){
   const v=parseFloat(String(raw||'').replace(/[^\d]/g,''));
   c.spouse[k] = (isFinite(v)&&v>0) ? Math.round(v) : 0; cbGiftSave();
 }
+// ── 증여 기록장 ──────────────────────────────────────────────
+// 실제로 한 증여를 건별로 적어 두고, 확인 기준일 이전 10년의 합계를 대신 더해 준다(예전엔 그 합계를 손으로 한 줄 적었다).
+// 기준일 '하나'에 대한 단순 합산이다 — 증여일마다의 10년 창을 각각 판정하지 않고, 공제·세액을 새로 계산하지도 않는다.
+// 합계는 기존 '최근 10년 공제 검토'(cbGiftDeductionReview)의 입력으로만 쓰인다.
+function cbGiftRecords(kind){
+  const list=Array.isArray(cbGiftCfg().records)?cbGiftCfg().records:[];
+  return list.filter(r=>r&&(!kind||r.kind===kind)).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(a.id).localeCompare(String(b.id)));
+}
+// 기준일의 10년 전 같은 날(2월 29일은 28일로). 이 날부터 기준일까지를 '이전 10년'으로 본다(양 끝 포함 — 넓게 잡는 쪽이 안전하다).
+function cbGiftWindowStart(asOf){
+  const [y,m,d]=String(asOf).split('-').map(Number);
+  const last=new Date(y-10,m,0).getDate();
+  return `${y-10}-${String(m).padStart(2,'0')}-${String(Math.min(d,last)).padStart(2,'0')}`;
+}
+function cbGiftLedgerSum(records, kind, asOf){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(asOf||'')) return null;
+  const from=cbGiftWindowStart(asOf);
+  return (records||[]).filter(r=>r&&r.kind===kind&&r.date>=from&&r.date<=asOf).reduce((s,r)=>s+(Number(r.amt)||0),0);
+}
+function cbGiftAddRecord(){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;   // 모바일은 조회 전용
+  const val=id=>document.getElementById(id)?.value||'';
+  const kind=val('cb-gift-rec-kind')==='spouse'?'spouse':'child', date=val('cb-gift-rec-date');
+  const amt=Math.round(Number(val('cb-gift-rec-amt').replace(/[^\d]/g,'')));
+  const err=document.getElementById('cb-gift-rec-error');
+  const fail=msg=>{ if(err){err.textContent=msg;err.hidden=false;} };
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(new Date(date+'T12:00:00').getTime())) return fail('증여일을 입력해 주세요.');
+  if(date>finLocalDateKey(new Date())) return fail('아직 오지 않은 날짜는 기록할 수 없습니다. 계획은 위의 계획 금액에 적어 주세요.');
+  if(!(amt>0)) return fail('금액을 입력해 주세요.');
+  const cfg=cbGiftCfg(); if(!Array.isArray(cfg.records)) cfg.records=[];
+  if(cfg.records.length>=500) return fail('기록은 500건까지 저장할 수 있습니다.');
+  cfg.records.push({id:finNewId(),kind,date,amt,memo:val('cb-gift-rec-memo').trim().slice(0,120)});
+  cbGiftSave();
+}
+function cbGiftDelRecord(id){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const cfg=cbGiftCfg(), list=Array.isArray(cfg.records)?cfg.records:[];
+  const i=list.findIndex(r=>r&&String(r.id)===String(id)); if(i<0) return;
+  if(typeof confirm==='function'&&!confirm('이 증여 기록을 삭제할까요?')) return;
+  list.splice(i,1); cbGiftSave();
+}
+function cbGiftLedgerHtml(scope){
+  const kinds=[scope.child?'child':null,scope.spouse?'spouse':null].filter(Boolean);
+  if(!kinds.length) return '';
+  const LABEL={child:'자녀 증여',spouse:'부부 증여'};
+  const today=finLocalDateKey(new Date());
+  const rows=cbGiftRecords().filter(r=>kinds.includes(r.kind));
+  const asOfOf=kind=>cbGiftPrior(kind).asOf||today;
+  const inWindow=r=>{ const asOf=asOfOf(r.kind); return r.date>=cbGiftWindowStart(asOf)&&r.date<=asOf; };
+  const sums=kinds.map(kind=>{ const asOf=asOfOf(kind), n=rows.filter(r=>r.kind===kind).length;
+    return `<div class="cb-gift-ledger-sum"><span>${LABEL[kind]} · ${cbEsc(asOf)} 이전 10년</span><b class="cb-num">${n?cbKrw(cbGiftLedgerSum(rows,kind,asOf)):'기록 없음'}</b><small>${n?`기록 ${n}건 중 기간 안 ${rows.filter(r=>r.kind===kind&&inWindow(r)).length}건`:'기록이 없으면 위에서 직접 입력한 합계를 씁니다'}</small></div>`; }).join('');
+  return `<div class="cb-panel cb-gift-ledger">
+      <div class="cb-panel-title">증여 기록장 <span style="color:var(--dim)">· 실제로 한 증여를 건별로 적으면 확인 기준일 이전 10년 합계를 대신 더해 드립니다</span></div>
+      <div class="cb-gift-ledger-sums">${sums}</div>
+      <div class="cb-gift-ledger-form" role="group" aria-label="증여 기록 추가">
+        <label>증여일<input type="date" id="cb-gift-rec-date" class="cb-input cb-num" max="${today}" value="${today}"></label>
+        <label>구분<select id="cb-gift-rec-kind" class="cb-input">${kinds.map(k=>`<option value="${k}">${LABEL[k]}</option>`).join('')}</select></label>
+        <label>금액(원)<input id="cb-gift-rec-amt" class="cb-input cb-num" inputmode="numeric" placeholder="0" oninput="cbGiftFmtInput(this)"></label>
+        <label class="cb-gift-ledger-memo">메모<input id="cb-gift-rec-memo" class="cb-input" maxlength="120" placeholder="예: 계좌 이체"></label>
+        <button type="button" class="cb-btn" onclick="cbGiftAddRecord()">기록 추가</button>
+        <p id="cb-gift-rec-error" class="cb-gift-ledger-error" role="alert" hidden></p>
+      </div>
+      ${typeof finMobileNote==='function'?finMobileNote('증여 기록'):''}
+      ${rows.length?`<div class="cb-gift-ledger-table"><div class="cb-gift-ledger-row is-head"><span>증여일</span><span>구분</span><span>금액</span><span>메모</span><span>10년 기간</span><span></span></div>
+        ${rows.map(r=>`<div class="cb-gift-ledger-row"><span class="cb-num">${cbEsc(r.date)}</span><span>${LABEL[r.kind]}</span><b class="cb-num">${cbKrw(r.amt)}</b><span class="cb-gift-ledger-memo-cell">${cbEsc(r.memo||'—')}</span><span class="${inWindow(r)?'is-in':'is-out'}">${inWindow(r)?'기간 안':'기간 밖'}</span><span><button type="button" class="btn-action cb-gift-ledger-del" aria-label="${cbEsc(r.date)} ${cbEsc(cbKrw(r.amt))} 기록 삭제" onclick="cbGiftDelRecord('${cbEsc(r.id)}')">✕</button></span></div>`).join('')}</div>`
+        :'<div class="fin-empty">아직 기록이 없습니다. 지금까지 한 증여를 날짜와 금액으로 적어 두면 10년 합계를 자동으로 더합니다.</div>'}
+      <p class="cb-gift-ledger-foot">합계는 입력한 금액을 확인 기준일 하나에 대해 단순히 더한 값입니다(기준일을 정하지 않았으면 오늘 기준). 증여일마다의 10년 기간을 각각 판정하지 않으며, 증여 당시 재산 평가액·증여세·신고 기한은 계산하지 않습니다. 같은 증여자에게서 받은 것만 적어 주세요.</p>
+    </div>`;
+}
 function cbGiftPrior(kind){
   const key=kind==='spouse'?'spousePrior':'childPrior';
   const raw=cbGiftCfg()[key]||{};
   const amount=Number(raw.amount);
   const asOf=/^\d{4}-\d{2}-\d{2}$/.test(raw.asOf||'')?raw.asOf:'';
+  // 기록장에 그 종류의 기록이 있으면 손으로 적은 합계 대신 기록 합계를 쓴다(저장된 수기 값은 지우지 않는다).
+  const records=cbGiftRecords(kind==='spouse'?'spouse':'child');
+  if(records.length){
+    const sum=cbGiftLedgerSum(records,kind==='spouse'?'spouse':'child',asOf);
+    return {confirmed:raw.confirmed===true,asOf,amount:sum==null?0:sum,amountKnown:sum!=null,fromLedger:true,count:records.length};
+  }
   const hasAmount=Object.prototype.hasOwnProperty.call(raw,'amount')&&Number.isFinite(amount)&&amount>=0;
   const amountKnown=raw.amountKnown===true||(raw.amountKnown!==false&&hasAmount);
   return {confirmed:raw.confirmed===true,asOf,amount:amountKnown?amount:0,amountKnown};
@@ -2469,7 +2545,9 @@ function cbRenderGift(){
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--lab)"><input type="checkbox" ${prior.confirmed?'checked':''} onchange="cbGiftSetPrior('${kind}','confirmed',this.checked)"> 같은 증여자로부터 받은 최근 10년 실제 증여 내역을 확인했습니다</label>
       <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:8px">
         ${field('확인 기준일',`<input type="date" class="cb-input cb-num" value="${cbEsc(prior.asOf)}" onchange="cbGiftSetPrior('${kind}','asOf',this.value)" style="padding:7px 9px;width:100%;box-sizing:border-box" />`)}
-        ${field('기준일 이전 10년 실제 증여 합계',moneyInput(prior.amountKnown?String(prior.amount):'',`cbGiftSetPrior('${kind}','amount',this.value)`))}
+        ${prior.fromLedger
+          ? field('기준일 이전 10년 실제 증여 합계',`<output class="cb-input cb-num cb-gift-ledger-out" data-tip="아래 증여 기록장의 기록 ${prior.count}건에서 더한 값입니다. 기록을 모두 지우면 직접 입력으로 돌아갑니다.">${prior.amountKnown?cbKrw(prior.amount):'기준일을 정하면 계산'} · 기록장</output>`)
+          : field('기준일 이전 10년 실제 증여 합계',moneyInput(prior.amountKnown?String(prior.amount):'',`cbGiftSetPrior('${kind}','amount',this.value)`))}
       </div>
     </div>`;
   const reviewBox=(review,planLabel)=>review.ready
@@ -2567,6 +2645,7 @@ function cbRenderGift(){
         </div>
       </div>`}
     </div>
+    ${cbGiftLedgerHtml(giftScope)}
     <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6">
       ※ 공제는 고정된 연령대·결혼 후 10년 구간마다 자동으로 새로 생기는 것이 아니라, 원칙적으로 각 증여일 이전 10년 동안 동일인에게 받은 증여를 합산해 검토합니다.
       이 화면은 입력한 최근 10년 합계와 계획 금액을 비교하는 참고용이며 실제 신고·증여 실행 전 세무 전문가 확인이 필요합니다.
@@ -3281,8 +3360,7 @@ function cbDcaDateAt(value){
   return raw;
 }
 function cbDcaDateKey(value){
-  const d=value instanceof Date?value:cbDcaDateAt(value);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return finLocalDateKey(value instanceof Date?value:cbDcaDateAt(value));
 }
 function cbDcaMarket(i){
   if (typeof _getDcaMarket==='function') return _getDcaMarket(i);
@@ -3519,7 +3597,7 @@ async function cbDcaToggle(idx){
 function cbRerender(){
   if (_cobaltActive && CB_VIEWS[_cobaltActive]){
     try{
-      if(_cobaltActive==='sim2'&&document.getElementById('sim-result'))simUpdate();
+      if(_cobaltActive==='sim2'&&document.getElementById('sim-result')){simUpdate();retUpdate();}
       else CB_VIEWS[_cobaltActive]();
     }catch(e){ console.error('[cobalt render]', e); }
   }
@@ -3559,6 +3637,40 @@ function cbMarkEntering(id){
   void v.offsetWidth; v.classList.add('is-entering');
   clearTimeout(_cbEnterTimer); _cbEnterTimer=setTimeout(()=>v.classList.remove('is-entering'),700);
 }
+// 숫자 카드의 큰 숫자를 0 에서 최종값까지 올린다(들어갈 때만). 통화 기호와 숫자는 같은 텍스트 노드에
+// 둔 채 통째로 바꾼다 — 기호를 다른 요소로 떼면 금액 가리기(_maskAmountText)가 금액을 못 알아본다.
+function cbCountUpParts(text){
+  const m=String(text==null?'':text).match(/^(\D*?)(\d[\d,]*)(\.\d+)?(\D*)$/);
+  if(!m) return null;
+  const dec=m[3]?m[3].length-1:0, num=Number(m[2].replace(/,/g,'')+(m[3]||''));
+  if(!Number.isFinite(num)||num===0) return null;
+  return {pre:m[1], num, dec, post:m[4]};
+}
+function cbCountUpText(parts,p){
+  const eased=1-Math.pow(1-Math.min(1,Math.max(0,p)),4);
+  return parts.pre+(parts.num*eased).toLocaleString('en-US',{minimumFractionDigits:parts.dec,maximumFractionDigits:parts.dec})+parts.post;
+}
+const CB_COUNT_UP_MS=600;   // is-entering(700ms) 안에 끝난다
+function cbCountUp(id){
+  if(typeof requestAnimationFrame!=='function') return;
+  if(typeof _amountPrivacyEnabled!=='undefined'&&_amountPrivacyEnabled) return;
+  if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const v=document.getElementById('view-'+id); if(!v) return;
+  const items=[];
+  v.querySelectorAll('.cb-dash-kpi-value,.holdings-kpi>b').forEach(el=>{
+    if(el.childNodes.length!==1||el.firstChild.nodeType!==3) return;
+    const parts=cbCountUpParts(el.textContent); if(parts) items.push({el,parts,final:el.textContent});
+  });
+  if(!items.length) return;
+  const t0=performance.now();
+  const tick=now=>{
+    const p=(now-t0)/CB_COUNT_UP_MS, done=p>=1||_amountPrivacyEnabled;
+    let alive=false;
+    items.forEach(x=>{ if(!x.el.isConnected) return; alive=true; x.el.textContent=done?x.final:cbCountUpText(x.parts,p); });
+    if(alive&&!done) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 switchView = function(id, btn){
   id=navResolve(id);
   navPrepare(id);
@@ -3572,6 +3684,7 @@ switchView = function(id, btn){
     _cbOrigSwitchView(id, btn);
     navSync(id);
     cbMarkEntering(id);
+    cbCountUp(id);
     return;
   }
   _cobaltActive = id;
@@ -3593,6 +3706,7 @@ switchView = function(id, btn){
   if (id==='divm') cbVerifyDividendDataOnOpen();
   if (id==='perf2') cbVerifyPerfOwnersOnOpen();
   try{ CB_VIEWS[id](); }catch(e){ console.error('[cobalt render]', e); }
+  cbCountUp(id);
   if(id==='etf2')etfRefreshOnOpen();
   navSync(id);
   if(typeof _recordViewHistory==='function') _recordViewHistory(id);

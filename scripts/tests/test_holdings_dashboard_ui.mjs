@@ -33,6 +33,7 @@ for (const name of [
   'getDcaCycleLabel',
   'getDcaCellHtml',
   'getDcaAmountCellHtml',
+  'escHtml',
   'holdingsEsc',
   'updateOverflowTooltip',
   'getHoldingsBrokerCellHtml',
