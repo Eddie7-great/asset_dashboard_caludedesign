@@ -1,5 +1,5 @@
 {
- "asOf": "2026-11-03",
+ "asOf": "2026-11-10",
  "attempts": {
   "BMNU": "2026-10-30"
  },
@@ -125848,313 +125848,11 @@
   },
   "426020": {
    "active": true,
-   "asOf": "2026-11-03",
+   "asOf": "2026-11-10",
    "coverage": "full",
-   "equityWeight": 89.68,
-   "fetchedAt": "2026-11-03T03:32:44.036551+00:00",
+   "equityWeight": 89.35,
+   "fetchedAt": "2026-11-10T04:12:59.847179+00:00",
    "history": [
-    {
-     "asOf": "2026-09-09",
-     "coverage": "full",
-     "holdings": [
-      {
-       "n": "NVIDIA Corp",
-       "t": "NVDA",
-       "w": 7.27
-      },
-      {
-       "n": "State Street SPDR S&P 500 ETF Trust",
-       "t": "SPY",
-       "w": 4.96
-      },
-      {
-       "n": "Alphabet Inc",
-       "t": "GOOGL",
-       "w": 4.94
-      },
-      {
-       "n": "Microsoft Corp",
-       "t": "MSFT",
-       "w": 4.72
-      },
-      {
-       "n": "Apple Inc",
-       "t": "AAPL",
-       "w": 3.78
-      },
-      {
-       "n": "Amazon.com Inc",
-       "t": "AMZN",
-       "w": 3.28
-      },
-      {
-       "n": "Berkshire Hathaway Inc",
-       "t": "BRK.B",
-       "w": 3.15
-      },
-      {
-       "n": "Johnson & Johnson",
-       "t": "JNJ",
-       "w": 3.02
-      },
-      {
-       "n": "JPMorgan Chase & Co",
-       "t": "JPM",
-       "w": 3.0
-      },
-      {
-       "n": "Broadcom Inc",
-       "t": "AVGO",
-       "w": 2.69
-      },
-      {
-       "n": "Chevron Corp",
-       "t": "CVX",
-       "w": 2.42
-      },
-      {
-       "n": "Caterpillar Inc",
-       "t": "CAT",
-       "w": 2.27
-      },
-      {
-       "n": "Dell Technologies Inc",
-       "t": "DELL",
-       "w": 2.03
-      },
-      {
-       "n": "Eli Lilly & Co",
-       "t": "LLY",
-       "w": 1.98
-      },
-      {
-       "n": "UnitedHealth Group Inc",
-       "t": "UNH",
-       "w": 1.88
-      },
-      {
-       "n": "Robinhood Markets Inc",
-       "t": "HOOD",
-       "w": 1.68
-      },
-      {
-       "n": "Merck & Co Inc",
-       "t": "MRK",
-       "w": 1.61
-      },
-      {
-       "n": "Micron Technology Inc",
-       "t": "MU",
-       "w": 1.53
-      },
-      {
-       "n": "Bloom Energy Corp",
-       "t": "BE",
-       "w": 1.52
-      },
-      {
-       "n": "Newmont Corp",
-       "t": "NEM",
-       "w": 1.4
-      },
-      {
-       "n": "Taiwan Semiconductor Manufacturing Co Ltd",
-       "t": "TSM",
-       "w": 1.38
-      },
-      {
-       "n": "Tesla Inc",
-       "t": "TSLA",
-       "w": 1.29
-      },
-      {
-       "n": "Coca-Cola Co/The",
-       "t": "KO",
-       "w": 1.29
-      },
-      {
-       "n": "Visa Inc",
-       "t": "V",
-       "w": 1.21
-      },
-      {
-       "n": "Meta Platforms Inc",
-       "t": "META",
-       "w": 1.19
-      },
-      {
-       "n": "Costco Wholesale Corp",
-       "t": "COST",
-       "w": 1.18
-      },
-      {
-       "n": "Snowflake Inc",
-       "t": "SNOW",
-       "w": 1.16
-      },
-      {
-       "n": "Advanced Micro Devices Inc",
-       "t": "AMD",
-       "w": 1.13
-      },
-      {
-       "n": "Sandisk Corp",
-       "t": "SNDK",
-       "w": 1.12
-      },
-      {
-       "n": "Marvell Technology Inc",
-       "t": "MRVL",
-       "w": 1.06
-      },
-      {
-       "n": "Palantir Technologies Inc",
-       "t": "PLTR",
-       "w": 1.05
-      },
-      {
-       "n": "Vertiv Holdings Co",
-       "t": "VRT",
-       "w": 1.02
-      },
-      {
-       "n": "NextEra Energy Inc",
-       "t": "NEE",
-       "w": 1.02
-      },
-      {
-       "n": "PepsiCo Inc",
-       "t": "PEP",
-       "w": 0.98
-      },
-      {
-       "n": "Lumentum Holdings Inc",
-       "t": "LITE",
-       "w": 0.95
-      },
-      {
-       "n": "Starbucks Corp",
-       "t": "SBUX",
-       "w": 0.94
-      },
-      {
-       "n": "Linde PLC",
-       "t": "LIN",
-       "w": 0.92
-      },
-      {
-       "n": "Bank of America Corp",
-       "t": "BAC",
-       "w": 0.89
-      },
-      {
-       "n": "Morgan Stanley",
-       "t": "MS",
-       "w": 0.84
-      },
-      {
-       "n": "Walmart Inc",
-       "t": "WMT",
-       "w": 0.83
-      },
-      {
-       "n": "ARM Holdings PLC",
-       "t": "ARM",
-       "w": 0.81
-      },
-      {
-       "n": "Intel Corp",
-       "t": "INTC",
-       "w": 0.78
-      },
-      {
-       "n": "Goldman Sachs Group Inc/The",
-       "t": "GS",
-       "w": 0.67
-      },
-      {
-       "n": "Cisco Systems Inc",
-       "t": "CSCO",
-       "w": 0.66
-      },
-      {
-       "n": "Palo Alto Networks Inc",
-       "t": "PANW",
-       "w": 0.64
-      },
-      {
-       "n": "Valero Energy Corp",
-       "t": "VLO",
-       "w": 0.64
-      },
-      {
-       "n": "Nebius Group NV",
-       "t": "NBIS",
-       "w": 0.58
-      },
-      {
-       "n": "Constellation Energy Corp",
-       "t": "CEG",
-       "w": 0.58
-      },
-      {
-       "n": "Abbott Laboratories",
-       "t": "ABT",
-       "w": 0.56
-      },
-      {
-       "n": "Crowdstrike Holdings Inc",
-       "t": "CRWD",
-       "w": 0.55
-      },
-      {
-       "n": "Eaton Corp PLC",
-       "t": "ETN",
-       "w": 0.53
-      },
-      {
-       "n": "Verizon Communications Inc",
-       "t": "VZ",
-       "w": 0.51
-      },
-      {
-       "n": "Gilead Sciences Inc",
-       "t": "GILD",
-       "w": 0.49
-      },
-      {
-       "n": "ServiceNow Inc",
-       "t": "NOW",
-       "w": 0.49
-      },
-      {
-       "n": "First Solar Inc",
-       "t": "FSLR",
-       "w": 0.48
-      },
-      {
-       "n": "Wells Fargo & Co",
-       "t": "WFC",
-       "w": 0.48
-      },
-      {
-       "n": "Freeport-McMoRan Inc",
-       "t": "FCX",
-       "w": 0.45
-      },
-      {
-       "n": "CVS Health Corp",
-       "t": "CVS",
-       "w": 0.42
-      },
-      {
-       "n": "AT&T Inc",
-       "t": "T",
-       "w": 0.39
-      }
-     ],
-     "source": "provider:TIME"
-    },
     {
      "asOf": "2026-09-10",
      "coverage": "full",
@@ -134672,291 +134370,568 @@
       }
      ],
      "source": "FunETF"
+    },
+    {
+     "asOf": "2026-11-10",
+     "coverage": "full",
+     "holdings": [
+      {
+       "n": "State Street SPDR S&P 500 ETF",
+       "t": "SPY",
+       "w": 8.4334
+      },
+      {
+       "n": "마이크로소프트/MICROSOFT CORP",
+       "t": "MSFT",
+       "w": 6.5826
+      },
+      {
+       "n": "애플/Apple Inc",
+       "t": "AAPL",
+       "w": 6.0906
+      },
+      {
+       "n": "엔비디아/NVIDIA Corp",
+       "t": "NVDA",
+       "w": 5.9851
+      },
+      {
+       "n": "알파벳 A/Alphabet Inc",
+       "t": "GOOGL",
+       "w": 4.2662
+      },
+      {
+       "n": "버크셔 해서웨이/Berkshire Hathaway Inc",
+       "t": "BRK.B",
+       "w": 3.4744
+      },
+      {
+       "n": "아마존/Amazon.com Inc",
+       "t": "AMZN",
+       "w": 3.2775
+      },
+      {
+       "n": "CHEVRON ORD",
+       "t": "CVX",
+       "w": 3.185
+      },
+      {
+       "n": "브로드컴/BROADCOM LTD",
+       "t": "AVGO",
+       "w": 2.6123
+      },
+      {
+       "n": "메타/페이스북/Meta Platforms Inc-CL A",
+       "t": "META",
+       "w": 2.4279
+      },
+      {
+       "n": "Lilly (Eli) & Co/일라이릴리",
+       "t": "LLY",
+       "w": 2.2185
+      },
+      {
+       "n": "TSMC/TAIWAN SEMICONDUCTOR-SP ADR",
+       "t": "TSM",
+       "w": 2.1091
+      },
+      {
+       "n": "JOHNSON & JOHNSON",
+       "t": "JNJ",
+       "w": 1.9397
+      },
+      {
+       "n": "Advanced Micro Devices Inc",
+       "t": "AMD",
+       "w": 1.6817
+      },
+      {
+       "n": "JPMORGAN_CHASE/제이피모간체이스",
+       "t": "JPM",
+       "w": 1.5659
+      },
+      {
+       "n": "VISA INC-CLASS A SHARES/비자",
+       "t": "V",
+       "w": 1.484
+      },
+      {
+       "n": "코스트코/COSTCO WHOLESALE CORP",
+       "t": "COST",
+       "w": 1.4796
+      },
+      {
+       "n": "Coca-Cola Co",
+       "t": "KO",
+       "w": 1.478
+      },
+      {
+       "n": "State Street Health Care Select Sector S",
+       "t": "XLV",
+       "w": 1.4275
+      },
+      {
+       "n": "테슬라/Tesla Inc",
+       "t": "TSLA",
+       "w": 1.4254
+      },
+      {
+       "n": "월마트/WAL_MART_STORES",
+       "t": "WMT",
+       "w": 1.3809
+      },
+      {
+       "n": "New Linde PLC",
+       "t": "LIN",
+       "w": 1.3267
+      },
+      {
+       "n": "팔란티어/Palantir Technologies Inc -A",
+       "t": "PLTR",
+       "w": 1.3139
+      },
+      {
+       "n": "PEPSICO INC",
+       "t": "PEP",
+       "w": 1.0587
+      },
+      {
+       "n": "스타벅스/STARBUCKS CORP",
+       "t": "SBUX",
+       "w": 1.0116
+      },
+      {
+       "n": "State Street Consumer Staples Select Sec",
+       "t": "XLP",
+       "w": 0.991
+      },
+      {
+       "n": "PROCTER & GAMBLE CO/THE",
+       "t": "PG",
+       "w": 0.9679
+      },
+      {
+       "n": "Newmont Corp",
+       "t": "NEM",
+       "w": 0.9623
+      },
+      {
+       "n": "EXXONMOBIL HOLDINGS CORP",
+       "t": "XOM",
+       "w": 0.9318
+      },
+      {
+       "n": "MASTERCARD INC-CLASS A",
+       "t": "MA",
+       "w": 0.9167
+      },
+      {
+       "n": "Merck & Co",
+       "t": "MRK",
+       "w": 0.8586
+      },
+      {
+       "n": "Unitedhealth Group",
+       "t": "UNH",
+       "w": 0.8303
+      },
+      {
+       "n": "Robinhood Markets Inc",
+       "t": "HOOD",
+       "w": 0.8144
+      },
+      {
+       "n": "마이크론/Micron Technology Inc",
+       "t": "MU",
+       "w": 0.8075
+      },
+      {
+       "n": "Morgan Stanley",
+       "t": "MS",
+       "w": 0.7645
+      },
+      {
+       "n": "NEXTERA ENERGY INC",
+       "t": "NEE",
+       "w": 0.7123
+      },
+      {
+       "n": "Bloom Energy Corp",
+       "t": "BE",
+       "w": 0.6894
+      },
+      {
+       "n": "ABBVIE INC",
+       "t": "ABBV",
+       "w": 0.6819
+      },
+      {
+       "n": "Raytheon Technologies Corp",
+       "t": "RTX",
+       "w": 0.6655
+      },
+      {
+       "n": "VERIZON COMMUNICATIONS ORD",
+       "t": "VZ",
+       "w": 0.6631
+      },
+      {
+       "n": "Crowdstrike Holdings Inc",
+       "t": "CRWD",
+       "w": 0.66
+      },
+      {
+       "n": "AMERICAN AIRLINES GROUP INC",
+       "t": "AAL",
+       "w": 0.6509
+      },
+      {
+       "n": "Hyatt Hotels Corp",
+       "t": "H",
+       "w": 0.6472
+      },
+      {
+       "n": "CISCO_SYSTEMS",
+       "t": "CSCO",
+       "w": 0.5931
+      },
+      {
+       "n": "ABBOTT LABORATORIES",
+       "t": "ABT",
+       "w": 0.5918
+      },
+      {
+       "n": "Texas Instruments Inc",
+       "t": "TXN",
+       "w": 0.5843
+      },
+      {
+       "n": "Eaton Corp plc",
+       "t": "ETN",
+       "w": 0.5599
+      },
+      {
+       "n": "GE Vernova LLC",
+       "t": "GEV",
+       "w": 0.5436
+      },
+      {
+       "n": "Palo Alto Networks Inc",
+       "t": "PANW",
+       "w": 0.5142
+      },
+      {
+       "n": "THERMO_FISHER_SCIENTIFIC",
+       "t": "TMO",
+       "w": 0.4879
+      },
+      {
+       "n": "Accenture PLC",
+       "t": "ACN",
+       "w": 0.4878
+      },
+      {
+       "n": "Wells Fargo & Co",
+       "t": "WFC",
+       "w": 0.4716
+      },
+      {
+       "n": "ESSENTIAL UTILITIES INC",
+       "t": "WTRG",
+       "w": 0.3936
+      },
+      {
+       "n": "HCA Holdings Inc",
+       "t": "HCA",
+       "w": 0.3476
+      },
+      {
+       "n": "Amgen Corp",
+       "t": "AMGN",
+       "w": 0.3233
+      }
+     ],
+     "source": "FunETF"
     }
    ],
    "holdings": [
     {
      "n": "State Street SPDR S&P 500 ETF",
      "t": "SPY",
-     "w": 8.369
-    },
-    {
-     "n": "엔비디아/NVIDIA Corp",
-     "t": "NVDA",
-     "w": 6.7987
-    },
-    {
-     "n": "애플/Apple Inc",
-     "t": "AAPL",
-     "w": 5.9195
+     "w": 8.4334
     },
     {
      "n": "마이크로소프트/MICROSOFT CORP",
      "t": "MSFT",
-     "w": 5.7797
+     "w": 6.5826
+    },
+    {
+     "n": "애플/Apple Inc",
+     "t": "AAPL",
+     "w": 6.0906
+    },
+    {
+     "n": "엔비디아/NVIDIA Corp",
+     "t": "NVDA",
+     "w": 5.9851
     },
     {
      "n": "알파벳 A/Alphabet Inc",
      "t": "GOOGL",
-     "w": 4.0477
-    },
-    {
-     "n": "CHEVRON ORD",
-     "t": "CVX",
-     "w": 3.4066
+     "w": 4.2662
     },
     {
      "n": "버크셔 해서웨이/Berkshire Hathaway Inc",
      "t": "BRK.B",
-     "w": 3.1877
+     "w": 3.4744
     },
     {
      "n": "아마존/Amazon.com Inc",
      "t": "AMZN",
-     "w": 2.9333
+     "w": 3.2775
     },
     {
-     "n": "JOHNSON & JOHNSON",
-     "t": "JNJ",
-     "w": 2.8402
+     "n": "CHEVRON ORD",
+     "t": "CVX",
+     "w": 3.185
     },
     {
      "n": "브로드컴/BROADCOM LTD",
      "t": "AVGO",
-     "w": 2.8004
+     "w": 2.6123
     },
     {
      "n": "메타/페이스북/Meta Platforms Inc-CL A",
      "t": "META",
-     "w": 2.3628
+     "w": 2.4279
     },
     {
      "n": "Lilly (Eli) & Co/일라이릴리",
      "t": "LLY",
-     "w": 2.2426
+     "w": 2.2185
     },
     {
      "n": "TSMC/TAIWAN SEMICONDUCTOR-SP ADR",
      "t": "TSM",
-     "w": 2.2029
+     "w": 2.1091
+    },
+    {
+     "n": "JOHNSON & JOHNSON",
+     "t": "JNJ",
+     "w": 1.9397
     },
     {
      "n": "Advanced Micro Devices Inc",
      "t": "AMD",
-     "w": 1.8254
-    },
-    {
-     "n": "테슬라/Tesla Inc",
-     "t": "TSLA",
-     "w": 1.5361
+     "w": 1.6817
     },
     {
      "n": "JPMORGAN_CHASE/제이피모간체이스",
      "t": "JPM",
-     "w": 1.5234
-    },
-    {
-     "n": "팔란티어/Palantir Technologies Inc -A",
-     "t": "PLTR",
-     "w": 1.4563
-    },
-    {
-     "n": "Coca-Cola Co",
-     "t": "KO",
-     "w": 1.4033
+     "w": 1.5659
     },
     {
      "n": "VISA INC-CLASS A SHARES/비자",
      "t": "V",
-     "w": 1.4021
-    },
-    {
-     "n": "마이크론/Micron Technology Inc",
-     "t": "MU",
-     "w": 1.3997
+     "w": 1.484
     },
     {
      "n": "코스트코/COSTCO WHOLESALE CORP",
      "t": "COST",
-     "w": 1.3727
+     "w": 1.4796
     },
     {
-     "n": "월마트/WAL_MART_STORES",
-     "t": "WMT",
-     "w": 1.3119
+     "n": "Coca-Cola Co",
+     "t": "KO",
+     "w": 1.478
     },
     {
      "n": "State Street Health Care Select Sector S",
      "t": "XLV",
-     "w": 1.0863
+     "w": 1.4275
+    },
+    {
+     "n": "테슬라/Tesla Inc",
+     "t": "TSLA",
+     "w": 1.4254
+    },
+    {
+     "n": "월마트/WAL_MART_STORES",
+     "t": "WMT",
+     "w": 1.3809
     },
     {
      "n": "New Linde PLC",
      "t": "LIN",
-     "w": 1.046
+     "w": 1.3267
     },
     {
-     "n": "EXXONMOBIL HOLDINGS CORP",
-     "t": "XOM",
-     "w": 1.0157
+     "n": "팔란티어/Palantir Technologies Inc -A",
+     "t": "PLTR",
+     "w": 1.3139
     },
     {
      "n": "PEPSICO INC",
      "t": "PEP",
-     "w": 0.9933
+     "w": 1.0587
     },
     {
      "n": "스타벅스/STARBUCKS CORP",
      "t": "SBUX",
-     "w": 0.9606
-    },
-    {
-     "n": "루멘텀/Lumentum Holdings Inc",
-     "t": "LITE",
-     "w": 0.95
+     "w": 1.0116
     },
     {
      "n": "State Street Consumer Staples Select Sec",
      "t": "XLP",
-     "w": 0.9498
+     "w": 0.991
     },
     {
      "n": "PROCTER & GAMBLE CO/THE",
      "t": "PG",
-     "w": 0.9129
-    },
-    {
-     "n": "MASTERCARD INC-CLASS A",
-     "t": "MA",
-     "w": 0.8652
-    },
-    {
-     "n": "Merck & Co",
-     "t": "MRK",
-     "w": 0.8448
-    },
-    {
-     "n": "Unitedhealth Group",
-     "t": "UNH",
-     "w": 0.8278
-    },
-    {
-     "n": "Robinhood Markets Inc",
-     "t": "HOOD",
-     "w": 0.8259
+     "w": 0.9679
     },
     {
      "n": "Newmont Corp",
      "t": "NEM",
-     "w": 0.8192
+     "w": 0.9623
+    },
+    {
+     "n": "EXXONMOBIL HOLDINGS CORP",
+     "t": "XOM",
+     "w": 0.9318
+    },
+    {
+     "n": "MASTERCARD INC-CLASS A",
+     "t": "MA",
+     "w": 0.9167
+    },
+    {
+     "n": "Merck & Co",
+     "t": "MRK",
+     "w": 0.8586
+    },
+    {
+     "n": "Unitedhealth Group",
+     "t": "UNH",
+     "w": 0.8303
+    },
+    {
+     "n": "Robinhood Markets Inc",
+     "t": "HOOD",
+     "w": 0.8144
+    },
+    {
+     "n": "마이크론/Micron Technology Inc",
+     "t": "MU",
+     "w": 0.8075
     },
     {
      "n": "Morgan Stanley",
      "t": "MS",
-     "w": 0.7497
-    },
-    {
-     "n": "Crowdstrike Holdings Inc",
-     "t": "CRWD",
-     "w": 0.7358
-    },
-    {
-     "n": "Raytheon Technologies Corp",
-     "t": "RTX",
-     "w": 0.6773
-    },
-    {
-     "n": "ABBVIE INC",
-     "t": "ABBV",
-     "w": 0.6665
-    },
-    {
-     "n": "CISCO_SYSTEMS",
-     "t": "CSCO",
-     "w": 0.6377
-    },
-    {
-     "n": "VERIZON COMMUNICATIONS ORD",
-     "t": "VZ",
-     "w": 0.6268
-    },
-    {
-     "n": "마벨/Marvell Technology Inc",
-     "t": "MRVL",
-     "w": 0.6214
-    },
-    {
-     "n": "Texas Instruments Inc",
-     "t": "TXN",
-     "w": 0.6119
-    },
-    {
-     "n": "Eaton Corp plc",
-     "t": "ETN",
-     "w": 0.5853
-    },
-    {
-     "n": "GE Vernova LLC",
-     "t": "GEV",
-     "w": 0.5816
-    },
-    {
-     "n": "Palo Alto Networks Inc",
-     "t": "PANW",
-     "w": 0.5788
-    },
-    {
-     "n": "Dell Technologies Inc",
-     "t": "DELL",
-     "w": 0.5754
-    },
-    {
-     "n": "ABBOTT LABORATORIES",
-     "t": "ABT",
-     "w": 0.552
-    },
-    {
-     "n": "THERMO_FISHER_SCIENTIFIC",
-     "t": "TMO",
-     "w": 0.4726
-    },
-    {
-     "n": "Accenture PLC",
-     "t": "ACN",
-     "w": 0.4669
-    },
-    {
-     "n": "Wells Fargo & Co",
-     "t": "WFC",
-     "w": 0.4524
-    },
-    {
-     "n": "Cloudflare Inc.",
-     "t": "NET",
-     "w": 0.4441
-    },
-    {
-     "n": "Bloom Energy Corp",
-     "t": "BE",
-     "w": 0.4133
-    },
-    {
-     "n": "CHENIERE ENERGY INC",
-     "t": "LNG",
-     "w": 0.3733
+     "w": 0.7645
     },
     {
      "n": "NEXTERA ENERGY INC",
      "t": "NEE",
-     "w": 0.3216
+     "w": 0.7123
+    },
+    {
+     "n": "Bloom Energy Corp",
+     "t": "BE",
+     "w": 0.6894
+    },
+    {
+     "n": "ABBVIE INC",
+     "t": "ABBV",
+     "w": 0.6819
+    },
+    {
+     "n": "Raytheon Technologies Corp",
+     "t": "RTX",
+     "w": 0.6655
+    },
+    {
+     "n": "VERIZON COMMUNICATIONS ORD",
+     "t": "VZ",
+     "w": 0.6631
+    },
+    {
+     "n": "Crowdstrike Holdings Inc",
+     "t": "CRWD",
+     "w": 0.66
+    },
+    {
+     "n": "AMERICAN AIRLINES GROUP INC",
+     "t": "AAL",
+     "w": 0.6509
+    },
+    {
+     "n": "Hyatt Hotels Corp",
+     "t": "H",
+     "w": 0.6472
+    },
+    {
+     "n": "CISCO_SYSTEMS",
+     "t": "CSCO",
+     "w": 0.5931
+    },
+    {
+     "n": "ABBOTT LABORATORIES",
+     "t": "ABT",
+     "w": 0.5918
+    },
+    {
+     "n": "Texas Instruments Inc",
+     "t": "TXN",
+     "w": 0.5843
+    },
+    {
+     "n": "Eaton Corp plc",
+     "t": "ETN",
+     "w": 0.5599
+    },
+    {
+     "n": "GE Vernova LLC",
+     "t": "GEV",
+     "w": 0.5436
+    },
+    {
+     "n": "Palo Alto Networks Inc",
+     "t": "PANW",
+     "w": 0.5142
+    },
+    {
+     "n": "THERMO_FISHER_SCIENTIFIC",
+     "t": "TMO",
+     "w": 0.4879
+    },
+    {
+     "n": "Accenture PLC",
+     "t": "ACN",
+     "w": 0.4878
+    },
+    {
+     "n": "Wells Fargo & Co",
+     "t": "WFC",
+     "w": 0.4716
+    },
+    {
+     "n": "ESSENTIAL UTILITIES INC",
+     "t": "WTRG",
+     "w": 0.3936
+    },
+    {
+     "n": "HCA Holdings Inc",
+     "t": "HCA",
+     "w": 0.3476
     },
     {
      "n": "Amgen Corp",
      "t": "AMGN",
-     "w": 0.316
+     "w": 0.3233
     }
    ],
-   "lastAttempt": "2026-11-03",
+   "lastAttempt": "2026-11-10",
    "name": "TIME 미국S&P500액티브",
    "rebalance": "weekly",
    "retained": false,
@@ -134964,223 +134939,11 @@
   },
   "426030": {
    "active": true,
-   "asOf": "2026-11-03",
+   "asOf": "2026-11-10",
    "coverage": "full",
-   "equityWeight": 94.06,
-   "fetchedAt": "2026-11-03T03:32:45.283249+00:00",
+   "equityWeight": 93.95,
+   "fetchedAt": "2026-11-10T04:13:02.220158+00:00",
    "history": [
-    {
-     "asOf": "2026-09-09",
-     "coverage": "full",
-     "holdings": [
-      {
-       "n": "NVIDIA Corp",
-       "t": "NVDA",
-       "w": 7.84
-      },
-      {
-       "n": "Sandisk Corp",
-       "t": "SNDK",
-       "w": 5.17
-      },
-      {
-       "n": "Dell Technologies Inc",
-       "t": "DELL",
-       "w": 4.99
-      },
-      {
-       "n": "Bloom Energy Corp",
-       "t": "BE",
-       "w": 4.66
-      },
-      {
-       "n": "Amazon.com Inc",
-       "t": "AMZN",
-       "w": 4.04
-      },
-      {
-       "n": "SK hynix Inc",
-       "t": "SKHY",
-       "w": 3.79
-      },
-      {
-       "n": "Robinhood Markets Inc",
-       "t": "HOOD",
-       "w": 3.5
-      },
-      {
-       "n": "Tesla Inc",
-       "t": "TSLA",
-       "w": 3.37
-      },
-      {
-       "n": "Microsoft Corp",
-       "t": "MSFT",
-       "w": 3.34
-      },
-      {
-       "n": "Intel Corp",
-       "t": "INTC",
-       "w": 2.99
-      },
-      {
-       "n": "Coinbase Global Inc",
-       "t": "COIN",
-       "w": 2.97
-      },
-      {
-       "n": "Snowflake Inc",
-       "t": "SNOW",
-       "w": 2.91
-      },
-      {
-       "n": "Lumentum Holdings Inc",
-       "t": "LITE",
-       "w": 2.88
-      },
-      {
-       "n": "Nebius Group NV",
-       "t": "NBIS",
-       "w": 2.63
-      },
-      {
-       "n": "Alphabet Inc",
-       "t": "GOOGL",
-       "w": 2.52
-      },
-      {
-       "n": "Marvell Technology Inc",
-       "t": "MRVL",
-       "w": 2.46
-      },
-      {
-       "n": "Micron Technology Inc",
-       "t": "MU",
-       "w": 2.42
-      },
-      {
-       "n": "Strategy Inc",
-       "t": "MSTR",
-       "w": 2.31
-      },
-      {
-       "n": "Applied Optoelectronics Inc",
-       "t": "AAOI",
-       "w": 2.21
-      },
-      {
-       "n": "Advanced Micro Devices Inc",
-       "t": "AMD",
-       "w": 2.06
-      },
-      {
-       "n": "Palantir Technologies Inc",
-       "t": "PLTR",
-       "w": 1.92
-      },
-      {
-       "n": "Vertiv Holdings Co",
-       "t": "VRT",
-       "w": 1.67
-      },
-      {
-       "n": "CoreWeave Inc",
-       "t": "CRWV",
-       "w": 1.57
-      },
-      {
-       "n": "Space Exploration Technologies Corp",
-       "t": "SPCX",
-       "w": 1.56
-      },
-      {
-       "n": "Broadcom Inc",
-       "t": "AVGO",
-       "w": 1.49
-      },
-      {
-       "n": "Tower Semiconductor Ltd",
-       "t": "TSEM",
-       "w": 1.49
-      },
-      {
-       "n": "Apple Inc",
-       "t": "AAPL",
-       "w": 1.43
-      },
-      {
-       "n": "Seagate Technology Holdings PLC",
-       "t": "STX",
-       "w": 1.39
-      },
-      {
-       "n": "Teradyne Inc",
-       "t": "TER",
-       "w": 1.38
-      },
-      {
-       "n": "Meta Platforms Inc",
-       "t": "META",
-       "w": 1.38
-      },
-      {
-       "n": "Western Digital Corp",
-       "t": "WDC",
-       "w": 1.32
-      },
-      {
-       "n": "Credo Technology Group Holding Ltd",
-       "t": "CRDO",
-       "w": 1.14
-      },
-      {
-       "n": "Corning Inc",
-       "t": "GLW",
-       "w": 1.03
-      },
-      {
-       "n": "ARM Holdings PLC",
-       "t": "ARM",
-       "w": 0.94
-      },
-      {
-       "n": "ServiceNow Inc",
-       "t": "NOW",
-       "w": 0.92
-      },
-      {
-       "n": "Astera Labs Inc",
-       "t": "ALAB",
-       "w": 0.88
-      },
-      {
-       "n": "Eli Lilly & Co",
-       "t": "LLY",
-       "w": 0.85
-      },
-      {
-       "n": "Palo Alto Networks Inc",
-       "t": "PANW",
-       "w": 0.84
-      },
-      {
-       "n": "GE Vernova Inc",
-       "t": "GEV",
-       "w": 0.84
-      },
-      {
-       "n": "Taiwan Semiconductor Manufacturing Co Ltd",
-       "t": "TSM",
-       "w": 0.83
-      },
-      {
-       "n": "QUALCOMM Inc",
-       "t": "QCOM",
-       "w": 0.8
-      }
-     ],
-     "source": "provider:TIME"
-    },
     {
      "asOf": "2026-09-10",
      "coverage": "full",
@@ -141333,206 +141096,428 @@
       }
      ],
      "source": "FunETF"
+    },
+    {
+     "asOf": "2026-11-10",
+     "coverage": "full",
+     "holdings": [
+      {
+       "n": "마이크로소프트/MICROSOFT CORP",
+       "t": "MSFT",
+       "w": 8.0114
+      },
+      {
+       "n": "엔비디아/NVIDIA Corp",
+       "t": "NVDA",
+       "w": 7.2915
+      },
+      {
+       "n": "애플/Apple Inc",
+       "t": "AAPL",
+       "w": 6.9785
+      },
+      {
+       "n": "아마존/Amazon.com Inc",
+       "t": "AMZN",
+       "w": 6.8513
+      },
+      {
+       "n": "알파벳 A/Alphabet Inc",
+       "t": "GOOGL",
+       "w": 5.6971
+      },
+      {
+       "n": "팔란티어/Palantir Technologies Inc -A",
+       "t": "PLTR",
+       "w": 3.1782
+      },
+      {
+       "n": "메타/페이스북/Meta Platforms Inc-CL A",
+       "t": "META",
+       "w": 3.1092
+      },
+      {
+       "n": "Bloom Energy Corp",
+       "t": "BE",
+       "w": 3.0734
+      },
+      {
+       "n": "스페이스X/Space Exploration Technologies Corp",
+       "t": "SPCX",
+       "w": 2.8128
+      },
+      {
+       "n": "Advanced Micro Devices Inc",
+       "t": "AMD",
+       "w": 2.7967
+      },
+      {
+       "n": "마이크론/Micron Technology Inc",
+       "t": "MU",
+       "w": 2.7347
+      },
+      {
+       "n": "테슬라/Tesla Inc",
+       "t": "TSLA",
+       "w": 2.5015
+      },
+      {
+       "n": "Texas Instruments Inc",
+       "t": "TXN",
+       "w": 2.2509
+      },
+      {
+       "n": "QUALCOMM Inc",
+       "t": "QCOM",
+       "w": 2.0916
+      },
+      {
+       "n": "Xcel Energy Inc",
+       "t": "XEL",
+       "w": 2.0299
+      },
+      {
+       "n": "NEXTERA ENERGY INC",
+       "t": "NEE",
+       "w": 2.0184
+      },
+      {
+       "n": "인텔/INTEL ORD",
+       "t": "INTC",
+       "w": 2.0181
+      },
+      {
+       "n": "Palo Alto Networks Inc",
+       "t": "PANW",
+       "w": 2.0139
+      },
+      {
+       "n": "브로드컴/BROADCOM LTD",
+       "t": "AVGO",
+       "w": 1.9954
+      },
+      {
+       "n": "TSMC/TAIWAN SEMICONDUCTOR-SP ADR",
+       "t": "TSM",
+       "w": 1.9131
+      },
+      {
+       "n": "GE Vernova LLC",
+       "t": "GEV",
+       "w": 1.8993
+      },
+      {
+       "n": "SK hynix Inc",
+       "t": "SKHY",
+       "w": 1.8265
+      },
+      {
+       "n": "Lilly (Eli) & Co/일라이릴리",
+       "t": "LLY",
+       "w": 1.7888
+      },
+      {
+       "n": "Crowdstrike Holdings Inc",
+       "t": "CRWD",
+       "w": 1.4737
+      },
+      {
+       "n": "스트래티지/Strategy Inc",
+       "t": "MSTR",
+       "w": 1.4356
+      },
+      {
+       "n": "Coinbase Global Inc",
+       "t": "COIN",
+       "w": 1.2208
+      },
+      {
+       "n": "Nebius Group NV",
+       "t": "NBIS",
+       "w": 1.0509
+      },
+      {
+       "n": "COREWEAVE INC-CL A",
+       "t": "CRWV",
+       "w": 1.0509
+      },
+      {
+       "n": "Seagate Technology Holdings",
+       "t": "STX",
+       "w": 1.044
+      },
+      {
+       "n": "KLA-TENCOR CORPORATION",
+       "t": "KLAC",
+       "w": 1.0194
+      },
+      {
+       "n": "CISCO_SYSTEMS",
+       "t": "CSCO",
+       "w": 1.0096
+      },
+      {
+       "n": "Robinhood Markets Inc",
+       "t": "HOOD",
+       "w": 0.9773
+      },
+      {
+       "n": "Okta Inc",
+       "t": "OKTA",
+       "w": 0.9233
+      },
+      {
+       "n": "WESTERN_DIGITAL",
+       "t": "WDC",
+       "w": 0.8961
+      },
+      {
+       "n": "New Linde PLC",
+       "t": "LIN",
+       "w": 0.8752
+      },
+      {
+       "n": "샌디스크/Sandisk Corp/DE",
+       "t": "SNDK",
+       "w": 0.788
+      },
+      {
+       "n": "Datadog Inc",
+       "t": "DDOG",
+       "w": 0.7772
+      },
+      {
+       "n": "Astera Labs Inc",
+       "t": "ALAB",
+       "w": 0.7199
+      },
+      {
+       "n": "Dell Technologies Inc",
+       "t": "DELL",
+       "w": 0.682
+      },
+      {
+       "n": "마벨/Marvell Technology Inc",
+       "t": "MRVL",
+       "w": 0.6129
+      },
+      {
+       "n": "루멘텀/Lumentum Holdings Inc",
+       "t": "LITE",
+       "w": 0.5082
+      }
+     ],
+     "source": "FunETF"
     }
    ],
    "holdings": [
     {
-     "n": "엔비디아/NVIDIA Corp",
-     "t": "NVDA",
-     "w": 8.2631
-    },
-    {
      "n": "마이크로소프트/MICROSOFT CORP",
      "t": "MSFT",
-     "w": 6.669
+     "w": 8.0114
+    },
+    {
+     "n": "엔비디아/NVIDIA Corp",
+     "t": "NVDA",
+     "w": 7.2915
     },
     {
      "n": "애플/Apple Inc",
      "t": "AAPL",
-     "w": 5.9303
-    },
-    {
-     "n": "알파벳 A/Alphabet Inc",
-     "t": "GOOGL",
-     "w": 4.5771
+     "w": 6.9785
     },
     {
      "n": "아마존/Amazon.com Inc",
      "t": "AMZN",
-     "w": 4.4635
+     "w": 6.8513
     },
     {
-     "n": "마이크론/Micron Technology Inc",
-     "t": "MU",
-     "w": 4.2206
-    },
-    {
-     "n": "Advanced Micro Devices Inc",
-     "t": "AMD",
-     "w": 3.9562
+     "n": "알파벳 A/Alphabet Inc",
+     "t": "GOOGL",
+     "w": 5.6971
     },
     {
      "n": "팔란티어/Palantir Technologies Inc -A",
      "t": "PLTR",
-     "w": 3.325
-    },
-    {
-     "n": "Bloom Energy Corp",
-     "t": "BE",
-     "w": 3.2538
+     "w": 3.1782
     },
     {
      "n": "메타/페이스북/Meta Platforms Inc-CL A",
      "t": "META",
-     "w": 2.9338
+     "w": 3.1092
+    },
+    {
+     "n": "Bloom Energy Corp",
+     "t": "BE",
+     "w": 3.0734
     },
     {
      "n": "스페이스X/Space Exploration Technologies Corp",
      "t": "SPCX",
-     "w": 2.5707
+     "w": 2.8128
     },
     {
-     "n": "샌디스크/Sandisk Corp/DE",
-     "t": "SNDK",
-     "w": 2.5491
+     "n": "Advanced Micro Devices Inc",
+     "t": "AMD",
+     "w": 2.7967
     },
     {
-     "n": "Dell Technologies Inc",
-     "t": "DELL",
-     "w": 2.5301
+     "n": "마이크론/Micron Technology Inc",
+     "t": "MU",
+     "w": 2.7347
     },
     {
      "n": "테슬라/Tesla Inc",
      "t": "TSLA",
-     "w": 2.5203
+     "w": 2.5015
     },
     {
      "n": "Texas Instruments Inc",
      "t": "TXN",
-     "w": 2.204
-    },
-    {
-     "n": "Palo Alto Networks Inc",
-     "t": "PANW",
-     "w": 2.1817
-    },
-    {
-     "n": "인텔/INTEL ORD",
-     "t": "INTC",
-     "w": 2.1399
-    },
-    {
-     "n": "브로드컴/BROADCOM LTD",
-     "t": "AVGO",
-     "w": 2.0556
-    },
-    {
-     "n": "마벨/Marvell Technology Inc",
-     "t": "MRVL",
-     "w": 1.9742
-    },
-    {
-     "n": "TSMC/TAIWAN SEMICONDUCTOR-SP ADR",
-     "t": "TSM",
-     "w": 1.9374
-    },
-    {
-     "n": "SK hynix Inc",
-     "t": "SKHY",
-     "w": 1.932
+     "w": 2.2509
     },
     {
      "n": "QUALCOMM Inc",
      "t": "QCOM",
-     "w": 1.8811
+     "w": 2.0916
     },
     {
-     "n": "Lilly (Eli) & Co/일라이릴리",
-     "t": "LLY",
-     "w": 1.6906
+     "n": "Xcel Energy Inc",
+     "t": "XEL",
+     "w": 2.0299
     },
     {
-     "n": "Crowdstrike Holdings Inc",
-     "t": "CRWD",
-     "w": 1.5787
+     "n": "NEXTERA ENERGY INC",
+     "t": "NEE",
+     "w": 2.0184
     },
     {
-     "n": "Seagate Technology Holdings",
-     "t": "STX",
-     "w": 1.3178
+     "n": "인텔/INTEL ORD",
+     "t": "INTC",
+     "w": 2.0181
+    },
+    {
+     "n": "Palo Alto Networks Inc",
+     "t": "PANW",
+     "w": 2.0139
+    },
+    {
+     "n": "브로드컴/BROADCOM LTD",
+     "t": "AVGO",
+     "w": 1.9954
+    },
+    {
+     "n": "TSMC/TAIWAN SEMICONDUCTOR-SP ADR",
+     "t": "TSM",
+     "w": 1.9131
     },
     {
      "n": "GE Vernova LLC",
      "t": "GEV",
-     "w": 1.3154
+     "w": 1.8993
+    },
+    {
+     "n": "SK hynix Inc",
+     "t": "SKHY",
+     "w": 1.8265
+    },
+    {
+     "n": "Lilly (Eli) & Co/일라이릴리",
+     "t": "LLY",
+     "w": 1.7888
+    },
+    {
+     "n": "Crowdstrike Holdings Inc",
+     "t": "CRWD",
+     "w": 1.4737
     },
     {
      "n": "스트래티지/Strategy Inc",
      "t": "MSTR",
-     "w": 1.3119
-    },
-    {
-     "n": "루멘텀/Lumentum Holdings Inc",
-     "t": "LITE",
-     "w": 1.2891
+     "w": 1.4356
     },
     {
      "n": "Coinbase Global Inc",
      "t": "COIN",
-     "w": 1.1739
-    },
-    {
-     "n": "COREWEAVE INC-CL A",
-     "t": "CRWV",
-     "w": 1.1312
+     "w": 1.2208
     },
     {
      "n": "Nebius Group NV",
      "t": "NBIS",
-     "w": 1.1292
+     "w": 1.0509
     },
     {
-     "n": "WESTERN_DIGITAL",
-     "t": "WDC",
-     "w": 1.1228
+     "n": "COREWEAVE INC-CL A",
+     "t": "CRWV",
+     "w": 1.0509
     },
     {
-     "n": "OKTA INC",
-     "t": "OKTA",
-     "w": 1.0644
-    },
-    {
-     "n": "Natera Inc",
-     "t": "NTRA",
-     "w": 1.0588
+     "n": "Seagate Technology Holdings",
+     "t": "STX",
+     "w": 1.044
     },
     {
      "n": "KLA-TENCOR CORPORATION",
      "t": "KLAC",
-     "w": 1.0493
+     "w": 1.0194
     },
     {
      "n": "CISCO_SYSTEMS",
      "t": "CSCO",
-     "w": 1.0327
+     "w": 1.0096
     },
     {
      "n": "Robinhood Markets Inc",
      "t": "HOOD",
-     "w": 0.9267
+     "w": 0.9773
+    },
+    {
+     "n": "Okta Inc",
+     "t": "OKTA",
+     "w": 0.9233
+    },
+    {
+     "n": "WESTERN_DIGITAL",
+     "t": "WDC",
+     "w": 0.8961
+    },
+    {
+     "n": "New Linde PLC",
+     "t": "LIN",
+     "w": 0.8752
+    },
+    {
+     "n": "샌디스크/Sandisk Corp/DE",
+     "t": "SNDK",
+     "w": 0.788
     },
     {
      "n": "Datadog Inc",
      "t": "DDOG",
-     "w": 0.9219
+     "w": 0.7772
     },
     {
      "n": "Astera Labs Inc",
      "t": "ALAB",
-     "w": 0.8815
+     "w": 0.7199
+    },
+    {
+     "n": "Dell Technologies Inc",
+     "t": "DELL",
+     "w": 0.682
+    },
+    {
+     "n": "마벨/Marvell Technology Inc",
+     "t": "MRVL",
+     "w": 0.6129
+    },
+    {
+     "n": "루멘텀/Lumentum Holdings Inc",
+     "t": "LITE",
+     "w": 0.5082
     }
    ],
-   "lastAttempt": "2026-11-03",
+   "lastAttempt": "2026-11-10",
    "name": "TIME 미국나스닥100액티브",
    "rebalance": "weekly",
    "retained": false,
