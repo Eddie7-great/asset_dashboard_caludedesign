@@ -1,10 +1,10 @@
 // Menu families use existing view IDs so saved links and browser history stay valid.
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
-  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['etf2','ETF 탐색'],['fam2','구성원 비교'],['bubble','비중 분석']]},
+  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['acct2','계좌별 보기'],['etf2','ETF 탐색'],['fam2','구성원 비교'],['bubble','비중 분석']]},
   {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
-  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['sim2','투자 시뮬레이터']]},
+  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['cal2','일정'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
   {menu:'tax2',title:'세금·증여',views:[['tax2','실현손익·세금'],['gift2','가족 증여']]},
 ];
@@ -18,6 +18,8 @@ function navOwner(id){
   if(id==='plan2'||id==='rebal2')return _finPlanOwner;
   if(id==='dca2')return _cbDcaOwner;
   if(id==='sim2')return _simOwner;
+  if(id==='acct2')return _acctOwner;
+  if(id==='cal2')return _calOwner;
   return null;
 }
 function navPrepare(id){
@@ -32,6 +34,8 @@ function navPrepare(id){
     if(id==='plan2'||id==='rebal2')_finPlanOwner=owner;
     if(id==='dca2')_cbDcaOwner=owner;
     if(id==='sim2')_simOwner=owner;
+    if(id==='acct2')_acctOwner=owner;
+    if(id==='cal2')_calOwner=owner;
     if(id==='divm')_cbDivOwner=owner;
     if(id==='risk2')_cbRiskOwner=owner;
   }

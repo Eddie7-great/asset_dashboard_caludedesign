@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+### 새 탭: 계좌별 보기·일정 (2026-11-10)
+
+- **상위 메뉴는 여전히 7개이고 탭만 늘었다.** 자산 관리에 `acct2`(계좌별 보기), 투자 계획에 `cal2`(일정)가 생겼다. 둘 다 `workspace-pages.js` 에 있고 이 파일은 `etf-explorer.js` 뒤·`cobalt.js` 앞에 로드한다(`CB_VIEWS` 가 렌더 함수를 참조한다). **조회 전용**이라 원장·KV·localStorage 에 쓰지 않는다.
+- **계좌별 보기는 새 계산을 하지 않는다.** 평가액·손익은 `cbRow`, 세제 구분은 `getAccountDivTaxInfo`(이름에 '증여'가 있으면 화면 구분만 '증여계좌'), 연 배당은 `cbDivIncomeKRW`(세전 추정)다. 현금과 취득가 미상은 손익에서 빼고(보유 목록 숫자 카드와 같은 기준), 비중 분모는 선택한 소유주의 투자자산이다. **ISA·연금 납입 한도와 ISA 만기는 표시하지 않는다** — 가입일·납입액 기록이 없고 한도 값도 `tax-rules.js` 에 없다. 지어내지 않는다.
+- **일정(`calEvents`)은 날짜마다 기존 판정 함수에 묻는다**: 적립 매수 `cbDcaScheduledOn`·`cbDcaPerOrderKRW`, 자동이체 `_autoTransferOccursOn`·`_effectiveAutoTransferAmt`, 배당 `cbUpcomingDividendSchedule`. 새 일정 규칙을 만들면 각 화면의 '다음 매수'·'다음 결제'와 어긋난다. **지급일을 모르는 배당은 날짜 칸에 넣지 않고 '지급일 미정' 목록에 둔다**(임의의 1일·15일에 찍지 않는다). 배당은 세전 추정, 적립 매수는 예정이며 체결 기록이 아니라는 문구를 유지한다. **세금 신고 기한은 넣지 않는다** — `tax-rules.js` 에 기한이 등록돼 있지 않다.
+- 소유주 범위는 `navOwner`/`navPrepare` 가 같은 메뉴 가족 안에서 이어 준다(`_acctOwner`·`_calOwner`). `scripts/tests/test_workspace_pages.mjs` 가 지킨다.
+
 ### 시세·저장 경로 보강과 공통 도우미 (2026-11-10)
 
 - **`/api/stock-price?tickers=` 는 한 종목이어도 `{result:{…}}` 모양이다.** 평탄한 응답은 `ticker=` 단일 조회에만 남긴다. 화면(`liveRefreshDomesticEtfs`)은 10개씩 묶어 보내므로 묶음에 한 종목만 남을 때(국내 종목 1·11·21개) 모양이 달라지면 그 종목 시세가 조용히 버려진다. 화면도 평탄한 응답을 버리지 않는다.
@@ -56,7 +63,7 @@
 ### Consolidated workspace (2026-09-08)
 
 - Navigation is defined in `navigation.js`: seven menu families, secondary links retain existing view IDs. `snap`/`dashboard`/`balance2` resolve to `cdash` before history recording. Keep active menu/title, owner scope across related tabs, and back/forward in sync. Home contains investment summaries and compact allocation/ranking cards; a searchable owner-scoped holdings table remains on home, while editing belongs to asset management. `plan2` is goals, `rebal2` is allocation/account diagnostics, `dca2` is scheduling, `sim2` is scenarios.
-- Script order: `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `cobalt.js` → `allocation-3d.js`. The new modules define functions only until Cobalt renders. `workspace-ui.css` follows `style.css`.
+- Script order: `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `workspace-pages.js` → `cobalt.js` → `allocation-3d.js`. The new modules define functions only until Cobalt renders. `workspace-ui.css` follows `style.css`.
 - Scenarios are memory-only: never persist, update actual holdings or execute trades. Contributions are external funds; prices/FX fixed, returns 0%, fees/taxes/dividends/lot sizes excluded. Validate finite nonnegative inputs and 100% target weights; rounded KRW allocations must conserve the budget. Keep inputs/focus while results update. Scenario and DCA numeric controls use `data-no-comma="1"` to retain native numeric validation. Mobile can edit scenarios although actual finance records remain read-only.
 - DCA 규칙 등록·수정은 종목 편집 모달이 맡는다(예전 인라인 편집기 `dca-editor.js` 는 호출부가 없어 지웠다). 적립식 화면에는 일정 확인과 일시정지 토글(`cbDcaToggle`, cobalt.js)만 있다 — 토글은 `dca` 플래그만 바꾸고, 원장·재무계획 두 원격 로드가 모두 ready 일 때만(`cbDcaCanSave`) 기존 CAS 저장 경로로 쓰며, 실패하면 되돌린 뒤 토스트로 알린다. No simulated fills.
 
