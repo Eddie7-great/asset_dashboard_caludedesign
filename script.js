@@ -922,6 +922,34 @@ function _normalizeOwnerAmountMap(value){
     _safeStoredNumber(source[owner],{min:-1_000_000_000_000_000,max:1_000_000_000_000_000}),
   ]));
 }
+// 월간 결산 보관(reportArchive) — 매일 도는 배치(scripts/net_worth_snapshot.py)만 쓴다. 앱은 읽고, 저장할 때 받은 값을 그대로 다시 싣는다.
+// 형식이 어긋난 달은 버린다(화면이 숫자를 지어내지 않도록). 숫자가 아닌 값은 0 이 아니라 그 항목째로 뺀다.
+function _normalizeReportArchive(raw){
+  const out={};
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
+  const num=v=>Number.isFinite(Number(v))?Number(v):null;
+  const numMap=m=>{const o={};if(m&&typeof m==='object'&&!Array.isArray(m))Object.keys(m).slice(0,12).forEach(k=>{const n=num(m[k]);if(n!==null)o[_boundedStoredText(k,24)]=n;});return o;};
+  Object.keys(raw).filter(ym=>/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)).sort().slice(-240).forEach(ym=>{
+    const e=raw[ym];
+    if(!e||typeof e!=='object'||!_isStoredDateKey(e.date)||String(e.date).slice(0,7)!==ym)return;
+    const total=num(e.total); if(total===null)return;
+    const row={ym,date:String(e.date),schemaV:1,total,byOwner:numMap(e.byOwner),cls:{},pl:{},goals:[]};
+    if(e.cls&&typeof e.cls==='object')Object.keys(e.cls).slice(0,8).forEach(k=>{row.cls[_boundedStoredText(k,24)]=numMap(e.cls[k]);});
+    if(e.pl&&typeof e.pl==='object')Object.keys(e.pl).slice(0,8).forEach(k=>{const c=num(e.pl[k]?.cost),g=num(e.pl[k]?.gain);if(c!==null&&g!==null)row.pl[_boundedStoredText(k,24)]={cost:c,gain:g};});
+    if(Array.isArray(e.holdings))row.holdings=e.holdings.slice(0,400).map(h=>{
+      if(!h||typeof h!=='object')return null;
+      const q=num(h.q),c=num(h.c),v=num(h.v); if(q===null||c===null||v===null)return null;
+      return {o:_boundedStoredText(h.o,24),b:_boundedStoredText(h.b,60),a:_boundedStoredText(h.a,60),t:_boundedStoredText(h.t,40),n:_boundedStoredText(h.n,120),g:_boundedStoredText(h.g,12),q,c,v,u:h.u===true};
+    }).filter(Boolean);
+    if(Array.isArray(e.goals))row.goals=e.goals.slice(0,50).map(g=>{
+      if(!g||typeof g!=='object')return null;
+      const now=num(g.now),target=num(g.target); if(now===null||target===null)return null;
+      return {name:_boundedStoredText(g.name,80),now,target};
+    }).filter(Boolean);
+    out[ym]=row;
+  });
+  return out;
+}
 function _normalizeNetWorthRows(rows){
   if(!Array.isArray(rows))return [];
   return rows.slice(-1000).map(item=>{
@@ -1907,6 +1935,7 @@ if(_mobileMQ.addEventListener) _mobileMQ.addEventListener('change',_updateLayout
 setTimeout(_updateLayoutPreviewLabel,0);
 let _sidebarReturnFocus = null;
 function openSidebar() {
+  document.querySelector('.menu-col')?.removeAttribute('inert'); // 넓은 화면에서 접어 둔 채 창을 좁혀도 서랍은 열린다
   _sidebarReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.querySelector('.menu-col')?.classList.add('open');
   document.getElementById('sidebar-backdrop')?.classList.add('show');
@@ -1925,6 +1954,21 @@ function closeSidebar() {
     _sidebarReturnFocus = null;
   }
 }
+// 넓은 화면의 사이드바 접기/펴기. 화면 설정이라 localStorage 에만 둔다(KV 에 넣지 않는다).
+// 접힌 동안 사이드바는 inert 라 키보드 포커스가 들어가지 않는다. 전환이 끝나면 차트가 새 폭에 맞게 다시 그려지도록 알린다.
+function _sideCollapsedSaved(){ try{ return localStorage.getItem('sideCollapsed')==='1'; }catch(e){ return false; } }
+function applySideCollapsed(collapsed, persist){
+  const on=!!collapsed;
+  document.body.classList.toggle('side-collapsed',on);
+  const side=document.querySelector('.menu-col');
+  if(side){ if(on) side.setAttribute('inert',''); else side.removeAttribute('inert'); }
+  const btn=document.getElementById('side-collapse-btn');
+  if(btn){ btn.setAttribute('aria-expanded',String(!on)); btn.setAttribute('aria-label',on?'사이드 메뉴 펴기':'사이드 메뉴 접기'); btn.title=on?'사이드 메뉴 펴기':'사이드 메뉴 접기'; }
+  if(persist){ try{ localStorage.setItem('sideCollapsed',on?'1':'0'); }catch(e){} }
+  clearTimeout(window._sideCollapseTimer);
+  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },320);
+}
+function toggleSideCollapsed(){ applySideCollapsed(!document.body.classList.contains('side-collapsed'),true); }
 function toggleSidebar() {
   document.querySelector('.menu-col')?.classList.contains('open') ? closeSidebar() : openSidebar();
 }
@@ -4789,7 +4833,9 @@ async function saveExtDataToKV() {
     if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
     return {ok:false,blocked:true,status:null};
   }
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null,
+    // 배치가 쓴 월간 결산 보관을 그대로 다시 싣는다 — 빼면 앱 저장이 지난 결산을 지운다. 사용자 입력이 아니라 되돌리기 대상은 아니다.
+    reportArchive: window._reportArchive || {} };
   const sent=_extSnapshot();
   const res = await setKV('ext_data', ext);
   const ok=!!(res&&res.result==="OK");
@@ -4849,6 +4895,7 @@ async function loadExtDataFromKV() {
     assetHistory=_normalizeAssetHistoryRows(normalized.assetHistory);
     goalData=_normalizeGoalRows(normalized.goalData);
     window._netWorthHistory=_normalizeNetWorthRows(normalized.netWorthHistory);
+    window._reportArchive=_normalizeReportArchive(owns('reportArchive')?data.reportArchive:null);
     window._targetAlloc=_normalizeTargetAlloc(normalized.targetAlloc);
     window._balanceSheet=_normalizeBalanceSheet(normalized.balanceSheet);
     window._giftActual=_normalizeGiftActual(normalized.giftActual);
@@ -4953,6 +5000,7 @@ async function authFetch(url, options = {}) {
 let _dashboardInitStarted = false;
 function _startDashboardAfterAuth(){
   _setAuthenticatedUi(true);
+  if(window.innerWidth>768) applySideCollapsed(_sideCollapsedSaved(),false);
   if (_dashboardInitStarted) return;
   _dashboardInitStarted = true;
   initDashboard();

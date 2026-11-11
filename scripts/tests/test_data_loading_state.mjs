@@ -66,6 +66,7 @@ const context = {
   _normalizeAssetHistoryRows: value => value,
   _normalizeGoalRows: value => value,
   _normalizeNetWorthRows: value => value,
+  _normalizeReportArchive: value => value || {},
   _normalizeTargetAlloc: value => value,
   _normalizeBalanceSheet: value => value || {assets:[],liabilities:[],cashTargetMonths:6},
   _normalizeGiftActual: value => value,

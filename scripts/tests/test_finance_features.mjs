@@ -35,7 +35,7 @@ function extractFunction(source, name) {
   throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-assert.equal((indexSource.match(/class="menu-btn\b/g)||[]).length,7,'재무상태표 제거 후 상위 메뉴 7개')
+assert.equal((indexSource.match(/class="menu-btn\b/g)||[]).length,8,'상위 메뉴 8개(결산 리포트 추가)')
 assert.match(indexSource, /menu-holdings[\s\S]*자산 관리/, '자산 관리 메뉴')
 assert.match(indexSource, /menu-tax2[\s\S]*세금·증여/, '세금·증여 통합 메뉴')
 assert.match(indexSource, /class="footer-status-btn" onclick="switchView\('data2'/, '데이터 상태는 메뉴 대신 사이드바 푸터 상태 줄에서 연다')
