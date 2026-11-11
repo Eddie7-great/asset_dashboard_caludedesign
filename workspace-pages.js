@@ -189,3 +189,123 @@ function cbRenderCalendar(){
     </div>
     <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;
 }
+
+// ───────────────────────── 월간 결산 (투자 분석 > report2) ─────────────────────────
+// 조회 전용. 새 계산을 만들지 않는다 — 월말 금액은 저장된 일별 기록(finSnapshotInvestment·finSnapshotOwnerInvestment),
+// 구성·손익은 cbRow(finRows), 배당은 배당 엔진이 채운 divHistoryOf(세후), 목표는 finGoalCurrent 의 값을 읽어 한 달 단위로 묶는다.
+// 과거 달을 골라도 구성·손익·목표는 오늘 보유 기준이므로 장마다 '○월 말 기록' / '오늘 기준' 배지로 구분한다.
+let _reportOwner='전체', _reportYm=null;
+function reportOwner(o){ _reportOwner=o; cbRenderReport(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
+function reportMonth(ym){ _reportYm=ym; cbRenderReport(); document.getElementById('rep-month')?.focus(); }
+// 월말 값 목록: 그달의 마지막 기록. 기록이 없는 달은 만들지 않는다(지어내지 않는다).
+function reportMonthEnds(history, ownerF){
+  const byYm=new Map();
+  (Array.isArray(history)?history:[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(e=>{
+    const date=String(e&&e.date||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const v=ownerF?finSnapshotOwnerInvestment(e,ownerF):finSnapshotInvestment(e);
+    if(v==null||!Number.isFinite(v)) return;
+    byYm.set(date.slice(0,7),{ym:date.slice(0,7),date,v});
+  });
+  return Array.from(byYm.values());
+}
+// 기본 달: 이미 끝난 달 가운데 가장 최근. 끝난 달 기록이 없으면 가장 최근 달.
+function reportDefaultYm(months, todayKey){
+  if(!months.length) return null;
+  const cur=String(todayKey).slice(0,7), done=months.filter(m=>m.ym<cur);
+  return (done.length?done[done.length-1]:months[months.length-1]).ym;
+}
+function reportYmLabel(ym){ const [y,m]=String(ym).split('-'); return `${y}년 ${Number(m)}월`; }
+function reportData(ownerF, ym, todayKey){
+  const months=reportMonthEnds(window._netWorthHistory, ownerF);
+  const pick=months.some(m=>m.ym===ym)?ym:reportDefaultYm(months,todayKey);
+  const idx=months.findIndex(m=>m.ym===pick), cur=idx>=0?months[idx]:null, prev=idx>0?months[idx-1]:null;
+  const yearFirst=cur?months.find(m=>m.ym.slice(0,4)===cur.ym.slice(0,4)):null;
+  const rows=finRows(ownerF), total=rows.reduce((s,r)=>s+r.val,0);
+  const clsMap=new Map(), ownMap=new Map();
+  rows.forEach(r=>{ clsMap.set(r.cls,(clsMap.get(r.cls)||0)+r.val); const o=r.i.owner||'—'; ownMap.set(o,(ownMap.get(o)||0)+r.val); });
+  const share=(map)=>Array.from(map.entries()).map(([k,v])=>({k,v,p:total>0?v/total*100:0})).sort((a,b)=>b.v-a.v);
+  // 현금과 취득가 미상은 손익에서 뺀다(보유 목록 숫자 카드와 같은 기준).
+  const inv=rows.filter(r=>r.i.grp!=='현금'&&!r.i.costUnknown&&r.gainPct!=null);
+  const cost=inv.reduce((s,r)=>s+r.cost,0), gain=inv.reduce((s,r)=>s+r.gain,0);
+  const ranked=inv.slice().sort((a,b)=>b.gainPct-a.gainPct);
+  const top=ranked.slice(0,3), bottom=ranked.length>3?ranked.slice(-Math.min(3,ranked.length-3)):[];
+  const year=cur?cur.ym.slice(0,4):String(todayKey).slice(0,4);
+  const divs=(typeof divHistoryYears==='function'&&divHistoryYears().map(String).includes(year))?divHistoryOf(year,ownerF||'전체').map(v=>Number(v)||0):null;
+  const goals=(Array.isArray(goalData)?goalData:[]).map(g=>{
+    const now=Math.max(0,Number(finGoalCurrent(g))||0), target=Number(g.targetAmount)||0;
+    return {name:g.name||'목표',now,target,p:target>0?Math.min(100,now/target*100):0};
+  });
+  return {months,cur,prev,yearFirst,rows,total,byCls:share(clsMap),byOwner:share(ownMap),cost,gain,gainPct:cost>0?gain/cost:null,top,bottom,year,divs,goals,
+    prevAdjacent:!!(cur&&prev&&reportYmNext(prev.ym)===cur.ym)};
+}
+function reportYmNext(ym){ const [y,m]=ym.split('-').map(Number); return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`; }
+function reportTrendSvg(months, curYm){
+  const upto=months.filter(m=>m.ym<=curYm).slice(-12);
+  if(upto.length<2) return '';
+  const w=520,h=190,pad=14,vals=upto.map(m=>m.v),mn=Math.min(...vals),mx=Math.max(...vals),span=mx-mn||1;
+  const pts=upto.map((m,i)=>[pad+i*(w-2*pad)/(upto.length-1),h-30-(m.v-mn)/span*(h-30-pad)]);
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const a=upto[0],z=upto[upto.length-1];
+  return `<svg class="rep-trend" viewBox="0 0 ${w} ${h}" role="img" aria-label="${reportYmLabel(a.ym)} 말부터 ${reportYmLabel(z.ym)} 말까지 월말 투자자산 추이">
+    <path d="${d}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i===pts.length-1?5.5:2.8}" fill="currentColor"/>`).join('')}
+    <text x="${pts[0][0]}" y="${h-6}" font-size="12" fill="currentColor">${Number(a.ym.slice(5))}월</text>
+    <text x="${pts[pts.length-1][0]}" y="${h-6}" font-size="12" fill="currentColor" text-anchor="end">${Number(z.ym.slice(5))}월</text></svg>`;
+}
+function cbRenderReport(){
+  const el=document.getElementById('cb-report2'); if(!el) return;
+  const ownerF=finOwnerF(_reportOwner), todayKey=finLocalDateKey(new Date());
+  const D=reportData(ownerF,_reportYm,todayKey), who=ownerF?cbEsc(ownerF):'가족 전체';
+  const monthSel=D.months.length?`<label class="rep-month-pick" for="rep-month">결산 달<select id="rep-month" onchange="reportMonth(this.value)">${D.months.slice().reverse().map(m=>`<option value="${m.ym}"${D.cur&&m.ym===D.cur.ym?' selected':''}>${reportYmLabel(m.ym)}</option>`).join('')}</select></label>`:'';
+  cbSetHead('한 달을 다섯 장으로 돌아봅니다 · 조회 전용이며 기록·보유 자산을 바꾸지 않습니다',cbOwnerBtns(_reportOwner,'reportOwner')+monthSel);
+  if(!D.cur){
+    el.innerHTML=`<div class="cb-panel"><div class="fin-empty">${who}의 월말 기록이 아직 없습니다. 투자자산 기록은 매일 자동으로 쌓이며, 한 달이 지나면 이 화면에서 결산을 볼 수 있습니다.</div></div>`;
+    return;
+  }
+  const mLabel=reportYmLabel(D.cur.ym), mShort=Number(D.cur.ym.slice(5))+'월';
+  const recBadge=`<span class="rep-badge">${mShort} 말 기록</span>`, nowBadge=`<span class="rep-badge is-now">오늘 기준</span>`;
+  const diff=(v)=>`<b class="${v<0?'rep-dn':'rep-up'}">${v>0?'+':''}${cbDisp(v)}</b>`;
+  const sign=(p,d=1)=>(p>0?'+':'')+p.toFixed(d)+'%';
+  const chapter=(no,title,badge,cls,prose,figure,flip)=>`<section class="rep-chapter cb-panel ${cls||''}${flip?' is-flip':''}" aria-labelledby="rep-h${no}">
+      <div class="rep-prose"><p class="rep-no">${no}장</p><h2 id="rep-h${no}">${title} ${badge}</h2>${prose}</div>
+      <div class="rep-figure">${figure}</div></section>`;
+  // 1장 — 얼마인가
+  const prevLine=D.prev
+    ? `${D.prevAdjacent?'한 달 전':reportYmLabel(D.prev.ym)+' 말'}보다 ${diff(D.cur.v-D.prev.v)} ${D.cur.v-D.prev.v<0?'줄었습니다':'늘었습니다'}.`
+    : '이 달이 첫 기록이라 비교할 앞 달이 없습니다.';
+  const yLine=(D.yearFirst&&D.yearFirst.ym!==D.cur.ym)?` ${D.cur.ym.slice(0,4)}년 첫 기록(${Number(D.yearFirst.ym.slice(5))}월 말)보다는 ${diff(D.cur.v-D.yearFirst.v)}입니다.`:'';
+  const c1=chapter(1,'얼마인가',recBadge,'is-ink',
+    `<p>${mLabel} 말 ${who}의 투자자산은 <b>${cbDisp(D.cur.v)}</b>입니다. ${prevLine}${yLine}</p><p class="rep-note">새로 넣은 돈과 값이 오른 몫이 함께 들어 있어 수익률이 아닙니다. 마지막 기록일은 ${cbEsc(D.cur.date)}입니다.</p>`,
+    `<p class="rep-fig">${cbDisp(D.cur.v)}</p>${reportTrendSvg(D.months,D.cur.ym)||'<p class="rep-note">월말 기록이 두 달 이상 쌓이면 추이 선을 그립니다.</p>'}<p class="rep-cap">월말 투자자산 · 기록이 있는 달만</p>`);
+  // 2장 — 어디에 있는가
+  const bar=(label,width,shown,color,amount)=>`<div class="rep-bar"><span>${cbEsc(label)}</span><i style="--p:${Math.max(0,Math.min(100,width)).toFixed(1)}%;--c:${color}"></i><b>${shown.toFixed(1)}%</b><em>${cbDisp(amount)}</em></div>`;
+  const maxCls=Math.max(1,...D.byCls.map(x=>x.p));
+  const cash=D.byCls.find(x=>x.k==='cash');
+  const c2=D.rows.length?chapter(2,'어디에 있는가',nowBadge,'',
+    `<p>${D.byCls.slice(0,2).map(x=>`${cbEsc((CB_CLS[x.k]||{}).label||x.k)} <b>${x.p.toFixed(0)}%</b>`).join(', ')} 순으로 큽니다.${cash?` 현금은 <b>${cash.p.toFixed(0)}%</b>입니다.`:''}</p>${ownerF?'':`<p>소유주별로는 ${D.byOwner.map(o=>`${cbEsc(o.k)} <b>${o.p.toFixed(0)}%</b>`).join(', ')}입니다.</p>`}<p class="rep-note">지난달 말의 구성은 기록에 없어 오늘 보유한 자산으로 보여 줍니다.</p>`,
+    `<div class="rep-bars">${D.byCls.map(x=>bar((CB_CLS[x.k]||{}).label||x.k,x.p/maxCls*100,x.p,(CB_CLS[x.k]||{}).color||'var(--acc)',x.v)).join('')}</div><p class="rep-cap">자산군별 비중과 평가액</p>`,true):'';
+  // 3장 — 얼마나 불었는가
+  const rank=[...D.top,...D.bottom], maxPct=Math.max(0.0001,...rank.map(r=>Math.abs(r.gainPct)));
+  const c3=rank.length?chapter(3,'얼마나 불었는가',nowBadge,'',
+    `<p>넣은 돈 대비 지금까지의 평가손익은 ${diff(D.gain)}${D.gainPct==null?'':` (<b>${sign(D.gainPct*100)}</b>)`}입니다.</p><p class="rep-note">현금과 취득가를 모르는 자산은 뺐습니다. 팔아서 확정한 손익은 세금·증여 화면에 따로 있습니다.</p>`,
+    `<div class="rep-bars">${rank.map(r=>`<div class="rep-bar"><span>${cbEsc(r.title)}</span><i style="--p:${(Math.abs(r.gainPct)/maxPct*100).toFixed(1)}%;--c:${r.gainPct<0?'var(--dn)':'var(--up)'}"></i><b class="${r.gainPct<0?'rep-dn':'rep-up'}">${sign(r.gainPct*100,0)}</b><em>${cbDisp(r.gain)}</em></div>`).join('')}</div><p class="rep-cap">수익률 위 ${D.top.length}종목${D.bottom.length?`과 아래 ${D.bottom.length}종목`:''}</p>`):'';
+  // 4장 — 배당 (배당 화면과 같은 세후 값)
+  let c4='';
+  if(D.divs){
+    const mi=Number(D.cur.ym.slice(5))-1, sum=D.divs.reduce((s,v)=>s+v,0), mxD=Math.max(1,...D.divs);
+    c4=chapter(4,'배당',`<span class="rep-badge is-now">${D.year}년 추정</span>`,'',
+      sum>0?`<p>${mShort} 배당은 세금을 뗀 뒤 <b>${cbDisp(D.divs[mi])}</b>, ${D.year}년 한 해는 <b>${cbDisp(sum)}</b>쯤입니다.</p><p class="rep-note">과거 지급 주기와 오늘 보유 수량으로 계산한 추정이며 확정된 지급이 아닙니다. 값은 배당 화면과 같습니다.</p>`
+           :`<p>${D.year}년에 잡힌 배당이 없습니다.</p><p class="rep-note">배당 정보를 아직 불러오지 못했다면 배당 화면에서 다시 확인해 주세요.</p>`,
+      `<div class="rep-months" role="img" aria-label="${D.year}년 월별 배당">${D.divs.map((v,i)=>`<i class="${i===mi?'is-cur':''}" style="--h:${(v/mxD*100).toFixed(1)}%" title="${i+1}월"></i>`).join('')}</div><div class="rep-months-l" aria-hidden="true">${D.divs.map((_,i)=>`<span class="${i===mi?'is-cur':''}">${i+1}</span>`).join('')}</div><p class="rep-cap">월별 배당(세후 추정) · 진한 막대가 ${mShort}</p>`,true);
+  }
+  // 5장 — 목표까지 (목표는 가구 공통)
+  const done=D.goals.filter(g=>g.p>=100).length;
+  const c5=D.goals.length?chapter(5,'목표까지','<span class="rep-badge is-now">오늘 기준 · 가구 전체</span>','is-ink',
+    `<p>목표 ${D.goals.length}개 가운데 <b>${done}개</b>를 채웠습니다.</p><p class="rep-note">목표는 가족이 함께 쓰는 값이라 소유주를 바꿔도 같습니다. 고치려면 투자 계획 &gt; 목표로 갑니다.</p>`,
+    `<div class="rep-goals">${D.goals.map(g=>`<div><h3><span>${cbEsc(g.name)}</span><span>${g.p.toFixed(0)}%</span></h3><i style="--p:${g.p.toFixed(1)}%"></i><p>${g.p>=100?'목표 금액을 채웠습니다.':`${cbDisp(g.now)} / ${cbDisp(g.target)}`}</p></div>`).join('')}</div>`):'';
+  el.innerHTML=`<div class="rep">
+    <header class="rep-cover"><p class="rep-kicker">${who} · 월간 결산</p><h1>${mLabel}</h1>
+      <p>얼마인지, 어디에 있는지, 얼마나 불었는지, 배당은 얼마나 들어오는지, 목표까지 얼마나 남았는지 차례로 봅니다.</p></header>
+    ${c1}${c2}${c3}${c4}${c5}
+    <footer class="rep-colophon">1장은 저장된 일별 기록의 월말 값이고, 나머지 장은 오늘 보유한 자산으로 계산합니다. 숫자는 각 화면(성과·보유 목록·배당·목표)과 같은 계산을 씁니다.</footer></div>`;
+}

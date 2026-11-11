@@ -47,8 +47,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar };
-const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정' };
+const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar, report2:cbRenderReport };
+const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정', report2:'월간 결산' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
@@ -1141,6 +1141,7 @@ function cbRenderDash(){
       ${kpi('연 배당', cbDisp(divAnnual), '', '월평균 '+cbDisp(divAnnual/12), 'divm')}
       ${kpi('리스크', risk.score+'점', '', cbEsc(risk.grade)+(risk.warns?` · 주의·경고 ${risk.warns}개`:''), 'risk2')}
     </div>
+    <button type="button" class="rep-home-link" onclick="switchView('report2')">지난달 결산 보기</button>
 
     <div class="cb-dash-insight-grid">
       <div class="cb-panel" style="min-width:0;padding:16px 18px">

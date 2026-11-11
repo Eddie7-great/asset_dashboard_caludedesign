@@ -11,7 +11,7 @@ const src = read('workspace-pages.js'), nav = read('navigation.js'), html = read
 assert.equal((nav.match(/\{menu:'/g) || []).length, 7, '상위 메뉴 7개 유지');
 assert.match(nav, /\['holdings','보유 목록'\],\['acct2','계좌별 보기'\]/);
 assert.match(nav, /\['dca2','적립식 매수'\],\['cal2','일정'\],\['sim2','투자 시뮬레이터'\]/);
-assert.match(cobalt, /acct2:cbRenderAccounts, cal2:cbRenderCalendar \};/);
+assert.match(cobalt, /acct2:cbRenderAccounts, cal2:cbRenderCalendar[,}]/);
 assert.ok(html.indexOf('workspace-pages.js') > html.indexOf('etf-explorer.js') && html.indexOf('workspace-pages.js') < html.indexOf('cobalt.js?'), 'cobalt.js 앞에 로드');
 assert.match(html, /<div id="view-acct2" class="view-section"><div class="cb-scroll" id="cb-acct2">/);
 assert.match(html, /<div id="view-cal2" class="view-section"><div class="cb-scroll" id="cb-cal2">/);

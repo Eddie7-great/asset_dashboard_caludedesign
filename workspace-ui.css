@@ -527,4 +527,52 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .fin-goal-context b{margin-top:auto;padding-top:6px}
 /* 백테스트 — 실행 전 결과 자리가 통째로 비어 화면 대부분이 여백이었다. 무엇이 나오는지 알려 준다 */
 #bt-output:empty::before{content:"종목을 고르고 ‘백테스트 실행’을 누르면 납입 원금 · 최종 평가액 · 손익률 · 연평균 수익률 · 최대 낙폭과 기간별 평가액 그래프가 여기에 나옵니다.";display:flex;align-items:center;justify-content:center;min-height:200px;padding:16px;border:1px dashed var(--bd2);border-radius:var(--r-md);color:var(--lab);font-size:var(--fs-body);line-height:1.6;text-align:center}
+/* ===== 월간 결산(report2) — 표지 + 다섯 장. 색·글꼴·모서리·막대는 대시보드 토큰만 쓴다 =====
+   남색 장(.is-ink)은 홈 총액 카드와 같은 --kpi-hi-* 이다. 그림은 스크롤로 들어올 때 한 번 떠오르되(지원 브라우저만),
+   기본 상태가 '보임'이라 지원하지 않거나 움직임 줄이기에서는 그대로 서 있다. */
+.rep{display:flex;flex-direction:column;gap:12px;max-width:1180px}
+.rep-cover{padding:28px 4px 10px}
+.rep-kicker{margin:0 0 6px;font-size:var(--fs-body);color:var(--mut)}
+.rep-cover h1{margin:0;font:800 clamp(30px,4.4vw,52px)/1.1 var(--font-num);letter-spacing:-.02em;color:var(--tx)}
+.rep-cover>p:last-child{margin:12px 0 0;max-width:38em;font-size:var(--fs-card);line-height:1.7;color:var(--mut)}
+.rep-chapter{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(20px,4vw,56px);align-items:center;padding:clamp(22px,3.4vw,44px)}
+.rep-chapter.is-flip>.rep-prose{order:2}
+.rep-chapter.is-ink{background:var(--kpi-hi-bg);border-color:var(--kpi-hi-bg);color:var(--kpi-hi-tx);--tx:var(--kpi-hi-tx);--mut:var(--kpi-hi-mut);--lab:var(--kpi-hi-mut);--bd:color-mix(in srgb,var(--kpi-hi-tx) 22%,transparent);--inner:color-mix(in srgb,var(--kpi-hi-tx) 12%,transparent);--up:#6fdca4;--dn:#ff9db0}
+.rep-no{margin:0 0 4px;font:700 var(--fs-cap) var(--font-num);color:var(--lab)}
+.rep-chapter h2{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px;font:800 clamp(22px,2.6vw,32px)/1.2 var(--font-ui);letter-spacing:-.02em;color:var(--tx)}
+.rep-badge{padding:3px 8px;border:1px solid var(--bd);border-radius:var(--r-sm);font:500 var(--fs-cap)/1.4 var(--font-ui);letter-spacing:0;color:var(--mut);white-space:nowrap}
+.rep-badge.is-now{border-style:dashed}
+.rep-prose p{margin:0 0 10px;max-width:32em;font-size:var(--fs-card);line-height:1.75;color:var(--tx)}
+.rep-prose b{font-family:var(--font-num);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-prose .rep-note{font-size:var(--fs-cap);line-height:1.65;color:var(--lab)}
+.rep-up{color:var(--up)}.rep-dn{color:var(--dn)}
+.rep-figure{min-width:0;color:var(--tx)}
+.rep-fig{margin:0 0 8px;font:800 clamp(30px,4.6vw,56px)/1.05 var(--font-num);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rep-trend{display:block;width:100%;height:auto;overflow:visible}
+.rep-cap{margin:10px 0 0;font-size:var(--fs-cap);color:var(--lab)}
+.rep-bars{display:grid;gap:12px}
+.rep-bar{display:grid;grid-template-columns:minmax(70px,112px) minmax(0,1fr) 58px 104px;gap:10px;align-items:center;font-size:var(--fs-body)}
+.rep-bar>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.rep-bar>i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.rep-bar>i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:var(--c)}
+.rep-bar>b{text-align:right;font:800 var(--fs-body) var(--font-num);font-variant-numeric:tabular-nums}
+.rep-bar>em{text-align:right;font:500 var(--fs-cap) var(--font-num);font-style:normal;color:var(--lab);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:180px;border-bottom:1px solid var(--bd)}
+.rep-months>i{display:block;height:max(2px,var(--h));border-radius:var(--r-sm) var(--r-sm) 0 0;background:color-mix(in srgb,var(--acc) 34%,transparent)}
+.rep-months>i.is-cur{background:var(--acc)}
+.rep-months-l{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin-top:6px;text-align:center;font:500 var(--fs-cap) var(--font-num);color:var(--lab)}
+.rep-months-l>.is-cur{color:var(--tx);font-weight:800}
+.rep-goals{display:grid;gap:20px}
+.rep-goals h3{display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;font:700 var(--fs-card) var(--font-ui);color:var(--tx)}
+.rep-goals h3>span:last-child{font-family:var(--font-num);font-weight:800}
+.rep-goals i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.rep-goals i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:currentColor}
+.rep-goals p{margin:6px 0 0;font:500 var(--fs-cap) var(--font-num);color:var(--lab);font-variant-numeric:tabular-nums}
+.rep-colophon{padding:6px 4px 24px;font-size:var(--fs-cap);line-height:1.7;color:var(--lab);max-width:60em}
+.rep-month-pick{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:var(--fs-cap);color:var(--mut)}
+.rep-month-pick select{min-height:32px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--panelSolid);color:var(--tx);font:500 var(--fs-body) var(--font-ui)}
+.rep-home-link{align-self:flex-start;font-size:var(--fs-cap);color:var(--acc);text-underline-offset:3px;cursor:pointer;background:none;border:0;padding:2px 0;text-decoration:underline;font-family:inherit}
+@keyframes repIn{from{opacity:.25;transform:translateY(14px)}to{opacity:1;transform:none}}
+@supports (animation-timeline:view()){@media(prefers-reduced-motion:no-preference){.rep-figure{animation:repIn linear both;animation-timeline:view();animation-range:entry 0% entry 55%}}}
+@media(max-width:860px){.rep-chapter{grid-template-columns:minmax(0,1fr)}.rep-chapter.is-flip>.rep-prose{order:0}.rep-bar{grid-template-columns:minmax(60px,88px) minmax(0,1fr) 52px}.rep-bar>em{display:none}.rep-month-pick{margin-left:0}}
 
