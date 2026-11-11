@@ -7,8 +7,8 @@ const defaults={crypto:5,us:35,kr:25,jp:5,gold:10,cash:20};
 const ctx=vm.createContext({FIN_DEFAULT_TARGET:defaults});
 vm.runInContext(navigation+'\n'+sim,ctx);
 const groups=JSON.parse(vm.runInContext('JSON.stringify(APP_NAV)',ctx));
-assert.deepEqual(groups.map(g=>g.title),['홈','자산 관리','투자 분석','배당','투자 계획','현금 흐름','세금·증여']);
-assert.equal((html.match(/class="menu-btn\b/g)||[]).length,7);
+assert.deepEqual(groups.map(g=>g.title),['홈','자산 관리','투자 분석','배당','투자 계획','현금 흐름','세금·증여','결산 리포트']);
+assert.equal((html.match(/class="menu-btn\b/g)||[]).length,8);
 assert.equal(ctx.navResolve('balance2'),'cdash','Retired balance-sheet links safely return home');
 assert.ok(!html.includes('id="view-balance2"'));
 for(const group of groups){
@@ -24,7 +24,7 @@ previous='fam2';ctx.currentOwner='전체';ctx.navPrepare('bubble');assert.equal(
 previous='plan2';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'본인');
 previous='dca2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',ctx),'본인');
 // All former top-level destinations remain reachable in the corresponding family.
-for(const id of ['holdings','fam2','bubble','perf2','risk2','plan2','dca2','tax2','gift2'])assert.ok(ctx.navGroup(id));
+for(const id of ['holdings','fam2','bubble','perf2','risk2','plan2','dca2','tax2','gift2','report2','reporty'])assert.ok(ctx.navGroup(id));
 assert.ok(read('script.js').includes("typeof navResolve==='function'?navResolve(requestedView):requestedView"),'legacy snapshot hash must resolve before first history record');
 assert.doesNotMatch(sim,/\b(?:setKV|saveAssetsToKV|saveExtDataToKV|localStorage|fetch)\s*[.(]/,'scenarios cannot persist or transmit');
 assert.match(sim,/id="sim-monthly" type="number" data-no-comma="1"/,'native numeric input must survive global comma formatting');

@@ -330,7 +330,7 @@ function finNwChartSvg(series,w,h){
   for(let v=lo; v<=hi+step*0.01; v+=step){
     const yy=y(v).toFixed(1);
     grid+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="IBM Plex Mono">${cbTaxAxisLab(v)}</text>`;
+    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="Manrope">${cbTaxAxisLab(v)}</text>`;
   }
   const pts=series.map((p,i)=>({x:padL+i*dx, y:y(p.v)}));
   const line=cbSmoothPath(pts);
@@ -339,7 +339,7 @@ function finNwChartSvg(series,w,h){
   const area=`${line} L${(padL+(series.length-1)*dx).toFixed(1)},${(h-8).toFixed(1)} L${padL.toFixed(1)},${(h-8).toFixed(1)} Z`;
   const every=Math.max(1,Math.ceil(series.length/6));
   const ticks=series.map((p,i)=>({p,i})).filter(x=>x.i%every===0||x.i===series.length-1)
-    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="IBM Plex Mono">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
+    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="Manrope">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
   const hit=series.map((p,i)=>{
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
@@ -364,7 +364,7 @@ function finNwHover(ev,idx){
   const t=(typeof _cbPerfTipEl==='function')?_cbPerfTipEl():null; if(!t) return;
   const p=series[idx], prev=series[idx-1];
   const delta=prev?p.v-prev.v:null;
-  t.innerHTML=`<div style="font-size:12px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
+  t.innerHTML=`<div style="font-size:var(--fs-cap);color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
     <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">투자자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
     ${delta!=null?`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">전일 대비</span><b class="cb-num" style="${cbUpDn(delta)}">${cbSignDisp(delta)}</b></div>`:''}`;
   t.style.display='block';

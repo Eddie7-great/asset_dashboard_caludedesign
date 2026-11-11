@@ -129,6 +129,12 @@ CSS와 어긋나면 CSS가 맞습니다.
 
 ## 3. 타이포그래피
 
+> **2026-11-11 갱신 — 아래 3.1~3.2 의 옛 설명보다 이 상자가 우선합니다.**
+> 글꼴은 2종(`--font-ui` = Noto Sans KR 먼저, `--font-num` = Manrope 먼저)이고 고정폭 글꼴(IBM Plex Mono)은 없앴습니다.
+> 글자 크기는 `--fs-title 22 / --fs-kpi 26 / --fs-card 15 / --fs-body 13 / --fs-cap 12 / --fs-micro 11` 6단,
+> 모서리는 `--r-sm 4 / --r-md 8 / --r-lg 12`, 막대는 `--bar-h 6 / --bar-h-lg 12`, 버튼 높이는 `--btn-h 36` 입니다.
+> 새 화면에서는 숫자를 직접 적지 말고 이 토큰을 씁니다.
+
 ### 3.1 폰트 패밀리
 
 Google Fonts에서 3개 패밀리를 로드합니다(`index.html:9`):

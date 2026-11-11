@@ -28,6 +28,7 @@ KV 쓰기는 `api/kv.ts`와 같은 낙관적 동시성(CAS) 프로토콜을 쓴�
 import datetime
 import importlib.util
 import json
+import math
 import os
 import re
 import sys
@@ -40,6 +41,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # script.js의 OWNERS와 같은 순서·같은 목록이어야 한다 (script.js:209).
 OWNERS = ['본인', '아내', '자녀1', '아버지']
 MAX_HISTORY = 365
+# 월간 결산 보관(reportArchive): 전체 240개월, 종목 내역은 최근 36개월만 남긴다(KV 값 1MB 한도).
+MAX_ARCHIVE_MONTHS = 240
+ARCHIVE_DETAIL_MONTHS = 36
+CRYPTO_KRW_AVG_THRESHOLD = 10000000   # cobalt.js cbAvgNative 와 같은 임계값
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # api/kv.ts의 쓰기 Lua 스크립트와 동일 — 개정번호가 기대값과 같을 때만 쓰고 1 올린다.
@@ -320,6 +325,134 @@ def merge_history(history, entry):
     return rows
 
 
+# ── 월간 결산 보관 ──────────────────────────────────────────────
+# 앱의 reportBuildEntry(workspace-pages.js)와 같은 계산이다. 한쪽만 고치면 지난 결산(배치 기록)과
+# 이번 달 화면(앱 실시간 계산)의 기준이 갈린다 — test_net_worth_snapshot.py 가 같은 입력으로 대조한다.
+def _num(value):
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return n if n == n and n not in (float('inf'), float('-inf')) else 0.0
+
+
+def _round(value):
+    """JS Math.round 와 같은 반올림(.5 는 올림). 파이썬 round 는 짝수로 맞춰 1원씩 어긋난다."""
+    return int(math.floor(value + 0.5))
+
+
+def cls_of(item):
+    grp = item.get('grp')
+    if grp == '가상화폐':
+        return 'crypto'
+    if grp == '금':
+        return 'gold'
+    if grp == '현금':
+        return 'cash'
+    if item.get('cur') == 'JPY':
+        return 'jp'
+    if item.get('cur') == 'USD':
+        return 'us'
+    return 'kr'
+
+
+def _rate(item, rates):
+    rate = rates.get(item.get('cur'))
+    return 1.0 if rate is None else float(rate)
+
+
+def report_value_krw(item, rates):
+    return _num(item.get('qty')) * _num(item.get('curP')) * _rate(item, rates)
+
+
+def report_cost_krw(item, rates):
+    if item.get('costUnknown'):
+        return 0.0
+    avg = _num(item.get('avgP'))
+    if item.get('grp') == '가상화폐' and item.get('cur') == 'USD' and avg >= CRYPTO_KRW_AVG_THRESHOLD:
+        usd = rates.get('USD')
+        avg = avg / (1.0 if usd is None else float(usd))
+    return _num(item.get('qty')) * avg * _rate(item, rates)
+
+
+def build_month_entry(assets, balance_sheet, goals, rates, date_str):
+    """그날 기준 한 달 요약. 달의 마지막 실행분이 월말 결산으로 남는다."""
+    rows = []
+    for item in assets:
+        if not _num(item.get('qty')) > 0:
+            continue
+        rows.append((item, report_value_krw(item, rates), report_cost_krw(item, rates)))
+    rows.sort(key=lambda r: -r[1])
+
+    total = 0.0
+    by_owner, cls, pl = {}, {'전체': {}}, {'전체': {'cost': 0.0, 'gain': 0.0}}
+    holdings = []
+    for item, val, cost in rows:
+        owner, kind = owner_of(item), cls_of(item)
+        total += val
+        by_owner[owner] = by_owner.get(owner, 0.0) + val
+        for key in ('전체', owner):
+            bucket = cls.setdefault(key, {})
+            bucket[kind] = bucket.get(kind, 0.0) + val
+        counted = item.get('grp') != '현금' and not item.get('costUnknown')
+        if counted:
+            for key in ('전체', owner):
+                agg = pl.setdefault(key, {'cost': 0.0, 'gain': 0.0})
+                agg['cost'] += cost
+                agg['gain'] += val - cost
+        holdings.append({
+            'o': owner, 'b': str(item.get('broker') or ''), 'a': str(item.get('acc') or ''),
+            't': str(item.get('tkr') or ''), 'n': str(item.get('name') or item.get('tkr') or ''),
+            'g': kind, 'q': _num(item.get('qty')), 'c': _round(cost), 'v': _round(val),
+            'u': bool(item.get('costUnknown')),
+        })
+
+    bs = balance_sheet if isinstance(balance_sheet, dict) else {}
+    net = total + sum_amounts(bs.get('assets')) - sum_amounts(bs.get('liabilities'))
+    goal_rows = []
+    for goal in goals if isinstance(goals, list) else []:
+        if not isinstance(goal, dict):
+            continue
+        link = goal.get('linkClass') or 'investment'
+        if link == 'net':
+            now = net
+        elif link == 'investment':
+            now = total
+        elif link == 'manual':
+            now = _num(goal.get('currentAmount'))
+        else:
+            now = cls['전체'].get(link, 0.0)
+        goal_rows.append({'name': str(goal.get('name') or '목표'), 'now': _round(now),
+                          'target': _round(_num(goal.get('targetAmount')))})
+
+    return {
+        'ym': date_str[:7], 'date': date_str, 'schemaV': 1,
+        'total': _round(total),
+        'byOwner': {k: _round(v) for k, v in by_owner.items()},
+        'cls': {k: {c: _round(v) for c, v in b.items()} for k, b in cls.items()},
+        'pl': {k: {'cost': _round(v['cost']), 'gain': _round(v['gain'])} for k, v in pl.items()},
+        'holdings': holdings,
+        'goals': goal_rows,
+    }
+
+
+def merge_archive(archive, entry):
+    """같은 달은 덮어쓴다(달의 마지막 실행분이 남는다). 오래된 달은 종목 내역을 덜고, 240개월만 유지."""
+    out = {}
+    for ym, row in (archive.items() if isinstance(archive, dict) else []):
+        if isinstance(row, dict) and isinstance(ym, str) and len(ym) == 7 and ym[4] == '-':
+            out[ym] = row
+    out[entry['ym']] = entry
+    keys = sorted(out)
+    for ym in keys[:-MAX_ARCHIVE_MONTHS] if len(keys) > MAX_ARCHIVE_MONTHS else []:
+        del out[ym]
+    keys = sorted(out)
+    for ym in keys[:-ARCHIVE_DETAIL_MONTHS] if len(keys) > ARCHIVE_DETAIL_MONTHS else []:
+        if 'holdings' in out[ym]:
+            out[ym] = {k: v for k, v in out[ym].items() if k != 'holdings'}
+    return {ym: out[ym] for ym in sorted(out)}
+
+
 # ── 실행 ────────────────────────────────────────────────────────
 def run_once(api, date_str, dry_run=False):
     assets_raw, _ = kv_read('assets')
@@ -345,14 +478,20 @@ def run_once(api, date_str, dry_run=False):
             raise RuntimeError('KV ext_data 형식 오류 — 스냅샷을 남기지 않습니다')
         entry = build_entry(assets, ext.get('balanceSheet'), rates, date_str)
         ext['netWorthHistory'] = merge_history(ext.get('netWorthHistory'), entry)
+        month = build_month_entry(assets, ext.get('balanceSheet'), ext.get('goalData'), rates, date_str)
+        ext['reportArchive'] = merge_archive(ext.get('reportArchive'), month)
         if dry_run:
             log('[dry-run] 기록하지 않음 · %s 순자산 %s원' % (entry['date'], f"{entry['total']:,}"))
+            log('[dry-run] %s 결산 요약 · 투자자산 %s원 · %d종목 · 목표 %d개 · 보관 %d개월' % (
+                month['ym'], f"{month['total']:,}", len(month['holdings']), len(month['goals']),
+                len(ext['reportArchive'])))
             return entry
         if kv_write_cas('ext_data', ext, revision):
             log('기록 완료 %s · 순자산 %s원 (투자 %s / 기타 %s / 부채 %s) · 이력 %d건' % (
                 entry['date'], f"{entry['total']:,}", f"{entry['portfolio']:,}",
                 f"{entry['nonInvestmentAssets']:,}", f"{entry['liabilities']:,}",
                 len(ext['netWorthHistory'])))
+            log('결산 요약 %s · %s종목 · 보관 %d개월' % (month['ym'], len(month['holdings']), len(ext['reportArchive'])))
             return entry
         if attempt < 3:
             time.sleep(2 * attempt)

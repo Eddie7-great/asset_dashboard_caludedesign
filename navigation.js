@@ -7,6 +7,7 @@ const APP_NAV = [
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['cal2','일정'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
   {menu:'tax2',title:'세금·증여',views:[['tax2','실현손익·세금'],['gift2','가족 증여']]},
+  {menu:'report2',title:'결산 리포트',views:[['report2','월간'],['reporty','연간']]},
 ];
 function navResolve(id){ return id==='snap'||id==='dashboard'||id==='balance2'?'cdash':id; }
 function navGroup(id){ return APP_NAV.find(g=>g.views.some(v=>v[0]===navResolve(id))); }
@@ -20,6 +21,7 @@ function navOwner(id){
   if(id==='sim2')return _simOwner;
   if(id==='acct2')return _acctOwner;
   if(id==='cal2')return _calOwner;
+  if(id==='report2'||id==='reporty')return _reportOwner;
   return null;
 }
 function navPrepare(id){
@@ -36,6 +38,7 @@ function navPrepare(id){
     if(id==='sim2')_simOwner=owner;
     if(id==='acct2')_acctOwner=owner;
     if(id==='cal2')_calOwner=owner;
+    if(id==='report2'||id==='reporty')_reportOwner=owner;
     if(id==='divm')_cbDivOwner=owner;
     if(id==='risk2')_cbRiskOwner=owner;
   }

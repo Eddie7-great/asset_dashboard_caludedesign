@@ -922,6 +922,34 @@ function _normalizeOwnerAmountMap(value){
     _safeStoredNumber(source[owner],{min:-1_000_000_000_000_000,max:1_000_000_000_000_000}),
   ]));
 }
+// 월간 결산 보관(reportArchive) — 매일 도는 배치(scripts/net_worth_snapshot.py)만 쓴다. 앱은 읽고, 저장할 때 받은 값을 그대로 다시 싣는다.
+// 형식이 어긋난 달은 버린다(화면이 숫자를 지어내지 않도록). 숫자가 아닌 값은 0 이 아니라 그 항목째로 뺀다.
+function _normalizeReportArchive(raw){
+  const out={};
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
+  const num=v=>Number.isFinite(Number(v))?Number(v):null;
+  const numMap=m=>{const o={};if(m&&typeof m==='object'&&!Array.isArray(m))Object.keys(m).slice(0,12).forEach(k=>{const n=num(m[k]);if(n!==null)o[_boundedStoredText(k,24)]=n;});return o;};
+  Object.keys(raw).filter(ym=>/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)).sort().slice(-240).forEach(ym=>{
+    const e=raw[ym];
+    if(!e||typeof e!=='object'||!_isStoredDateKey(e.date)||String(e.date).slice(0,7)!==ym)return;
+    const total=num(e.total); if(total===null)return;
+    const row={ym,date:String(e.date),schemaV:1,total,byOwner:numMap(e.byOwner),cls:{},pl:{},goals:[]};
+    if(e.cls&&typeof e.cls==='object')Object.keys(e.cls).slice(0,8).forEach(k=>{row.cls[_boundedStoredText(k,24)]=numMap(e.cls[k]);});
+    if(e.pl&&typeof e.pl==='object')Object.keys(e.pl).slice(0,8).forEach(k=>{const c=num(e.pl[k]?.cost),g=num(e.pl[k]?.gain);if(c!==null&&g!==null)row.pl[_boundedStoredText(k,24)]={cost:c,gain:g};});
+    if(Array.isArray(e.holdings))row.holdings=e.holdings.slice(0,400).map(h=>{
+      if(!h||typeof h!=='object')return null;
+      const q=num(h.q),c=num(h.c),v=num(h.v); if(q===null||c===null||v===null)return null;
+      return {o:_boundedStoredText(h.o,24),b:_boundedStoredText(h.b,60),a:_boundedStoredText(h.a,60),t:_boundedStoredText(h.t,40),n:_boundedStoredText(h.n,120),g:_boundedStoredText(h.g,12),q,c,v,u:h.u===true};
+    }).filter(Boolean);
+    if(Array.isArray(e.goals))row.goals=e.goals.slice(0,50).map(g=>{
+      if(!g||typeof g!=='object')return null;
+      const now=num(g.now),target=num(g.target); if(now===null||target===null)return null;
+      return {name:_boundedStoredText(g.name,80),now,target};
+    }).filter(Boolean);
+    out[ym]=row;
+  });
+  return out;
+}
 function _normalizeNetWorthRows(rows){
   if(!Array.isArray(rows))return [];
   return rows.slice(-1000).map(item=>{
@@ -1375,7 +1403,7 @@ function renderAutoTransfers() {
       <td class="text-left">${at.type==='수입'?'<span style="color:var(--up)">수입</span>':'<span style="color:var(--dn)">지출</span>'}</td>
       <td class="text-left">${_cfEsc(at.cat)}</td>
       <td class="text-left">${_cfEsc(at.desc)}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono'">₩${Math.round(at.amt).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(at.amt).toLocaleString()}</td>
       <td class="text-left">${_cfEsc(cycleStr)}</td>
       <td><button class="btn-action" type="button" aria-label="${_cfEsc(at.desc)} 자동이체 삭제" onclick="deleteAutoTransfer(${Number(at.id)||0})">✕</button></td>
     </tr>`;
@@ -1907,6 +1935,7 @@ if(_mobileMQ.addEventListener) _mobileMQ.addEventListener('change',_updateLayout
 setTimeout(_updateLayoutPreviewLabel,0);
 let _sidebarReturnFocus = null;
 function openSidebar() {
+  document.querySelector('.menu-col')?.removeAttribute('inert'); // 넓은 화면에서 접어 둔 채 창을 좁혀도 서랍은 열린다
   _sidebarReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.querySelector('.menu-col')?.classList.add('open');
   document.getElementById('sidebar-backdrop')?.classList.add('show');
@@ -1925,6 +1954,21 @@ function closeSidebar() {
     _sidebarReturnFocus = null;
   }
 }
+// 넓은 화면의 사이드바 접기/펴기. 화면 설정이라 localStorage 에만 둔다(KV 에 넣지 않는다).
+// 접힌 동안 사이드바는 inert 라 키보드 포커스가 들어가지 않는다. 전환이 끝나면 차트가 새 폭에 맞게 다시 그려지도록 알린다.
+function _sideCollapsedSaved(){ try{ return localStorage.getItem('sideCollapsed')==='1'; }catch(e){ return false; } }
+function applySideCollapsed(collapsed, persist){
+  const on=!!collapsed;
+  document.body.classList.toggle('side-collapsed',on);
+  const side=document.querySelector('.menu-col');
+  if(side){ if(on) side.setAttribute('inert',''); else side.removeAttribute('inert'); }
+  const btn=document.getElementById('side-collapse-btn');
+  if(btn){ btn.setAttribute('aria-expanded',String(!on)); btn.setAttribute('aria-label',on?'사이드 메뉴 펴기':'사이드 메뉴 접기'); btn.title=on?'사이드 메뉴 펴기':'사이드 메뉴 접기'; }
+  if(persist){ try{ localStorage.setItem('sideCollapsed',on?'1':'0'); }catch(e){} }
+  clearTimeout(window._sideCollapseTimer);
+  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },320);
+}
+function toggleSideCollapsed(){ applySideCollapsed(!document.body.classList.contains('side-collapsed'),true); }
 function toggleSidebar() {
   document.querySelector('.menu-col')?.classList.contains('open') ? closeSidebar() : openSidebar();
 }
@@ -3060,7 +3104,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   const input=document.createElement('input');
   input.type='text';
   input.className='editable-input';
-  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:.75rem;border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:IBM Plex Mono,monospace;display:inline-block;box-sizing:border-box';
+  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:.75rem;border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
   if(item.grp==='현금'&&field==='qty') input.style.width='110px';
   input.value = (item.grp==='가상화폐'&&field==='avgP') ? Math.round(item.avgP) : item[field];
   let cancelled=false;
@@ -3274,11 +3318,12 @@ function renderPortfolio(owner) {
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
-      const ownerCol=showOwner?'<col style="width:8%">':'';
+      const ownerCol=showOwner?'<col style="width:7%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
-        ?['7%','16%','7%','7%','7%','8%','8%','10%','9%','7%','6%']
-        :['8%','17%','7%','8%','7%','9%','9%','11%','9%','7%','8%'];
+        // 증권사/계좌 칸이 7%일 때는 1440px 에서도 '키움… / …'로 잘렸다 — 비어 있는 일이 많은 DCA·관리 칸에서 폭을 가져온다.
+        ?['11%','17%','6%','6%','6%','8%','8%','10%','9%','7%','5%']
+        :['12%','17%','6%','7%','6%','9%','9%','11%','9%','7%','7%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -4115,7 +4160,7 @@ function renderCashFlow() {
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
     const cycleDisp=i.isAuto?`<span style="font-size:.65rem;color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:.65rem;color:var(--t3)">일회성</span>`;
     const ownerCell=`<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
-    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
+    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:700">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
   // 자동이체 가상 행: 각 자동이체별로 해당 월의 실제/레거시 [자동] 항목이 없으면 예정 행 표시
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();
@@ -4170,7 +4215,7 @@ function renderCashFlow() {
     const atOwnerCell = `<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(at.owner||'미지정')}</span></td>`;
     html+=`<tr style="opacity:.75">
       <td class="text-left">${scheduledLabel}</td>
-      <td class="text-left"><span style="color:${atCls};font-weight:bold">${_cfEsc(at.type)}</span></td>
+      <td class="text-left"><span style="color:${atCls};font-weight:700">${_cfEsc(at.type)}</span></td>
       ${atOwnerCell}<td class="text-left">${_cfEsc(at.cat||'-')}</td>
       <td class="text-left"><span style="color:var(--t3)">[예정]</span> ${_cfEsc(at.desc||'자동이체')}</td>
       <td style="color:${atCls}" class="text-right">${atSign}₩${total.toLocaleString()}</td>
@@ -4788,7 +4833,9 @@ async function saveExtDataToKV() {
     if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
     return {ok:false,blocked:true,status:null};
   }
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null };
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null,
+    // 배치가 쓴 월간 결산 보관을 그대로 다시 싣는다 — 빼면 앱 저장이 지난 결산을 지운다. 사용자 입력이 아니라 되돌리기 대상은 아니다.
+    reportArchive: window._reportArchive || {} };
   const sent=_extSnapshot();
   const res = await setKV('ext_data', ext);
   const ok=!!(res&&res.result==="OK");
@@ -4848,6 +4895,7 @@ async function loadExtDataFromKV() {
     assetHistory=_normalizeAssetHistoryRows(normalized.assetHistory);
     goalData=_normalizeGoalRows(normalized.goalData);
     window._netWorthHistory=_normalizeNetWorthRows(normalized.netWorthHistory);
+    window._reportArchive=_normalizeReportArchive(owns('reportArchive')?data.reportArchive:null);
     window._targetAlloc=_normalizeTargetAlloc(normalized.targetAlloc);
     window._balanceSheet=_normalizeBalanceSheet(normalized.balanceSheet);
     window._giftActual=_normalizeGiftActual(normalized.giftActual);
@@ -4952,6 +5000,7 @@ async function authFetch(url, options = {}) {
 let _dashboardInitStarted = false;
 function _startDashboardAfterAuth(){
   _setAuthenticatedUi(true);
+  if(window.innerWidth>768) applySideCollapsed(_sideCollapsedSaved(),false);
   if (_dashboardInitStarted) return;
   _dashboardInitStarted = true;
   initDashboard();
@@ -6127,7 +6176,7 @@ function fixAssetCurrencies(arr) {
       dcaQty:_safeStoredNumber(raw.dcaQty,{min:0,max:1_000_000_000_000_000}),
       dcaDays,
       dcaDay:Math.round(_safeStoredNumber(raw.dcaDay,{min:1,max:31,fallback:1})),
-      dcaLastExec:_isStoredDateKey(raw.dcaLastExec)?String(raw.dcaLastExec):'',
+      // dcaLastExec(예전 판이 수량을 스스로 늘리며 적던 날짜)는 싣지 않는다 — 불러올 때 버리고 다음 저장 때 원격에서도 사라진다.
       // 액면분할·병합을 어느 날짜까지 확인했는지. 이 날짜 '이후' 분할만 보정 후보가 된다.
       // 비어 있으면 아직 한 번도 확인하지 않은 항목이라 조회 범위 전체를 후보로 본다.
       splitCheckedAt:_isStoredDateKey(raw.splitCheckedAt)?String(raw.splitCheckedAt):'',

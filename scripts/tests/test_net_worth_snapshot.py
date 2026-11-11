@@ -223,5 +223,121 @@ check('지연 시간도 함께 돌려준다',
       batch.scheduled_kst_date('07:40', _dt.datetime(2026, 9, 14, 14, 24, tzinfo=_UTC))[1],
       _dt.timedelta(hours=6, minutes=44))
 
+
+# ── 4. 월간 결산 보관(reportArchive) — 앱 reportBuildEntry 와 대조 ─────────────
+print('\n[월간 결산 요약]')
+REPORT_ASSETS = ASSETS + [
+    # 가상화폐 원화 평단(1천만 이상) → 달러로 바꿔 원가 계산 (cobalt.js cbAvgNative)
+    {'owner': '본인', 'grp': '가상화폐', 'tkr': 'ETH', 'cur': 'USD', 'qty': 2, 'curP': 3000, 'avgP': 12000000, 'broker': '업비트', 'acc': '일반', 'name': '이더리움'},
+    {'owner': '아내', 'grp': '주식', 'tkr': '000660', 'cur': 'KRW', 'qty': 3, 'curP': 200000, 'avgP': 0, 'costUnknown': True},
+    {'owner': '본인', 'grp': '주식', 'tkr': 'ZERO', 'cur': 'KRW', 'qty': 0, 'curP': 1, 'avgP': 1},
+    {'owner': '본인', 'grp': '주식', 'tkr': 'HALF', 'cur': 'USD', 'qty': 3, 'curP': 10.5, 'avgP': 7.25},
+]
+for row in REPORT_ASSETS:
+    row.setdefault('avgP', row.get('curP', 0) * 0.8)
+REPORT_GOALS = [
+    {'name': '은퇴', 'targetAmount': 1e9, 'linkClass': 'investment'},
+    {'name': '순자산', 'targetAmount': 2e9, 'linkClass': 'net'},
+    {'name': '미국', 'targetAmount': 5e7, 'linkClass': 'us'},
+    {'name': '직접', 'targetAmount': 1e7, 'linkClass': 'manual', 'currentAmount': 3500000},
+]
+
+
+def js_month_entry():
+    cobalt_js = open(os.path.join(ROOT, 'cobalt.js'), encoding='utf-8').read()
+    pages_js = open(os.path.join(ROOT, 'workspace-pages.js'), encoding='utf-8').read()
+    parts = [extract_js_function(cobalt_js, n) for n in ('cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW')]
+    parts.append(extract_js_function(pages_js, 'reportBuildEntry'))
+    harness = """
+const RATES = %s;
+%s
+console.log(JSON.stringify(reportBuildEntry(%s, %s, %s, %s)));
+""" % (json.dumps(RATES), '\n'.join(parts), json.dumps(REPORT_ASSETS, ensure_ascii=False),
+       json.dumps(BALANCE_SHEET, ensure_ascii=False), json.dumps(REPORT_GOALS, ensure_ascii=False), json.dumps(DATE))
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+        f.write(harness)
+        path = f.name
+    try:
+        out = subprocess.run([os.environ.get('NODE_BIN', 'node'), path], capture_output=True, text=True, check=True)
+        return json.loads(out.stdout.strip())
+    finally:
+        os.unlink(path)
+
+
+def _norm(entry):
+    """JS 는 정수 실수를 2.0 이 아니라 2 로 적는다 — 수량만 숫자 비교로 맞춘다."""
+    e = json.loads(json.dumps(entry))
+    for h in e.get('holdings', []):
+        h['q'] = float(h['q'])
+    return e
+
+
+py_month = batch.build_month_entry(REPORT_ASSETS, BALANCE_SHEET, REPORT_GOALS, RATES, DATE)
+try:
+    js_month = js_month_entry()
+except (FileNotFoundError, subprocess.CalledProcessError) as e:
+    if os.environ.get('CI'):
+        print('  FAIL  workspace-pages.js 대조 불가 — CI 에서 node 실행이 실패했다 (%s)' % type(e).__name__)
+        FAIL.append('reportBuildEntry 대조 실행')
+    else:
+        print('  SKIP  node 실행 불가 (%s)' % type(e).__name__)
+    js_month = None
+if js_month is not None:
+    check('월간 요약이 workspace-pages.js reportBuildEntry 와 동일', _norm(py_month), _norm(js_month))
+check('수량 0 종목은 빼고, 평가액 큰 순', [h['t'] for h in py_month['holdings']][:2], ['BTC', 'SCHD'])
+check('현금·취득가 미상은 손익에서 뺀다',
+      sorted(h['t'] for h in py_month['holdings'] if h['u']), ['000660'])
+check('목표: 직접 입력은 그 값', py_month['goals'][3]['now'], 3500000)
+check('JS Math.round 와 같은 반올림(.5 올림)', batch._round(2.5), 3)
+
+print('\n[월간 결산 보관 병합]')
+e1 = dict(py_month, ym='2026-09', date='2026-09-15')
+e2 = dict(py_month, ym='2026-09', date='2026-09-30', total=1)
+merged = batch.merge_archive(batch.merge_archive({}, e1), e2)
+check('같은 달은 덮어쓴다(달의 마지막 실행분이 남는다)', (list(merged), merged['2026-09']['date']), (['2026-09'], '2026-09-30'))
+check('형식이 틀린 키는 버린다', list(batch.merge_archive({'bad': {}, '2026-9': {}, '2026-08': 'x'}, e1)), ['2026-09'])
+big = {}
+for i in range(250):
+    y, m = 2005 + i // 12, i % 12 + 1
+    big = batch.merge_archive(big, dict(py_month, ym='%04d-%02d' % (y, m), date='%04d-%02d-01' % (y, m)))
+keys = sorted(big)
+check('최대 240개월', len(keys), batch.MAX_ARCHIVE_MONTHS)
+check('종목 내역은 최근 36개월만', sum(1 for k in keys if 'holdings' in big[k]), batch.ARCHIVE_DETAIL_MONTHS)
+check('오래된 달도 총액은 남는다', 'total' in big[keys[0]] and 'holdings' not in big[keys[0]], True)
+check('보관 크기가 KV 1MB 한도 안(종목 9개 × 240개월)', len(json.dumps(big, ensure_ascii=False).encode('utf-8')) < 1_000_000, True)
+
+
+print('\n[run_once — 한 번의 저장에 일별 기록과 월간 요약을 함께, 다른 필드는 보존]')
+
+
+class _RunApi:
+    @staticmethod
+    def get_rates():
+        return {'rates': {'usd_krw': 1400.0, 'jpy100_krw': 950.0}}
+
+
+_store = {
+    'assets': [{'owner': '본인', 'grp': '주식', 'tkr': 'AAPL', 'cur': 'USD', 'qty': 2, 'curP': 100, 'avgP': 80}],
+    'ext_data': {'goalData': [{'name': '은퇴', 'targetAmount': 1e8}], 'cfData': [{'keep': 1}], 'giftActual': {'records': [1]},
+                 'netWorthHistory': [], 'reportArchive': {'2026-08': {'ym': '2026-08', 'date': '2026-08-31', 'total': 5}}},
+}
+_writes = []
+_orig = (batch.kv_read, batch.kv_write_cas, batch.fetch_gold_per_gram, batch.refresh_prices)
+batch.kv_read = lambda key: (json.loads(json.dumps(_store[key])), 7)
+batch.kv_write_cas = lambda key, value, rev: (_writes.append((key, value, rev)) or True)
+batch.fetch_gold_per_gram = lambda api: None
+batch.refresh_prices = lambda api, assets, rates, gold: []
+try:
+    batch.run_once(_RunApi(), '2026-09-30')
+    batch.run_once(_RunApi(), '2026-09-30', dry_run=True)
+finally:
+    batch.kv_read, batch.kv_write_cas, batch.fetch_gold_per_gram, batch.refresh_prices = _orig
+check('쓰기는 ext_data 한 번(드라이런은 쓰지 않음)', [(k, r) for k, _, r in _writes], [('ext_data', 7)])
+_ext = _writes[0][1]
+check('다른 필드는 그대로', (_ext['cfData'], _ext['giftActual']), ([{'keep': 1}], {'records': [1]}))
+check('지난 보관은 남기고 이번 달을 더한다', sorted(_ext['reportArchive']), ['2026-08', '2026-09'])
+check('이번 달 요약 값', (_ext['reportArchive']['2026-09']['total'], _ext['reportArchive']['2026-09']['goals'][0]['now']), (280000, 280000))
+check('일별 기록도 같은 저장에', [h['date'] for h in _ext['netWorthHistory']], ['2026-09-30'])
+
 print('\n%d개 항목 · 실패 %d건' % (len(PASS) + len(FAIL), len(FAIL)))
 sys.exit(1 if FAIL else 0)

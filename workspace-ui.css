@@ -1,15 +1,15 @@
 /* Shared section navigation and compact widget controls. */
-.compact-menu{gap:2px;overflow-y:auto}.compact-menu .menu-btn{box-sizing:border-box;min-height:30px;padding:5px 11px;line-height:20px;font-size:12px;flex-shrink:0}
+.compact-menu{gap:2px;overflow-y:auto}.compact-menu .menu-btn{box-sizing:border-box;min-height:30px;padding:5px 11px;line-height:20px;font-size:var(--fs-cap);flex-shrink:0}
 .page-sections{display:flex;gap:5px;padding:10px 22px;border-bottom:1px solid var(--bd);flex-shrink:0;overflow-x:auto;min-height:42px;align-items:center}
 .page-sections[hidden]{display:none}
-.page-sections a{display:block;padding:9px 14px;border-radius:9px;color:var(--mut);text-decoration:none;white-space:nowrap;font-size:12px;font-weight:650;transition:background .15s}
+.page-sections a{display:block;padding:9px 14px;border-radius:var(--r-md);color:var(--mut);text-decoration:none;white-space:nowrap;font-size:var(--fs-cap);font-weight:700;transition:background .15s}
 .page-sections a:hover{background:var(--inner)}
 .page-sections a[aria-current]{background:var(--accSoft);color:var(--acc);box-shadow:inset 0 0 0 1px var(--bd2)}
 .page-sections a:focus-visible,.sim-range:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
 
 .form-group,.fin-form-grid label,.cb-gift-field{min-width:0}
 .form-input,.cb-input,.fin-form-grid input,.fin-form-grid select{min-width:0;max-width:100%;box-sizing:border-box;height:36px;line-height:normal}
-.form-group .form-input{width:100%}.form-label,.fin-form-grid label{font-size:12px;line-height:1.5}
+.form-group .form-input{width:100%}.form-label,.fin-form-grid label{font-size:var(--fs-cap);line-height:1.5}
 .fin-form-grid label{gap:6px}
 .fin-section-head{gap:10px;flex-wrap:wrap}.fin-section-head>small{line-height:1.5}
 #cf-input-panel .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(144px,170px));gap:10px;align-items:end;justify-content:start;max-width:none}
@@ -18,30 +18,30 @@
 .cb-gift-field{flex:0 1 176px!important;min-width:140px!important;max-width:190px}.cb-gift-field>span{min-height:18px;line-height:1.5}
 .cb-gift-panel div:has(>.cb-gift-field){align-items:flex-end}.cb-gift-settings{display:grid!important;grid-template-columns:minmax(130px,160px) minmax(80px,100px) minmax(100px,120px)}.cb-gift-settings .cb-gift-field{min-width:0!important;max-width:none}
 .cb-tax-entry-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:14px}
-.cb-tax-entry-form>label{display:flex;flex-direction:row;align-items:center;gap:5px;font-size:12px;color:var(--lab);min-width:0;white-space:nowrap}.cb-tax-entry-form .cb-input{width:auto;max-width:none!important;min-width:0!important;flex:none!important}.cb-tax-entry-form #cb-tax-pl{width:120px}.cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 140px;max-width:340px}.cb-tax-entry-form>label.cb-tax-memo-field .cb-input{flex:1 1 auto!important;width:100%;min-width:110px!important}.cb-tax-entry-form>button{height:30px;padding:0 12px!important;white-space:nowrap}
+.cb-tax-entry-form>label{display:flex;flex-direction:row;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--lab);min-width:0;white-space:nowrap}.cb-tax-entry-form .cb-input{width:auto;max-width:none!important;min-width:0!important;flex:none!important}.cb-tax-entry-form #cb-tax-pl{width:120px}.cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 140px;max-width:340px}.cb-tax-entry-form>label.cb-tax-memo-field .cb-input{flex:1 1 auto!important;width:100%;min-width:110px!important}.cb-tax-entry-form>button{height:30px;padding:0 12px!important;white-space:nowrap}
 
 .dca-rule-actions{flex-shrink:0;align-items:center}.dca-rule-actions button{padding:4px 6px}
 /* Investment Lab: persistent controls, only the result region rerenders on input. */
 .sim-mobile-preview{display:none}.sim-weight-total.invalid{color:var(--warn)}
 
-.sim-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}.sim-controls{padding:20px;min-width:0}.sim-results{min-width:0}.sim-field{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:20px;color:var(--mut);font-size:12px}.sim-field span{color:var(--lab)}
-.sim-field input{grid-column:1/-1;width:100%;box-sizing:border-box;min-width:0;padding:9px 12px;background:var(--inner);border:1px solid var(--bd2);color:var(--tx);border-radius:8px;font:700 20px Manrope,'Noto Sans KR',sans-serif;height:44px}
+.sim-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}.sim-controls{padding:20px;min-width:0}.sim-results{min-width:0}.sim-field{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:20px;color:var(--mut);font-size:var(--fs-cap)}.sim-field span{color:var(--lab)}
+.sim-field input{grid-column:1/-1;width:100%;box-sizing:border-box;min-width:0;padding:9px 12px;background:var(--inner);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--r-md);font:700 20px Manrope,'Noto Sans KR',sans-serif;height:44px}
 .sim-controls input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}.sim-range{display:block;width:100%;min-width:0;box-sizing:border-box;accent-color:var(--acc);margin:10px 0;cursor:pointer;height:20px}
-.sim-strategy{border:0;border-top:1px solid var(--bd);padding:14px 0 0;margin:22px 0;min-width:0}.sim-strategy legend{font-size:12px;color:var(--lab);padding-right:8px}.sim-strategy label{display:flex;gap:7px;align-items:center;font-size:12px;margin-bottom:10px}.sim-strategy input{accent-color:var(--acc)}
-.sim-target-head{margin-top:24px}.sim-target-head button{font-size:11px;padding:5px 7px}.sim-weight{display:grid;grid-template-columns:minmax(0,1fr) 62px 15px;align-items:center;gap:7px;margin-top:12px;font-size:12px}.sim-weight label{display:flex;align-items:center;gap:7px}.sim-weight i,.sim-legend i,.sim-row i{display:inline-block;width:8px;height:8px;border-radius:3px;flex-shrink:0}.sim-weight input[type=number]{width:100%;min-width:0;box-sizing:border-box;text-align:right;height:32px;border:1px solid var(--bd2);background:var(--inner);color:var(--tx);border-radius:6px;padding:4px 6px}.sim-weight>.sim-range{grid-column:1/-1;margin:0}.sim-weight-total{font-size:12px;text-align:right;color:var(--lab);margin-bottom:0}
-.sim-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sim-kpis>div{padding:18px 16px;min-width:0}.sim-kpis small{display:block;font-size:11px;color:var(--lab)}.sim-kpis b{display:block;font:800 22px Manrope,'Noto Sans KR',sans-serif;margin-top:9px;overflow-wrap:anywhere}.sim-accent{color:var(--acc)}
-.sim-comparison,.sim-breakdown{margin-top:14px;padding:22px;min-width:0}.sim-stack-label{display:flex;justify-content:space-between;gap:10px;font-size:12px;margin:24px 0 10px}.sim-stack-label span{color:var(--mut)}.sim-stack{display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--inner);gap:2px}.sim-stack>span{min-width:0;transition:width .22s ease}.sim-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:18px;font-size:11px;color:var(--mut)}.sim-legend span{display:flex;align-items:center;gap:6px}.sim-gap{border-top:1px solid var(--bd);padding-top:18px;font-size:12px;margin:20px 0 0;color:var(--mut)}.sim-gap b{color:var(--tx);display:block;font:800 24px Manrope,sans-serif;margin:8px 0}.sim-gap small{font-size:11px;line-height:1.6;display:block}
-.sim-row{display:grid;grid-template-columns:minmax(90px,1fr) minmax(90px,1fr) minmax(120px,1.3fr) 45px;gap:8px;align-items:center;border-bottom:1px solid var(--bd);padding:13px 0;font-size:12px}.sim-row>span:first-child{display:flex;gap:7px;align-items:center}.sim-row>span:not(:first-child),.sim-row>b{text-align:right}.sim-row:last-child{border:0}.sim-row em{font-style:normal;color:var(--lab)}.sim-table-head{color:var(--lab);font-size:11px}.sim-assumptions{font-size:12px;color:var(--lab);line-height:1.8;margin:18px 2px}.sim-empty{font-size:12px;color:var(--lab);line-height:1.6}.sim-error{border:1px solid var(--warn);background:var(--inner);border-radius:12px;padding:18px;color:var(--warn);line-height:1.7;font-size:13px}
+.sim-strategy{border:0;border-top:1px solid var(--bd);padding:14px 0 0;margin:22px 0;min-width:0}.sim-strategy legend{font-size:var(--fs-cap);color:var(--lab);padding-right:8px}.sim-strategy label{display:flex;gap:7px;align-items:center;font-size:var(--fs-cap);margin-bottom:10px}.sim-strategy input{accent-color:var(--acc)}
+.sim-target-head{margin-top:24px}.sim-target-head button{font-size:var(--fs-micro);padding:5px 7px}.sim-weight{display:grid;grid-template-columns:minmax(0,1fr) 62px 15px;align-items:center;gap:7px;margin-top:12px;font-size:var(--fs-cap)}.sim-weight label{display:flex;align-items:center;gap:7px}.sim-weight i,.sim-legend i,.sim-row i{display:inline-block;width:8px;height:8px;border-radius:var(--r-sm);flex-shrink:0}.sim-weight input[type=number]{width:100%;min-width:0;box-sizing:border-box;text-align:right;height:32px;border:1px solid var(--bd2);background:var(--inner);color:var(--tx);border-radius:var(--r-md);padding:4px 6px}.sim-weight>.sim-range{grid-column:1/-1;margin:0}.sim-weight-total{font-size:var(--fs-cap);text-align:right;color:var(--lab);margin-bottom:0}
+.sim-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sim-kpis>div{padding:18px 16px;min-width:0}.sim-kpis small{display:block;font-size:var(--fs-micro);color:var(--lab)}.sim-kpis b{display:block;font:800 22px Manrope,'Noto Sans KR',sans-serif;margin-top:9px;overflow-wrap:anywhere}.sim-accent{color:var(--acc)}
+.sim-comparison,.sim-breakdown{margin-top:14px;padding:22px;min-width:0}.sim-stack-label{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-cap);margin:24px 0 10px}.sim-stack-label span{color:var(--mut)}.sim-stack{display:flex;height:30px;border-radius:var(--r-md);overflow:hidden;background:var(--inner);gap:2px}.sim-stack>span{min-width:0;transition:width .22s ease}.sim-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:18px;font-size:var(--fs-micro);color:var(--mut)}.sim-legend span{display:flex;align-items:center;gap:6px}.sim-gap{border-top:1px solid var(--bd);padding-top:18px;font-size:var(--fs-cap);margin:20px 0 0;color:var(--mut)}.sim-gap b{color:var(--tx);display:block;font:800 24px Manrope,sans-serif;margin:8px 0}.sim-gap small{font-size:var(--fs-micro);line-height:1.6;display:block}
+.sim-row{display:grid;grid-template-columns:minmax(90px,1fr) minmax(90px,1fr) minmax(120px,1.3fr) 45px;gap:8px;align-items:center;border-bottom:1px solid var(--bd);padding:13px 0;font-size:var(--fs-cap)}.sim-row>span:first-child{display:flex;gap:7px;align-items:center}.sim-row>span:not(:first-child),.sim-row>b{text-align:right}.sim-row:last-child{border:0}.sim-row em{font-style:normal;color:var(--lab)}.sim-table-head{color:var(--lab);font-size:var(--fs-micro)}.sim-assumptions{font-size:var(--fs-cap);color:var(--lab);line-height:1.8;margin:18px 2px}.sim-empty{font-size:var(--fs-cap);color:var(--lab);line-height:1.6}.sim-error{border:1px solid var(--warn);background:var(--inner);border-radius:var(--r-lg);padding:18px;color:var(--warn);line-height:1.7;font-size:var(--fs-body)}
 @media(min-width:769px) and (max-width:1200px){.sim-layout{grid-template-columns:250px minmax(0,1fr)}.sim-kpis{grid-template-columns:1fr}.sim-kpis>div{display:flex;justify-content:space-between;align-items:center;gap:8px}.sim-kpis b{margin:0;font-size:20px}.sim-breakdown{padding:16px}.sim-row{grid-template-columns:minmax(85px,1fr) minmax(90px,1fr)}.sim-table-head{display:none}.sim-row>span:nth-child(3){grid-column:1;text-align:left;color:var(--mut)}.sim-row>span:last-child:before{content:'목표 ';color:var(--lab)}}
 @media(max-width:768px){
   .cb-gift-settings{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .sim-mobile-preview{display:flex;position:sticky;top:var(--workspace-head-height,104px);z-index:4;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px;background:var(--panelSolid);border:1px solid var(--bd2);border-radius:10px;font-size:12px;box-shadow:0 3px 12px #0001}.sim-mobile-preview span{min-width:0;line-height:1.5}.sim-mobile-preview button{flex-shrink:0}.sim-results{scroll-margin-top:calc(var(--workspace-head-height,104px) + 78px)}
+  .sim-mobile-preview{display:flex;position:sticky;top:var(--workspace-head-height,104px);z-index:4;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px;background:var(--panelSolid);border:1px solid var(--bd2);border-radius:var(--r-md);font-size:var(--fs-cap);box-shadow:0 3px 12px #0001}.sim-mobile-preview span{min-width:0;line-height:1.5}.sim-mobile-preview button{flex-shrink:0}.sim-results{scroll-margin-top:calc(var(--workspace-head-height,104px) + 78px)}
   .page-sections{padding:8px 12px;min-height:38px;gap:3px}.page-sections a{padding:9px 11px}
   .view-section.active:has(>.cb-scroll){flex:0 0 auto}.view-section>.cb-scroll{flex:none;overflow:visible!important}
 
   .fin-form-grid{grid-template-columns:1fr}
   .cb-gift-field{flex:1 1 140px!important;max-width:none}.dca-rule-actions{display:none!important}
-  .sim-layout{grid-template-columns:1fr;gap:14px}.sim-controls{padding:18px}.sim-weights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px}.sim-weight{grid-template-columns:minmax(0,1fr) 48px 10px;gap:4px}.sim-weight label{font-size:11px;gap:4px}.sim-weight i{width:5px;height:5px}.sim-weight-total{grid-column:1/-1}
+  .sim-layout{grid-template-columns:1fr;gap:14px}.sim-controls{padding:18px}.sim-weights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px}.sim-weight{grid-template-columns:minmax(0,1fr) 48px 10px;gap:4px}.sim-weight label{font-size:var(--fs-micro);gap:4px}.sim-weight i{width:5px;height:5px}.sim-weight-total{grid-column:1/-1}
   .sim-kpis{grid-template-columns:1fr}.sim-kpis>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.sim-kpis b{margin:0;font-size:22px}.sim-comparison,.sim-breakdown{padding:18px}.sim-row{grid-template-columns:minmax(90px,1fr) minmax(100px,1fr)}.sim-table-head{display:none}.sim-row>span:nth-child(3){grid-column:1;text-align:left;color:var(--mut)}.sim-row>span:last-child:before{content:'목표 ';color:var(--lab)}.sim-gap b{font-size:22px}
 }
 @media(max-width:360px){.sim-weights{grid-template-columns:1fr}.sim-kpis b{font-size:19px}}
@@ -68,7 +68,7 @@
   .page-sections{padding:4px 10px;min-height:36px}.page-sections a{padding:8px 10px}
   .content-area:has(#view-divm.active) #cb-head-widgets .owner-tabs:nth-child(2){order:-1;flex-basis:100%;justify-content:center}
   /* 데이터 상태 카드는 휴대폰에서 한 줄에 하나 — 2열이면 제목·상태·출처가 전부 말줄임표로 잘렸다. */
-  .fin-data-grid{grid-template-columns:1fr;gap:8px}.fin-data-card{padding:11px}.fin-data-card>div{flex-wrap:wrap}.fin-data-card>strong{margin-top:8px;font-size:12px}.fin-data-card button{margin-top:7px}
+  .fin-data-grid{grid-template-columns:1fr;gap:8px}.fin-data-card{padding:11px}.fin-data-card>div{flex-wrap:wrap}.fin-data-card>strong{margin-top:8px;font-size:var(--fs-cap)}.fin-data-card button{margin-top:7px}
   .sim-controls{padding:14px}.sim-kpis b{margin:0}.sim-comparison,.sim-breakdown{padding:14px}.cb-gift-panel{padding:13px!important}
 }
 /* Compact overview: allocation, concentration, contribution and both rankings. */
@@ -77,22 +77,22 @@
 #cb-cdash .cb-mover-card>div:first-child{flex-wrap:wrap;gap:3px!important}
 #cb-cdash .cb-allocation-visual{height:145px}
 #cb-tax2>.cb-tax-summary-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-#cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card{padding:10px;overflow-wrap:anywhere;font-size:11px}
-#cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card>div:first-child{font-size:11px!important;letter-spacing:0!important}
+#cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card{padding:10px;overflow-wrap:anywhere;font-size:var(--fs-micro)}
+#cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card>div:first-child{font-size:var(--fs-micro)!important;letter-spacing:0!important}
 .page-sections{justify-content:flex-end}
-.page-sections a,#cb-head-widgets button,#owner-tabs-container .owner-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:8px;font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;letter-spacing:0;white-space:nowrap}
+.page-sections a,#cb-head-widgets button,#owner-tabs-container .owner-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:var(--r-md);font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;letter-spacing:0;white-space:nowrap}
 .page-sections a:not([aria-current]){background:var(--panel);color:var(--mut)}
 #cb-head-widgets,#owner-tabs-container{justify-content:flex-end!important;margin-left:auto}
 #cb-sim2 .sim-layout{margin-top:0}
 .tax-rule-disclosure{margin-top:16px}
 @media(max-width:1179px) and (min-width:769px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:768px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#cb-tax2>.cb-tax-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.page-sections{justify-content:safe flex-end}.page-sections a,#cb-head-widgets button,#owner-tabs-container .owner-btn{font-size:11px;padding:6px 9px}}
+@media(max-width:768px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#cb-tax2>.cb-tax-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.page-sections{justify-content:safe flex-end}.page-sections a,#cb-head-widgets button,#owner-tabs-container .owner-btn{font-size:var(--fs-micro);padding:6px 9px}}
 @media(max-width:420px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}}
 #cb-cdash .cb-home-allocation-row{display:grid!important;grid-template-columns:9px minmax(0,1fr) auto 11px;gap:3px 5px!important;padding:6px 0!important}
 .cb-home-allocation-row>span:nth-child(1){grid-column:1;grid-row:1/3}
-.cb-home-allocation-row>span:nth-child(2){grid-column:2;grid-row:1;white-space:nowrap;font-size:11px}
-.cb-home-allocation-row>span:nth-child(3){grid-column:2;grid-row:2;font-size:10px!important;white-space:nowrap}
-.cb-home-allocation-row>span:nth-child(4){grid-column:3;grid-row:1/3;width:auto!important;font-size:11px}
+.cb-home-allocation-row>span:nth-child(2){grid-column:2;grid-row:1;white-space:nowrap;font-size:var(--fs-micro)}
+.cb-home-allocation-row>span:nth-child(3){grid-column:2;grid-row:2;font-size:var(--fs-micro)!important;white-space:nowrap}
+.cb-home-allocation-row>span:nth-child(4){grid-column:3;grid-row:1/3;width:auto!important;font-size:var(--fs-micro)}
 .cb-home-allocation-row>span:nth-child(5){grid-column:4;grid-row:1/3}
 #cb-tax2>.cb-tax-summary-grid .cb-tax-summary-card{word-break:keep-all;overflow-wrap:break-word}
 #cb-tax2>.cb-tax-summary-grid .cb-tax-summary-card div[style*="justify-content:space-between"]{flex-wrap:wrap;gap:3px 5px}
@@ -111,40 +111,40 @@
 .cb-dash-sector-note{overflow-wrap:anywhere}
 .home-holdings-layout{margin-top:12px}.home-table-column{padding:14px 16px;min-width:0}
 .home-table-column .cb-dash-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:0 0 10px}
-.home-table-column h3{margin:0;font-size:14px}.home-table-column small{font-size:11px;color:var(--lab);font-weight:400}
-.home-table-column input{width:240px;max-width:50%;min-width:0;padding:7px 10px;border:1px solid var(--bd);background:var(--inner);color:var(--tx);border-radius:8px}
-.home-table-wrap{overflow:auto}.home-table-column table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap}
+.home-table-column h3{margin:0;font-size:14px}.home-table-column small{font-size:var(--fs-micro);color:var(--lab);font-weight:400}
+.home-table-column input{width:240px;max-width:50%;min-width:0;padding:7px 10px;border:1px solid var(--bd);background:var(--inner);color:var(--tx);border-radius:var(--r-md)}
+.home-table-wrap{overflow:auto}.home-table-column table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--fs-cap);white-space:nowrap}
 .home-table-column td,.home-table-column th{padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right}.home-table-column td:nth-child(-n+2),.home-table-column th:nth-child(-n+2){text-align:left}
 /* 리밸런싱 목표 입력 — 규칙은 여기 한 곳만 둔다(예전엔 두 파일 네 곳이 서로 덮어써 라벨이 '가상화'처럼 잘렸다).
    6개 자산군 + 허용 편차 + 목표 저장 = 4칸×2줄. 라벨은 이름 줄과 '입력|단위' 줄의 2단이라 칸이 좁아도 이름이 잘리지 않는다. */
-.fin-target-inputs{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;margin-bottom:10px}.fin-target-inputs>label{display:flex;align-items:center;gap:4px;flex:1 1 auto;max-width:210px;min-width:0;width:auto;padding:4px 6px;background:var(--inner);border-radius:8px}.fin-target-inputs>label>span{flex:1 1 auto;font-size:12px;color:var(--mut);white-space:nowrap}.fin-target-inputs>label.threshold>span{color:var(--lab)}.fin-target-inputs label i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:5px}.fin-target-inputs input{flex:0 0 44px;width:44px;min-width:0;height:28px;padding:4px 6px;text-align:right}.fin-target-inputs em{font-style:normal;font-size:11px;color:var(--dim)}.fin-target-inputs>button{flex:0 0 auto;min-height:32px;white-space:nowrap}.fin-rebal-main{min-width:0}
+.fin-target-inputs{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;margin-bottom:10px}.fin-target-inputs>label{display:flex;align-items:center;gap:4px;flex:1 1 auto;max-width:210px;min-width:0;width:auto;padding:4px 6px;background:var(--inner);border-radius:var(--r-md)}.fin-target-inputs>label>span{flex:1 1 auto;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}.fin-target-inputs>label.threshold>span{color:var(--lab)}.fin-target-inputs label i{display:inline-block;width:7px;height:7px;border-radius:var(--r-sm);margin-right:5px}.fin-target-inputs input{flex:0 0 44px;width:44px;min-width:0;height:28px;padding:4px 6px;text-align:right}.fin-target-inputs em{font-style:normal;font-size:var(--fs-micro);color:var(--dim)}.fin-target-inputs>button{flex:0 0 auto;min-height:32px;white-space:nowrap}.fin-rebal-main{min-width:0}
 .fin-rebal-comparison{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,1fr);gap:14px;align-items:start}
 .fin-rebal-table>div{min-width:0}.cb-dash-sector-card{word-break:keep-all}
-.fin-rebal-table>div{grid-template-columns:minmax(76px,1fr) 52px 52px 60px minmax(90px,1fr) minmax(90px,1fr)!important;gap:6px!important;font-size:11px;padding:8px 2px!important}.fin-rebal-table>div>span:not(:first-child){text-align:right}
+.fin-rebal-table>div{grid-template-columns:minmax(76px,1fr) 52px 52px 60px minmax(90px,1fr) minmax(90px,1fr)!important;gap:6px!important;font-size:var(--fs-micro);padding:8px 2px!important}.fin-rebal-table>div>span:not(:first-child){text-align:right}
 /* 계좌 배치 진단의 평가액·비중도 숫자 열이므로 헤더까지 오른쪽 정렬 — 다른 표와 기준선을 맞춘다. */
 .fin-account-table>div>span:nth-child(2),.fin-account-table>div>span:nth-child(3){text-align:right}
-.fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:12px}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
+.fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:var(--fs-cap)}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
 .fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;align-items:stretch}.fin-goal-context>.cb-panel{padding:12px;display:flex;flex-direction:column}.fin-goal-context b{display:block;margin-top:6px;font-size:19px}.fin-goal-context small{color:var(--lab)}
 #fin-goal-form .fin-form-grid{display:flex;gap:9px;flex-wrap:wrap;align-items:end}#fin-goal-form .fin-form-grid>label{flex:1 1 145px}#fin-goal-form .fin-form-actions{flex:0 0 auto;margin:0;align-self:end}#fin-goal-form button{white-space:nowrap}
-.fin-goal-gap{font-size:12px;color:var(--lab);grid-column:1/-1;margin:0}
+.fin-goal-gap{font-size:var(--fs-cap);color:var(--lab);grid-column:1/-1;margin:0}
 .form-row:has(#btn-cf-submit){gap:7px}.form-row:has(#btn-cf-submit)>.form-group{min-width:0!important}#btn-cf-submit{flex:0 0 auto;min-width:58px;white-space:nowrap;width:auto!important}
-.cb-tax-bottom-grid{grid-template-columns:1fr!important}.cb-tax-entry-form select,.cb-tax-entry-form input{font-size:12px;padding:5px 7px}.cb-tax-head-grid{display:block;width:auto;white-space:nowrap}.cb-tax-history-panel .cb-thead>span{flex-shrink:0}
+.cb-tax-bottom-grid{grid-template-columns:1fr!important}.cb-tax-entry-form select,.cb-tax-entry-form input{font-size:var(--fs-cap);padding:5px 7px}.cb-tax-head-grid{display:block;width:auto;white-space:nowrap}.cb-tax-history-panel .cb-thead>span{flex-shrink:0}
 @media(max-width:1100px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1fr}.fin-rebal-comparison{grid-template-columns:1fr}.fin-reference{border-left:0;padding-left:0}}
 @media(max-width:768px){#page-sections{order:2;flex-basis:100%;justify-content:flex-start;margin:0;overflow-x:auto;flex-wrap:nowrap}#cb-head-widgets,#owner-tabs-container{margin-left:auto!important}.cb-tax-entry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.cb-tax-entry-form>label{flex-direction:column;align-items:stretch;white-space:normal}.cb-tax-entry-form .cb-input,.cb-tax-entry-form #cb-tax-pl{width:100%}.cb-tax-entry-form>label.cb-tax-memo-field{max-width:none}.fin-goal-context{grid-template-columns:1fr}.fin-target-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fin-target-inputs>label{max-width:none}.fin-target-inputs input{pointer-events:none;opacity:.7}.fin-rebal-table{overflow-x:auto}.fin-rebal-table>div{min-width:500px}
 /* 좁은 화면에서는 표를 옆으로 밀어 보므로 자산군 칸을 고정해 어느 행인지 잃지 않게 한다. */
-.fin-rebal-table>div>span:first-child{position:sticky;left:0;z-index:1;background:var(--panelSolid)}.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(var(--dnSoft),var(--dnSoft)),var(--panelSolid)}.fin-rebal-table::before{content:'옆으로 밀어 필요 조정액·월 DCA 보정안 보기 →';position:sticky;left:0;display:block;padding:0 2px 6px;font-size:11px;color:var(--dim)}}
+.fin-rebal-table>div>span:first-child{position:sticky;left:0;z-index:1;background:var(--panelSolid)}.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(var(--dnSoft),var(--dnSoft)),var(--panelSolid)}.fin-rebal-table::before{content:'옆으로 밀어 필요 조정액·월 DCA 보정안 보기 →';position:sticky;left:0;display:block;padding:0 2px 6px;font-size:var(--fs-micro);color:var(--dim)}}
 @media(max-width:520px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}.home-table-column .cb-dash-table-toolbar{flex-wrap:wrap}.home-table-column input{max-width:100%;width:100%}}
-.bt-panel{padding:18px;min-width:0}.bt-search-feedback{display:flex;align-items:center;gap:10px;min-height:32px;margin:6px 0 2px;font-size:12px;color:var(--lab)}.bt-search-feedback>span{white-space:nowrap}.bt-search-feedback #bt-candidates{min-width:0}.bt-search-feedback #bt-candidates:empty{display:none}
+.bt-panel{padding:18px;min-width:0}.bt-search-feedback{display:flex;align-items:center;gap:10px;min-height:32px;margin:6px 0 2px;font-size:var(--fs-cap);color:var(--lab)}.bt-search-feedback>span{white-space:nowrap}.bt-search-feedback #bt-candidates{min-width:0}.bt-search-feedback #bt-candidates:empty{display:none}
 @media(max-width:768px){#page-sections{grid-column:1/-1;width:100%;box-sizing:border-box}}
 #cf-input-panel .form-row:has(#btn-cf-submit){grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
 #cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{grid-column:span 2}
 #cf-input-panel .form-row:has(#btn-cf-submit)>.form-group:has(#cf-amt){grid-column:span 1}
-.bt-panel input:not([type=range]),.bt-panel select{box-sizing:border-box;min-width:0;padding:7px 9px;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);height:35px;font:inherit;font-size:12px}
-.bt-controls{display:grid;grid-template-columns:minmax(160px,1.6fr) 88px minmax(105px,1fr) minmax(105px,1fr) 100px auto;gap:9px;align-items:end;margin-top:10px}.bt-controls label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--lab);min-width:0}.bt-controls .bt-query-field{min-width:0}.bt-controls>button{height:35px;white-space:nowrap}
-.bt-panel p{font-size:12px;color:var(--lab);line-height:1.6}.bt-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.bt-kpis>div{padding:10px;background:var(--inner);border-radius:8px;min-width:0}.bt-kpis small{font-size:11px;color:var(--lab)}.bt-kpis b{display:block;margin-top:7px;font-size:17px;overflow-wrap:anywhere}
-.bt-chart{display:block;width:100%;height:300px;background:var(--inner);border-radius:8px}.bt-y-tick line{stroke:var(--bd);stroke-width:1}.bt-y-tick text,.bt-y-title{fill:var(--lab);font:11px Manrope,'Noto Sans KR',sans-serif}.bt-line{clip-path:inset(0 100% 0 0);animation:bt-chart-reveal .9s cubic-bezier(.22,.75,.25,1) forwards}.bt-line-value{animation-delay:.12s}.bt-chart-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--lab);gap:7px;margin-top:6px}.bt-inspect{display:flex;align-items:center;gap:12px;font-size:12px;margin-top:12px}.bt-inspect input{flex:1;min-width:0}.sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
+.bt-panel input:not([type=range]),.bt-panel select{box-sizing:border-box;min-width:0;padding:7px 9px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);height:35px;font:inherit;font-size:var(--fs-cap)}
+.bt-controls{display:grid;grid-template-columns:minmax(160px,1.6fr) 88px minmax(105px,1fr) minmax(105px,1fr) 100px auto;gap:9px;align-items:end;margin-top:10px}.bt-controls label{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-cap);color:var(--lab);min-width:0}.bt-controls .bt-query-field{min-width:0}.bt-controls>button{height:35px;white-space:nowrap}
+.bt-panel p{font-size:var(--fs-cap);color:var(--lab);line-height:1.6}.bt-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.bt-kpis>div{padding:10px;background:var(--inner);border-radius:var(--r-md);min-width:0}.bt-kpis small{font-size:var(--fs-micro);color:var(--lab)}.bt-kpis b{display:block;margin-top:7px;font-size:17px;overflow-wrap:anywhere}
+.bt-chart{display:block;width:100%;height:300px;background:var(--inner);border-radius:var(--r-md)}.bt-y-tick line{stroke:var(--bd);stroke-width:1}.bt-y-tick text,.bt-y-title{fill:var(--lab);font:11px Manrope,'Noto Sans KR',sans-serif}.bt-line{clip-path:inset(0 100% 0 0);animation:bt-chart-reveal .9s cubic-bezier(.22,.75,.25,1) forwards}.bt-line-value{animation-delay:.12s}.bt-chart-labels{display:flex;justify-content:space-between;font-size:var(--fs-micro);color:var(--lab);gap:7px;margin-top:6px}.bt-inspect{display:flex;align-items:center;gap:12px;font-size:var(--fs-cap);margin-top:12px}.bt-inspect input{flex:1;min-width:0}.sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
 @keyframes bt-chart-reveal{to{clip-path:inset(0 0 0 0)}}
-@media(max-width:768px){.bt-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-controls .bt-query-field{grid-column:1/-1}.bt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-chart{height:200px}.bt-search-feedback{align-items:flex-start;flex-direction:column}.bt-chart-labels{font-size:10px}}
+@media(max-width:768px){.bt-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-controls .bt-query-field{grid-column:1/-1}.bt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-chart{height:200px}.bt-search-feedback{align-items:flex-start;flex-direction:column}.bt-chart-labels{font-size:var(--fs-micro)}}
 @media(prefers-reduced-motion:reduce){.bt-line{animation:none;clip-path:none}}
 /* Keep descriptive titles together and group controls without space-between gaps. */
 #page-head{justify-content:flex-start;flex-wrap:wrap;gap:8px!important}
@@ -156,7 +156,7 @@
 #page-head:not(:has(#page-sections:not([hidden]))):not(:has(#cf-header-tabs:not([hidden]))) #cb-head-widgets{margin-left:auto!important}
 #cf-header-tabs{display:none;margin:0 0 0 auto;padding:0;gap:5px;border:0;background:transparent}
 .content-area:has(#view-cashflow.active) #cf-header-tabs{display:flex}
-#cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:8px;font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;white-space:nowrap}
+#cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:var(--r-md);font:600 12px/1.4 Manrope,'Noto Sans KR',sans-serif;white-space:nowrap}
 .home-holdings-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}.home-table-column{min-width:0}
 .home-table-wrap{max-height:clamp(360px,56vh,620px);overscroll-behavior:contain}.home-table-column thead th{position:sticky;top:0;z-index:2;background:var(--panelSolid);box-shadow:0 1px 0 var(--bd)}
 .home-stock-summary{position:sticky;top:12px;box-sizing:border-box;max-height:clamp(360px,calc(100vh - 150px),620px);overflow:auto;overscroll-behavior:contain;padding:14px 16px;min-width:0;white-space:normal}
@@ -164,29 +164,29 @@
 .home-table-column tbody tr:hover{background:var(--inner)}
 .home-table-column tr.is-selected{background:var(--accSoft)}
 @media(max-width:1100px){.home-holdings-layout{grid-template-columns:minmax(0,1fr) 245px}}
-@media(max-width:768px){.home-holdings-layout{grid-template-columns:1fr}.home-stock-summary{position:static}#main-title-sub{display:block!important;max-width:100%;grid-column:2;grid-row:1;font-size:10px!important;align-self:end;transform:translateY(12px)}#page-head #main-title{font-size:18px!important;align-self:start}#page-sub-toggle{display:none!important}#cf-header-tabs{grid-column:1/-1;flex-wrap:wrap;margin-left:0}#main-title-sub{white-space:normal;transform:none;grid-row:2;text-align:center}#cb-head-widgets,#owner-tabs-container,#cf-owner-bar,#bubble-owner-bar{grid-row:3!important}}
+@media(max-width:768px){.home-holdings-layout{grid-template-columns:1fr}.home-stock-summary{position:static}#main-title-sub{display:block!important;max-width:100%;grid-column:2;grid-row:1;font-size:var(--fs-micro)!important;align-self:end;transform:translateY(12px)}#page-head #main-title{font-size:18px!important;align-self:start}#page-sub-toggle{display:none!important}#cf-header-tabs{grid-column:1/-1;flex-wrap:wrap;margin-left:0}#main-title-sub{white-space:normal;transform:none;grid-row:2;text-align:center}#cb-head-widgets,#owner-tabs-container,#cf-owner-bar,#bubble-owner-bar{grid-row:3!important}}
 .page-heading-line{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1 1 240px}
 .page-control-line{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0}
 #page-head .page-heading-line #main-title-sub{flex:1 1 auto;max-width:none;order:0;white-space:nowrap}
 #page-head .page-control-line #page-sections{margin:0;flex:0 1 auto}
 #cf-header-tabs{margin:0}
-@media(max-width:768px){.page-heading-line{grid-column:2;grid-row:1;align-items:center;gap:5px}.page-control-line{grid-column:1/-1;grid-row:2;flex-wrap:wrap;width:100%;justify-content:flex-end}.page-heading-line #main-title{font-size:17px!important}.page-heading-line #main-title-sub{font-size:10px!important;text-align:left;overflow:hidden;text-overflow:ellipsis}.page-control-line #page-sections{width:auto;max-width:100%;flex-basis:auto;order:0}.page-control-line #cf-header-tabs{max-width:100%}#page-sub-toggle{display:none!important}}
+@media(max-width:768px){.page-heading-line{grid-column:2;grid-row:1;align-items:center;gap:5px}.page-control-line{grid-column:1/-1;grid-row:2;flex-wrap:wrap;width:100%;justify-content:flex-end}.page-heading-line #main-title{font-size:17px!important}.page-heading-line #main-title-sub{font-size:var(--fs-micro)!important;text-align:left;overflow:hidden;text-overflow:ellipsis}.page-control-line #page-sections{width:auto;max-width:100%;flex-basis:auto;order:0}.page-control-line #cf-header-tabs{max-width:100%}#page-sub-toggle{display:none!important}}
 /* ETF verification stays readable on a single status line. */
 .etf-toolbar .etf-status{display:flex;flex-direction:row;align-items:center;gap:8px;white-space:nowrap;max-width:100%;overflow-x:auto}
 .etf-status>span,.etf-status>b{flex-shrink:0;margin:0}
-.etf-inspection{margin:9px 0;padding:10px 13px;font-size:12px}.etf-inspection summary{cursor:pointer;font-weight:700}.etf-inspection-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(160px,1.6fr) auto;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}.etf-inspection-row small{display:block;color:var(--lab);margin-top:3px}.etf-inspection p{color:var(--lab)}
+.etf-inspection{margin:9px 0;padding:10px 13px;font-size:var(--fs-cap)}.etf-inspection summary{cursor:pointer;font-weight:700}.etf-inspection-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(160px,1.6fr) auto;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)}.etf-inspection-row small{display:block;color:var(--lab);margin-top:3px}.etf-inspection p{color:var(--lab)}
 #cb-perf2 .cb-perf-detail-panel{min-height:0;flex:0 0 auto;padding:10px 12px!important}
 #cb-perf2 .cb-perf-detail-grid{flex:0 0 auto;align-items:start}
-#cb-perf2 .cb-perf-detail-row{flex:0 0 auto;padding:6px 7px;font-size:11px}
-#cb-perf2 .cb-perf-detail-head{padding:6px 7px}.cb-perf-detail-note{margin-top:7px;font-size:10px;line-height:1.5}
+#cb-perf2 .cb-perf-detail-row{flex:0 0 auto;padding:6px 7px;font-size:var(--fs-micro)}
+#cb-perf2 .cb-perf-detail-head{padding:6px 7px}.cb-perf-detail-note{margin-top:7px;font-size:var(--fs-micro);line-height:1.5}
 .cb-risk-overview{align-items:stretch!important}.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0;align-self:stretch}
-.cb-risk-priorities{align-self:stretch;margin:10px 0;font-size:11px;line-height:1.5}.cb-risk-priorities p{padding:5px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
-.fin-price-help p{font-size:10.5px;line-height:1.5;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:10.5px}.fin-price-issues small{color:var(--lab)}
-@media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:6px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{min-width:0}#cf-input-panel .form-input{padding:7px 6px;font-size:11px}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
+.cb-risk-priorities{align-self:stretch;margin:10px 0;font-size:var(--fs-micro);line-height:1.5}.cb-risk-priorities p{padding:5px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
+.fin-price-help p{font-size:var(--fs-micro);line-height:1.5;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-micro)}.fin-price-issues small{color:var(--lab)}
+@media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:6px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{min-width:0}#cf-input-panel .form-input{padding:7px 6px;font-size:var(--fs-micro)}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
 @media(max-width:768px){.etf-inspection-row{grid-template-columns:1fr auto}.etf-inspection-row>span{grid-column:1/-1}.cb-risk-priorities{margin:10px 0}}
 .cb-risk-card-grid{align-content:stretch;grid-auto-rows:1fr}
 
-.cb-mover-stale{margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);font-size:10.5px;color:var(--lab);line-height:1.45}
+.cb-mover-stale{margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);font-size:var(--fs-micro);color:var(--lab);line-height:1.45}
 
 /* 목표 연결 자산군 도넛. cbDonutSvg 를 그대로 쓰고 중앙에 합계만 오버레이한다. */
 .fin-goal-alloc-card{padding:12px}
@@ -195,38 +195,38 @@
 .fin-goal-alloc-donut svg{display:block}
 .fin-goal-alloc-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;pointer-events:none}
 .fin-goal-alloc-center>b{font:800 15px Manrope,sans-serif;letter-spacing:-.02em;color:var(--tx)}
-.fin-goal-alloc-center>span{font-size:9.5px;color:var(--lab)}
+.fin-goal-alloc-center>span{font-size:var(--fs-micro);color:var(--lab)}
 .fin-goal-alloc-legend{display:flex;flex-direction:column;gap:7px;flex:1;min-width:160px}
-.fin-goal-alloc-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:12px}
-.fin-goal-alloc-item>i{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.fin-goal-alloc-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:var(--fs-cap)}
+.fin-goal-alloc-item>i{width:9px;height:9px;border-radius:var(--r-sm);flex-shrink:0}
 .fin-goal-alloc-item>span{color:var(--lab);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fin-goal-alloc-item>b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .fin-goal-alloc-item>small{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:768px){.fin-goal-alloc-body{gap:14px}.fin-goal-alloc-donut{width:96px;height:96px}}
 
 /* 리밸런싱 '현재 vs 목표' 막대(finRebalBulletHtml). 표 숫자를 대신하지 않는 보조 시각화다. */
-.fin-bullet{margin:4px 0 12px;padding:10px 12px;border-radius:9px;background:var(--inner)}
-.fin-bullet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;font-size:12px;font-weight:800;color:var(--lab)}
-.fin-bullet-head small{font-weight:500;font-size:11px;color:var(--dim);display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
-.fin-bullet-key{display:inline-block;margin-left:6px}.fin-bullet-key.bar{width:10px;height:6px;border-radius:0 2px 2px 0;background:var(--mut)}.fin-bullet-key.target{width:2px;height:10px;background:var(--tx)}.fin-bullet-key.band{width:12px;height:8px;border-radius:2px;background:color-mix(in srgb,var(--up) 22%,transparent)}
+.fin-bullet{margin:4px 0 12px;padding:10px 12px;border-radius:var(--r-md);background:var(--inner)}
+.fin-bullet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;font-size:var(--fs-cap);font-weight:800;color:var(--lab)}
+.fin-bullet-head small{font-weight:500;font-size:var(--fs-micro);color:var(--dim);display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.fin-bullet-key{display:inline-block;margin-left:6px}.fin-bullet-key.bar{width:10px;height:6px;border-radius:0 2px 2px 0;background:var(--mut)}.fin-bullet-key.target{width:2px;height:10px;background:var(--tx)}.fin-bullet-key.band{width:12px;height:8px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--up) 22%,transparent)}
 .fin-bullet-row[data-tip]{border-bottom:0;cursor:default}
-.fin-bullet-row{display:grid;grid-template-columns:minmax(72px,110px) minmax(0,1fr) 48px;align-items:center;gap:10px;min-height:24px;font-size:12px}
-.fin-bullet-label{display:flex;align-items:center;gap:6px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-bullet-label i{width:7px;height:7px;border-radius:2px;flex-shrink:0}
-.fin-bullet-track{position:relative;height:12px;border-radius:3px;background:var(--panelSolid)}
-.fin-bullet-band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--up) 18%,transparent);border-radius:2px}
+.fin-bullet-row{display:grid;grid-template-columns:minmax(72px,110px) minmax(0,1fr) 48px;align-items:center;gap:10px;min-height:24px;font-size:var(--fs-cap)}
+.fin-bullet-label{display:flex;align-items:center;gap:6px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fin-bullet-label i{width:7px;height:7px;border-radius:var(--r-sm);flex-shrink:0}
+.fin-bullet-track{position:relative;height:var(--bar-h-lg);border-radius:var(--r-sm);background:var(--panelSolid)}
+.fin-bullet-band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--up) 18%,transparent);border-radius:var(--r-sm)}
 .fin-bullet-bar{position:absolute;left:0;top:3px;bottom:3px;border-radius:0 3px 3px 0}
 .fin-bullet-target{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:var(--tx);box-shadow:0 0 0 2px var(--panelSolid)}
-.fin-bullet-note{text-align:right;font-size:11px;color:var(--dim)}
+.fin-bullet-note{text-align:right;font-size:var(--fs-micro);color:var(--dim)}
 .fin-bullet-row.out .fin-bullet-note{color:var(--warn);font-weight:700}
 @media(max-width:768px){.fin-bullet-row{grid-template-columns:72px minmax(0,1fr) 44px;gap:6px}}
 
 /* ===== 홈 (2026-10-30) — 확인 필요 줄 · 숫자 카드 5개 · 보유 표 비중/시세 칸 ===== */
-.cb-dash-checks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-bottom:12px;padding:6px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,var(--bd));border-radius:10px;background:color-mix(in srgb,var(--warn) 8%,var(--panel));font-size:var(--fs-body)}
+.cb-dash-checks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-bottom:12px;padding:6px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,var(--bd));border-radius:var(--r-md);background:color-mix(in srgb,var(--warn) 8%,var(--panel));font-size:var(--fs-body)}
 .cb-dash-checks b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
 .cb-dash-checks button{min-height:32px;padding:4px 2px;border:0;background:transparent;color:var(--acc);font:600 var(--fs-body)/1.4 'Noto Sans KR',sans-serif;cursor:pointer}
 .cb-dash-checks button:hover{text-decoration:underline}
 .cb-dash-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}
-.cb-dash-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--panel);color:var(--tx);font-family:inherit;text-align:left}
+.cb-dash-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel);color:var(--tx);font-family:inherit;text-align:left}
 button.cb-dash-kpi{cursor:pointer}
 button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dash-kpi.is-total{border-color:var(--kpi-hi-bg);background:var(--kpi-hi-bg);color:var(--kpi-hi-tx)}
@@ -237,8 +237,8 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
 .cb-dash-kpi-sub{font-size:var(--fs-cap);color:var(--lab)}
 .home-weight{white-space:nowrap}
-.home-weight-bar{display:inline-block;width:56px;height:5px;margin-right:8px;overflow:hidden;border-radius:3px;background:var(--inner);vertical-align:middle}
-.home-weight-bar i{display:block;height:100%;border-radius:3px}
+.home-weight-bar{display:inline-block;width:56px;height:var(--bar-h);margin-right:8px;overflow:hidden;border-radius:var(--r-sm);background:var(--inner);vertical-align:middle}
+.home-weight-bar i{display:block;height:100%;border-radius:var(--r-sm)}
 .home-table-column td.home-price-state,.home-table-column th:last-child{text-align:center}
 .home-price-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--up)}
 .home-price-dot.is-stale{background:var(--warn)}
@@ -247,23 +247,23 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 
 /* ===== 보유 목록 (2026-10-30) — 숫자 카드 · 자산군 탭 · 한 줄 도구 · 오른쪽 수정 패널 ===== */
 .holdings-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
-.holdings-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--panel)}
+.holdings-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel)}
 .holdings-kpi span{font-size:var(--fs-body);color:var(--mut)}
 .holdings-kpi b{font:800 24px/1.15 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;overflow-wrap:anywhere}
 .holdings-kpi small{font-size:var(--fs-cap);color:var(--lab)}
 .holdings-kpi.is-warn b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
-.holdings-card{border:1px solid var(--bd);border-radius:12px;background:var(--panel);min-width:0}
+.holdings-card{border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel);min-width:0}
 .holdings-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 14px 0;border-bottom:1px solid var(--bd)}
 .holdings-tab{min-height:44px;padding:0 14px;border:0;background:transparent;color:var(--mut);font:500 14px/1 'Noto Sans KR',sans-serif;cursor:pointer}
 .holdings-tab span{margin-left:6px;font-size:var(--fs-cap);color:var(--lab)}
 .holdings-tab[aria-selected="true"]{color:var(--tx);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 .holdings-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 14px}
-.holdings-toolbar input[type="search"]{width:220px;max-width:100%;min-height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--inner);color:var(--tx);font:var(--fs-body) 'Noto Sans KR',sans-serif}
+.holdings-toolbar input[type="search"]{width:220px;max-width:100%;min-height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);font:var(--fs-body) 'Noto Sans KR',sans-serif}
 .holdings-broker-filter-inline{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-body);color:var(--mut)}
 .holdings-broker-filter-inline select{width:auto;min-height:38px;padding:0 10px;font-size:var(--fs-body)}
 .holdings-stale-toggle{display:inline-flex;align-items:center;gap:6px;min-height:38px;font-size:var(--fs-body);color:var(--mut);cursor:pointer}
 .holdings-stale-toggle input{width:18px;height:18px;margin:0}
-.holdings-add-btn{margin-left:auto;min-height:38px;padding:0 16px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.holdings-add-btn{margin-left:auto;min-height:var(--btn-h);padding:0 16px;border:0;border-radius:var(--r-md);background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
 #view-holdings .holdings-group{margin:0;border:0;border-radius:0;background:transparent}
 #view-holdings .holdings-group[hidden]{display:none}
 #view-holdings .holdings-group .pt-group-header{cursor:default;padding:4px 16px 10px;background:transparent;border:0;border-radius:0}
@@ -294,20 +294,20 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cf-entry-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .cf-entry-bar-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
 .cf-entry-bar-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
-.cf-entry-open,.cf-entry-close{min-height:36px;padding:0 14px;border-radius:8px;font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.cf-entry-open,.cf-entry-close{min-height:var(--btn-h);padding:0 14px;border-radius:var(--r-md);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
 .cf-entry-open{border:0;background:var(--acc);color:var(--on-acc)}
 .cf-entry-close{border:1px solid var(--bd2);background:var(--panel);color:var(--mut)}
 .cf-entry-close[hidden]{display:none}
 #cf-entry-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)}
 #cf-entry-body[hidden]{display:none}
-.fin-goal-add-btn{margin-left:auto;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.fin-goal-add-btn{margin-left:auto;min-height:var(--btn-h);padding:0 14px;border:0;border-radius:var(--r-md);background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
 
 /* ===== 적립식 매수: 앞으로 30일 일정 (2026-10-30) ===== */
 .cb-dca-upcoming{margin-top:12px;padding:14px 16px}
 .cb-dca-upcoming-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
 .cb-dca-upcoming-head small{font-size:var(--fs-cap);color:var(--lab)}
 .cb-dca-upcoming-list{display:flex;gap:8px;margin:0;padding:0 0 4px;list-style:none;overflow-x:auto}
-.cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--inner)}
+.cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
 .cb-dca-upcoming-list b{font-size:var(--fs-body)}
 .cb-dca-upcoming-list b span{font-weight:500;color:var(--lab)}
 .cb-dca-upcoming-item{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
@@ -316,7 +316,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dca-upcoming-empty{font-size:var(--fs-body);color:var(--lab)}
 
 /* 휴대폰 보유 목록의 자산군 탭 — 카드 목록 위 한 줄, 네 칸이 390px 에 들어가도록 균등 분배 */
-.holdings-tabs-mobile{flex-wrap:nowrap;gap:0;margin-bottom:10px;padding:0 4px;border:1px solid var(--bd);border-radius:12px;background:var(--panel)}
+.holdings-tabs-mobile{flex-wrap:nowrap;gap:0;margin-bottom:10px;padding:0 4px;border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel)}
 .holdings-tabs-mobile .holdings-tab{flex:1 1 0;min-width:0;padding:0 4px;font-size:var(--fs-body);white-space:nowrap}
 .holdings-tabs-mobile .holdings-tab span{margin-left:4px}
 /* #portfolio-tables 의 12px 간격 하나로 카드 → 탭 → 목록을 같은 간격으로 띄운다 */
@@ -353,7 +353,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-table-panel{padding:16px 18px}
 .acct-table-wrap{overflow-x:auto;margin-top:10px}
 .acct-table{min-width:760px}
-.acct-row{display:grid;grid-template-columns:minmax(240px,1.8fr) 120px 64px minmax(150px,1fr) 130px 48px;gap:10px;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.acct-row{display:grid;grid-template-columns:minmax(240px,1.8fr) 120px 64px minmax(150px,1fr) 130px 48px;gap:10px;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .acct-row>span:not(:first-child){text-align:right}
 .acct-head{font-size:var(--fs-cap);color:var(--dim)}
 .acct-group>summary{cursor:pointer;list-style:none}
@@ -362,13 +362,13 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-name{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
 .acct-name>i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .acct-name>span{color:var(--mut)}
-.acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
+.acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:var(--fs-micro);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 .acct-stale-chip{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
 .acct-holdings{padding:6px 8px 12px 23px;border-bottom:1px solid var(--bd)}
 .acct-tax-line{font-size:var(--fs-cap);color:var(--dim);padding:2px 0 6px}
-.acct-holding{display:grid;grid-template-columns:minmax(0,1fr) 120px minmax(150px,220px);gap:10px;padding:5px 0;font-size:12px;border-top:1px dashed var(--bd)}
+.acct-holding{display:grid;grid-template-columns:minmax(0,1fr) 120px minmax(150px,220px);gap:10px;padding:5px 0;font-size:var(--fs-cap);border-top:1px dashed var(--bd)}
 .acct-holding>span:not(:first-child){text-align:right}
-.acct-holding small{color:var(--lab);font-family:'IBM Plex Mono',monospace}
+.acct-holding small{color:var(--lab);font-family:var(--font-num)}
 .acct-foot,.cal-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
 .cal-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .cal-title{font-size:var(--fs-card);min-width:104px;text-align:center}
@@ -377,23 +377,23 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cal-sum-card>b{font:800 22px/1.2 'Manrope','Noto Sans KR',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .cal-sum-card>small{font-size:var(--fs-cap);color:var(--lab)}
 .cal-kind{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
-.cal-kind>i,.cal-chip>i{width:8px;height:8px;border-radius:2px;flex-shrink:0;background:var(--cal-c)}
+.cal-kind>i,.cal-chip>i{width:8px;height:8px;border-radius:var(--r-sm);flex-shrink:0;background:var(--cal-c)}
 .cal-kind.div,.cal-chip.div{--cal-c:var(--acc2)}.cal-kind.dca,.cal-chip.dca{--cal-c:var(--acc)}
 .cal-kind.out,.cal-chip.out{--cal-c:var(--warn)}.cal-kind.in,.cal-chip.in{--cal-c:var(--purple)}
 .cal-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:12px;align-items:stretch}
 .cal-grid-panel,.cal-list-panel{padding:16px 18px;min-width:0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal-dow{font-size:var(--fs-cap);color:var(--dim);text-align:center;padding-bottom:4px}
-.cal-cell{min-height:86px;min-width:0;padding:5px;border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;gap:3px}
+.cal-cell{min-height:86px;min-width:0;padding:5px;border:1px solid var(--bd);border-radius:var(--r-md);display:flex;flex-direction:column;gap:3px}
 .cal-cell.is-blank{border-color:transparent}
 .cal-cell.is-today{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
-.cal-day{font:600 12px/1 'IBM Plex Mono',monospace;color:var(--mut)}
+.cal-day{font:600 var(--fs-cap)/1 var(--font-num);color:var(--mut)}
 .cal-cell.is-sun .cal-day,.cal-cell.is-sat .cal-day{color:var(--lab)}
-.cal-chip{display:flex;align-items:center;gap:4px;min-width:0;font-size:11px;color:var(--tx)}
+.cal-chip{display:flex;align-items:center;gap:4px;min-width:0;font-size:var(--fs-micro);color:var(--tx)}
 .cal-chip>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cal-more{font-size:10.5px;color:var(--dim)}
+.cal-more{font-size:var(--fs-micro);color:var(--dim)}
 .cal-list{display:flex;flex-direction:column;margin-top:8px;max-height:520px;overflow-y:auto}
-.cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12.5px}
+.cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cal-list-when{color:var(--mut);font-size:var(--fs-cap)}
 .cal-list-title{min-width:0;overflow-wrap:anywhere}
 .cal-list-title>small{margin-left:6px;color:var(--lab)}
@@ -414,7 +414,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 /* 증여 기록장 (2026-11-10) — 가족 증여 화면 하단. 입력 폼·삭제 버튼은 휴대폰에서 숨기고 finMobileNote 가 이유를 알린다 */
 .cb-gift-ledger{margin-top:12px;padding:16px 18px}
 .cb-gift-ledger-sums{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-.cb-gift-ledger-sum{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--inner)}
+.cb-gift-ledger-sum{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
 .cb-gift-ledger-sum>span,.cb-gift-ledger-sum>small{font-size:var(--fs-cap);color:var(--lab)}
 .cb-gift-ledger-sum>b{font-size:17px}
 .cb-gift-ledger-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:12px}
@@ -425,7 +425,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-gift-ledger-error{flex-basis:100%;margin:0;font-size:var(--fs-cap);color:var(--warn);font-weight:600}
 .cb-gift-ledger-out{display:block;padding:7px 9px;text-align:right;background:var(--inner);color:var(--mut)}
 .cb-gift-ledger-table{margin-top:12px;overflow-x:auto}
-.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 34px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:12.5px}
+.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 34px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cb-gift-ledger-row.is-head{font-size:var(--fs-cap);color:var(--dim)}
 .cb-gift-ledger-row>:nth-child(3){text-align:right}
 .cb-gift-ledger-memo-cell{min-width:0;overflow-wrap:anywhere;color:var(--mut)}
@@ -480,7 +480,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
    파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
-.compact-menu .menu-btn{min-height:40px;padding:8px 12px;font-size:13px}
+.compact-menu .menu-btn{min-height:40px;padding:8px 12px;font-size:var(--fs-body)}
 #page-head #main-title{font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
 #page-head #main-title-sub{font-size:var(--fs-body)}
 /* 세부 화면 링크 — 밑줄형 텍스트 링크. 현재 위치만 강조색 + 아래 2px 막대 */
@@ -488,13 +488,13 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #page-sections a:hover{background:transparent;color:var(--tx)}
 #page-sections a[aria-current]{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 /* 소유주·기간 탭 — 회색 세그먼트 안의 버튼. 예전 공용 테두리 버튼 규칙을 여기서 끊는다 */
-#owner-tabs-container .owner-btn,#cb-head-widgets .owner-tabs .owner-btn{min-height:32px;padding:5px 12px;border:0;border-radius:7px;background:transparent;color:var(--mut);font:500 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif}
+#owner-tabs-container .owner-btn,#cb-head-widgets .owner-tabs .owner-btn{min-height:32px;padding:5px 12px;border:0;border-radius:var(--r-md);background:transparent;color:var(--mut);font:500 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif}
 #owner-tabs-container .owner-btn.active,#cb-head-widgets .owner-tabs .owner-btn.active{background:var(--seg-on);color:var(--tx);font-weight:700}
 /* 카드 제목 — 15px 굵게. 제목 옆 회색 보조 설명은 12px 보통 굵기로 낮춘다 */
 .cb-panel-title,.cb-insight-title{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
 .cb-panel-title [style*="color:var(--dim)"],.cb-insight-title [style*="color:var(--dim)"]{font-size:var(--fs-cap);font-weight:500;letter-spacing:0}
 /* 숫자 카드의 큰 숫자 — Manrope 800, 같은 크기 */
-.cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-family:'Manrope','Noto Sans KR',sans-serif;font-size:var(--fs-kpi);font-weight:800;letter-spacing:-.02em}
+.cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-family:var(--font-num);font-size:var(--fs-kpi);font-weight:800;letter-spacing:-.02em}
 @media(max-width:768px){
   .compact-menu .menu-btn{min-height:44px}
   .cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-size:22px}
@@ -513,3 +513,129 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-header-tabs.cf-section-tabs .cf-section-tab{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 'Noto Sans KR','Manrope',sans-serif;box-shadow:none}
 #cf-header-tabs.cf-section-tabs .cf-section-tab:hover{background:transparent;color:var(--tx)}
 #cf-header-tabs.cf-section-tabs .cf-section-tab.active{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+/* 규격 통일(2026-11-11) — 값은 style.css :root 의 --fs-*·--fw-*·--font-*·--r-*·--bar-h*·--btn-h 토큰에서만 온다.
+   금액·비율·날짜 숫자는 한 글꼴(--font-num)로 쓰고 자릿수 폭을 맞춘다. 차트 눈금 글자도 같은 글꼴이다. */
+.cb-num,.pt-table td,.fin-table td,svg text{font-variant-numeric:tabular-nums}
+.cb-btn,.api-btn,.btn-submit{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+/* 적립식 규칙 표는 942px 가 필요하다 — 옆에 280px 카드를 붙이면 1560px 미만에서 마지막 칸(월 환산·일시정지)이 잘려 가로로 밀어야 보였다.
+   그 폭 아래에서는 배분 카드를 표 아래로 내린다. */
+@media(max-width:1559px){.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr)}}
+/* 화면 다듬기(2026-11-11) — 헤더 설명 문구는 '…'로 자르지 않고 두 줄까지 보여 준다(휴대폰은 기존 ⓘ 토글 그대로) */
+@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
+/* 목표 화면 상단 세 카드 — 값 줄을 카드 바닥에 맞춘다. 현금 안전판 카드만 입력 줄이 있어, 위에서부터 쌓으면
+   옆 두 카드는 값 아래가 비고 세 값의 높이도 어긋났다 */
+.fin-goal-context b{margin-top:auto;padding-top:6px}
+/* 백테스트 — 실행 전 결과 자리가 통째로 비어 화면 대부분이 여백이었다. 무엇이 나오는지 알려 준다 */
+#bt-output:empty::before{content:"종목을 고르고 ‘백테스트 실행’을 누르면 납입 원금 · 최종 평가액 · 손익률 · 연평균 수익률 · 최대 낙폭과 기간별 평가액 그래프가 여기에 나옵니다.";display:flex;align-items:center;justify-content:center;min-height:200px;padding:16px;border:1px dashed var(--bd2);border-radius:var(--r-md);color:var(--lab);font-size:var(--fs-body);line-height:1.6;text-align:center}
+/* ===== 결산 리포트(report2 월간 · reporty 연간, 2026-11-11) — 표지 + 장. 장 하나가 본문 영역 하나를 꽉 채우고
+   스크롤 한 번에 한 장씩 넘어간다(사이드·헤더는 그대로). 장마다 바탕이 딱 끊겨 바뀐다. 색·글꼴·모서리·막대는 대시보드 토큰만 쓴다.
+   장 높이(--rep-h)는 reportMount 가 스크롤 영역의 실제 높이로 넣는다 — 퍼센트 높이는 flex 스크롤 영역에서 믿을 수 없다. */
+.rep-scroll{position:relative;padding:0!important;scroll-snap-type:y mandatory;scroll-behavior:smooth;overscroll-behavior:contain}
+.rep-page{position:relative;min-height:var(--rep-h,calc(100dvh - 140px));box-sizing:border-box;display:flex;align-items:center;scroll-snap-align:start;scroll-snap-stop:always;padding:clamp(28px,5vh,64px) clamp(64px,6vw,96px) clamp(28px,5vh,64px) clamp(28px,5vw,88px);background:var(--panelSolid);color:var(--tx);border-bottom:1px solid var(--bd)}
+.rep-inner{width:100%;max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(24px,4vw,64px);align-items:center}
+.rep-inner.is-single{grid-template-columns:minmax(0,1fr);max-width:720px}
+.rep-cover{background:transparent}
+.rep-cover .rep-inner{display:block}
+.rep-chapter.is-flip .rep-prose{order:2}
+.rep-chapter.is-soft{background:var(--inner)}
+.rep-chapter.is-ink{background:var(--kpi-hi-bg);color:var(--kpi-hi-tx);border-color:var(--kpi-hi-bg);--tx:var(--kpi-hi-tx);--mut:var(--kpi-hi-mut);--lab:var(--kpi-hi-mut);--bd:color-mix(in srgb,var(--kpi-hi-tx) 22%,transparent);--inner:color-mix(in srgb,var(--kpi-hi-tx) 12%,transparent);--up:#6fdca4;--dn:#ff9db0}
+.rep-kicker{margin:0 0 8px;font-size:var(--fs-body);color:var(--mut)}
+.rep-cover h1{margin:0;font:800 clamp(40px,7vw,96px)/1.02 var(--font-num);letter-spacing:-.03em;color:var(--tx)}
+.rep-cover p{margin:18px 0 0;max-width:38em;font-size:var(--fs-card);line-height:1.7;color:var(--mut)}
+.rep-cover .rep-scroll-hint{margin-top:clamp(28px,8vh,72px);font-size:var(--fs-cap);color:var(--lab)}
+.rep-scroll-hint::after{content:"";display:block;width:1px;height:36px;margin-top:10px;background:currentColor;opacity:.5}
+.rep-no{margin:0 0 4px;font:700 var(--fs-cap) var(--font-num);color:var(--lab)}
+.rep-chapter h2{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 16px;font:800 clamp(26px,3vw,40px)/1.15 var(--font-ui);letter-spacing:-.02em;color:var(--tx)}
+.rep-badge{padding:3px 8px;border:1px solid var(--bd);border-radius:var(--r-sm);font:500 var(--fs-cap)/1.4 var(--font-ui);letter-spacing:0;color:var(--mut);white-space:nowrap}
+.rep-badge.is-now{border-style:dashed}
+.rep-prose p{margin:0 0 12px;max-width:32em;font-size:var(--fs-card);line-height:1.75;color:var(--tx)}
+.rep-prose b{font-family:var(--font-num);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-prose .rep-note{font-size:var(--fs-cap);line-height:1.65;color:var(--lab)}
+.rep-up{color:var(--up)}.rep-dn{color:var(--dn)}
+.rep-figure{min-width:0;color:var(--tx)}
+.rep-fig{margin:0 0 10px;font:800 clamp(32px,4.6vw,60px)/1.05 var(--font-num);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rep-trend{display:block;width:100%;height:auto;overflow:visible}
+.rep-cap{margin:10px 0 0;font-size:var(--fs-cap);color:var(--lab)}
+.rep-bars{display:grid;gap:12px}
+.rep-bar{display:grid;grid-template-columns:minmax(70px,120px) minmax(0,1fr) 58px 110px;gap:10px;align-items:center;font-size:var(--fs-body)}
+.rep-bar>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.rep-bar>i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 9%,transparent);overflow:hidden}
+.rep-bar>i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:var(--c)}
+.rep-bar>b{text-align:right;font:800 var(--fs-body) var(--font-num);font-variant-numeric:tabular-nums}
+.rep-bar>em{text-align:right;font:500 var(--fs-cap) var(--font-num);font-style:normal;color:var(--lab);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:min(200px,30vh);border-bottom:1px solid var(--bd)}
+.rep-months>i{display:block;height:max(2px,var(--h));border-radius:var(--r-sm) var(--r-sm) 0 0;background:color-mix(in srgb,var(--acc) 38%,transparent)}
+.rep-months>i.is-est{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--acc) 45%,transparent) 0 3px,transparent 3px 6px);outline:1px solid color-mix(in srgb,var(--acc) 45%,transparent);outline-offset:-1px}
+.rep-months>i.is-cur{background:var(--acc);outline:0}
+.rep-months>i.is-none{height:0}
+.rep-chapter.is-ink .rep-months>i{background:color-mix(in srgb,var(--kpi-hi-tx) 55%,transparent)}
+.rep-months-l{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin-top:6px;text-align:center;font:500 var(--fs-cap) var(--font-num);color:var(--lab)}
+.rep-months-l>.is-cur{color:var(--tx);font-weight:800}
+.rep-goals{display:grid;gap:20px}
+.rep-goals h3{display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;font:700 var(--fs-card) var(--font-ui);color:var(--tx)}
+.rep-goals h3>span:last-child{font-family:var(--font-num);font-weight:800}
+.rep-goals i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.rep-goals i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:currentColor}
+.rep-goals p{margin:6px 0 0;font:500 var(--fs-cap) var(--font-num);color:var(--lab);font-variant-numeric:tabular-nums}
+/* 무엇이 달라졌나 — 새로 넣거나 뺀 돈 / 값이 오르내린 몫, 종목별 변화 목록, 연간 달별 건수 띠 */
+.rep-split{display:grid;gap:10px;margin:4px 0 14px}
+.rep-split-row{display:grid;grid-template-columns:120px minmax(0,1fr) 130px;gap:10px;align-items:center;font-size:var(--fs-body)}
+.rep-split-row>i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 9%,transparent);overflow:hidden}
+.rep-split-row>i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:var(--up)}
+.rep-split-row>i.is-neg::after{background:var(--dn)}
+.rep-split-row>b{text-align:right;font:800 var(--fs-body) var(--font-num);font-variant-numeric:tabular-nums}
+.rep-diff{list-style:none;margin:0;padding:0;display:grid;max-height:calc(var(--rep-h,70vh) - 140px);overflow-y:auto}
+.rep-diff li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"tag name qty" "tag who money";gap:2px 12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--bd)}
+.rep-diff-tag{grid-area:tag;align-self:center;padding:3px 8px;border-radius:var(--r-sm);font:700 var(--fs-cap) var(--font-ui);white-space:nowrap;background:color-mix(in srgb,var(--tx) 8%,transparent);color:var(--tx)}
+.rep-diff li.is-new .rep-diff-tag,.rep-diff li.is-more .rep-diff-tag{background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+.rep-diff li.is-less .rep-diff-tag,.rep-diff li.is-out .rep-diff-tag{background:color-mix(in srgb,var(--dn) 14%,transparent);color:var(--dn)}
+.rep-diff li>b{grid-area:name;font:700 var(--fs-body) var(--font-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.rep-diff li>small{grid-area:who;font-size:var(--fs-cap);color:var(--lab)}
+.rep-diff-qty{grid-area:qty;text-align:right;font:700 var(--fs-body) var(--font-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--tx)}
+.rep-diff li>em{grid-area:money;text-align:right;font:500 var(--fs-cap) var(--font-num);font-style:normal;color:var(--lab);white-space:nowrap}
+.rep-strip{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;margin:6px 0 10px}
+.rep-strip>span{display:grid;justify-items:center;gap:2px;padding:6px 0;border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 6%,transparent)}
+.rep-strip>span.is-on{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+.rep-strip>span.is-none{background:transparent;outline:1px dashed var(--bd);outline-offset:-1px}
+.rep-strip b{font:800 var(--fs-body) var(--font-num)}.rep-strip small{font-size:var(--fs-micro);color:var(--lab)}
+/* 장 표시 — 오른쪽 가장자리에 붙어 따라오는 점. 진짜 버튼이다 */
+.rep-dots{position:fixed;right:30px;top:50%;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:12px;transform:translateY(-50%)}
+.rep-dots button{position:relative;width:12px;height:12px;padding:0;border:0;border-radius:50%;background:color-mix(in srgb,var(--mut) 45%,transparent);cursor:pointer;transition:transform var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out)}
+.rep-dots button[aria-current]{background:var(--acc);transform:scale(1.35)}
+.rep-dots button span{position:absolute;right:20px;top:50%;transform:translateY(-50%);padding:3px 8px;border-radius:var(--r-sm);background:var(--tipbg);color:var(--tiptx);font:500 var(--fs-cap) var(--font-ui);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--dur-fast) var(--ease-out)}
+.rep-dots button:hover span,.rep-dots button:focus-visible span{opacity:1}
+.rep-month-pick{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:var(--fs-cap);color:var(--mut)}
+.rep-month-pick select{min-height:32px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--panelSolid);color:var(--tx);font:500 var(--fs-body) var(--font-ui)}
+.rep-home-link{align-self:flex-start;font-size:var(--fs-cap);color:var(--acc);text-underline-offset:3px;cursor:pointer;background:none;border:0;padding:2px 0;text-decoration:underline;font-family:inherit}
+/* 좁은 화면·낮은 창: 장 내용이 한 화면보다 길어 스냅이 내용을 가두므로 끄고 이어서 스크롤한다 */
+@media(max-width:860px),(max-height:620px){
+  .rep-scroll{scroll-snap-type:none}
+  .rep-page{min-height:0;padding:28px 18px}
+  .rep-inner{grid-template-columns:minmax(0,1fr)}
+  .rep-chapter.is-flip .rep-prose{order:0}
+  .rep-dots{display:none}
+  .rep-diff{max-height:none}
+  .rep-bar{grid-template-columns:minmax(60px,90px) minmax(0,1fr) 52px}.rep-bar>em{display:none}
+  .rep-split-row{grid-template-columns:96px minmax(0,1fr) 108px}
+  .rep-month-pick{margin-left:0}
+}
+@media(prefers-reduced-motion:reduce){.rep-scroll{scroll-behavior:auto}.rep-dots button,.rep-dots button span{transition:none}}
+
+/* ===== 사이드바 접기/펴기(2026-11-11) — 넓은 화면만. 휴대폰은 기존 햄버거 서랍 그대로 =====
+   격자 첫 칸 폭(210px ↔ 0)과 간격을 함께 줄여 본문이 자연스럽게 넓어진다. 사이드바 안쪽은 폭을 고정해
+   줄어드는 동안 글자가 줄바꿈되며 찌그러지지 않고 잘려 나간다. 움직임 토큰만 쓴다. */
+.side-collapse-btn{display:none}
+@media(min-width:769px){
+  .side-collapse-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;padding:0;border:1px solid var(--bd);border-radius:var(--r-md);background:transparent;color:var(--mut);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
+  .side-collapse-btn:hover{background:var(--hover-bg);color:var(--tx)}
+  .side-collapse-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .side-collapse-arrow{transform-box:fill-box;transform-origin:center;transition:transform var(--dur) var(--ease-out)}
+  body.side-collapsed .side-collapse-arrow{transform:rotate(180deg)}
+  .layout{transition:grid-template-columns calc(var(--dur)*1.25) var(--ease-out),gap calc(var(--dur)*1.25) var(--ease-out)}
+  .menu-col{min-width:0;overflow:hidden;transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out),padding var(--dur) var(--ease-out),border-width var(--dur) var(--ease-out)}
+  .menu-col>*{width:188px;flex-shrink:0}
+  body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0}
+  body.side-collapsed .menu-col{opacity:0;transform:translateX(-18px);padding-left:0;padding-right:0;border-width:0;pointer-events:none}
+}
+@media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow{transition:none!important}}
+
