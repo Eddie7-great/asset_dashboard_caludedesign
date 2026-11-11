@@ -353,7 +353,7 @@ function reportSplitBars(diff){
 }
 function reportChapter(id,no,title,badge,tone,prose,figure,flip){
   return `<section class="rep-page rep-chapter ${tone||''}${flip?' is-flip':''}" data-rep-page="${cbEsc(title)}" aria-labelledby="${id}-h${no}"><div class="rep-inner">
-      <div class="rep-prose"><p class="rep-no">${no}장</p><h2 id="${id}-h${no}">${title} ${badge||''}</h2>${prose}</div>
+      <div class="rep-prose"><p class="rep-no">${no}장</p><h2 id="${id}-h${no}"><span class="rep-title">${title}</span> ${badge||''}</h2>${prose}</div>
       <div class="rep-figure">${figure}</div></div></section>`;
 }
 // 화면에 붙이기: 스크롤 위치 유지(시세 갱신 재렌더) + 장 표시(점) + 현재 장 추적.
@@ -525,7 +525,7 @@ function cbRenderReportYear(){
   } else {
     const eBadge=lastEntry.src==='live'?'<span class="rep-badge is-now">오늘 기준</span>':`<span class="rep-badge">${Number(lastEntry.ym.slice(5))}월 ${Number(lastEntry.date.slice(8))}일 종가 기준</span>`;
     flip=true;
-    const comp=reportEntryChapters('repy',no,entry,ownerF,eBadge,flip); pages.push(comp.html.replace('어디에 있는가','어디에 있었나').replace('data-rep-page="어디에 있는가"','data-rep-page="어디에 있었나"')); no+=comp.count; if(comp.count) flip=!flip;
+    const comp=reportEntryChapters('repy',no,entry,ownerF,eBadge,flip); pages.push(comp.html.replace(/어디에 있는가/g,'어디에 있었나')); no+=comp.count; if(comp.count) flip=!flip;
     // 무엇이 달라졌나 — 그해 기준 시점(전년 말 또는 그해 첫 종목 기록) 대비 + 달별 변화 건수
     const withEntry=tl.filter(m=>m.entry), baseEntry=(withEntry.filter(m=>m.ym<year+'-01').pop()||withEntry.find(m=>m.ym.slice(0,4)===year));
     const diff=(baseEntry&&baseEntry!==lastEntry)?reportHoldingDiff(baseEntry.entry.holdings,entry.holdings,ownerF):null;

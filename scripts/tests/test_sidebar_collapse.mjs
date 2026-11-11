@@ -14,6 +14,7 @@ assert.match(css, /\.side-collapse-btn\{display:none\}\s*@media\(min-width:769px
 assert.match(css, /\.layout\{transition:grid-template-columns [^}]*var\(--ease-out\)/, '격자 폭을 애니메이션으로 줄인다');
 assert.match(css, /body\.side-collapsed \.layout\{grid-template-columns:0px 1fr;gap:0\}/);
 assert.match(css, /prefers-reduced-motion:reduce\)\{\.layout,\.menu-col,\.side-collapse-arrow\{transition:none!important\}/);
+assert.match(css, /\.menu-col>\*\{box-sizing:border-box;width:188px;flex-shrink:0\}/, '여백·테두리까지 188px — content-box 면 환율 상자 오른쪽이 잘린다');
 
 // 동작: body 클래스·inert·aria·localStorage, 전환 뒤 차트 재배치 알림
 const grab = (name) => script.match(new RegExp(`function ${name}\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n\\}`))[0];

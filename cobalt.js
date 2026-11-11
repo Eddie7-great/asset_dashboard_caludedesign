@@ -2003,8 +2003,6 @@ function cbRenderDiv(){
   }));
 
   const divAnnual = list.reduce((s,x)=>s+x.incomeKRW,0);
-  const divGrossAnnual = list.reduce((s,x)=>s+x.grossKRW,0);
-  const divTaxAnnual = list.reduce((s,x)=>s+x.taxKRW,0);
   const divCost = list.reduce((s,x)=>s+x.cost,0) || 1;
   // 평균 배당성장률 — 배당 이력으로 CAGR 이 산출된 종목만 배당수입 가중평균한다.
   // (전체 배당수입으로 나누면 이력이 없는 종목이 분모만 키워 0쪽으로 희석된다)
@@ -2066,18 +2064,18 @@ function cbRenderDiv(){
   );
   el.innerHTML = `
     <div class="cb-div-summary-grid">
-      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">연간 배당 수입</div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div><div class="cb-div-history-status">${basisLabel}${ownerF?' · '+cbEsc(ownerF):''}${netBasis?` · 세전 ${cbDisp(divGrossAnnual)} · 세금 ${cbDisp(divTaxAnnual)}`:''}</div></div>
-      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">월평균</div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
-      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-title">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">연간 배당 수입</div></div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">월평균</div></div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
+      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율">YoC</span></div></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결연도 배당 이력이 2개 이상인 종목만 계산에 포함합니다.">배당성장률</span></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결연도 배당 이력이 2개 이상인 종목만 계산에 포함합니다.">배당성장률</span></div>
+        <div class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div></div>
         <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
-        <div class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div>
       </div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div>
+        <div class="cb-div-history-status">상위 3종목 합계</div></div>
         <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
-        <div class="cb-div-history-status">상위 3종목 합계</div>
       </div>
       <div class="cb-panel cb-div-summary-card cb-div-top3-card">
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
