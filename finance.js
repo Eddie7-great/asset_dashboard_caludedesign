@@ -330,7 +330,7 @@ function finNwChartSvg(series,w,h){
   for(let v=lo; v<=hi+step*0.01; v+=step){
     const yy=y(v).toFixed(1);
     grid+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="IBM Plex Mono">${cbTaxAxisLab(v)}</text>`;
+    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="Manrope">${cbTaxAxisLab(v)}</text>`;
   }
   const pts=series.map((p,i)=>({x:padL+i*dx, y:y(p.v)}));
   const line=cbSmoothPath(pts);
@@ -339,7 +339,7 @@ function finNwChartSvg(series,w,h){
   const area=`${line} L${(padL+(series.length-1)*dx).toFixed(1)},${(h-8).toFixed(1)} L${padL.toFixed(1)},${(h-8).toFixed(1)} Z`;
   const every=Math.max(1,Math.ceil(series.length/6));
   const ticks=series.map((p,i)=>({p,i})).filter(x=>x.i%every===0||x.i===series.length-1)
-    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="IBM Plex Mono">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
+    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="Manrope">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
   const hit=series.map((p,i)=>{
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
@@ -364,7 +364,7 @@ function finNwHover(ev,idx){
   const t=(typeof _cbPerfTipEl==='function')?_cbPerfTipEl():null; if(!t) return;
   const p=series[idx], prev=series[idx-1];
   const delta=prev?p.v-prev.v:null;
-  t.innerHTML=`<div style="font-size:12px;color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
+  t.innerHTML=`<div style="font-size:var(--fs-cap);color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(p.date)}</div>
     <div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">투자자산</span><b class="cb-num">${cbDisp(p.v)}</b></div>
     ${delta!=null?`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:var(--mut)">전일 대비</span><b class="cb-num" style="${cbUpDn(delta)}">${cbSignDisp(delta)}</b></div>`:''}`;
   t.style.display='block';
@@ -683,6 +683,17 @@ function finExportPanelHtml(){
     <p id="fin-export-msg" class="fin-export-msg" role="status" hidden></p>
     <p class="fin-export-note">파일에는 금액과 계좌 정보가 그대로 담깁니다. 다른 사람과 공유하거나 공용 기기에 남기지 않도록 주의해 주세요. 내보내기는 기록을 바꾸지 않으며, 이 파일을 다시 불러오는 기능은 없습니다.</p></div>`;
 }
+// 예전 판은 적립식 예정일마다 수량을 스스로 늘리고 그 날짜를 dcaLastExec 에 적었다. 지금은 일정만 보여 주지만
+// 그때 늘어난 수량이 저장값에 남아 있을 수 있고, 어느 몫이 가짜였는지는 앱이 알 수 없다. 그래서 숫자는 건드리지 않고
+// 흔적이 있는 종목만 알려 증권사 잔고와 대조하게 한다(조회 전용 — 저장하지 않는다).
+function finDcaLegacyRows(){
+  return (Array.isArray(pfolioData)?pfolioData:[]).filter(i=>i&&i.dcaLastExec);
+}
+function finDcaLegacyNoteHtml(){
+  const rows=finDcaLegacyRows();
+  if(!rows.length)return '';
+  return `<div class="cb-panel fin-section fin-dca-legacy"><div class="fin-section-head"><span>적립식 수량 대조 권장</span></div><p>아래 종목은 예전 버전이 적립식 매수를 체결된 것처럼 수량에 더했던 기록이 남아 있습니다. 지금은 자동으로 더하지 않지만, 그때 늘어난 수량이 그대로일 수 있으니 증권사 앱의 실제 잔고와 수량·평균단가를 대조해 주세요. 앱은 숫자를 바꾸지 않습니다.</p><ul>${rows.map(i=>`<li><b>${cbEsc(i.name||i.tkr||'')}</b><span>${cbEsc(i.owner||'')} · ${cbEsc(i.broker||'증권사 미입력')} · 마지막 자동 반영 ${cbEsc(i.dcaLastExec)}</span></li>`).join('')}</ul></div>`;
+}
 function cbRenderDataStatus(){
   const el=document.getElementById('cb-data2');if(!el)return;
   const rows=finDataStatusRows();
@@ -699,6 +710,6 @@ function cbRenderDataStatus(){
       : `최근 확인 · ${finFreshAge(x.updatedAt)}${x.sameSession?'':' <span data-tip="다른 기기나 이전 접속에서 확인한 기록입니다. 지금 값이 최신인지 보장하지 않습니다.">· 다른 접속 기록</span>'}`;
     const metaTip=`출처 · ${x.source||'내부 데이터'} · ${x.state==='pending'?'이번 접속에서 아직 확인하지 않음':`최근 확인 · ${finFreshAge(x.updatedAt)}${x.sameSession?'':' · 다른 접속 기록'}`}`;
     return `<div class="cb-panel fin-data-card ${st.cls}"><div class="fin-data-card-main"><div class="fin-data-card-head"><span class="fin-status-dot"></span><b>${cbEsc(x.label)}</b><em>${st.label}</em></div><strong class="cb-tip-block" data-overflow-tip="${cbEsc(x.detail||'상태 정보 없음')}" data-overflow-watch>${cbEsc(x.detail||'상태 정보 없음')}</strong><small class="fin-data-card-meta cb-tip-block" data-overflow-tip="${cbEsc(metaTip)}"><span data-overflow-watch>출처 · ${cbEsc(x.source||'내부 데이터')}</span><i aria-hidden="true">·</i><span data-overflow-watch>${when}</span></small></div><button onclick="manualRefresh('${x.key}')">다시 확인</button></div>`;
-  }).join('')}</div><div class="fin-data-support-grid"><div class="cb-panel fin-section fin-price-help"><div class="fin-section-head"><span>시장 시세 확인 방법</span><div class="fin-price-actions"><button class="cb-btn" onclick="manualRefresh('prices')">시장 시세 재조회</button><button class="cb-btn" onclick="switchView('holdings')">보유 종목 확인</button></div></div><div class="fin-price-steps"><span><b>1. 재조회</b>미확인 종목이 사라지는지 확인</span><span><b>2. 종목 정보</b>티커·거래소·통화 대조</span><span><b>3. 증권사 비교</b>현재가 또는 전일 종가 확인</span></div><div class="fin-price-bottom"><div class="fin-price-issues">${(pfolioData||[]).filter(i=>i&&i._priceStale).map(i=>`<div><b>${cbEsc(i.name||i.tkr)}</b><span>${cbEsc(i.tkr)} · ${cbEsc(i.owner)} · ${cbEsc(i.cur||'통화 미확인')}</span><small>최신 조회 미확인 · 화면 가격은 이전 값일 수 있습니다.</small></div>`).join('')||'<p>현재 미확인 종목 없음 · 상태가 계속 ‘확인 필요’이면 재조회하세요.</p>'}</div><p class="fin-price-note">한국은 6자리 코드, 일본은 거래소 코드가 필요합니다. ‘정상’은 조회 성공이며 실시간 체결가를 보장하지 않습니다.</p></div></div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 요청이 실패했거나 시세가 누락된 자산이 남아 있다는 뜻입니다.</p><p><b>확인 전</b>은 아직 조회를 실행하지 않은 상태로, 오류가 아닙니다.</p><p>최근 확인 시각은 기기별로 공유되므로 <b>다른 접속 기록</b> 표시가 붙은 항목은 다시 확인해 주세요.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div></div>${finExportPanelHtml()}`;
+  }).join('')}</div>${finDcaLegacyNoteHtml()}<div class="fin-data-support-grid"><div class="cb-panel fin-section fin-price-help"><div class="fin-section-head"><span>시장 시세 확인 방법</span><div class="fin-price-actions"><button class="cb-btn" onclick="manualRefresh('prices')">시장 시세 재조회</button><button class="cb-btn" onclick="switchView('holdings')">보유 종목 확인</button></div></div><div class="fin-price-steps"><span><b>1. 재조회</b>미확인 종목이 사라지는지 확인</span><span><b>2. 종목 정보</b>티커·거래소·통화 대조</span><span><b>3. 증권사 비교</b>현재가 또는 전일 종가 확인</span></div><div class="fin-price-bottom"><div class="fin-price-issues">${(pfolioData||[]).filter(i=>i&&i._priceStale).map(i=>`<div><b>${cbEsc(i.name||i.tkr)}</b><span>${cbEsc(i.tkr)} · ${cbEsc(i.owner)} · ${cbEsc(i.cur||'통화 미확인')}</span><small>최신 조회 미확인 · 화면 가격은 이전 값일 수 있습니다.</small></div>`).join('')||'<p>현재 미확인 종목 없음 · 상태가 계속 ‘확인 필요’이면 재조회하세요.</p>'}</div><p class="fin-price-note">한국은 6자리 코드, 일본은 거래소 코드가 필요합니다. ‘정상’은 조회 성공이며 실시간 체결가를 보장하지 않습니다.</p></div></div><div class="cb-panel fin-section"><div class="fin-section-head"><span>상태 해석</span><small>투자 판단 전에 데이터 시점을 확인하세요.</small></div><div class="fin-guidance"><p><b>정상</b>은 해당 데이터의 마지막 요청이 성공했다는 뜻입니다.</p><p><b>확인 필요</b>는 요청이 실패했거나 시세가 누락된 자산이 남아 있다는 뜻입니다.</p><p><b>확인 전</b>은 아직 조회를 실행하지 않은 상태로, 오류가 아닙니다.</p><p>최근 확인 시각은 기기별로 공유되므로 <b>다른 접속 기록</b> 표시가 붙은 항목은 다시 확인해 주세요.</p><p>외부 데이터는 거래소·제공사 사정에 따라 지연될 수 있으며, 주문 전 실제 증권사 시세를 확인해야 합니다.</p></div></div></div>${finExportPanelHtml()}`;
 }
 

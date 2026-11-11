@@ -1375,7 +1375,7 @@ function renderAutoTransfers() {
       <td class="text-left">${at.type==='수입'?'<span style="color:var(--up)">수입</span>':'<span style="color:var(--dn)">지출</span>'}</td>
       <td class="text-left">${_cfEsc(at.cat)}</td>
       <td class="text-left">${_cfEsc(at.desc)}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono'">₩${Math.round(at.amt).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(at.amt).toLocaleString()}</td>
       <td class="text-left">${_cfEsc(cycleStr)}</td>
       <td><button class="btn-action" type="button" aria-label="${_cfEsc(at.desc)} 자동이체 삭제" onclick="deleteAutoTransfer(${Number(at.id)||0})">✕</button></td>
     </tr>`;
@@ -3060,7 +3060,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   const input=document.createElement('input');
   input.type='text';
   input.className='editable-input';
-  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:.75rem;border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:IBM Plex Mono,monospace;display:inline-block;box-sizing:border-box';
+  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:.75rem;border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
   if(item.grp==='현금'&&field==='qty') input.style.width='110px';
   input.value = (item.grp==='가상화폐'&&field==='avgP') ? Math.round(item.avgP) : item[field];
   let cancelled=false;
@@ -3274,11 +3274,12 @@ function renderPortfolio(owner) {
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
-      const ownerCol=showOwner?'<col style="width:8%">':'';
+      const ownerCol=showOwner?'<col style="width:7%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
-        ?['7%','16%','7%','7%','7%','8%','8%','10%','9%','7%','6%']
-        :['8%','17%','7%','8%','7%','9%','9%','11%','9%','7%','8%'];
+        // 증권사/계좌 칸이 7%일 때는 1440px 에서도 '키움… / …'로 잘렸다 — 비어 있는 일이 많은 DCA·관리 칸에서 폭을 가져온다.
+        ?['11%','17%','6%','6%','6%','8%','8%','10%','9%','7%','5%']
+        :['12%','17%','6%','7%','6%','9%','9%','11%','9%','7%','7%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -4115,7 +4116,7 @@ function renderCashFlow() {
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
     const cycleDisp=i.isAuto?`<span style="font-size:.65rem;color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:.65rem;color:var(--t3)">일회성</span>`;
     const ownerCell=`<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
-    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:bold">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
+    html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:700">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
   // 자동이체 가상 행: 각 자동이체별로 해당 월의 실제/레거시 [자동] 항목이 없으면 예정 행 표시
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();
@@ -4170,7 +4171,7 @@ function renderCashFlow() {
     const atOwnerCell = `<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(at.owner||'미지정')}</span></td>`;
     html+=`<tr style="opacity:.75">
       <td class="text-left">${scheduledLabel}</td>
-      <td class="text-left"><span style="color:${atCls};font-weight:bold">${_cfEsc(at.type)}</span></td>
+      <td class="text-left"><span style="color:${atCls};font-weight:700">${_cfEsc(at.type)}</span></td>
       ${atOwnerCell}<td class="text-left">${_cfEsc(at.cat||'-')}</td>
       <td class="text-left"><span style="color:var(--t3)">[예정]</span> ${_cfEsc(at.desc||'자동이체')}</td>
       <td style="color:${atCls}" class="text-right">${atSign}₩${total.toLocaleString()}</td>
