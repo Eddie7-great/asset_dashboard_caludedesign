@@ -67,3 +67,16 @@ assert.match(dom.innerHTML, /<list>삼성전자<\/list>$/);
 assert.match(dom.innerHTML, /주식<span>2<\/span>/, '검색은 행만 숨기고 탭 개수는 바꾸지 않는다');
 
 console.log('ok - holdings tabs');
+
+// 2026-11-11 — 탭(왼쪽)과 검색·계좌·시세 미조회만·＋추가(오른쪽)를 한 줄에 둔다
+{
+  const fs2 = await import('node:fs');
+  const root2 = new URL('../../', import.meta.url);
+  const s2 = fs2.readFileSync(new URL('script.js', root2), 'utf8');
+  const w2 = fs2.readFileSync(new URL('workspace-ui.css', root2), 'utf8');
+  if (!/<div class="holdings-card"><div class="holdings-head">\$\{tabs\}\$\{toolbar\}<\/div>\$\{html\}<\/div>/.test(s2)) throw new Error('탭과 도구가 한 머리줄에 있어야 한다');
+  if (!/\.holdings-head\{display:flex;flex-wrap:wrap;align-items:center;[^}]*border-bottom/.test(w2)) throw new Error('머리줄이 밑줄을 가진다');
+  if (!/\.holdings-toolbar\{[^}]*justify-content:flex-end;[^}]*margin-left:auto/.test(w2)) throw new Error('도구는 오른쪽 정렬');
+  if (/\.holdings-add-btn\{margin-left:auto/.test(w2)) throw new Error('＋추가 버튼만 따로 밀지 않는다');
+  console.log('PASS 자산 관리 머리줄');
+}

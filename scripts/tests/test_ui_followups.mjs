@@ -508,3 +508,12 @@ const lateMonth=upcomingContext.cbUpcomingDividendSchedule([{tkr:"TEST",incomeKR
 assert.equal(lateMonth.length,1,"15일이 지나도 날짜 미정 월 배당은 사라지지 않는다");
 assert.equal(lateMonth[0].exact,false,"추정 일정은 확정일이 아니다");
 assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보존한다");
+
+// 2026-11-11 배당 상단 카드 — 보조 문구는 제목 줄 오른쪽, 연간 카드에는 세전/세후·소유주 표시가 없다
+{
+  const grid = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-div-summary-grid">'), cobaltSource.indexOf('cb-div-top3-card'))
+  assert.match(grid, /<div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 [\s\S]*?배당성장률<\/span><\/div>\s*<div class="cb-div-history-status"[^>]*>[\s\S]*?<\/div><\/div>\s*<div class="cb-div-summary-value"/, '보조 문구가 값보다 앞(제목 줄)에 온다')
+  const annual = grid.slice(0, grid.indexOf('월평균'))
+  assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
+  assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:0 0 auto;/, '넓은 화면에서 카드 폭은 내용에 맞춘다')
+}

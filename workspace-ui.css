@@ -253,17 +253,19 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .holdings-kpi small{font-size:var(--fs-cap);color:var(--lab)}
 .holdings-kpi.is-warn b{color:color-mix(in srgb,var(--warn) 62%,var(--tx))}
 .holdings-card{border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel);min-width:0}
-.holdings-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 14px 0;border-bottom:1px solid var(--bd)}
+/* 탭(왼쪽)과 도구(검색·계좌·시세 미조회만·＋추가, 오른쪽)를 한 줄에 둔다. 좁으면 도구가 다음 줄로 내려가되 오른쪽 정렬을 지킨다 */
+.holdings-head{display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;border-bottom:1px solid var(--bd)}
+.holdings-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 14px 0}
 .holdings-tab{min-height:44px;padding:0 14px;border:0;background:transparent;color:var(--mut);font:500 14px/1 'Noto Sans KR',sans-serif;cursor:pointer}
 .holdings-tab span{margin-left:6px;font-size:var(--fs-cap);color:var(--lab)}
 .holdings-tab[aria-selected="true"]{color:var(--tx);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
-.holdings-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 14px}
+.holdings-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px 14px;margin-left:auto;padding:8px 14px}
 .holdings-toolbar input[type="search"]{width:220px;max-width:100%;min-height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);font:var(--fs-body) 'Noto Sans KR',sans-serif}
 .holdings-broker-filter-inline{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-body);color:var(--mut)}
 .holdings-broker-filter-inline select{width:auto;min-height:38px;padding:0 10px;font-size:var(--fs-body)}
 .holdings-stale-toggle{display:inline-flex;align-items:center;gap:6px;min-height:38px;font-size:var(--fs-body);color:var(--mut);cursor:pointer}
 .holdings-stale-toggle input{width:18px;height:18px;margin:0}
-.holdings-add-btn{margin-left:auto;min-height:var(--btn-h);padding:0 16px;border:0;border-radius:var(--r-md);background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
+.holdings-add-btn{min-height:var(--btn-h);padding:0 16px;border:0;border-radius:var(--r-md);background:var(--acc);color:var(--on-acc);font:700 var(--fs-body) 'Noto Sans KR',sans-serif;cursor:pointer}
 #view-holdings .holdings-group{margin:0;border:0;border-radius:0;background:transparent}
 #view-holdings .holdings-group[hidden]{display:none}
 #view-holdings .holdings-group .pt-group-header{cursor:default;padding:4px 16px 10px;background:transparent;border:0;border-radius:0}
@@ -633,9 +635,25 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   body.side-collapsed .side-collapse-arrow{transform:rotate(180deg)}
   .layout{transition:grid-template-columns calc(var(--dur)*1.25) var(--ease-out),gap calc(var(--dur)*1.25) var(--ease-out)}
   .menu-col{min-width:0;overflow:hidden;transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out),padding var(--dur) var(--ease-out),border-width var(--dur) var(--ease-out)}
-  .menu-col>*{width:188px;flex-shrink:0}
+  /* 여백·테두리를 포함해 188px — content-box 로 두면 환율 상자(안쪽 여백+테두리 26px)가 사이드바 밖으로 나가 오른쪽 값이 잘린다 */
+  .menu-col>*{box-sizing:border-box;width:188px;flex-shrink:0}
   body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0}
   body.side-collapsed .menu-col{opacity:0;transform:translateX(-18px);padding-left:0;padding-right:0;border-width:0;pointer-events:none}
 }
 @media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow{transition:none!important}}
+/* 배당 상단 카드(2026-11-11) — 보조 문구('산출 n/m', '상위 3종목 합계')는 값 아래가 아니라 제목 줄 오른쪽 끝.
+   넓은 화면에서 숫자 카드는 내용 폭에 맞추고(월평균·YoC 가 글자에 비해 넓던 문제), TOP 3 카드가 남는 폭을 채운다.
+   휴대폰은 style.css 의 2열 그리드 그대로다. */
+.cb-div-summary-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.cb-div-summary-head>.cb-div-summary-title{flex:none}
+.cb-div-summary-head>.cb-div-history-status{margin-top:0;flex:0 1 auto;min-width:0;text-align:right}
+@media(min-width:769px){
+  .cb-div-summary-grid{display:flex;flex-wrap:wrap;gap:9px;align-items:stretch}
+  .cb-div-summary-grid>.cb-div-summary-card{flex:0 0 auto;min-width:120px;box-sizing:border-box}
+  .cb-div-summary-grid>.cb-div-top3-card{flex:1 1 240px}
+}
+/* 결산 리포트 줄바꿈 — 한글을 글자 단위로 끊지 않는다(소유주마다 금액 길이가 달라 '전보 / 다'처럼 끊기는 자리가 바뀌었다).
+   제목 글자는 한 덩어리로 두고, 배지가 들어갈 자리가 없으면 배지만 다음 줄로 내려간다. */
+.rep-page{word-break:keep-all;overflow-wrap:anywhere}
+.rep-chapter h2>.rep-title{white-space:nowrap}
 

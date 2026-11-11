@@ -42,6 +42,9 @@ assert.doesNotMatch(css, /font-family:\s*'|font:[^;}]*'[A-Z]/, '글꼴은 --font
 assert.match(section, /<nav class="rep-dots" aria-label="장 이동">[\s\S]*<button type="button" data-rep-dot=/, '장 표시는 진짜 버튼');
 assert.match(section, /addEventListener\('wheel'[\s\S]*passive:false/, '휠 한 칸에 한 장');
 assert.match(section, /new ResizeObserver\(\(\)=>\{ if\(el\.classList\.contains\('rep-scroll'\)\) fit\(\); \}\)/, '장 높이를 스크롤 영역에 맞춘다');
+assert.match(ws, /\.rep-page\{word-break:keep-all;overflow-wrap:anywhere\}/, '한글을 글자 단위로 끊지 않는다');
+assert.match(ws, /\.rep-chapter h2>\.rep-title\{white-space:nowrap\}/, '장 제목은 한 덩어리 — 배지만 다음 줄로');
+assert.match(section, /<span class="rep-title">\$\{title\}<\/span>/);
 
 // ── 계산 ──
 const grab = (name) => section.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];

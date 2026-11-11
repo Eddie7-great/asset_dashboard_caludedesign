@@ -3355,7 +3355,7 @@ function renderPortfolio(owner) {
     +`</div>`;
   // 휴대폰은 조회 전용 카드 목록이다 — 같은 숫자 카드를 넘겨 그 위에 두고, 탭·목록은 cbAssetMobile 이 그린다
   if(_mobileHoldings&&typeof cbAssetMobile==='function'){cbAssetMobile(kpis);return;}
-  document.getElementById('portfolio-tables').innerHTML=kpis+`<div class="holdings-card">${tabs}${toolbar}${html}</div>`;
+  document.getElementById('portfolio-tables').innerHTML=kpis+`<div class="holdings-card"><div class="holdings-head">${tabs}${toolbar}</div>${html}</div>`;
 }
 
 

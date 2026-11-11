@@ -11,6 +11,7 @@
 - 배당 장: 끝난 달은 현금 흐름(`cfData`)에 기록된 '배당금' 수입, 이번 달부터는 `divHistoryOf` 세후 추정이다(빗금 막대). 기록하지 않은 달은 0 으로 보인다는 사실을 문구로 밝힌다. 연간 실현손익은 `monthlyPLData` 그해 합계다.
 - **화면 단위 전환:** 결산 두 화면의 스크롤 영역(`.rep-scroll`)만 `scroll-snap-type:y mandatory` 이고, 장(`.rep-page`) 높이는 `reportMount` 가 `ResizeObserver` 로 스크롤 영역 높이(`--rep-h`)에 맞춘다(퍼센트 높이는 flex 스크롤 영역에서 믿을 수 없다). 휠 한 칸에 한 장(작은 휠은 스냅만으로는 제자리로 돌아간다), 오른쪽 점(`.rep-dots`, 진짜 버튼)으로 이동, 시세 갱신 재렌더에도 스크롤 위치 유지. 860px 이하·높이 620px 미만은 스냅을 끈다.
 - **사이드바 접기(`toggleSideCollapsed`/`applySideCollapsed`, 769px 이상):** 헤더의 `#side-collapse-btn` 이 `body.side-collapsed` 를 토글하고 `.layout` 격자 폭을 토큰 시간으로 애니메이션한다. 접힌 사이드바는 `inert`, 상태는 `localStorage.sideCollapsed`(KV 아님), 전환 뒤 `resize` 를 보내 차트를 새 폭에 맞춘다. 휴대폰은 기존 햄버거 서랍 그대로다.
+- **화면 다듬기(같은 날 후속):** 사이드바 자식 고정 폭은 `.menu-col>*{box-sizing:border-box;width:188px}` 다 — content-box 로 두면 환율·금 상자(안쪽 여백+테두리)가 사이드바 밖으로 나가 오른쪽 값이 잘린다. 보유 목록은 탭과 도구(검색·계좌·시세 미조회만·＋추가)를 한 머리줄(`.holdings-head`)에 두고 도구를 오른쪽 정렬한다(휴대폰은 그대로). 배당 상단 카드는 보조 문구를 제목 줄 오른쪽(`.cb-div-summary-head`)에 두고, 769px 이상에서 카드 폭을 내용에 맞추며(TOP 3 카드가 나머지를 채움), 연간 배당 수입 카드에는 세전/세후·소유주를 적지 않는다(머리줄 버튼이 이미 보여 준다). 결산 화면은 `word-break:keep-all` 로 한글을 어절 단위로만 줄바꿈하고, 장 제목(`.rep-title`)은 한 덩어리로 두어 배지만 다음 줄로 내린다.
 - `scripts/tests/test_report_page.mjs`·`test_sidebar_collapse.mjs`·`test_net_worth_snapshot.py` 가 지킨다.
 
 ### 규격 토큰·화면 다듬기 (2026-11-11)
