@@ -1,7 +1,6 @@
 // 규격 토큰(2026-11-11): 글자·굵기·글꼴·모서리·막대·버튼 값은 style.css :root 한 곳에서만 온다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import vm from 'node:vm';
 
 const root = new URL('../../', import.meta.url);
 const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
@@ -41,18 +40,9 @@ assert.match(etf, /etf-rank-track\{height:var\(--bar-h-lg\)/, 'ETF 비중 막대
 // 적립식 규칙 표(942px)는 좁은 화면에서 옆 카드에 가려지지 않는다
 assert.match(ws, /@media\(max-width:1559px\)\{\.cb-dca-detail-grid\{grid-template-columns:minmax\(0,1fr\)\}\}/, '1560px 미만에서는 배분 카드를 표 아래로');
 
-// 예전 자동 반영 흔적 안내 — 흔적이 있을 때만, 숫자는 보여 주지도 바꾸지도 않는다
-const grab = (name) => finance.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
-const ctx = vm.createContext({ pfolioData: [], cbEsc: (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`) });
-vm.runInContext(`${grab('finDcaLegacyRows')}\n${grab('finDcaLegacyNoteHtml')}`, ctx);
-assert.equal(ctx.finDcaLegacyNoteHtml(), '', '흔적이 없으면 아무것도 그리지 않는다');
-vm.runInContext(`pfolioData=[{name:'A<b>',owner:'본인',broker:'키움',qty:12.5,avgP:1000,dca:true,dcaLastExec:'2026-08-10'},{name:'B',owner:'아내',qty:3,dca:true,dcaLastExec:''}]`, ctx);
-const note = ctx.finDcaLegacyNoteHtml();
-assert.match(note, /적립식 수량 대조 권장[\s\S]*2026-08-10/, '흔적이 있는 종목과 마지막 반영일을 알린다');
-assert.doesNotMatch(note, /<b>B<\/b>/, '흔적이 없는 종목은 넣지 않는다');
-assert.doesNotMatch(note, /A<b>/, '종목명을 이스케이프한다');
-assert.doesNotMatch(note, /12\.5|1000/, '수량·단가는 표시하지 않는다');
-assert.doesNotMatch(grab('finDcaLegacyNoteHtml') + grab('finDcaLegacyRows'), /saveAssetsToKV|\.qty\s*=|dcaLastExec\s*=[^=]/, '조회 전용 — 저장하거나 값을 바꾸지 않는다');
-assert.match(finance, /\$\{finDcaLegacyNoteHtml\(\)\}<div class="fin-data-support-grid">/, '데이터 상태 화면에 붙는다');
+// 예전 판의 자동 체결 흔적(dcaLastExec)은 불러올 때 버린다 — 수량은 건드리지 않는다
+assert.doesNotMatch(script, /dcaLastExec\s*:/, '저장값 정규화가 dcaLastExec 를 싣지 않는다');
+assert.doesNotMatch(finance + read('cobalt.js'), /dcaLastExec\s*[=:][^=]/, '어느 화면도 dcaLastExec 를 쓰거나 읽어 계산하지 않는다');
+assert.doesNotMatch(finance, /finDcaLegacy/, '대조 안내는 기록과 함께 없앴다');
 
-console.log('PASS 규격 토큰·적립식 대조 안내');
+console.log('PASS 규격 토큰');

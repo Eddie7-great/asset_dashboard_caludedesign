@@ -3010,14 +3010,14 @@ function cbRenderTax(){
   el.innerHTML = `
     <!-- 상단 요약: 기존 5개를 압축하고 해외 기본공제 사용률을 추가 -->
     <div class="cb-tax-summary-grid">
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--dn)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--dn)">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800">${year}년 세액 참고 합계${ownerSuffix}</div>
         <div style="flex:1;display:flex;align-items:center">
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:23px;font-weight:800;color:var(--dn)">${cbKrw(totalDue)}</div>
         </div>
         <div style="font-size:var(--fs-cap);color:var(--dim);padding-top:8px;line-height:1.5">일반 해외 예상 ${cbKrw(genDue)} + ISA 연간 현금흐름 참고 ${cbKrw(isaDue)}<br>${taxBreakdown||'과세 대상 기록 없음'} · 해외주식 일반 사례 신고 ${parseInt(year)+1}년 5월</div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--acc)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--acc)">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 해외주식 <span style="color:var(--dim);font-weight:500">· 양도소득세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genFgn>=0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
@@ -3027,7 +3027,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">예상 세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--dn)">${cbKrw(genDue)}</span></div>
         </div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--warn)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--warn)">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
         <div class="cb-tax-deduction-value">
           <div style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:21px;font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
@@ -3035,7 +3035,7 @@ function cbRenderTax(){
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
         <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:#4ecdc4">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:#4ecdc4">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span style="color:var(--dim);font-weight:500">· 소액주주 비과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genDom>=0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
@@ -3044,7 +3044,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">예상 양도세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--up)">${cbKrw(0)}</span></div>
         </div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--purple,#c084fc)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--purple,#c084fc)">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">ISA 계좌 <span style="color:var(--dim);font-weight:500">· 만기 정산 전 연간 참고</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('연간 입력 순소득', (isaNet>=0?'+':'')+cbKrw(isaNet), cbUpDn(isaNet))}
@@ -3054,7 +3054,7 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">연간 현금흐름 참고세액</span><span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:var(--dn)">${cbKrw(isaDue)}</span></div>
         </div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="border-top-color:var(--up)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--up)">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">연금저축 계좌 <span style="color:var(--dim);font-weight:500">· 과세이연</span></div>
         ${row2('순이익', (penNet>=0?'+':'')+cbKrw(penNet), cbUpDn(penNet))}
         <div style="font-size:var(--fs-cap);color:var(--mut);margin-top:7px;line-height:1.65">
@@ -3411,8 +3411,7 @@ function cbDcaScheduleSummary(i, asOf){
   let nextDate='', remainingCount=0;
   for(let d=new Date(today);d<=horizon;d.setDate(d.getDate()+1)){
     const key=cbDcaDateKey(d);
-    // 이 앱은 증권사의 실제 체결 데이터를 받지 않는다. 과거에 앱이 임의로 기록한
-    // dcaLastExec 때문에 같은 시장·같은 주기의 예정일이 달라지지 않도록 일정에서 제외한다.
+    // 이 앱은 증권사의 실제 체결 데이터를 받지 않는다. 일정은 규칙만으로 정하고 과거 체결 기록에 기대지 않는다.
     if (key<todayKey || !cbDcaScheduledOn(i,d)) continue;
     if (!nextDate) nextDate=key;
     if (d<=monthEnd) remainingCount++;

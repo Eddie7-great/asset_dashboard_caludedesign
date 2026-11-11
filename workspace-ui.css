@@ -520,10 +520,11 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 /* 적립식 규칙 표는 942px 가 필요하다 — 옆에 280px 카드를 붙이면 1560px 미만에서 마지막 칸(월 환산·일시정지)이 잘려 가로로 밀어야 보였다.
    그 폭 아래에서는 배분 카드를 표 아래로 내린다. */
 @media(max-width:1559px){.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr)}}
-/* 데이터 상태 — 예전 자동 반영 흔적이 있는 적립식 종목 안내 */
-.fin-dca-legacy{margin:12px 0;border-left:3px solid var(--warn)}
-.fin-dca-legacy p{margin:0 0 8px;font-size:var(--fs-body);color:var(--mut);line-height:1.6;max-width:72em}
-.fin-dca-legacy ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.fin-dca-legacy li{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:var(--fs-body)}
-.fin-dca-legacy li span{color:var(--mut);font-size:var(--fs-cap)}
+/* 화면 다듬기(2026-11-11) — 헤더 설명 문구는 '…'로 자르지 않고 두 줄까지 보여 준다(휴대폰은 기존 ⓘ 토글 그대로) */
+@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
+/* 목표 화면 상단 세 카드 — 값 줄을 카드 바닥에 맞춘다. 현금 안전판 카드만 입력 줄이 있어, 위에서부터 쌓으면
+   옆 두 카드는 값 아래가 비고 세 값의 높이도 어긋났다 */
+.fin-goal-context b{margin-top:auto;padding-top:6px}
+/* 백테스트 — 실행 전 결과 자리가 통째로 비어 화면 대부분이 여백이었다. 무엇이 나오는지 알려 준다 */
+#bt-output:empty::before{content:"종목을 고르고 ‘백테스트 실행’을 누르면 납입 원금 · 최종 평가액 · 손익률 · 연평균 수익률 · 최대 낙폭과 기간별 평가액 그래프가 여기에 나옵니다.";display:flex;align-items:center;justify-content:center;min-height:200px;padding:16px;border:1px dashed var(--bd2);border-radius:var(--r-md);color:var(--lab);font-size:var(--fs-body);line-height:1.6;text-align:center}
 

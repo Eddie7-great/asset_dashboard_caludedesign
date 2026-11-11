@@ -6128,7 +6128,7 @@ function fixAssetCurrencies(arr) {
       dcaQty:_safeStoredNumber(raw.dcaQty,{min:0,max:1_000_000_000_000_000}),
       dcaDays,
       dcaDay:Math.round(_safeStoredNumber(raw.dcaDay,{min:1,max:31,fallback:1})),
-      dcaLastExec:_isStoredDateKey(raw.dcaLastExec)?String(raw.dcaLastExec):'',
+      // dcaLastExec(예전 판이 수량을 스스로 늘리며 적던 날짜)는 싣지 않는다 — 불러올 때 버리고 다음 저장 때 원격에서도 사라진다.
       // 액면분할·병합을 어느 날짜까지 확인했는지. 이 날짜 '이후' 분할만 보정 후보가 된다.
       // 비어 있으면 아직 한 번도 확인하지 않은 항목이라 조회 범위 전체를 후보로 본다.
       splitCheckedAt:_isStoredDateKey(raw.splitCheckedAt)?String(raw.splitCheckedAt):'',

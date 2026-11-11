@@ -255,7 +255,9 @@
     .cf-modal-content{background:var(--bg1);border-radius:var(--r-lg);padding:20px;width:400px;max-width:90%;position:relative;box-shadow:var(--gshadow);border:1px solid var(--border-light);max-height:80vh;overflow-y:auto}
     .cf-modal-close{position:absolute;right:15px;top:15px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--t3)}
     .menu-btn{background:transparent;border:none;padding:8px 10px;text-align:left;border-radius:var(--r-md);font-weight:500;color:var(--t2);cursor:pointer;gap:10px;transition:background .15s,color .15s;font-size:var(--fs-body);display:flex;align-items:center;width:100%;font-family:inherit}
-    .menu-btn .menu-ico{font-size:var(--fs-body);width:17px;text-align:center;flex-shrink:0}
+    .menu-btn .menu-ico{display:inline-flex;align-items:center;justify-content:center;width:17px;flex-shrink:0}
+    /* 메뉴 아이콘은 한 벌 — 같은 크기(16px)·같은 선 굵기의 인라인 SVG. 글자색을 따라가므로 테마·선택 상태마다 색을 따로 주지 않는다 */
+    .menu-ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
     .menu-btn:hover{background:var(--hover-bg);color:var(--t1)}.menu-btn.active{background:var(--acc-soft);color:var(--t1);font-weight:700}
     .sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:9px;flex-shrink:0}
     .footer-btn{width:100%;padding:8px 10px;border-radius:var(--r-md);border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
@@ -1015,7 +1017,8 @@
     .cb-div-upcoming-main>span:last-child{color:var(--dim);font-size:var(--fs-micro)}
     .cb-div-upcoming-note{margin-top:10px;color:var(--dim);font-size:var(--fs-micro);line-height:1.55}
     .cb-tax-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:9px;align-items:stretch}
-    .cb-tax-summary-card{padding:12px 11px;border-top:3px solid;display:flex;flex-direction:column;min-width:0}
+    .cb-tax-summary-card>:first-child::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;background:var(--card-tone,var(--acc))}
+    .cb-tax-summary-card{padding:12px 11px;display:flex;flex-direction:column;min-width:0}
     .cb-tax-deduction-value{display:flex;align-items:center;margin-top:12px}
     .cb-tax-deduction-track{height:var(--bar-h);border-radius:var(--r-md);background:var(--inner);overflow:hidden;margin-top:5px}
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
@@ -1032,7 +1035,7 @@
     .cb-risk-primary-title>span:last-child{flex-shrink:0;padding:1px 8px;border-radius:var(--r-lg);font-size:var(--fs-micro);font-weight:800;white-space:nowrap}
     .cb-risk-primary-value{font-family:var(--font-num);font-size:16px;font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-primary-message{margin-top:3px;color:var(--mut);font-size:var(--fs-micro);line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-insight-card{min-width:0;min-height:80px;padding:9px 11px;border-top:3px solid var(--risk-tone);display:flex;flex-direction:column}
+    .cb-risk-insight-card{min-width:0;min-height:80px;padding:9px 11px;display:flex;flex-direction:column}
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:var(--fs-micro);font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:var(--font-num);font-size:clamp(15px,1.15vw,18px);font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
