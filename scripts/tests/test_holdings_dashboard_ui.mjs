@@ -178,7 +178,7 @@ assert.match(scriptSource, /function toggleLayoutPreview\(\)[\s\S]*openLayoutPre
 assert.match(scriptSource, /mobilePreview[\s\S]*desktopPreview[\s\S]*sidebar-layout-label/, '미리보기 안에서는 전환 버튼 문구를 반대 버전으로 변경')
 assert.match(scriptSource, /초기 대시보드 렌더가 그 해시를 덮어쓰지 않게[\s\S]*navResolve\(requestedView\):requestedView\)!==normalized/, '기존 별칭을 해석한 뒤 모바일 미리보기의 페이지 해시를 유지')
 assert.match(styleSource, /\.layout-preview-overlay\.mode-mobile \.layout-preview-stage\{width:390px[\s\S]*\.mode-desktop \.layout-preview-stage\{width:1280px/, '미리보기 iframe에 실제 모바일·PC 반응형 폭 적용')
-assert.match(cobaltSource, /aria-label="국가"><\/span>/, '배당 관리 국가 헤더 문구는 숨기고 국기 칸 유지')
+assert.match(cobaltSource, /<span style="width:62px">소유주<\/span><span style="flex:1">종목<\/span>[\s\S]*<span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">\$\{cbFlagSvg\(x,15\)\}<\/span>/, "배당 관리: 머리글 '종목'은 국기 칸부터 시작하고 행의 국기 칸은 유지")
 assert.match(cobaltSource, /연간 수입 · \$\{basisLabel\}<\/span><span[^>]*>[\s\S]{0,400}?배당세<\/span><\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역을 연간 수입 → 배당세 → 보유 주수 → 주당 배당 순으로 배치')
 assert.match(scriptSource, /holdings-asset-flag/, '자산 내역 종목명 왼쪽에 국기·자산 아이콘 슬롯 추가')
 assert.doesNotMatch(cobaltSource, /function cbDcaDel\(/, '자산 내역에서 불러오는 DCA 페이지의 별도 삭제 기능 제거')
@@ -193,7 +193,7 @@ assert.match(cobaltSource, /<aside class="cb-panel home-stock-summary"/, '선택
 // 선택은 행 전체가 받는다. 종목명만 감싼 버튼은 티커·수량·금액 칸을 죽은 영역으로 만들었다.
 assert.match(cobaltSource, /<tr class="\$\{r\.key===_cdashSel\?'is-selected':''\}" role="button" tabindex="0"[\s\S]{0,120}data-key="\$\{cbEsc\(r\.key\)\}" onclick="cbDashPick\(this\.dataset\.key\)"/, '행 전체가 선택 대상이며 키는 data-key 로만 전달')
 assert.doesNotMatch(cobaltSource, /home-stock-pick/, '중첩 버튼 제거 — 남기면 클릭이 두 번 발생')
-assert.match(cobaltSource, /<th>소유주<\/th><th>종목명 · 티커<\/th><th>수량<\/th><th>매입금액<\/th><th>평가금액<\/th><th>비중<\/th><th>평가손익<\/th><th>수익률<\/th><th><span class="sr-only">시세 상태<\/span>/, '홈 보유 목록 9개 칼럼 (매입금액·비중·시세 상태 포함)')
+assert.match(cobaltSource, /<th>소유주<\/th><th>종목<\/th><th>수량<\/th><th>매입금액<\/th><th>평가액<\/th><th>비중<\/th><th>평가손익<\/th><th>수익률<\/th><th><span class="sr-only">시세 상태<\/span>/, '홈 보유 목록 9개 칼럼 (매입금액·비중·시세 상태 포함)')
 assert.match(cobaltSource, /colspan="9">검색 결과가 없습니다/, '빈 결과 행도 9칸을 덮는다')
 // cbCostKRW 는 취득가 미상일 때 0 을 돌려준다 — 그대로 그리면 ₩0 이 찍힌다.
 assert.match(cobaltSource, /\$\{r\.i\.costUnknown\?'—':cbDisp\(r\.cost\)\}/, '취득가 미상 매입금액은 0원이 아니라 —')

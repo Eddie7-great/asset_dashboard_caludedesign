@@ -835,4 +835,23 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 홈 보유 표 — 긴 종목명이 표를 옆으로 밀어 마지막 칸(수익률·시세 상태)이 잘리지 않게 이름 칸만 줄인다(전체 이름은 title). */
 .home-table-column td:nth-child(-n+2){max-width:250px;overflow:hidden;text-overflow:ellipsis}
 .home-table-column td,.home-table-column th{padding-left:7px;padding-right:7px}
-@media(max-width:1439px){.home-table-column td:nth-child(-n+2){max-width:140px}.home-table-column td,.home-table-column th{padding-left:5px;padding-right:5px}}
+@media(max-width:1439px){.home-table-column td:nth-child(-n+2){max-width:128px}.home-table-column td,.home-table-column th{padding-left:5px;padding-right:5px}}
+/* 내역 표 한 벌(2026-11-17) — 소유주는 어느 표에서나 색 점 + 이름, 종목 앞에는 국기·자산 아이콘,
+   손익은 이익·손실만 색(0·취득가 미상·현금은 회색). 머리글은 종목 / 평가액 / 평가손익 / 수익률 로 통일한다. */
+.cb-owner-tag{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);font-weight:600;color:var(--mut);white-space:nowrap}
+.cb-owner-tag>i{width:7px;height:7px;border-radius:50%;flex:none}
+.cb-owner-tag.is-none{color:var(--dim)}
+.home-asset,.acct-asset{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;vertical-align:middle}
+.home-asset>b,.acct-asset>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.acct-name>.cb-owner-tag{font-size:var(--fs-body);font-weight:700;color:var(--tx)}
+.acct-holding>span.acct-asset{display:flex}
+/* 보유 목록의 손익 칸 — 기본 칸 색 규칙(#view-holdings .pt-table td)이 .c-up/.c-dn 보다 강해 색이 지워지던 것을 되살린다. */
+#view-holdings .pt-table td.c-up{color:var(--up);font-weight:600}
+#view-holdings .pt-table td.c-dn{color:var(--dn);font-weight:600}
+.cb-owner-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
+/* 보유 목록은 12칸이다 — 1520px 미만에서는 13px Manrope 숫자가 칸에 다 들어가지 않아 '₩35,451,…'로 잘렸다.
+   좁은 화면에서는 한 단 작은 글자와 좁은 칸 여백을 쓴다(값은 잘리지 않아야 한다). */
+@media(min-width:769px) and (max-width:1519px){
+  #view-holdings .pt-table td,#view-holdings .pt-table th{font-size:var(--fs-cap);padding-left:4px;padding-right:4px}
+  #view-holdings .pt-table th.sortable{padding-right:11px}
+}

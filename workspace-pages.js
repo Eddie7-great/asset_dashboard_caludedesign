@@ -63,20 +63,20 @@ function cbRenderAccounts(){
     const info=getAccountDivTaxInfo(g.acc);
     return `<details class="acct-group">
       <summary class="acct-row">
-        <span class="acct-name"><i style="background:${cbOwnerColor(g.owner)}"></i><b>${cbEsc(g.owner)}</b><span>${cbEsc(g.broker)} · ${cbEsc(g.acc)}</span><em class="acct-kind-chip">${g.kind}</em>${g.stale?`<em class="acct-stale-chip">시세 미조회 ${g.stale}</em>`:''}</span>
+        <span class="acct-name">${cbOwnerTag(g.owner)}<span>${cbEsc(g.broker)} · ${cbEsc(g.acc)}</span><em class="acct-kind-chip">${g.kind}</em>${g.stale?`<em class="acct-stale-chip">시세 미조회 ${g.stale}</em>`:''}</span>
         <span class="cb-num">${cbDisp(g.value)}</span>
         <span class="cb-num">${g.share.toFixed(1)}%</span>
-        <span class="cb-num" style="${g.gainPct==null?'color:var(--lab)':cbUpDn(g.gain)}">${g.gainPct==null?'—':cbSignDisp(g.gain)+' · '+cbPct(g.gainPct)}</span>
+        <span class="cb-num" style="${cbGainStyle(g.gain,g.gainPct==null)}">${g.gainPct==null?'—':cbSignDisp(g.gain)+' · '+cbPct(g.gainPct)}</span>
         <span class="cb-num">${g.dividend>0?cbDisp(g.dividend):'—'}</span>
         <span class="cb-num">${g.rows.length}</span>
       </summary>
       <div class="acct-holdings">
         <div class="acct-tax-line">배당 과세: ${cbEsc(info.label||g.kind)}</div>
         ${g.rows.map(r=>`<div class="acct-holding">
-          <span><b>${cbEsc(r.title)}</b>${r.subTitle?` <small>${cbEsc(r.subTitle)}</small>`:''}</span>
+          <span class="acct-asset">${cbFlagCell(r, 24, 14)}<b>${cbEsc(r.title)}</b>${r.subTitle?` <small>${cbEsc(r.subTitle)}</small>`:''}</span>
           <span class="cb-num">${cbDisp(r.val)}</span>
           <span class="cb-num">${data.total>0?(r.val/data.total*100).toFixed(1)+'%':'—'}</span>
-          <span class="cb-num" style="${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gain)}">${r.gainPct==null?'—':cbSignDisp(r.gain)+' · '+cbPct(r.gainPct)}</span>
+          <span class="cb-num" style="${cbGainStyle(r.gain,r.gainPct==null)}">${r.gainPct==null?'—':cbSignDisp(r.gain)+' · '+cbPct(r.gainPct)}</span>
           <span class="cb-num">${cbDivIncomeKRW(r.i)>0?cbDisp(cbDivIncomeKRW(r.i)):'—'}</span>
           <span></span>
         </div>`).join('')}
@@ -87,7 +87,7 @@ function cbRenderAccounts(){
     <div class="cb-panel acct-table-panel">
       <div class="cb-panel-title">계좌별 내역 <span style="color:var(--dim)">· ${data.groups.length}개 계좌 · 줄을 누르면 보유 종목이 펼쳐집니다</span></div>
       <div class="acct-table-wrap"><div class="acct-table">
-        <div class="acct-row acct-head"><span>소유주 · 증권사 · 계좌</span><span>평가액</span><span>비중</span><span>평가손익</span><span><span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span></span><span>종목</span></div>
+        <div class="acct-row acct-head"><span>소유주 · 증권사 / 계좌</span><span>평가액</span><span>비중</span><span>평가손익</span><span><span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span></span><span>종목</span></div>
         ${body}
       </div></div>
       <p class="acct-foot">비중은 ${ownerF?cbEsc(ownerF):'가족 전체'} 투자자산(주식·가상화폐·금·현금) 대비입니다. 현금과 취득가 미상 종목은 평가손익에서 뺍니다. ISA 납입 한도·만기일과 연금 납입 한도는 가입일·납입액 기록이 없어 표시하지 않습니다.</p>

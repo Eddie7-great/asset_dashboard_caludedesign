@@ -3307,30 +3307,30 @@ function renderPortfolio(owner) {
     let theadHtml='';
     const ownerTh=showOwner?'<th class="text-left holdings-owner-head">소유주</th>':'';
     if(grpName==='현금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">은행/기관</th><th class="text-left holdings-asset-head">자산명</th><th>보유금액</th><th>평가금액(KRW)</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">증권사 / 계좌</th><th class="text-left holdings-asset-head">종목</th><th>보유금액</th><th>평가액</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left holdings-asset-head">자산명</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가금액(KRW)')}${portfolioSortHeader(grpName,'profit','수익금(KRW)')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목명/티커</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가금액(KRW)')}${portfolioSortHeader(grpName,'profit','수익금(KRW)')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     }
     // 주식/가상화폐/금 표 컬럼 폭 동일화: 동일 colgroup + table-layout:fixed → 세 표가 세로로 줄 맞음
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
-      const ownerCol=showOwner?'<col style="width:6%">':'';
+      const ownerCol=showOwner?'<col style="width:6.5%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
         // 증권사/계좌 칸이 7%일 때는 1440px 에서도 '키움… / …'로 잘렸다 — 비어 있는 일이 많은 DCA·관리 칸에서 폭을 가져온다.
         // 숫자 글꼴(Manrope)은 한글 글꼴의 숫자보다 넓다 — 회당 금액·수익금 칸이 '₩500,…'로 잘리지 않게 폭을 준다.
-        ?['11%','16%','6%','7%','6%','8%','8%','10%','10%','7%','5%']
+        ?['10%','15%','6%','7%','6%','9%','9.5%','9%','10%','6.5%','5.5%']
         :['12%','17%','6%','7%','6%','9%','9%','11%','9%','7%','7%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
     const grpProfitText=grpItems.length===0||grpName==='현금'?'-':(grpKnownCount===0?'산정 제외':gSign+'₩'+Math.abs(Math.round(grpProfit)).toLocaleString()+' ('+gSign+grpProfitPct.toFixed(2)+'%)');
     // 자산군 탭 — 지금 탭의 표만 보인다. 머리 줄은 더 이상 접고 펴지 않는다(탭이 그 역할).
-    html+=`<section class="pt-group holdings-group" id="holdings-panel-${grpName}" role="tabpanel" aria-labelledby="holdings-tab-${grpName}"${grpName===_holdingsTab?'':' hidden'}><div class="pt-group-header f-between"><div class="pt-group-title f-row">${grpName}<span class="holdings-group-count">${grpItems.length}종목</span></div><div class="pt-group-stats f-row"><span>총 평가 <strong>₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익 ${grpProfitText}</span></div></div><div class="pt-table-wrap"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></section>`;
+    html+=`<section class="pt-group holdings-group" id="holdings-panel-${grpName}" role="tabpanel" aria-labelledby="holdings-tab-${grpName}"${grpName===_holdingsTab?'':' hidden'}><div class="pt-group-header f-between"><div class="pt-group-title f-row">${grpName}<span class="holdings-group-count">${grpItems.length}종목</span></div><div class="pt-group-stats f-row"><span>원화 기준 · 총 평가 <strong>₩${Math.round(grpTotal).toLocaleString()}</strong></span><span class="${gCls}">수익 ${grpProfitText}</span></div></div><div class="pt-table-wrap"><table class="pt-table${_fixedCls}" data-grp="${grpName}">${colgroupHtml}<thead>${theadHtml}</thead><tbody>${rowsHtml}</tbody></table></div></section>`;
   });
   // 숫자 카드 — 위 그룹 합계를 더할 뿐 새 계산은 없다. 현금은 평가액에만 들어가고 손익에서 빠진다.
   const sumOf=k=>HOLDINGS_TABS.reduce((t,g)=>t+(grpStats[g]?.[k]||0),0);

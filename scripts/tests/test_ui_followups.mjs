@@ -540,3 +540,25 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(cobaltSource, /ontoggle="_cbGiftEditOpen\.\$\{kind\}=this\.open"/, "'계획 수정' 펼침 상태는 재렌더에도 유지")
 }
 
+// 2026-11-17 내역 표 한 벌 — 소유주 점·국기·칼럼 이름·손익 색
+{
+  const pagesSource = fs.readFileSync(new URL('../../workspace-pages.js', import.meta.url), 'utf8')
+  const tables = cobaltSource + pagesSource
+  assert.match(cobaltSource, /function cbOwnerTag\(owner, fallback\)\{[\s\S]*class="cb-owner-tag/, '소유주 점 + 이름은 한 함수가 그린다')
+  assert.doesNotMatch(tables, /width:7px;height:7px;border-radius:50%;background:\$\{(cbOwnerColor|ownerOf)/, '소유주 점을 표마다 인라인으로 복사하지 않는다')
+  assert.ok((tables.match(/cbOwnerTag\(/g) || []).length >= 7, '홈·가족·배당·적립식·세금·계좌별 표가 같은 소유주 표시를 쓴다')
+  assert.match(cobaltSource, /\+`<td>\$\{cbOwnerTag\(r\.i\.owner\)\}<\/td>`\s*\+`<td title=[^`]*<span class="home-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '홈 보유 표에도 소유주 점과 국기·자산 아이콘')
+  assert.match(pagesSource, /<span class="acct-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '계좌별 보기의 종목 줄에도 국기·자산 아이콘')
+  // 손익 색: 이익·손실만 색, 0·취득가 미상·현금은 회색
+  const gainFn = new Function(cobaltSource.match(/function cbGainStyle\(v, unknown\)\{[\s\S]*?\n\}/)[0] + '; return cbGainStyle;')()
+  assert.equal(gainFn(10), 'color:var(--up)')
+  assert.equal(gainFn(-10), 'color:var(--dn)')
+  assert.equal(gainFn(0), 'color:var(--lab)', '0 은 초록이 아니라 회색')
+  assert.equal(gainFn(10, true), 'color:var(--lab)', '취득가 미상·현금은 회색')
+  assert.match(workspaceSource, /#view-holdings \.pt-table td\.c-up\{color:var\(--up\)[^}]*\}\s*#view-holdings \.pt-table td\.c-dn\{color:var\(--dn\)/, '보유 목록 손익 칸도 색(기본 칸 색 규칙에 지워지지 않게)')
+  // 머리글 이름 한 벌
+  assert.doesNotMatch(scriptSource, /<th[^>]*>(종목명\/티커|자산명|은행\/기관)<\/th>|'평가금액\(KRW\)'|'수익금\(KRW\)'/, '보유 목록 머리글은 종목 / 평가액 / 평가손익')
+  assert.doesNotMatch(tables, />(종목명|종목명 · 티커|평가금액)<\/(th|span)>/, '코발트 표 머리글에 옛 이름을 남기지 않는다')
+  assert.match(scriptSource, /portfolioSortHeader\(grpName,'valKRW','평가액'\)\}\$\{portfolioSortHeader\(grpName,'profit','평가손익'\)\}/)
+}
+
