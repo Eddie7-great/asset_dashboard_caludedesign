@@ -118,7 +118,7 @@ assert.match(styleSource, /#owner-tabs-container\.holdings-owner-tabs\{margin-le
 assert.match(styleSource, /\.table-float-tip\{[\s\S]*position:fixed/, '전역 툴팁을 스크롤 컨테이너 밖 고정 레이어로 표시')
 assert.match(scriptSource, /closest\?\.\('\[data-tip\]'\)/, '모든 페이지 data-tip을 body 포털 툴팁으로 연결')
 assert.match(styleSource, /\[data-tip\]:hover::after\{display:none!important\}/, '잘리고 흔들리는 pseudo 툴팁 비활성화')
-assert.match(styleSource, /\.cb-thead,\s*\.pt-table th\{[\s\S]*font-family:'Noto Sans KR','Manrope'/, '페이지별 칼럼명 폰트를 자산 내역과 통일')
+assert.match(styleSource, /\.cb-thead,\s*\.pt-table th\{[\s\S]*font-family:var\(--font-ui\)/, '페이지별 칼럼명 폰트를 자산 내역과 통일')
 assert.match(styleSource, /\.cb-perf-card-grid\{display:grid;grid-template-columns:repeat\(6,minmax\(124px,1fr\)\)/, '성과 비교 상단 소유주·지수 카드를 한 줄로 유지')
 assert.match(styleSource, /\.cb-perf-card-grid\{[^}]*overflow:visible/, '성과 비교 상단 카드의 외곽선 때문에 세로 스크롤바가 생기지 않게 함')
 assert.match(cobaltSource, /const entities = \[\s*\.\.\.OWNERS\.map/, '성과 데이터 유무와 무관하게 모든 소유주 탭·그래프 범례 유지')
@@ -140,13 +140,19 @@ assert.match(scriptSource, /item\.qty \* epsVal \* \(RATES\[info\.cur\|\|item\.c
 assert.match(cobaltSource, /onclick="cbTaxMonthPick\(\$\{m\}\)"/, '양도소득세 월별 그래프 클릭을 하단 내역 필터에 연결')
 assert.match(cobaltSource, /onmousemove="this\.style\.fill='var\(--accSoft\)'/, '양도소득세 그래프 호버 월 강조')
 assert.match(cobaltSource, /cum\[m\]=\{fgn:cf, isa:ci, domProfit:cpDom, fgnProfit:cpFgn, profit:cp, tax\}/, '양도소득세 누적손익을 국내·해외·전체로 분리 집계')
-assert.match(cobaltSource, /cumulativeLine\('domProfit'[\s\S]*cumulativeLine\('fgnProfit'[\s\S]*cumulativeLine\('profit'/, '양도소득세 그래프에 국내·해외·전체 누적 추이 표시')
+assert.match(cobaltSource, /cumulativeLine\('profit','전체 누적'[\s\S]*cumulativeLine\('fgnProfit','해외 누적'/, '양도소득세 그래프 아래 칸에 전체·해외 누적 추이 표시')
+assert.doesNotMatch(cobaltSource, /cumulativeLine\('domProfit'|label:'예상 세액'/, '세금에 영향이 없는 국내 누적선·0 근처의 예상 세액선은 그림에 그리지 않는다(설명 상자에만)')
+assert.match(cobaltSource, /국내 누적손익', \(r\.cumDomProfit[\s\S]*누적 예상 세액', cbKrw\(r\.tax\)/, '그림에서 뺀 두 값은 마우스 설명 상자에 남긴다')
+assert.match(cobaltSource, /const YB=panel\(padT,topH,[\s\S]*'월별 실현손익'\);[\s\S]*const YC=panel\(botT,botH,[\s\S]*'누적 손익과 해외 기본공제'\);/, '위 칸은 월별 막대, 아래 칸은 누적선 + 공제선')
+assert.match(cobaltSource, /clip-path="url\(#\$\{clipId\}\)"/, '공제선을 넘은 구간만 면으로 칠한다')
+assert.match(cobaltSource, /<div class="cb-tip-fit">[\s\S]*<div class="cb-tip-note">/, '설명 상자의 각주는 폭을 정하지 않는다')
+assert.match(workspaceSource, /\.cb-tip-note\{width:0;min-width:100%/, '각주는 줄 폭 안에서 줄바꿈')
 const taxAxisContext = {}
 vm.createContext(taxAxisContext)
 vm.runInContext(extractFunction(cobaltSource, 'cbTaxAxisLab'), taxAxisContext)
 assert.equal(taxAxisContext.cbTaxAxisLab(2_500_000), '+250만', '양도소득세 Y축 양수에 + 기호 표시')
 assert.equal(taxAxisContext.cbTaxAxisLab(-2_500_000), '−250만', '양도소득세 Y축 음수 기호 유지')
-assert.match(cobaltSource, /endLabels\.push\(\{label:'예상 세액'[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 그래프 라인명 표시')
+assert.match(cobaltSource, /endLabels\.push\(\{label,color,p:pts\[pts\.length-1\]\}\)[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 그래프 라인명 표시')
 assert.match(cobaltSource, /해외 기본공제 사용률[\s\S]*잔여 공제/, '양도소득세 상단에 기본공제 사용률 위젯 추가')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
 assert.match(styleSource, /\.cb-dividend-tip\{width:max-content;max-width:min\(760px,calc\(100vw - 24px\)\)\}/, '배당 월별 툴팁 폭은 종목명 길이를 따른다(고정 최소 폭 없음)')
@@ -176,8 +182,8 @@ assert.match(cobaltSource, /const label=\[ownerF\?'':x\.i\.owner, x\.title\|\|'�
 assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*산출 \$\{gList\.length\}\/\$\{list\.length\} · 원본 \$\{rawHistoryList\.length\}\/\$\{list\.length\}/, '배당성장률 산출 수와 원본 이력 확보 수를 분리해 표시')
 assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 3[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
 assert.match(priceApiSource, /const symbols = krMatch[\s\S]*`\$\{krMatch\[1\]\}\.KS`,`\$\{krMatch\[1\]\}\.KQ`[\s\S]*for \(const sym of symbols\)/, '국내 배당 이력은 코스피 조회 실패 시 코스닥 심볼로 재조회')
-assert.match(cobaltSource, /cbTaxChartSvg\(1240,320,list,year\)/, '양도소득세 차트의 가로 축을 유지하며 세로 여백 압축')
-assert.match(cobaltSource, /const padL=64, padR=78, padT=14, padB=22/, '양도소득세 차트 12월 우측의 불필요한 내부 여백 축소')
+assert.match(cobaltSource, /cbTaxChartSvg\(1120,380,list,year\)/, '양도소득세 차트는 화면 폭에 가까운 좌표계로 그려 글자가 12px 아래로 줄지 않는다')
+assert.match(cobaltSource, /const padL=64, padR=96, padT=20, padB=24, gapMid=34/, '양도소득세 차트 두 칸의 여백')
 const divGrowthContext = {
   window: {
     _divHistoryRawCache: {
@@ -522,3 +528,15 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>소유주<\/span><span>종목<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
   assert.match(workspaceSource, /\.acct-row,\.acct-holding\{display:grid;grid-template-columns:[^}]*column-gap:20px/, '계좌별 내역은 계좌 줄과 종목 줄이 같은 칸 틀을 쓴다')
 }
+
+// 2026-11-16 2차 — 홈 평면 도넛, 가족 증여 결과 우선, 버튼·글꼴 한 벌
+{
+  assert.match(cobaltSource, /cbDonutSvg\(allocBySize,190,'cbDashAllocToggle',0\.15\)[\s\S]*cb-alloc-center/, '홈 자산 배분은 평면 도넛 + 가운데 총액')
+  assert.match(cobaltSource, /const allocBySize = alloc\.slice\(\)\.sort\(\(a,b\)=>b\.v-a\.v\)/, '도넛 조각과 목록은 같은 큰 순서')
+  assert.doesNotMatch(cobaltSource + fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8'), /AssetAllocation3D|allocation-3d|cb-allocation-visual/, '입체 도넛(비중 왜곡)은 없앴다')
+  assert.match(cobaltSource, /class="cb-sector-track"><i\$\{n===0\?' class="is-top"':''\}/, '섹터 막대는 한 색이고 1위만 진하다')
+  assert.match(cobaltSource, /\$\{childPvT>0\?childBody:giftEmptyNote\}\s*\$\{giftEditBox\('child',childSettings,!\(childPvT>0\)\)\}/, '가족 증여: 결과 → 계획 수정(접힘) 순서, 금액 0 이면 안내')
+  assert.match(cobaltSource, /\$\{spouseT>0\?spouseBody:giftEmptyNote\}/, '금액이 0 인 부부 계획은 빈 그래프 대신 안내')
+  assert.match(cobaltSource, /ontoggle="_cbGiftEditOpen\.\$\{kind\}=this\.open"/, "'계획 수정' 펼침 상태는 재렌더에도 유지")
+}
+

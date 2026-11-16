@@ -330,7 +330,7 @@ function finNwChartSvg(series,w,h){
   for(let v=lo; v<=hi+step*0.01; v+=step){
     const yy=y(v).toFixed(1);
     grid+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="10" text-anchor="end" font-family="Manrope">${cbTaxAxisLab(v)}</text>`;
+    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(v)}</text>`;
   }
   const pts=series.map((p,i)=>({x:padL+i*dx, y:y(p.v)}));
   const line=cbSmoothPath(pts);
@@ -339,7 +339,7 @@ function finNwChartSvg(series,w,h){
   const area=`${line} L${(padL+(series.length-1)*dx).toFixed(1)},${(h-8).toFixed(1)} L${padL.toFixed(1)},${(h-8).toFixed(1)} Z`;
   const every=Math.max(1,Math.ceil(series.length/6));
   const ticks=series.map((p,i)=>({p,i})).filter(x=>x.i%every===0||x.i===series.length-1)
-    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="9.5" text-anchor="middle" font-family="Manrope">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
+    .map(x=>`<text x="${(padL+x.i*dx).toFixed(1)}" y="${h+11}" style="fill:var(--dim)" font-size="12" text-anchor="middle">${cbEsc(String(x.p.date||'').slice(5).replace('-','/'))}</text>`).join('');
   const hit=series.map((p,i)=>{
     const left=Math.max(0,padL+i*dx-dx/2), width=Math.min(dx,w-left);
     return `<rect data-chart-hit="finNw:${i}" x="${left.toFixed(1)}" y="0" width="${width.toFixed(1)}" height="${h}" fill="transparent" style="cursor:crosshair;touch-action:pan-x pan-y" onmousemove="finNwHover(event,${i})"></rect>`;
@@ -485,6 +485,60 @@ function finAccountDiagnostics(ownerF){
     if(gift&&info.type==='일반'){status='증여 계좌';if(tone!=='warn')tone='info';}
     return{...x,share:x.value/total*100,status,finding,taxLabel:info.label,withheld,type:info.type,tone,saving};
   });
+}
+// 계좌 배치 진단 행(소유주·증권사·계좌)을 소유주 → 증권사 → 계좌로 묶는다. 합계는 행 값을 더할 뿐 새 계산이 없다.
+// 소유주는 고정 순서(OWNERS), 증권사·계좌는 평가액 큰 순이다.
+function finAccountTree(rows){
+  const owners=new Map();
+  (rows||[]).forEach(x=>{
+    if(!owners.has(x.owner))owners.set(x.owner,{owner:x.owner,value:0,dividend:0,share:0,count:0,warn:0,brokers:new Map()});
+    const o=owners.get(x.owner);
+    if(!o.brokers.has(x.broker))o.brokers.set(x.broker,{broker:x.broker,value:0,dividend:0,share:0,accounts:[]});
+    const b=o.brokers.get(x.broker);
+    b.accounts.push(x);
+    [o,b].forEach(n=>{n.value+=x.value;n.dividend+=x.dividend;n.share+=x.share;});
+    o.count++; if(x.tone==='warn')o.warn++;
+  });
+  const order=typeof OWNERS!=='undefined'?OWNERS:[];
+  const rank=name=>{const i=order.indexOf(name);return i<0?order.length:i;};
+  return [...owners.values()].sort((a,b)=>rank(a.owner)-rank(b.owner)||b.value-a.value).map(o=>({...o,
+    brokers:[...o.brokers.values()].sort((a,b)=>b.value-a.value).map(b=>({...b,accounts:b.accounts.slice().sort((x,y)=>y.value-x.value)}))}));
+}
+// 3층 면적 막대(소유주 / 증권사 / 계좌) + 세로 트리 목록. 폭 = 평가액. 계좌 층 색은 세제 유형이고,
+// 점검 대상은 색이 아니라 빗금과 배지 글자로도 알린다. 좁은 칸의 이름은 data-tip 으로 본다.
+function finAccountTreeHtml(tree,total){
+  if(!tree.length)return '<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>';
+  const typeCls=t=>t==='ISA'?'isa':(t==='연금'?'pen':'gen');
+  const pct=v=>v.toFixed(1)+'%';
+  const seg=(value,cls,label,tip,style)=>`<span class="fin-ice-seg ${cls}" style="flex:${Math.max(value,0)} 0 0${style?';'+style:''}" data-tip="${cbEsc(tip)}">${total>0&&value/total>=0.055?cbEsc(label):''}</span>`;
+  let l1='',l2='',l3='';
+  tree.forEach(o=>{
+    l1+=seg(o.value,'l1',`${o.owner} ${pct(o.share)}`,`${o.owner} · ${cbDisp(o.value)} · ${pct(o.share)}`,`--own:${cbOwnerColor(o.owner)}`);
+    o.brokers.forEach(b=>{
+      l2+=seg(b.value,'l2',b.broker,`${o.owner} · ${b.broker} · ${cbDisp(b.value)} · ${pct(b.share)}`);
+      b.accounts.forEach(a=>{l3+=seg(a.value,`l3 ${typeCls(a.type)}${a.tone==='warn'?' is-warn':''}`,a.acc,`${o.owner} · ${b.broker} · ${a.acc} · ${cbDisp(a.value)} · ${pct(a.share)} · ${a.status}`);});
+    });
+  });
+  const warn=tree.reduce((n,o)=>n+o.warn,0);
+  const saving=tree.reduce((sum,o)=>sum+o.brokers.reduce((s2,b)=>s2+b.accounts.reduce((s3,a)=>s3+(a.tone==='warn'?a.saving:0),0),0),0);
+  const bar=(share,cls)=>`<span class="fin-tree-bar${cls?' '+cls:''}"><i style="width:${Math.max(0,Math.min(100,share)).toFixed(2)}%"></i></span>`;
+  const branch=last=>`<i class="fin-tree-br${last?' is-last':''}"></i>`;
+  const pass=on=>`<i class="fin-tree-br is-pass${on?'':' is-none'}"></i>`;
+  let rowsHtml='';
+  tree.forEach(o=>{
+    rowsHtml+=`<div class="fin-tree-row lv0"><span class="fin-tree-name"><i class="fin-tree-dot" style="background:${cbOwnerColor(o.owner)}"></i><b>${cbEsc(o.owner)}</b><small>계좌 ${o.count}개</small></span><span class="cb-num">${cbDisp(o.value)}</span><span class="fin-tree-share">${bar(o.share,'is-owner')}<b class="cb-num">${pct(o.share)}</b></span><span class="cb-num">${o.dividend>0?cbDisp(o.dividend):'—'}</span><span></span></div>`;
+    o.brokers.forEach((b,bi)=>{
+      const lastB=bi===o.brokers.length-1;
+      rowsHtml+=`<div class="fin-tree-row lv1"><span class="fin-tree-name">${branch(lastB)}<span>${cbEsc(b.broker)}</span></span><span class="cb-num">${cbDisp(b.value)}</span><span class="fin-tree-share">${bar(b.share)}<span class="cb-num">${pct(b.share)}</span></span><span class="cb-num">${b.dividend>0?cbDisp(b.dividend):'—'}</span><span></span></div>`;
+      b.accounts.forEach((a,ai)=>{
+        const note=a.tone==='warn'?`연금 과세이연 계좌로 옮긴 단순 가정상 연 최대 ${cbDisp(a.saving)} 이연`:cbEsc(a.finding);
+        rowsHtml+=`<div class="fin-tree-row lv2"><span class="fin-tree-name">${pass(!lastB)}${branch(ai===b.accounts.length-1)}<i class="fin-tree-kind ${typeCls(a.type)}"></i><b>${cbEsc(a.acc)}</b></span><span class="cb-num">${cbDisp(a.value)}</span><span class="fin-tree-share">${bar(a.share)}<span class="cb-num">${pct(a.share)}</span></span><span class="cb-num">${a.dividend>0?cbDisp(a.dividend):'—'}</span><span class="fin-tree-diag"><em class="fin-acct-chip is-${a.tone}">${cbEsc(a.status)}</em><span>${note}</span></span></div>`;
+      });
+    });
+  });
+  return `<div class="fin-ice" role="img" aria-label="소유주, 증권사, 계좌 순으로 나눈 평가액 구성"><div>${l1}</div><div>${l2}</div><div>${l3}</div></div>
+    <div class="fin-acct-legend"><span><i style="background:var(--acct-gen)"></i>일반</span><span><i style="background:var(--acct-isa)"></i>ISA</span><span><i style="background:var(--acct-pen)"></i>연금</span><span><i class="fin-ice-hatch"></i>배당 과세 점검</span><span class="fin-acct-note${warn?' is-warn':''}">${warn?`배당 과세 점검 ${warn}개 계좌 · 연금 과세이연 계좌로 옮긴 단순 가정상 연 최대 ${cbDisp(saving)} 이연`:'일반계좌에 배당 과세 점검 대상이 없습니다'}</span></div>
+    <div class="fin-tree-wrap"><div class="fin-tree"><div class="fin-tree-row head"><span>소유주 / 증권사 / 계좌</span><span>평가액</span><span>비중</span><span>연 배당(세전 추정)</span><span>상태 · 진단 <small>ISA 세액은 연간 현금흐름 참고</small></span></div>${rowsHtml}</div></div>`;
 }
 function finPortfolioReferences(){
   const models=[['전통적 균형형 · 60/40',60,'글로벌 주식 60% · 채권 40%','성장과 채권 소득을 함께 추구하는 구성.','https://workplace.vanguard.com/assets/corp/fund_communications/pdf_publish/us-products/fact-sheet/F0914.pdf'],['Vanguard 성장형 · 80/20',80,'글로벌 주식 80% · 채권 20%','주식 비중을 높여 장기 성장에 무게를 둔 구성.','https://advisors.vanguard.com/investments/products/vasgx/vanguard-lifestrategy-8020-fund'],['Buffett의 신탁 지침 · 90/10',90,'S&P 500 90% · 단기 국채 10%','2013년 주주서한의 가족 신탁 지침. 주식 변동에 크게 노출됩니다.','https://www.berkshirehathaway.com/letters/2013ltr.pdf']];
@@ -645,18 +699,9 @@ function cbRenderPlan(){
   const ro=(typeof isMobileLayout==='function'&&isMobileLayout())?' readonly':'';
   const goalRows=rebalance?[]:finGoalRows();
   const goalCards=goalRows.map(finGoalCardHtml).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
-  // 계좌 유형별 평가액 — 계좌 배치 진단 요약 막대. 금액은 진단 행(accounts)의 value 를 유형별로 더할 뿐이다.
-  const acctTypes=[['일반','var(--acct-gen)'],['ISA','var(--acct-isa)'],['연금','var(--acct-pen)']].map(([type,color])=>({type,color,value:accounts.filter(x=>x.type===type).reduce((sum,x)=>sum+x.value,0)}));
-  const acctTotal=acctTypes.reduce((sum,t)=>sum+t.value,0);
-  const acctWarn=accounts.filter(x=>x.tone==='warn');
-  const acctSaving=acctWarn.reduce((sum,x)=>sum+x.saving,0);
-  const acctCards=accounts.slice().sort((x,y)=>(y.tone==='warn')-(x.tone==='warn')||y.value-x.value).map(x=>`<article class="fin-acct-card is-${x.tone}"><header><span class="fin-acct-name"><i style="background:${cbOwnerColor(x.owner)}"></i><b>${cbEsc(x.owner)}</b><span>${cbEsc(x.broker)} · ${cbEsc(x.acc)}</span></span><em class="fin-acct-chip is-${x.tone}">${cbEsc(x.status)}</em></header>
-      <div class="fin-acct-value"><b>${cbDisp(x.value)}</b><span>${x.share.toFixed(1)}% · ${x.count}개 자산</span></div>
-      <div class="fin-acct-bar"><i style="width:${Math.max(0,Math.min(100,x.share)).toFixed(2)}%"></i></div>
-      <dl class="fin-acct-facts"><div><dt>연 배당(세전 추정)</dt><dd>${x.dividend>0?cbDisp(x.dividend):'—'}</dd></div><div><dt>${x.type==='ISA'?'세액 · 연간 현금흐름 참고':(x.type==='연금'?'원천징수':'원천징수(추정)')}</dt><dd>${x.type==='연금'?'과세이연':(x.withheld==null?'계산 불가':(x.dividend>0?cbDisp(x.withheld):'—'))}</dd></div><div><dt>배당 과세</dt><dd>${cbEsc(x.taxLabel)}</dd></div></dl>
-      <p>${x.tone==='warn'?`연금 과세이연 계좌로 옮긴 단순 가정상 연 최대 ${cbDisp(x.saving)} 이연`:cbEsc(x.finding)}</p></article>`).join('');
+  const acctTree=finAccountTree(accounts);
   el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-comparison"><div class="fin-rebal-main">${finRebalBulletHtml(ta)}<div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>`<div class="${Math.abs(x.drift)>=ta.threshold?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span class="${x.drift>=0?'up':'down'}">${x.drift>=0?'+':''}${x.drift.toFixed(1)}%p</span><span class="${x.diff>=0?'up':'down'}">${x.diff>=0?'매수 ':'축소 '}${cbDisp(Math.abs(x.diff))}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
-    <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div>${accounts.length?`<div class="fin-acct-summary"><div class="sim-stack" role="img" aria-label="${acctTypes.map(t=>`${t.type} ${acctTotal>0?(t.value/acctTotal*100).toFixed(1):'0.0'}%`).join(', ')}">${acctTypes.filter(t=>t.value>0).map(t=>`<span style="width:${(t.value/acctTotal*100).toFixed(2)}%;background:${t.color}"></span>`).join('')}</div><div class="fin-acct-legend">${acctTypes.map(t=>`<span><i style="background:${t.color}"></i>${t.type} <b>${acctTotal>0?(t.value/acctTotal*100).toFixed(1):'0.0'}%</b> <small>${cbDisp(t.value)}</small></span>`).join('')}<span class="fin-acct-note${acctWarn.length?' is-warn':''}">${acctWarn.length?`배당 과세 점검 ${acctWarn.length}개 계좌 · 연금 과세이연 계좌로 옮긴 단순 가정상 연 최대 ${cbDisp(acctSaving)} 이연`:'일반계좌에 배당 과세 점검 대상이 없습니다'}</span></div></div><div class="fin-acct-grid">${acctCards}</div>`:'<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>'}</div>`:`
+    <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div>${finAccountTreeHtml(acctTree,accounts.reduce((sum,x)=>sum+x.value,0))}</div>`:`
     ${finGoalContext(ownerF)}${goalRows.length?`<div class="fin-goal-overview">${finGoalProgressCard(goalRows)}${finGoalTimelineCard(goalRows)}</div>`:''}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 가구 공통 · 속도 판정은 연결 자산의 월 적립식 매수액과 견준 목표별 참고값(수익률 0% 가정)</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
     ${showGoalForm?`<div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">

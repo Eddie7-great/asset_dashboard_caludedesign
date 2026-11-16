@@ -2356,7 +2356,7 @@ async function onSearchInput() {
     }
 
     if (!found && !_hasLocalResults) {
-      dd.innerHTML='<div style="padding:12px 14px;font-size:.82rem;color:var(--t3)">종목을 찾을 수 없습니다. (정확한 명칭이나 6자리 코드를 입력하세요)</div>';
+      dd.innerHTML='<div style="padding:12px 14px;font-size:var(--fs-body);color:var(--t3)">종목을 찾을 수 없습니다. (정확한 명칭이나 6자리 코드를 입력하세요)</div>';
       dd.style.display='block';
     }
     if (spinner) spinner.style.display='none';
@@ -2376,12 +2376,12 @@ function renderDropdown(items) {
     const button=document.createElement('button');
     button.type='button';
     button.className='stock-search-option';
-    button.style.cssText='width:100%;padding:10px 14px;cursor:pointer;font-size:.85rem;border:0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;color:var(--t1);background:transparent;text-align:left';
+    button.style.cssText='width:100%;padding:10px 14px;cursor:pointer;font-size:var(--fs-body);border:0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;color:var(--t1);background:transparent;text-align:left';
     const name=document.createElement('span');
     name.style.cssText='font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;color:var(--t1)';
     name.textContent=desc;
     const ticker=document.createElement('span');
-    ticker.style.cssText='color:var(--t3);font-size:.75rem;background:var(--border-dark);padding:2px 6px;border-radius:4px;flex-shrink:0;margin-left:8px';
+    ticker.style.cssText='color:var(--t3);font-size:var(--fs-cap);background:var(--border-dark);padding:2px 6px;border-radius:4px;flex-shrink:0;margin-left:8px';
     ticker.textContent=sym;
     button.append(name,ticker);
     button.addEventListener('click',()=>selectTicker(sym,desc,rawT,mktVal,priceVal));
@@ -2445,7 +2445,7 @@ async function searchStockByApi() {
 
   const showManualFallback = (reason) => {
     if (errBox) {
-      errBox.innerHTML = `${reason} <br><span style="color:var(--t3);font-size:.7rem">외부 조회에 실패했습니다. 아래에서 직접 입력할 수 있습니다.</span>`;
+      errBox.innerHTML = `${reason} <br><span style="color:var(--t3);font-size:var(--fs-cap)">외부 조회에 실패했습니다. 아래에서 직접 입력할 수 있습니다.</span>`;
       errBox.style.display = 'block';
     }
     if (manual) {
@@ -3104,7 +3104,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   const input=document.createElement('input');
   input.type='text';
   input.className='editable-input';
-  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:.75rem;border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
+  input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:var(--fs-cap);border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
   if(item.grp==='현금'&&field==='qty') input.style.width='110px';
   input.value = (item.grp==='가상화폐'&&field==='avgP') ? Math.round(item.avgP) : item[field];
   let cancelled=false;
@@ -3243,7 +3243,7 @@ function renderPortfolio(owner) {
           if(!i.costUnknown){grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;}
           grpTotal+=current;
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';
-          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString()}</button> <span style="font-size:.65rem;color:var(--t3)">${holdingsEsc(i.unit||'g')}</span>`;
+          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString()}</button> <span style="font-size:var(--fs-cap);color:var(--t3)">${holdingsEsc(i.unit||'g')}</span>`;
           const fAvg=i.costUnknown?'<span class="cost-unknown-badge">취득가 미상</span>':`₩<button type="button" class="editable-val editable-val-button" aria-label="평균단가 수정" onclick="makeEditable(this,'','','avgP',false,${pIdx})">${avgPKRW.toLocaleString()}</button>`;
           // [7] 현재가 괄호 뒤 제거
           const fCurP='₩'+curPKRW.toLocaleString();
@@ -3266,7 +3266,7 @@ function renderPortfolio(owner) {
           const {profit, pct:profitPct}=calcProfit(current, invest);
           grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;grpTotal+=current;
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';
-          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString(undefined,{maximumFractionDigits:6})}</button> <span style="font-size:.65rem;color:var(--t3)">개</span>`;
+          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString(undefined,{maximumFractionDigits:6})}</button> <span style="font-size:var(--fs-cap);color:var(--t3)">개</span>`;
           const fAvg=`₩<button type="button" class="editable-val editable-val-button" aria-label="평균단가 수정" onclick="makeEditable(this,'','','avgP',false,${pIdx})">${avgPKRW.toLocaleString()}</button>`;
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
@@ -3282,9 +3282,9 @@ function renderPortfolio(owner) {
           const {profit, pct:profitPct}=calcProfit(current, invest);
           grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;grpTotal+=current;
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';
-          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString()}</button> <span style="font-size:.65rem;color:var(--t3)">주</span>`;
+          const fQty=`<button type="button" class="editable-val editable-val-button" aria-label="수량 수정" onclick="makeEditable(this,'','','qty',false,${pIdx})">${(Number(i.qty)||0).toLocaleString()}</button> <span style="font-size:var(--fs-cap);color:var(--t3)">주</span>`;
           const fAvg=`${sym}<button type="button" class="editable-val editable-val-button" aria-label="평균단가 수정" onclick="makeEditable(this,'','','avgP',false,${pIdx})">${(Number(i.avgP)||0).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})}</button>`;
-          const staleTag=i._priceStale?`<span class="price-stale-tag" title="현재가 조회 실패 - 평균단가 기준" style="font-size:.6rem;background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 4px;border-radius:4px;margin-left:4px">미조회</span>`:'';
+          const staleTag=i._priceStale?`<span class="price-stale-tag" title="현재가 조회 실패 - 평균단가 기준" style="font-size:var(--fs-cap);background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 4px;border-radius:4px;margin-left:4px">미조회</span>`:'';
           const fCurP=sym+(Number(i.curP)||0).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})+staleTag;
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
@@ -3318,11 +3318,12 @@ function renderPortfolio(owner) {
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
-      const ownerCol=showOwner?'<col style="width:7%">':'';
+      const ownerCol=showOwner?'<col style="width:6%">':'';
       // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
       const widths=showOwner
         // 증권사/계좌 칸이 7%일 때는 1440px 에서도 '키움… / …'로 잘렸다 — 비어 있는 일이 많은 DCA·관리 칸에서 폭을 가져온다.
-        ?['11%','17%','6%','6%','6%','8%','8%','10%','9%','7%','5%']
+        // 숫자 글꼴(Manrope)은 한글 글꼴의 숫자보다 넓다 — 회당 금액·수익금 칸이 '₩500,…'로 잘리지 않게 폭을 준다.
+        ?['11%','16%','6%','7%','6%','8%','8%','10%','10%','7%','5%']
         :['12%','17%','6%','7%','6%','9%','9%','11%','9%','7%','7%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
@@ -3647,12 +3648,12 @@ function renderCfDivPanel() {
       <div style="width:100%;background:var(--inner-bg);border-radius:3px;height:36px;display:flex;align-items:flex-end">
         <div style="width:100%;height:${pct}%;background:${isNow?'var(--acc)':'var(--acc3)'};border-radius:3px;min-height:${v>0?'3px':'0'}"></div>
       </div>
-      <div style="font-size:.58rem;color:var(--t3)">${i+1}월</div>
-      ${v > 0 ? `<div style="font-size:.58rem;color:var(--t2);white-space:nowrap">₩${(v/10000).toFixed(0)}만</div>` : ''}
+      <div style="font-size:var(--fs-cap);color:var(--t3)">${i+1}월</div>
+      ${v > 0 ? `<div style="font-size:var(--fs-cap);color:var(--t2);white-space:nowrap">₩${(v/10000).toFixed(0)}만</div>` : ''}
     </div>`;
   }).join('');
   el.innerHTML = `
-    <div class="card-title" style="margin-bottom:6px">${_cfOwner === '전체' ? '전체' : _cfOwner} ${year}년 배당 수입 <span style="font-size:.68rem;font-weight:normal;color:var(--acc)">₩${Math.round(total).toLocaleString()}</span></div>
+    <div class="card-title" style="margin-bottom:6px">${_cfOwner === '전체' ? '전체' : _cfOwner} ${year}년 배당 수입 <span style="font-size:var(--fs-cap);font-weight:normal;color:var(--acc)">₩${Math.round(total).toLocaleString()}</span></div>
     <div style="display:flex;gap:2px;align-items:flex-end;padding:4px 0">${bars}</div>`;
 }
 
@@ -4158,8 +4159,8 @@ function renderCashFlow() {
     if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;}
     let cls=i.type==='수입'?'var(--up)':'var(--dn)',sign=i.type==='수입'?'+':'-';
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
-    const cycleDisp=i.isAuto?`<span style="font-size:.65rem;color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:.65rem;color:var(--t3)">일회성</span>`;
-    const ownerCell=`<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
+    const cycleDisp=i.isAuto?`<span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:var(--fs-cap);color:var(--t3)">일회성</span>`;
+    const ownerCell=`<td class="text-left"><span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
     html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:700">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
   // 자동이체 가상 행: 각 자동이체별로 해당 월의 실제/레거시 [자동] 항목이 없으면 예정 행 표시
@@ -4212,14 +4213,14 @@ function renderCashFlow() {
     const scheduledLabel=monthlyCycle&&monthlyOccurrences.length
       ? _cfLocalDateKey(monthlyOccurrences[0].date).substring(5).replace('-','/')
       : '-';
-    const atOwnerCell = `<td class="text-left"><span style="font-size:.72rem;color:var(--t3);white-space:nowrap">${_cfEsc(at.owner||'미지정')}</span></td>`;
+    const atOwnerCell = `<td class="text-left"><span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">${_cfEsc(at.owner||'미지정')}</span></td>`;
     html+=`<tr style="opacity:.75">
       <td class="text-left">${scheduledLabel}</td>
       <td class="text-left"><span style="color:${atCls};font-weight:700">${_cfEsc(at.type)}</span></td>
       ${atOwnerCell}<td class="text-left">${_cfEsc(at.cat||'-')}</td>
       <td class="text-left"><span style="color:var(--t3)">[예정]</span> ${_cfEsc(at.desc||'자동이체')}</td>
       <td style="color:${atCls}" class="text-right">${atSign}₩${total.toLocaleString()}</td>
-      <td class="text-right"><span style="font-size:.65rem;color:var(--t3)">${_cfEsc(cycleLbl)}</span></td>
+      <td class="text-right"><span style="font-size:var(--fs-cap);color:var(--t3)">${_cfEsc(cycleLbl)}</span></td>
       <td class="text-right" style="white-space:nowrap">
         <button class="btn-action" title="이 달 금액 수정" onclick="editAutoTransferMonth(${safeAtId},${cfYear},${cfMonth})">✎</button>
         <button class="btn-action" title="이 달만 삭제" onclick="skipAutoTransferMonth(${safeAtId},${cfYear},${cfMonth})">✕</button>
@@ -4264,10 +4265,10 @@ function cfMonthSummaryHtml(tIn, tOut, expByCat){
       + `<button type="button" onclick="switchCashFlowSection('fixed',document.getElementById('cf-section-tab-fixed'))">고정비 관리로</button></div>`
     : '';
   return `<div class="cb-label f-between" style="margin-bottom:2px"><span>${cfYear}년 ${cfMonth}월 요약</span>`
-    + `<span style="font-size:.68rem;color:var(--t3);font-weight:600;letter-spacing:0">${_cfEsc(scope)}</span></div>`
+    + `<span style="font-size:var(--fs-cap);color:var(--t3);font-weight:600;letter-spacing:0">${_cfEsc(scope)}</span></div>`
     + `<div class="cf-summary-row"><span>총 수입</span><b class="c-up">${won(tIn)}</b></div>`
     + `<div class="cf-summary-row"><span>총 지출</span><b class="c-dn">-${won(tOut).replace('-','')}</b></div>`
-    + (savingOut>0?`<div class="cf-summary-row"><span style="padding-left:9px;color:var(--t3);font-size:.72rem">└ 저축/투자 (자산 이동)</span><b style="font-size:.8rem;color:var(--t2)">${won(savingOut)}</b></div>`:'')
+    + (savingOut>0?`<div class="cf-summary-row"><span style="padding-left:9px;color:var(--t3);font-size:var(--fs-cap)">└ 저축/투자 (자산 이동)</span><b style="font-size:var(--fs-body);color:var(--t2)">${won(savingOut)}</b></div>`:'')
     + `<div class="cf-summary-row is-net"><span>순현금흐름</span><b class="${net>0?'c-up':(net<0?'c-dn':'')}">${net===0?'₩0':(net>0?'+':'')+won(net)}</b></div>`
     + `<div class="cf-summary-row"><span data-tip="소득에서 소비지출을 뺀 비율입니다. '저축/투자' 지출은 통장에서 빠져나가도 자산으로 옮겨 간 돈이라 소비에서 제외합니다 — 그래서 순현금흐름과 다를 수 있습니다.">저축률</span>`
     + `<b>${rate==null?'—':rate.toFixed(1)+'%'}</b></div>`
@@ -4942,7 +4943,7 @@ if (typeof Chart === "undefined") {
 } else {
   Chart.defaults.responsive=true;
   Chart.defaults.maintainAspectRatio=false;
-  Chart.defaults.font.family="'Noto Sans KR','Manrope',sans-serif";
+  Chart.defaults.font.family="'Manrope','Noto Sans KR',sans-serif";
   Chart.defaults.plugins.tooltip.padding = 12;
   Chart.defaults.plugins.tooltip.cornerRadius = 10;
 }
@@ -5602,26 +5603,26 @@ function _renderBubbleMobileWeights(container, itemsAug, totalVal) {
   const html = rows.map((x, idx) => {
     const w = (x.val / totalVal) * 100;
     const color = _bubbleSectorColor(x.sector);
-    const ownerTag = showOwner ? `<span style="font-size:.62rem;color:var(--acc);font-weight:700;background:var(--inner-bg);padding:1px 6px;border-radius:8px;flex-shrink:0">${_cfEsc(x.raw.owner || '-')}</span>` : '';
+    const ownerTag = showOwner ? `<span style="font-size:var(--fs-cap);color:var(--acc);font-weight:700;background:var(--inner-bg);padding:1px 6px;border-radius:8px;flex-shrink:0">${_cfEsc(x.raw.owner || '-')}</span>` : '';
     const name = _cfEsc(x.raw.name || x.raw.tkr || '-');
     return `<div class="bubble-weight-item" style="padding:5px 2px;border-bottom:1px solid var(--border-light)">
       <div style="display:flex;align-items:center;gap:6px;min-width:0">
         ${ownerTag}
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;font-weight:600;color:var(--t1)">${name}</span>
-        <span class="bubble-weight-pct" style="flex-shrink:0;font-size:.78rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${w.toFixed(1)}%</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-cap);font-weight:600;color:var(--t1)">${name}</span>
+        <span class="bubble-weight-pct" style="flex-shrink:0;font-size:var(--fs-cap);font-weight:800;color:var(--t1);font-family:var(--font-ui)">${w.toFixed(1)}%</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <div style="flex:1;height:6px;border-radius:3px;background:var(--inner-bg);overflow:hidden">
           <div style="height:100%;width:${Math.max(w, 0.5).toFixed(1)}%;background:${color};border-radius:3px"></div>
         </div>
-        <span style="flex-shrink:0;font-size:.68rem;color:var(--t3);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(x.val)}</span>
+        <span style="flex-shrink:0;font-size:var(--fs-cap);color:var(--t3);font-family:var(--font-ui)">${fmt(x.val)}</span>
       </div>
     </div>`;
   }).join('');
   container.innerHTML = `<div style="padding:4px 2px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 8px">
       <span class="bubble-weight-title">종목별 비중 <small>${rows.length}종목</small></span>
-      <span style="font-size:.74rem;font-weight:800;color:var(--t1);font-family:'Manrope','Noto Sans KR',sans-serif">${fmt(totalVal)}</span>
+      <span style="font-size:var(--fs-cap);font-weight:800;color:var(--t1);font-family:var(--font-ui)">${fmt(totalVal)}</span>
     </div><div class="bubble-weight-grid">${html}</div></div>`;
 }
 
@@ -5661,7 +5662,7 @@ function renderBubbleChart(mode) {
 
   if (baseItems.length === 0) {
     try { if (typeof Plotly !== 'undefined') Plotly.purge(container); } catch (e) {}
-    container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:60px;font-family:\'Noto Sans KR\',\'Manrope\',sans-serif;font-weight:700" data-bubble-empty="1">표시할 자산이 없습니다.</div>';
+    container.innerHTML = '<div style="color:var(--t3);text-align:center;padding:60px;font-family:var(--font-ui);font-weight:700" data-bubble-empty="1">표시할 자산이 없습니다.</div>';
     return;
   }
   if (container.querySelector('[data-bubble-empty]')) {
@@ -5819,7 +5820,7 @@ function renderBubbleChart(mode) {
       }
     },
     tiling: { packing: 'squarify', pad: 3 },
-    pathbar: { visible: true, side: 'top', thickness: 30, textfont: { family: "'Noto Sans KR','Manrope',sans-serif", size: 14, color: textColor } },
+    pathbar: { visible: true, side: 'top', thickness: 30, textfont: { family: "'Manrope','Noto Sans KR',sans-serif", size: 14, color: textColor } },
     // 이름은 굵게, 비중은 다음 줄 — 한 줄에 같은 굵기로 이어 쓰면 작은 칸에서 둘이 구분되지 않는다.
     textinfo: 'label+percent root',
     texttemplate: '<b>%{label}</b><br>%{percentRoot:.1%}',
@@ -5827,7 +5828,7 @@ function renderBubbleChart(mode) {
     // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
     // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
     textfont: {
-      family: "'Noto Sans KR','Manrope',sans-serif",
+      family: "'Manrope','Noto Sans KR',sans-serif",
       size: 16,
       color: customdata.map(d => (d.kind === 'root' || d.kind === 'owner') ? textColor : '#18213a')
     },
@@ -5840,7 +5841,7 @@ function renderBubbleChart(mode) {
     margin: { t: 6, l: 4, r: 4, b: 4 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
+    font: { family: "'Manrope','Noto Sans KR',sans-serif", color: textColor, size: 13 },
     showlegend: false,
     // uniformtext 는 모든 칸의 글자를 '가장 빡빡한 칸'에 맞춘 한 크기로 그린다 — minsize 가 곧 실제 글자 크기의
     // 바닥이다(10 일 때 화면 전체가 10px 로 내려앉았다). 13px 로도 안 들어가는 칸은 숨기고 호버로 확인한다.
@@ -5849,7 +5850,7 @@ function renderBubbleChart(mode) {
       bgcolor: cssVar('--tipbg',isDark?'#f4f7fb':'#18213a'),
       bordercolor: cssVar('--tipbd',isDark?'#ffffff':'#31405e'),
       font: {
-        family: "'Noto Sans KR','Manrope',sans-serif",
+        family: "'Manrope','Noto Sans KR',sans-serif",
         size: 13,
         color: cssVar('--tiptx',isDark?'#111827':'#f8fafc')
       }
@@ -5909,7 +5910,7 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
   const textPrimary = 'var(--t1)';
   const fmtKRW = (v) => '₩' + Math.round(v).toLocaleString('ko-KR');
   const html = [
-    `<div style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.68rem;letter-spacing:.08em;color:${headerColor};font-weight:700;padding:2px 8px 10px;">섹터 구성</div>`,
+    `<div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;padding:2px 8px 10px;">섹터 구성</div>`,
     `<div style="display:flex;flex-direction:column;gap:5px;">`
   ];
   rows.forEach(([sec, val]) => {
@@ -5927,13 +5928,13 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
             <span style="width:8px;height:8px;border-radius:3px;background:${c};flex-shrink:0;"></span>
-            <span style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.76rem;font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeSec}</span>
+            <span style="font-family:var(--font-ui);font-size:var(--fs-cap);font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeSec}</span>
           </div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-shrink:0;">
-            <span style="font-family:'Manrope','Noto Sans KR',sans-serif;font-size:.8rem;font-weight:800;color:${textPrimary};letter-spacing:0;">${pctStr}%</span>
+            <span style="font-family:var(--font-ui);font-size:var(--fs-body);font-weight:800;color:${textPrimary};letter-spacing:0;">${pctStr}%</span>
           </div>
         </div>
-        <div style="position:relative;font-family:'Manrope','Noto Sans KR',sans-serif;font-size:.65rem;color:${headerColor};margin-top:2px;letter-spacing:0;pointer-events:none;">${fmtKRW(val)}</div>
+        <div style="position:relative;font-family:var(--font-ui);font-size:var(--fs-cap);color:${headerColor};margin-top:2px;letter-spacing:0;pointer-events:none;">${fmtKRW(val)}</div>
       </button>
       ${detailHtml}
       </div>
@@ -5977,8 +5978,8 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const html = [
     `<div class="bubble-inline-leaves" style="padding:4px 8px 9px;border-top:1px solid ${rowBorder};">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 7px;">
-      <div style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.66rem;letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sector)}</div>
-      <button type="button" data-bubble-sector="${_cfEsc(sector)}" onclick="handleBubbleSectorClick(this.dataset.bubbleSector)" style="font-family:'Noto Sans KR','Manrope',sans-serif;font-size:.66rem;color:${accent};cursor:pointer;font-weight:700;border:0;background:transparent;padding:4px;">닫기</button>
+      <div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sector)}</div>
+      <button type="button" data-bubble-sector="${_cfEsc(sector)}" onclick="handleBubbleSectorClick(this.dataset.bubbleSector)" style="font-family:var(--font-ui);font-size:var(--fs-cap);color:${accent};cursor:pointer;font-weight:700;border:0;background:transparent;padding:4px;">닫기</button>
     </div>`,
     `<div style="display:flex;flex-direction:column;gap:${gap}px;">`
   ];
@@ -6099,7 +6100,7 @@ function showSaveError(msg){
   if(!el){
     el=document.createElement('div');
     el.id='kv-save-toast';
-    el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;background:#EF4444;color:#fff;padding:11px 18px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.28);max-width:90vw;text-align:center;transition:opacity .3s';
+    el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;background:#EF4444;color:#fff;padding:11px 18px;border-radius:10px;font-size:var(--fs-body);font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.28);max-width:90vw;text-align:center;transition:opacity .3s';
     document.body.appendChild(el);
   }
   el.textContent=msg||'⚠️ 저장 실패 — 변경사항이 저장되지 않았습니다. 네트워크 상태를 확인해 주세요.';
@@ -6210,7 +6211,7 @@ function showKvLoadError(message,source='general'){
   if(!banner){
     banner=document.createElement('div');
     banner.id='kv-error-banner';
-    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#EF4444;color:#fff;text-align:center;font-size:.85rem;font-weight:600;';
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#EF4444;color:#fff;text-align:center;font-size:var(--fs-body);font-weight:600;';
     document.body.prepend(banner);
   }
   let row=banner.querySelector(`[data-kv-source="${source}"]`);

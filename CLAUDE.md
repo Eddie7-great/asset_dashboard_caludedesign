@@ -1,9 +1,22 @@
 # CLAUDE.md
 
+### 글꼴·버튼 한 벌, 홈 평면 도넛, 세금 두 칸 그래프, 증여 결과 우선, 계좌 트리 (2026-11-16 2차)
+
+- **글꼴은 한 벌이다.** `--font-ui` 가 `'Manrope','Noto Sans KR',sans-serif` 이고 `--font-num` 은 같은 값이다 — Manrope 에 한글이 없으므로 **숫자·영문은 어디서나 Manrope, 한글은 Noto** 가 된다. 예전에는 본문이 Noto 먼저라 같은 금액이 표에서는 Noto 숫자, 숫자 카드에서는 Manrope 숫자였다. **글꼴 이름을 CSS·JS·SVG 속성(`font-family="…"`)에 직접 적지 않는다** — SVG 글자는 `svg text{font-family:var(--font-ui)}` 규칙이 맡는다(속성으로 한 글꼴만 적으면 한글이 브라우저 기본 글꼴로 떨어진다). Plotly·Chart.js 는 CSS 변수를 못 읽어 같은 스택을 문자열로 준다(script.js).
+- **가장 작은 글자는 12px 이다.** `--fs-micro` 는 12px(`--fs-cap` 과 같은 값)이고, rem·12px 미만 크기와 SVG `font-size="11"` 이하를 다시 적지 않는다. 크기를 주지 않은 `<small>` 은 `:where(small)` 규칙이 12px 로 잡는다. 예외 둘: 휴대폰 검색 입력칸 16px(iOS 확대 방지), 23×15 가상화폐 배지 글리프. **Manrope 숫자는 Noto 숫자보다 넓다** — 숫자 칸 폭을 줄일 때는 화면으로 잘림을 확인한다(보유 목록 colgroup·홈 숫자 카드·홈 보유 표를 이 때문에 고쳤다).
+- **SVG 차트는 좌표계 폭을 실제 표시 폭 가까이 잡는다.** viewBox 가 표시 폭보다 크면 글자가 그 비율만큼 줄어든다(세금 그래프 1120, 증여 그래프 560). 휴대폰에서는 줄이는 대신 `.cb-chart-scroll` 로 옆으로 밀어 본다(세금·배당 그래프).
+- **버튼은 한 벌이다.** `.cb-btn`·`.api-btn`·`.btn-submit` 도 시작 버튼과 같은 중립 톤(`--inner` + `--bd2` + `--tx`)이고, 카드·표 안의 작은 버튼(목표 저장·수정·삭제·현금 안전판 저장)은 28px 한 종류다. `--acc-soft2` 바탕 버튼을 다시 만들지 않는다. 밑줄형 탭은 그대로다.
+- **홈 자산 배분은 평면 도넛 + 가운데 총액이다.** 입체 도넛(`allocation-3d.js`·`vendor/three*`)은 기울어진 만큼 앞쪽 조각이 커 보여 없앴다(파일·테스트·스크립트 태그 삭제). `cbDonutSvg(segs,size,clickFn,ratio)` 의 네 번째 인자가 두께 비율이다. 조각과 목록은 같은 큰 순서(`allocBySize`)이고, 자산군을 고르면 가운데가 그 비중으로 바뀐다. **막대 색은 뜻이 있을 때만 쓴다** — 섹터 집중도(`.cb-sector-track`)와 증여 구간 막대는 한 색이고 1위·공제액 이상만 따로 칠한다.
+- **세금 그래프(`cbTaxChartSvg`)는 위아래 두 칸이다.** 위: 월별 실현손익 막대. 아래: 해외 누적선 + 기본공제선(넘은 구간만 면 채움) + 전체 누적선. 국내 누적선과 예상 세액선은 그리지 않고 설명 상자(`cbTaxHover`)에만 남긴다 — 다시 겹쳐 그리지 않는다. 히트 영역은 두 칸을 관통한다.
+- **차트 설명 상자의 각주는 폭을 정하지 않는다**(`.cb-tip-fit` + `.cb-tip-note{width:0;min-width:100%}`). 각주 한 문장이 상자를 넓히면 이름과 값 사이가 휑해진다.
+- **가족 증여는 결과가 위다.** 합계·판정 → 구간 막대 → 그래프 → '계획 수정'(`<details class="cb-gift-edit">`, 펼침 상태는 `_cbGiftEditOpen` 메모리) → 실제 증여 확인란. 입력 id·저장 함수는 그대로다. 금액이 전부 0 인 계획은 빈 막대·그래프 대신 안내(`giftEmptyNote`)를 띄우고 수정란을 펴 둔다.
+- **계좌 배치 진단은 소유주 → 증권사 → 계좌 트리다(카드 격자는 없앴다).** `finAccountTree(rows)` 가 `finAccountDiagnostics` 행을 묶어 소계를 더할 뿐이고, `finAccountTreeHtml` 이 3층 면적 막대(`.fin-ice`, 폭 = 평가액, 계좌 층 색 = `--acct-*`, 점검 대상은 빗금 + 배지 글자)와 가지선 목록(`.fin-tree-row lv0/lv1/lv2`, 한 격자 틀)을 그린다. ISA '연간 현금흐름 참고'·이연액 '단순 가정' 문구는 유지한다.
+- `test_design_tokens.mjs`·`test_finance_features.mjs`·`test_ui_followups.mjs` 가 지킨다.
+
 ### 표 간격·목표·계좌 배치 진단·버튼 색 다듬기 (2026-11-16)
 
 - **표의 한 칸에 `flex:1` 을 주고 나머지를 고정 폭으로 두지 않는다.** 그 칸이 남는 폭을 전부 가져가 옆 칸과 멀어진다(적립식 '종목'↔'회당 금액', 실현손익 '메모', 계좌별 내역 첫 칸). 세 표는 클래스 격자다 — `.cb-dca-head/.cb-dca-row`, `.cb-tax-hist-head/.cb-tax-hist-row`, `.acct-row/.acct-holding`(workspace-ui.css). 모든 칸이 `minmax(최소,fr)` 로 남는 폭을 나눠 갖는다. 적립식 머리줄 '종목'은 들여쓰지 않는다(국기 왼쪽 끝과 같은 선). 계좌별 내역의 펼친 종목 줄은 **계좌 줄과 같은 칸 틀**을 써서 평가액·비중·손익·배당이 같은 칸 아래에 선다.
-- **계좌 배치 진단(리밸런싱 하단)은 표가 아니라 유형 구성 막대 + 계좌 카드다.** `finAccountDiagnostics` 가 기존 값에 표시용 `type`(일반/ISA/연금)·`tone`(warn/ok/info/neutral)·`saving`(일반계좌 배당 × 원천징수율 — 진단 문장에 쓰던 식 그대로)을 더해 주고, `cbRenderPlan` 이 유형별 평가액을 더해 `.sim-stack` 막대로, 계좌를 `.fin-acct-card` 로 그린다. '배당 과세 점검' 계좌가 맨 앞이다. ISA 세액은 '연간 현금흐름 참고' 라벨을, 요약 줄의 이연액은 '단순 가정' 문구를 유지한다. 유형 색은 `--acct-gen/--acct-isa/--acct-pen` 토큰(기본·다크 따로)이고 비중을 글자로도 적는다.
+- 계좌 배치 진단은 같은 날 2차 작업에서 소유주 → 증권사 → 계좌 트리로 바뀌었다(위 절). `finAccountDiagnostics` 가 주는 표시용 `type`·`tone`·`saving` 필드는 그대로 쓴다.
 - **시작 버튼(`.holdings-add-btn`·`.cf-entry-open`·`.fin-goal-add-btn`·`.fin-form-actions button.primary`)은 파랑 채움이 아니라 일반 버튼과 같은 중립 톤이다**(`--inner` 바탕 + `--bd2` 테두리 + `--tx` 글자). 사용자 결정이다 — 회백색 본문·남색 사이드바 사이에서 파랑 채움만 튀었다. `background:var(--acc)` 채움 버튼을 다시 만들지 않는다. 강조색은 링크·현재 위치 표시·막대에만 쓴다.
 - 배당 월별 그래프 툴팁(`.cb-dividend-tip`)은 고정 최소 폭 없이 `width:max-content` 로 종목명 길이를 따른다(상한만 둔다).
 - `test_finance_features.mjs`·`test_ui_followups.mjs`·`test_theme.mjs` 가 지킨다.
@@ -24,7 +37,7 @@
 
 ### 규격 토큰·화면 다듬기 (2026-11-11)
 
-- **글자·굵기·글꼴·모서리·막대·버튼 값은 `style.css` `:root` 토큰에서만 온다.** 글자 6단(`--fs-title 22 / --fs-kpi 26 / --fs-card 15 / --fs-body 13 / --fs-cap 12 / --fs-micro 11`), 글꼴 2종(`--font-ui` 본문 · `--font-num` 숫자), 모서리 3종(`--r-sm 4 / --r-md 8 / --r-lg 12`), 막대 2종(`--bar-h 6` 일반 · `--bar-h-lg 12` 구성 비교), 버튼 높이 `--btn-h 36`. 예전에는 글자 크기 30여 종·막대 높이 8종·모서리 11종이 화면마다 직접 적혀 있었다. **11px 미만 글자, `550/650/750/850/bold` 굵기, 토큰 밖 모서리 값을 CSS 에 다시 적지 않는다.**
+- **글자·굵기·글꼴·모서리·막대·버튼 값은 `style.css` `:root` 토큰에서만 온다.** 글자 6단(`--fs-title 22 / --fs-kpi 26 / --fs-card 15 / --fs-body 13 / --fs-cap 12 / --fs-micro 11`), 글꼴 토큰(`--font-ui`·`--font-num` — 2026-11-16 부터 같은 스택), 모서리 3종(`--r-sm 4 / --r-md 8 / --r-lg 12`), 막대 2종(`--bar-h 6` 일반 · `--bar-h-lg 12` 구성 비교), 버튼 높이 `--btn-h 36`. 예전에는 글자 크기 30여 종·막대 높이 8종·모서리 11종이 화면마다 직접 적혀 있었다. **11px 미만 글자, `550/650/750/850/bold` 굵기, 토큰 밖 모서리 값을 CSS 에 다시 적지 않는다.**
 - **숫자(금액·비율·날짜·차트 눈금)는 `--font-num` 한 글꼴이다.** 고정폭 글꼴(IBM Plex Mono·JetBrains Mono)은 없앴고 내려받지도 않는다 — 표는 고정폭, 숫자 카드는 Manrope 여서 같은 금액이 화면마다 다른 모양이었다. 자릿수 맞춤은 `font-variant-numeric:tabular-nums` 가 맡는다.
 - 버튼은 기본(`.cb-btn`·`.api-btn`·`.btn-submit`)과 강조(`.holdings-add-btn`·`.cf-entry-open`·`.fin-goal-add-btn`) 모두 높이 36px 이다. `.btn-submit` 만 `height:36px` 를 글자 그대로 둔다 — 고정비 등록 줄의 세 컨트롤 높이를 테스트가 같은 숫자로 비교한다.
 - **적립식 규칙 표는 942px 가 필요하다.** 1560px 미만에서는 `.cb-dca-detail-grid` 를 한 단으로 내려 배분 카드가 표의 마지막 칸(월 환산·일시정지)을 가리지 않게 한다. 보유 목록 colgroup 은 증권사/계좌 칸에 11~12%를 준다(7%일 때 1440px 에서 '키움… / …'로 잘렸다).
@@ -99,7 +112,7 @@
 ### Consolidated workspace (2026-09-08)
 
 - Navigation is defined in `navigation.js`: eight menu families, secondary links retain existing view IDs. `snap`/`dashboard`/`balance2` resolve to `cdash` before history recording. Keep active menu/title, owner scope across related tabs, and back/forward in sync. Home contains investment summaries and compact allocation/ranking cards; a searchable owner-scoped holdings table remains on home, while editing belongs to asset management. `plan2` is goals, `rebal2` is allocation/account diagnostics, `dca2` is scheduling, `sim2` is scenarios.
-- Script order: `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `workspace-pages.js` → `cobalt.js` → `allocation-3d.js`. The new modules define functions only until Cobalt renders. `workspace-ui.css` follows `style.css`.
+- Script order: `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `workspace-pages.js` → `cobalt.js`. The new modules define functions only until Cobalt renders. `workspace-ui.css` follows `style.css`.
 - Scenarios are memory-only: never persist, update actual holdings or execute trades. Contributions are external funds; prices/FX fixed, returns 0%, fees/taxes/dividends/lot sizes excluded. Validate finite nonnegative inputs and 100% target weights; rounded KRW allocations must conserve the budget. Keep inputs/focus while results update. Scenario and DCA numeric controls use `data-no-comma="1"` to retain native numeric validation. Mobile can edit scenarios although actual finance records remain read-only.
 - DCA 규칙 등록·수정은 종목 편집 모달이 맡는다(예전 인라인 편집기 `dca-editor.js` 는 호출부가 없어 지웠다). 적립식 화면에는 일정 확인과 일시정지 토글(`cbDcaToggle`, cobalt.js)만 있다 — 토글은 `dca` 플래그만 바꾸고, 원장·재무계획 두 원격 로드가 모두 ready 일 때만(`cbDcaCanSave`) 기존 CAS 저장 경로로 쓰며, 실패하면 되돌린 뒤 토스트로 알린다. No simulated fills.
 
@@ -119,10 +132,10 @@ This is a Vercel-hosted single-page app — there is no build step.
 
 ### Frontend — vanilla JS SPA (no framework, no bundler)
 
-- Scripts load in the order listed in Consolidated workspace above. `cobalt.js` wraps `switchView`, `changeOwner`, `saveAssetsToKV`, `loadAssetsFromKV`, `loadExtDataFromKV`, `fetchDivData`, `setTheme`, `liveRefresh`, `refreshPyData` to re-render the active page and stamp data-freshness. It must follow the finance/navigation/simulator/editor definitions it references in `CB_VIEWS`. The optional 3D enhancement loads after Cobalt.
+- Scripts load in the order listed in Consolidated workspace above. `cobalt.js` wraps `switchView`, `changeOwner`, `saveAssetsToKV`, `loadAssetsFromKV`, `loadExtDataFromKV`, `fetchDivData`, `setTheme`, `liveRefresh`, `refreshPyData` to re-render the active page and stamp data-freshness. It must follow the finance/navigation/simulator/editor definitions it references in `CB_VIEWS`.
 - `index.html` defines every view as `<div id="view-*">` siblings; `switchView(viewId)` toggles `.active`. A new page needs a view/container, a renderer in `CB_VIEWS`, and an entry in the appropriate `APP_NAV` family. Keep the eight top-level destinations rather than adding a menu button per page. Legacy pages use `CB_LEGACY_SUB` for header descriptions.
 - `script.js` is a single ~7,300-line file with most of the legacy logic. Globals shared across modules are real `window.` globals — `pfolioData`, `currentOwner`, `_bubbleOwner`, `_divDataCache`, `RATES`, `benchData`, `divHistory`, `_netWorthHistory`, `_balanceSheet`, `_targetAlloc`, `goalData`, etc. There is no module system; ordering in the file matters.
-- Charting: **Chart.js 4.4.1** for the 현금 흐름 bar/donut charts and **Plotly 2.26.0** for the bubble/sunburst-trace chart (`renderBubbleChart` in `script.js`) — both loaded from CDN in `index.html` with SRI. Highcharts was dropped when the legacy views went: its only user was the 히트맵 treemap in `view-analysis`. **Cobalt pages use no chart library at all** — they render inline SVG (`cbDonutSvg`, `cbRingSvg`, `finNwChartSvg`), because a page redrawn by `innerHTML` replacement would otherwise need chart-instance lifecycle management.
+- Charting: **Chart.js 4.4.1** for the 현금 흐름 bar/donut charts and **Plotly 2.26.0** for the allocation treemap (`renderBubbleChart` in `script.js`) — both loaded from CDN in `index.html` with SRI. Highcharts was dropped when the legacy views went: its only user was the 히트맵 treemap in `view-analysis`. **Cobalt pages use no chart library at all** — they render inline SVG (`cbDonutSvg`, `cbRingSvg`, `finNwChartSvg`), because a page redrawn by `innerHTML` replacement would otherwise need chart-instance lifecycle management.
 - Persistent state is stored in **Upstash Redis (KV)** via `getKV` / `setKV` (`saveAssetsToKV`, `loadAssetsFromKV`), which call the server-side proxy `api/kv.ts` — the Upstash credentials live in Vercel env vars (`KV_REST_API_URL`, `KV_REST_API_TOKEN`), never in the client. Local `localStorage` is used only for short-lived caches (e.g. `divCache_<YYYY-MM-DD>`, `cfData`).
 
 ### Backend — six Vercel serverless functions under `api/`
@@ -311,7 +324,6 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 - **배당 API는 종목 단위 `verifiedTickers`를 반환한다.** HTTP 200이나 청크 요청 성공만으로 종목을 확인 완료로 기록하지 않는다. `fetchDividendHistory`도 25개씩 나누며, 실패한 종목의 이전 이력은 보존한다. 빈 배당 이력은 서버가 성공을 확인했을 때만 무배당 근거로 쓴다. 확인되지 않은 ETF 구성종목으로 중복 노출 0%를 표시하지 않는다.
 - **정렬은 표시 문자열이 아니라 행의 `data-sort-*` 원시 숫자를 사용한다.** 통화 기호·금액 가리기·음수 부호에 영향을 받지 않아야 하며, 취득가 미상은 어느 방향에서도 마지막이다.
 - **레이아웃 미리보기는 인증 예외가 아니라 세션 재검증이다.** 동일 출처 부모의 실제 `#layout-preview-frame`에서만 GET `/api/auth` 확인 후 시작한다. 새 최상위 페이지는 기존 DELETE 후 재로그인 규칙을 유지한다.
-- **3D는 선택적 시각 효과다.** SVG·키보드 범례를 유지하고, 모바일·WebGL 실패 시 SVG를 표시한다. 정지 상태·화면 밖·숨긴 탭에서는 프레임 루프를 멈추며, 페이지 전환 시 geometry/material/renderer를 해제한다. 재렌더 시 같은 차트 호스트를 재사용한다.
 
 - UI strings, comments, and labels are in Korean. Keep that style when adding new UI.
 - **테마는 기본 / 라이트 / 다크 세 가지다(네이비는 없앴다).** `document.body.dataset.theme` 로 고르며 **기본만 속성이 없다**(`:root` 토큰이 곧 기본 = 밝은 본문 + 진한 남색 사이드바). `light` 는 사이드바 토큰(`--side-*`)과 배경 그라디언트만 덮어써 사이드바까지 흰 카드로, `dark` 는 전체 토큰을 덮어쓴다. `setTheme(mode)`·`_savedTheme()`(script.js)가 진입점이고, `_savedTheme()` 은 예전 판 저장값을 **한 번만** 옮긴다(`themeV` 없음 → 라이트·미저장 = 기본, 네이비 = 다크) — 이 이전을 빼면 기존 사용자는 새 기본 테마를 영영 못 본다. `isDarkTheme()` 은 `dark` 만 참이다. CSS variables (`--t1`, `--t3`, `--inner-bg`, `--acc`, `--acc-soft`, `--tipbg`, etc.) in `style.css` are the source of truth — never hard-code colors that need to flip with the theme. Chart JS constants (`ownerColors`, `cfColors`) use the Cobalt palette (`#5b9bff`, `#4ecdc4`, `#f2a33c`, `#c084fc`, `#4ade80`, …).

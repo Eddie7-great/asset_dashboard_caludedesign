@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=62">
-  <link rel="stylesheet" href="workspace-ui.css?v=12">
+  <link rel="stylesheet" href="style.css?v=63">
+  <link rel="stylesheet" href="workspace-ui.css?v=13">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -73,9 +73,9 @@
           <button class="side-seg-btn" id="theme-seg-dark" onclick="setTheme('dark')" aria-pressed="false">다크</button>
         </div>
       </div>
-      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:.78rem;font-weight:700">새로고침</span></button>
-      <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:.78rem;font-weight:700">모바일버전</span></button>
-      <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span aria-hidden="true">◉</span><span id="sidebar-privacy-label" style="font-size:.78rem;font-weight:700">금액 가리기</span></button>
+      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:var(--fs-cap);font-weight:700">새로고침</span></button>
+      <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:var(--fs-cap);font-weight:700">모바일버전</span></button>
+      <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span aria-hidden="true">◉</span><span id="sidebar-privacy-label" style="font-size:var(--fs-cap);font-weight:700">금액 가리기</span></button>
       <!-- 데이터 상태는 하루에 한 번 볼까 말까 한 화면이라 메뉴 대신 이 상태 줄에서 연다 -->
       <button id="menu-data2" class="footer-status-btn" onclick="switchView('data2',this)" title="데이터 출처·최근 확인 시각 보기">
         <span id="feed-dot" class="footer-status-dot"></span><span id="feed-note">시세 연동 대기</span><span class="footer-status-go">›</span>
@@ -178,8 +178,8 @@
             <div class="cb-label f-between" style="margin-bottom:10px">입력 방식
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="display:flex;gap:8px">
-                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()" style="accent-color:var(--acc)"> 일회성</label>
-                  <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()" style="accent-color:var(--acc)"> 자동이체</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-cap);cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="oneshot" id="cfmode-oneshot" checked onchange="toggleCfMode()" style="accent-color:var(--acc)"> 일회성</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-cap);cursor:pointer;color:var(--t2);letter-spacing:0"><input type="radio" name="cf-mode" value="auto" id="cfmode-auto" onchange="toggleCfMode()" style="accent-color:var(--acc)"> 자동이체</label>
                 </div>
               </div>
             </div>
@@ -238,14 +238,14 @@
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
-                <div class="tf-btns"><button class="tf-btn" style="padding:3px 9px;font-size:.72rem;line-height:1" onclick="prevCfMonth()" title="이전 달">◀</button><button class="tf-btn" style="padding:3px 9px;font-size:.72rem;line-height:1" onclick="nextCfMonth()" title="다음 달">▶</button></div>
+                <div class="tf-btns"><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="prevCfMonth()" title="이전 달">◀</button><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="nextCfMonth()" title="다음 달">▶</button></div>
               </div>
             </div>
             <div class="chart-container" style="flex:1"><canvas id="cfDonutChart" role="img" aria-label="현금 흐름 수입과 지출 구성 차트">현금 흐름 수입과 지출 구성 차트입니다.</canvas></div>
             <div id="cf-month-summary" class="cf-chart-summary" aria-live="polite"></div>
           </div>
           <div class="glass-panel f-col" style="flex:1;min-height:0">
-            <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:.68rem;color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
+            <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:var(--fs-cap);color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
             <div class="chart-container"><canvas id="cfTrendChart" role="img" aria-label="월별 현금 흐름 추이 차트">월별 현금 흐름 추이 차트입니다.</canvas></div>
           </div>
           <div class="glass-panel" id="cf-div-panel" style="flex-shrink:0;display:none"></div>
@@ -362,34 +362,34 @@
         <label class="form-label" for="add-search" style="display:block;margin-bottom:6px">종목명 / 티커</label>
         <div style="display:flex;gap:6px;position:relative;">
           <input type="text" class="form-input" id="add-search" placeholder="한국/미국/일본 종목명 또는 티커 검색" autocomplete="off" oninput="onSearchInput()" style="flex:1;box-sizing:border-box;">
-          <button class="api-btn" onclick="searchStockByApi()" id="btn-stock-search" style="flex-shrink:0;padding:8px 14px;font-size:.8rem;white-space:nowrap">검색</button>
+          <button class="api-btn" onclick="searchStockByApi()" id="btn-stock-search" style="flex-shrink:0;padding:8px 14px;font-size:var(--fs-body);white-space:nowrap">검색</button>
           <div id="search-spinner" style="display:none;position:absolute;right:90px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid var(--border-dark);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;"></div>
         </div>
         <div id="search-dropdown" style="display:none;position:absolute;background:var(--modal-bg);color:var(--t1);border:1px solid var(--border-dark);border-radius:8px;z-index:9999;max-height:220px;overflow-y:auto;box-shadow:var(--gshadow);margin-top:2px;left:0;right:0;"></div>
         <!-- 검색 결과 확인 패널 -->
         <div id="stock-search-result" class="result-panel" style="display:none;margin-top:10px;padding:10px 12px">
-          <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px">검색 결과 확인</div>
+          <div style="font-size:var(--fs-cap);color:var(--t3);margin-bottom:6px">검색 결과 확인</div>
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
             <div>
-              <div id="result-name" style="font-weight:700;font-size:.9rem;color:var(--t1)">-</div>
-              <div style="font-size:.72rem;color:var(--t3);margin-top:2px">
+              <div id="result-name" style="font-weight:700;font-size:var(--fs-card);color:var(--t1)">-</div>
+              <div style="font-size:var(--fs-cap);color:var(--t3);margin-top:2px">
                 <span id="result-symbol" style="font-family:var(--font-num);color:var(--acc)">-</span>
                 &nbsp;|&nbsp; 최근 종가: <span id="result-price" style="font-weight:600;color:var(--t1)">-</span>
               </div>
             </div>
-            <button class="api-btn" onclick="confirmStockSelection()" style="padding:6px 12px;font-size:.78rem">이 종목 선택</button>
+            <button class="api-btn" onclick="confirmStockSelection()" style="padding:6px 12px;font-size:var(--fs-cap)">이 종목 선택</button>
           </div>
         </div>
-        <div id="stock-search-error" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:.75rem;color:var(--dn)"></div>
-        <div id="stock-search-loading" style="display:none;margin-top:8px;font-size:.78rem;color:var(--t3);text-align:center;padding:8px;">데이터를 찾는 중...</div>
+        <div id="stock-search-error" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:var(--fs-cap);color:var(--dn)"></div>
+        <div id="stock-search-loading" style="display:none;margin-top:8px;font-size:var(--fs-cap);color:var(--t3);text-align:center;padding:8px;">데이터를 찾는 중...</div>
         <!-- 외부 API 실패 시 수동 입력 폴백 -->
         <div id="stock-manual-entry" style="display:none;margin-top:10px;padding:10px 12px;background:var(--inner-bg);border-radius:8px;border:1px dashed var(--acc);">
-          <div style="font-size:.72rem;color:var(--t3);margin-bottom:6px">외부 조회 실패 시 수동으로 직접 입력할 수 있습니다.</div>
+          <div style="font-size:var(--fs-cap);color:var(--t3);margin-bottom:6px">외부 조회 실패 시 수동으로 직접 입력할 수 있습니다.</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
-            <div class="form-group f-col" style="flex:1;min-width:110px;gap:3px"><label class="form-label" for="manual-tkr" style="font-size:.65rem">티커</label><input type="text" id="manual-tkr" class="form-input" placeholder="예: AAPL, 005930" style="padding:6px 8px;font-size:.78rem"></div>
-            <div class="form-group f-col" style="flex:1.5;min-width:130px;gap:3px"><label class="form-label" for="manual-name" style="font-size:.65rem">종목명</label><input type="text" id="manual-name" class="form-input" placeholder="예: Apple Inc." style="padding:6px 8px;font-size:.78rem"></div>
-            <div class="form-group f-col" style="flex:1;min-width:100px;gap:3px"><label class="form-label" for="manual-price" style="font-size:.65rem">현재가</label><input type="text" id="manual-price" class="form-input" placeholder="0" inputmode="decimal" style="padding:6px 8px;font-size:.78rem"></div>
-            <button class="api-btn" onclick="confirmManualStock()" style="padding:6px 12px;font-size:.75rem">적용</button>
+            <div class="form-group f-col" style="flex:1;min-width:110px;gap:3px"><label class="form-label" for="manual-tkr" style="font-size:var(--fs-cap)">티커</label><input type="text" id="manual-tkr" class="form-input" placeholder="예: AAPL, 005930" style="padding:6px 8px;font-size:var(--fs-cap)"></div>
+            <div class="form-group f-col" style="flex:1.5;min-width:130px;gap:3px"><label class="form-label" for="manual-name" style="font-size:var(--fs-cap)">종목명</label><input type="text" id="manual-name" class="form-input" placeholder="예: Apple Inc." style="padding:6px 8px;font-size:var(--fs-cap)"></div>
+            <div class="form-group f-col" style="flex:1;min-width:100px;gap:3px"><label class="form-label" for="manual-price" style="font-size:var(--fs-cap)">현재가</label><input type="text" id="manual-price" class="form-input" placeholder="0" inputmode="decimal" style="padding:6px 8px;font-size:var(--fs-cap)"></div>
+            <button class="api-btn" onclick="confirmManualStock()" style="padding:6px 12px;font-size:var(--fs-cap)">적용</button>
           </div>
         </div>
       </div>
@@ -417,11 +417,11 @@
       <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="numeric" oninput="handleAvgPriceInput(this)"></div>
     </div>
     <div id="wrap-cost-unknown" style="display:none;margin:-1px 0 10px;padding:9px 11px;border:1px solid var(--border-light);border-radius:9px;background:var(--inner-bg)">
-      <label style="display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:var(--t2);cursor:pointer">
+      <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);font-weight:700;color:var(--t2);cursor:pointer">
         <input id="add-cost-unknown" type="checkbox" onchange="toggleCostUnknown()">
         취득가 미상 (상속·증여)
       </label>
-      <div style="font-size:.68rem;color:var(--t3);margin-top:4px;line-height:1.45">평가금액에는 포함하고 평가손익·수익률 계산에서는 제외합니다.</div>
+      <div style="font-size:var(--fs-cap);color:var(--t3);margin-top:4px;line-height:1.45">평가금액에는 포함하고 평가손익·수익률 계산에서는 제외합니다.</div>
     </div>
     <!-- 현금 전용: 자산명 + 통화 + 금액 -->
     <div id="row-cash-only" style="display:none;">
@@ -445,15 +445,15 @@
     </div>
     <!-- DCA (주식/코인 전용) -->
     <div id="wrap-dca-toggle" style="padding:8px 4px;border-top:1px dashed var(--border-light);display:none;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--t2)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--fs-body);font-weight:600;color:var(--t2)">
         <input type="checkbox" id="add-dca" style="width:15px;height:15px;accent-color:var(--up)" onchange="toggleDcaDetail()">DCA(자동매수) 종목으로 등록
       </label>
       <div id="wrap-dca-detail" style="display:none;margin-top:10px;background:var(--inner-bg);padding:10px;border-radius:8px;">
         <!-- 매수 기준 선택 -->
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
-          <span style="font-size:.8rem;font-weight:600;color:var(--t2)">매수 기준</span>
-          <label style="display:flex;align-items:center;gap:4px;font-size:.8rem;cursor:pointer"><input type="radio" name="dca-mode" id="dca-mode-amount" value="amount" checked onchange="toggleDcaMode()" style="accent-color:var(--acc)"> 금액</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:.8rem;cursor:pointer"><input type="radio" name="dca-mode" id="dca-mode-qty" value="qty" onchange="toggleDcaMode()" style="accent-color:var(--acc)"> 수량</label>
+          <span style="font-size:var(--fs-body);font-weight:600;color:var(--t2)">매수 기준</span>
+          <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-body);cursor:pointer"><input type="radio" name="dca-mode" id="dca-mode-amount" value="amount" checked onchange="toggleDcaMode()" style="accent-color:var(--acc)"> 금액</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-body);cursor:pointer"><input type="radio" name="dca-mode" id="dca-mode-qty" value="qty" onchange="toggleDcaMode()" style="accent-color:var(--acc)"> 수량</label>
         </div>
         <div style="display:flex;gap:10px;">
           <div class="form-group f-col" style="flex:1"><label class="form-label" for="add-dca-cycle">DCA 주기</label><select id="add-dca-cycle" class="form-input" onchange="toggleDcaDay()"><option value="매월">매월</option><option value="매주">매주</option><option value="매일">매일</option></select></div>
@@ -463,13 +463,13 @@
         <div id="wrap-dca-day-week" style="display:none;margin-top:8px;">
           <label class="form-label">체결 요일 (복수 선택 가능)</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="0" style="accent-color:var(--acc)">일</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="1" style="accent-color:var(--acc)">월</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="2" style="accent-color:var(--acc)">화</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="3" style="accent-color:var(--acc)">수</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="4" style="accent-color:var(--acc)">목</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="5" style="accent-color:var(--acc)">금</label>
-            <label style="display:flex;align-items:center;gap:3px;font-size:.8rem;cursor:pointer"><input type="checkbox" class="dca-dow" value="6" style="accent-color:var(--acc)">토</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="0" style="accent-color:var(--acc)">일</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="1" style="accent-color:var(--acc)">월</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="2" style="accent-color:var(--acc)">화</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="3" style="accent-color:var(--acc)">수</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="4" style="accent-color:var(--acc)">목</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="5" style="accent-color:var(--acc)">금</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:var(--fs-body);cursor:pointer"><input type="checkbox" class="dca-dow" value="6" style="accent-color:var(--acc)">토</label>
           </div>
         </div>
         <div id="wrap-dca-day-month" style="display:none;margin-top:8px;">
@@ -485,7 +485,7 @@
 <div class="cf-modal" id="cfDetailModal" aria-hidden="true">
   <div class="cf-modal-content" role="dialog" aria-modal="true" aria-labelledby="cf-details-header" tabindex="-1">
     <button type="button" class="cf-modal-close" onclick="closeCfDetails()" aria-label="지출 상세 창 닫기">×</button>
-    <div id="cf-details-header" role="heading" aria-level="2" style="font-weight:700;color:var(--acc);margin-bottom:12px;font-size:1.05rem;border-bottom:1px solid var(--border-dark);padding-bottom:8px;"></div>
+    <div id="cf-details-header" role="heading" aria-level="2" style="font-weight:700;color:var(--acc);margin-bottom:12px;font-size:var(--fs-card);border-bottom:1px solid var(--border-dark);padding-bottom:8px;"></div>
     <div id="cf-details-list" class="f-col" style="gap:10px;"></div>
   </div>
 </div>
@@ -498,14 +498,13 @@
 </div>
 
 <script defer src="tax-rules.js?v=4"></script>
-<script defer src="script.js?v=61"></script>
-<script defer src="finance.js?v=21"></script>
-<script defer src="navigation.js?v=7"></script>
-<script defer src="backtest.js?v=3"></script>
-<script defer src="simulator.js?v=2"></script>
-<script defer src="etf-explorer.js?v=6"></script>
-<script defer src="workspace-pages.js?v=5"></script>
-<script defer src="cobalt.js?v=42"></script>
-<script defer src="allocation-3d.js?v=1"></script>
+<script defer src="script.js?v=62"></script>
+<script defer src="finance.js?v=22"></script>
+<script defer src="navigation.js?v=8"></script>
+<script defer src="backtest.js?v=4"></script>
+<script defer src="simulator.js?v=3"></script>
+<script defer src="etf-explorer.js?v=7"></script>
+<script defer src="workspace-pages.js?v=6"></script>
+<script defer src="cobalt.js?v=43"></script>
 </body>
 </html>

@@ -10,7 +10,7 @@ const allCss = style + ws + etf;
 const allSrc = allCss + html + finance + script + read('cobalt.js') + read('workspace-pages.js');
 
 const rootBlock = style.match(/:root\s*\{[\s\S]*?\n\s*\}/)[0];
-for (const t of ['--fs-micro:11px', '--fw-regular:500', '--fw-strong:700', '--fw-heavy:800', '--font-ui:', '--font-num:', '--r-sm:4px', '--r-md:8px', '--r-lg:12px', '--bar-h:6px', '--bar-h-lg:12px', '--btn-h:36px']) {
+for (const t of ['--fs-micro:12px', '--fw-regular:500', '--fw-strong:700', '--fw-heavy:800', '--font-ui:', '--font-num:', '--r-sm:4px', '--r-md:8px', '--r-lg:12px', '--bar-h:6px', '--bar-h-lg:12px', '--btn-h:36px']) {
   assert.ok(rootBlock.includes(t), `:root 에 ${t} 토큰이 있어야 한다`);
 }
 
@@ -18,15 +18,28 @@ for (const t of ['--fs-micro:11px', '--fw-regular:500', '--fw-strong:700', '--fw
 assert.doesNotMatch(allSrc, /IBM Plex Mono|JetBrains Mono/, '고정폭 글꼴을 쓰지 않는다');
 assert.doesNotMatch(html, /family=IBM\+Plex\+Mono/, '쓰지 않는 글꼴을 내려받지 않는다');
 
-// 11px 보다 작은 글자, 토큰 밖 굵기·모서리를 CSS 에 다시 적지 않는다
-assert.doesNotMatch(allCss, /font-size:\s*(9|9\.5|10|10\.5)px/, '11px 미만 글자 크기를 쓰지 않는다');
-assert.doesNotMatch(allCss, /font-weight:\s*(550|650|750|850|bold)\b/, '굵기는 정해진 단계만 쓴다');
+// 글꼴은 한 벌(2026-11-16) — 숫자·영문은 어디서나 Manrope, 한글은 Noto Sans KR. 두 토큰이 같은 스택이다.
+// 본문 글꼴이 Noto 먼저였을 때는 같은 금액이 표에서는 Noto 숫자, 숫자 카드에서는 Manrope 숫자로 다르게 보였다.
+assert.match(rootBlock, /--font-ui:'Manrope','Noto Sans KR',sans-serif;--font-num:var\(--font-ui\)/, '--font-ui 는 Manrope 먼저, --font-num 은 같은 스택');
+assert.equal((allCss.match(/'Noto Sans KR'/g) || []).length, 1, 'CSS 에서 글꼴 이름은 토큰 정의 한 곳에만 적는다');
+const jsSrc = finance + read('cobalt.js') + read('workspace-pages.js') + read('etf-explorer.js') + read('simulator.js') + read('backtest.js') + read('navigation.js');
+assert.doesNotMatch(jsSrc, /font-family="|font-family:\s*'?(Manrope|Noto)/, 'JS 가 그리는 마크업·SVG 에 글꼴 이름을 직접 적지 않는다(SVG 글자는 svg text 규칙이 맡는다)');
+assert.match(ws, /svg text\{font-family:var\(--font-ui\)\}/, 'SVG 글자도 같은 글꼴 토큰');
+// 글자 크기는 규격 6단에서만 — rem·12px 미만을 CSS·JS 에 다시 적지 않는다(휴대폰 입력칸 16px 은 iOS 확대 방지용 예외)
+assert.doesNotMatch(allCss, /font-size:\s*[\d.]+rem/, 'CSS 에 rem 글자 크기를 적지 않는다');
+assert.doesNotMatch(jsSrc + script, /font-size:\s*[\d.]*\.\d+rem|font-size:\s*\d+rem/, 'JS 인라인 스타일에 rem 글자 크기를 적지 않는다');
+assert.doesNotMatch(allCss, /font-size:\s*(9|9\.5|10|10\.5|11|11\.5)px/, '12px 미만 글자 크기를 쓰지 않는다');
+assert.doesNotMatch(jsSrc + script, /font-size="(?:\d|1[01])(?:\.\d+)?"/, 'SVG 글자도 12 미만으로 적지 않는다');
+assert.doesNotMatch(allCss, /font-weight:\s*(550|650|750|850|bold)\b|font:\s*(550|650|750|850)\s/, '굵기는 정해진 단계만 쓴다');
 assert.doesNotMatch(allCss, /border-radius:\s*(2|3|5|6|7|9|10|16)px[;}]/, '모서리는 --r-sm/md/lg 만 쓴다');
 
 // 버튼 높이·막대 높이는 토큰에서
 for (const sel of ['.cb-btn', '.api-btn']) {
   const rule = style.match(new RegExp(`\\n\\s*\\${sel}\\{[^}]*\\}`))[0];
   assert.match(rule, /min-height:var\(--btn-h\)/, `${sel} 높이는 --btn-h`);
+  // 버튼은 한 벌(2026-11-16) — 연한 파랑(--acc-soft2) 바탕 대신 시작 버튼과 같은 중립 톤
+  assert.match(rule, /background:var\(--inner\)/, `${sel} 는 중립 톤`);
+  assert.doesNotMatch(rule, /acc-soft/, `${sel} 에 파랑 바탕을 다시 쓰지 않는다`);
 }
 for (const sel of ['.holdings-add-btn', '.fin-goal-add-btn', '.cf-entry-open,.cf-entry-close']) {
   assert.ok(ws.includes(`${sel}{`) && new RegExp(`${sel.replace(/[.,]/g, '\\$&')}\\{[^}]*min-height:var\\(--btn-h\\)`).test(ws), `${sel} 높이는 --btn-h`);

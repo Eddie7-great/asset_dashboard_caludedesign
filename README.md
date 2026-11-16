@@ -43,7 +43,7 @@
 
 - **3테마**: **라이트(기본)** / 다크 / 네이비 — 사이드바 세그먼트로 전환, 선택 저장
 - **표시 통화**: 자산 합계·손익은 KRW, 종목 평단가·현재가는 원래 거래 통화로 표시
-- **3D 자산 배분**: PC에서는 선택한 조각이 올라오는 입체 도넛, 모바일·WebGL 미지원 환경에서는 SVG 도넛. 두 차트 모두 같은 비중과 범례를 사용하며, 동작 줄이기 설정을 존중합니다.
+- **자산 배분 도넛**: 평면 도넛 가운데에 총액을 적고, 자산군을 누르면 그 비중과 종목을 보여 줍니다.
 - **모바일 보유 목록**: 긴 종목명·평가금액·수익률을 함께 표시하고, 항목을 누르면 수량·단가·평가손익을 펼칩니다.
 - **타이포그래피**: Manrope(디스플레이) · IBM Plex Mono(숫자) · Noto Sans KR(본문)
 - **우하단 시세 위젯**: JPY100/KRW · 금 1g(KRW), 전일 종가 기준
@@ -96,7 +96,6 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `backtest.js` / `simulator.js` / `etf-explorer.js` — 백테스트·추가 투자 배분·ETF 탐색. 모두 Cobalt 가 렌더할 때까지 함수만 정의합니다
 - `workspace-ui.css` / `etf-explorer.css` — `style.css` 뒤에 로드되어 통합 워크스페이스와 ETF 탐색 레이아웃을 덮어씁니다
 - `cobalt.js` — 메인 페이지 렌더러 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
-- `allocation-3d.js` — 자산 배분 차트의 선택적 WebGL 렌더러. `vendor/`의 Three.js 0.180.0 모듈과 MIT 라이선스를 함께 배포하며, 화면에 필요할 때만 불러옵니다.
 - `style.css` — 디자인 토큰(`:root`=라이트, `[data-theme="dark"]`, `[data-theme="navy"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
 - `api/` — Vercel 서버리스 함수 (가격/배당/환율/검색/KV 프록시/인증)
 - `.github/workflows/` — 자동 배치. `품질 검사`(push·PR), `ETF 구성종목 수집`(미국 장 마감 뒤 평일 KST 07:30, 리포에 커밋), `순자산 스냅샷 기록`(매일 KST 16:40, KV에 직접 기록), `세금·증여 공식 근거 점검`(매일, 알림만)
