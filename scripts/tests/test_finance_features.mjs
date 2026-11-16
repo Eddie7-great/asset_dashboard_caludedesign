@@ -151,7 +151,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalPace', 'finGoalAllocation', 'finGoalAllocationCard', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -167,24 +167,52 @@ context.cbRenderDataStatus()
 assert.match(elements['cb-plan2'].innerHTML, /재무 목표[\s\S]*새 목표 추가/, '목표 탭 렌더')
 assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 비중과 리밸런싱/, '목표 탭은 리밸런싱과 분리')
 
-// 목표 연결 자산군 도넛 — linkClass별 버킷 분리와 금액이 finGoalCurrent 와 같은 소스인지.
+// 목표 화면 — 진행 비교·일정·속도 판정. 금액은 finGoalCurrent 그대로이고(여러 목표가 같은 자산에 연결돼도
+// 합쳐 더하지 않는다), 속도 판정은 '남은 금액 ÷ 남은 개월'과 연결 자산의 월 적립식 매수액을 견준 참고값이다.
+const goalNow = new Date(2026, 10, 16)
 context.goalData = [
-  { id: 'g1', name: '미국 목표', linkClass: 'us', targetAmount: 1 },
-  { id: 'g2', name: '한국 목표', linkClass: 'kr', targetAmount: 1 },
-  { id: 'g3', name: '직접 입력 목표', linkClass: 'manual', currentAmount: 5_000_000, targetAmount: 1 },
-  { id: 'g4', name: '투자자산 목표', linkClass: 'investment', targetAmount: 1 },
+  { id: 'g1', name: '미국 목표', linkClass: 'us', targetAmount: 1_200_000_000, targetDate: '2031-11-16' },
+  { id: 'g2', name: '달성 목표', linkClass: 'kr', targetAmount: 1 },
+  { id: 'g3', name: '직접 입력 목표', linkClass: 'manual', currentAmount: 5_000_000, targetAmount: 10_000_000, targetDate: '2027-11-16' },
+  { id: 'g4', name: '지난 목표', linkClass: 'investment', targetAmount: 2_000_000_000, targetDate: '2026-01-01' },
+  { id: 'g5', name: '기한 없는 목표', linkClass: 'investment', targetAmount: 2_000_000_000 },
 ]
-const allocation = context.finGoalAllocation()
-// vm 컨텍스트(별도 realm)의 배열이라 프로토타입이 달라 deepStrictEqual 이 실패한다 — 복제 후 비교.
-assert.deepEqual(Array.from(allocation).map(b => b.key), ['investment', 'us', 'kr', 'manual'], '금액 내림차순 정렬 · linkClass별 버킷 분리')
-assert.equal(allocation.find(b => b.key === 'us').value, 600_000_000, 'CB_CLS 자산군 버킷은 finGoalCurrent 와 같은 금액(직접 재계산하지 않음)')
-assert.equal(allocation.find(b => b.key === 'manual').value, 5_000_000, '직접 입력 버킷은 currentAmount 를 그대로 쓴다')
-assert.equal(allocation.find(b => b.key === 'investment').value, 1_000_000_000, '투자자산 버킷은 finBalanceTotals().investment')
+const goalRowsBefore = context.cbAllRows
+const perMonthBefore = context.cbDcaPerMonthKRW
+context.cbAllRows = () => [
+  { cls: 'us', val: 600_000_000, i: { owner: '본인', dca: true, m: 4_000_000 } },
+  { cls: 'us', val: 0, i: { owner: '본인', dca: false, m: 9_000_000 } },
+  { cls: 'kr', val: 400_000_000, i: { owner: '본인', dca: true, m: 1_000_000 } },
+]
+context.cbDcaPerMonthKRW = item => item.m
+assert.equal(context.finGoalMonthlyDca({ linkClass: 'us' }), 4_000_000, '연결 자산군의 활성 적립식만 더한다(일시정지 제외)')
+assert.equal(context.finGoalMonthlyDca({ linkClass: 'investment' }), 5_000_000, '투자자산 연결은 전체 적립식')
+assert.equal(context.finGoalMonthlyDca({ linkClass: 'manual' }), null, '직접 입력은 비교할 적립이 없다 — 0 이 아니라 null')
+assert.equal(context.finGoalMonthlyDca({ linkClass: 'cash' }), null, '현금 연결도 적립식 규칙이 닿지 않는다')
+const usStatus = context.finGoalStatus(context.goalData[0], 600_000_000, goalNow)
+assert.equal(usStatus.months, 60, '남은 개월')
+assert.equal(usStatus.need, 10_000_000, '필요 월 적립 = 남은 금액 ÷ 남은 개월(수익률 0%)')
+assert.equal(usStatus.key, 'short', '월 적립이 필요액보다 적으면 부족')
+assert.equal(usStatus.arrive, '2039년 5월', '현재 적립 속도의 도달 시점(150개월 뒤)')
+assert.equal(context.finGoalStatus({ linkClass: 'us', targetAmount: 800_000_000, targetDate: '2031-11-16' }, 600_000_000, goalNow).key, 'ok', '월 적립이 필요액 이상이면 여유')
+assert.equal(context.finGoalStatus(context.goalData[1], 400_000_000, goalNow).key, 'done', '목표 금액을 넘으면 달성')
+const manualStatus = context.finGoalStatus(context.goalData[2], 5_000_000, goalNow)
+assert.equal(manualStatus.key, 'hold', '비교할 적립이 없으면 부족이라 단정하지 않고 판정 보류')
+assert.ok(manualStatus.need > 0, '판정 보류여도 필요 월 적립은 보여 준다')
+assert.equal(context.finGoalStatus(context.goalData[3], 1_000_000_000, goalNow).key, 'over', '목표일이 지나면 기한 경과')
+assert.equal(context.finGoalStatus(context.goalData[4], 1_000_000_000, goalNow).label, '기한 미정', '목표일이 없으면 판정하지 않는다')
 context.cbRenderPlan()
-assert.match(elements['cb-plan2'].innerHTML, /목표 연결 자산군[\s\S]*fin-goal-alloc-donut[\s\S]*fin-goal-alloc-legend/, '목표에 연결된 자산이 있으면 도넛 카드를 렌더')
+const planHtml = elements['cb-plan2'].innerHTML
+assert.match(planHtml, /목표별 진행 비교[\s\S]*fin-goal-compare-track[\s\S]*목표 일정[\s\S]*fin-goal-tl-list[\s\S]*fin-goal-card/, '진행 비교 → 일정 → 목표 카드 순서')
+assert.match(planHtml, /fin-goal-chip is-(ok|short|done|over|hold)/, '목표 카드에 속도 판정 배지')
+assert.match(planHtml, /수익률 0% 가정/, '속도 판정이 참고값이라는 문구 유지')
+assert.doesNotMatch(planHtml, /목표 연결 자산군|fin-goal-alloc/, '중복 합산하던 도넛은 없앴다')
+assert.doesNotMatch(financeSource, /function finGoalAllocation|FIN_GOAL_BUCKET_META/, '도넛용 합산 함수를 다시 넣지 않는다')
 context.goalData = []
 context.cbRenderPlan()
-assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표 연결 자산군/, '연결된 목표가 없으면 도넛을 렌더하지 않는다')
+assert.doesNotMatch(elements['cb-plan2'].innerHTML, /목표별 진행 비교|목표 일정/, '목표가 없으면 비교·일정 카드를 그리지 않는다')
+context.cbAllRows = goalRowsBefore
+context.cbDcaPerMonthKRW = perMonthBefore
 
 elements['view-rebal2']={classList:{contains:()=>true}}
 elements['cb-rebal2']={innerHTML:''}
@@ -253,6 +281,10 @@ context.cbAllRows = () => [
 ]
 const isaDiagnostics = context.finAccountDiagnostics()
 assert.equal(Math.round(isaDiagnostics.reduce((sum, row) => sum + row.withheld, 0)), 99_000, '계좌 진단의 ISA 예상세액도 소유주별 200만원 공제를 한 번만 적용')
+assert.ok(Array.from(isaDiagnostics).every(row => row.type === 'ISA' && row.tone === 'ok' && row.saving === 0), '계좌 진단 행은 카드 표시용 유형·상태 톤·이연 가정액을 함께 준다')
+context.cbRenderPlan()
+assert.match(elements['cb-rebal2'].innerHTML, /계좌 배치 진단[\s\S]*fin-acct-summary[\s\S]*fin-acct-grid[\s\S]*fin-acct-card[\s\S]*연간 현금흐름 참고/, '계좌 배치 진단은 유형 구성 막대 + 계좌 카드이고 ISA 는 연간 현금흐름 참고로 표시')
+assert.doesNotMatch(elements['cb-rebal2'].innerHTML, /fin-account-table/, '예전 4칸 표는 없앴다')
 context.cbAllRows = originalAllRows
 
 

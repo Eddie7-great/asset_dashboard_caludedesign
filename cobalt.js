@@ -3099,22 +3099,22 @@ function cbRenderTax(){
           <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:var(--fs-cap)">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:var(--fs-cap);color:var(--mut)">취소</button>':''}
         </div>
-        <div style="overflow-x:auto"><div style="min-width:760px">
-          <div class="cb-thead" style="display:flex;align-items:center;font-size:var(--fs-cap);color:var(--dim);padding:0 6px 6px;border-bottom:1px solid var(--bd)">
-            <span style="width:58px">소유주</span><span style="width:40px">월</span><span style="width:52px">시장</span><span style="width:64px">계좌</span><span style="width:82px;text-align:center"><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head" style="flex:1;min-width:112px">메모</span><span style="width:112px;text-align:right">실현손익</span><span style="width:118px;text-align:right"><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
-            <span style="width:54px;text-align:center"><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
+        <div style="overflow-x:auto"><div style="min-width:800px">
+          <div class="cb-thead cb-tax-hist-head">
+            <span>소유주</span><span>월</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
+            <span><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
           ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
-            <div style="display:flex;align-items:center;padding:7px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)">
-              <span style="width:58px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:var(--fs-cap);font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
-              <span style="width:40px;color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
-              <span style="width:52px;font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
-              <span style="width:64px;font-size:var(--fs-cap);color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
-              <span style="width:82px;display:flex;justify-content:center"><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
-              <span class="cb-tax-memo-cell" style="flex:1;min-width:112px;color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px">${cbEsc(t.memo||'—')}</span>
-              <span class="cb-num" style="width:112px;text-align:right;font-weight:700;font-size:var(--fs-cap);${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
-              <span class="cb-num" style="width:118px;text-align:right;font-weight:800;font-size:var(--fs-cap);${cbUpDn(cumulative)}">${cumulative>=0?'+':''}${cbKrw(cumulative)}</span>
-              <span class="cb-tax-actions" style="width:54px">
+            <div class="cb-tax-hist-row">
+              <span style="display:flex;align-items:center;gap:5px;font-weight:600;${ownerOf(t)?'color:var(--mut)':'color:var(--dim)'}"><span style="width:7px;height:7px;border-radius:50%;background:${ownerOf(t)?cbOwnerColor(ownerOf(t)):'#8a97b0'};flex-shrink:0"></span>${ownerOf(t)?cbEsc(ownerOf(t)):'미지정'}</span>
+              <span style="color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
+              <span style="font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
+              <span style="color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
+              <span><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
+              <span class="cb-tax-memo-cell" data-overflow-tip="${cbEsc(t.memo||'')}" data-overflow-watch>${cbEsc(t.memo||'—')}</span>
+              <span class="cb-num" style="font-weight:700;${cbUpDn(t.amt||0)}">${(t.amt>=0?'+':'')+cbKrw(t.amt||0)}</span>
+              <span class="cb-num" style="font-weight:800;${cbUpDn(cumulative)}">${cumulative>=0?'+':''}${cbKrw(cumulative)}</span>
+              <span class="cb-tax-actions">
                 <button class="btn-action" title="수정" style="color:var(--t3)" onclick="cbTaxEdit(${taxId})">✎</button>
                 <button class="btn-action" title="삭제" style="color:var(--dn)" onclick="cbTaxDel(${taxId})">✕</button>
               </span>
@@ -3520,8 +3520,8 @@ function cbRenderDca(){
     <div class="cb-dca-detail-grid">
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>
-      <div class="cb-thead cb-dca-head" style="display:flex;font-size:var(--fs-cap);color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:942px">
-        <span style="width:62px">소유주</span><span style="flex:1;box-sizing:border-box;padding-left:35px">종목</span><span class="cb-mobile-secondary" style="width:92px;text-align:right">회당 금액</span><span style="width:92px;text-align:right">주기</span><span style="width:88px;text-align:right">다음 매수</span><span class="cb-mobile-secondary" style="width:132px;text-align:right"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary" style="width:82px;text-align:right"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary" style="width:96px;text-align:right">계좌</span><span style="width:100px;text-align:right">월 환산</span><span style="width:46px;text-align:right">관리</span>
+      <div class="cb-thead cb-dca-head">
+        <span>소유주</span><span>종목</span><span class="cb-mobile-secondary">회당 금액</span><span>주기</span><span>다음 매수</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary">계좌</span><span>월 환산</span><span>관리</span>
       </div>
       ${items.map(x=>{
         const r=x.r;
@@ -3529,23 +3529,23 @@ function cbRenderDca(){
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
           : cbFmtNative(x.i.dcaAmt||0, x.i.dcaCur||'KRW');
         return `
-        <div class="cb-dca-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);min-width:942px;${x.i.dca?'':'opacity:.45'}">
-          <span style="width:62px;display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:var(--fs-cap);font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
-          <div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">
+        <div class="cb-dca-row${x.i.dca?'':' is-paused'}">
+          <span style="display:flex;align-items:center;gap:5px;font-size:var(--fs-cap);font-weight:600;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${cbOwnerColor(x.i.owner)};flex-shrink:0"></span>${cbEsc(x.i.owner)}</span>
+          <div class="cb-dca-asset">
             ${cbFlagCell(r, 27, 15)}
             <span class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([r.title,r.subTitle].filter(Boolean).join(' · '))}">
               <span class="cb-asset-name" data-overflow-watch>${cbEsc(r.title)}</span>
               ${r.subTitle?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(r.subTitle)}</span>`:''}
             </span>
           </div>
-          <span class="cb-mobile-secondary" style="width:92px;text-align:right;font-weight:700">${amtLabel}</span>
-          <span style="width:92px;text-align:right;color:var(--mut);font-size:var(--fs-cap)">${cbEsc(cbDcaRuleLabel(x.i))}</span>
-          <span style="width:88px;text-align:right;color:${x.i.dca?'var(--acc)':'var(--dim)'};font-weight:700;white-space:nowrap" aria-label="${x.i.dca&&x.schedule.nextDate?'다음 매수일 '+cbEsc(x.schedule.nextDate):'다음 매수일 없음'}">${x.i.dca?cbDcaNextLabel(x.schedule.nextDate):'—'}</span>
-          <span class="cb-mobile-secondary cb-dca-timing-cell" style="width:132px;text-align:right" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
-          <span class="cb-mobile-secondary" style="width:82px;text-align:right;color:var(--mut);font-size:var(--fs-cap)">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
-          <span class="cb-mobile-secondary" style="width:96px;text-align:right;color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
-          <span style="width:100px;text-align:right;font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
-          <span class="dca-rule-actions" style="width:46px;display:flex;justify-content:flex-end">
+          <span class="cb-mobile-secondary" style="font-weight:700">${amtLabel}</span>
+          <span style="color:var(--mut);font-size:var(--fs-cap)">${cbEsc(cbDcaRuleLabel(x.i))}</span>
+          <span style="color:${x.i.dca?'var(--acc)':'var(--dim)'};font-weight:700;white-space:nowrap" aria-label="${x.i.dca&&x.schedule.nextDate?'다음 매수일 '+cbEsc(x.schedule.nextDate):'다음 매수일 없음'}">${x.i.dca?cbDcaNextLabel(x.schedule.nextDate):'—'}</span>
+          <span class="cb-mobile-secondary cb-dca-timing-cell" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
+          <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap)">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
+          <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
+          <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
+          <span class="dca-rule-actions" style="display:flex;justify-content:flex-end">
             <span role="button" tabindex="0" onclick="cbDcaToggle(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 규칙 ${x.i.dca?'일시 중지':'활성화'}" aria-pressed="${!!x.i.dca}" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
           </span>
         </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 위에서 보유 종목을 선택해 규칙을 추가하세요.</div>'}
