@@ -151,7 +151,7 @@ Object.assign(context, {
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')
@@ -282,9 +282,14 @@ context.cbAllRows = () => [
 const isaDiagnostics = context.finAccountDiagnostics()
 assert.equal(Math.round(isaDiagnostics.reduce((sum, row) => sum + row.withheld, 0)), 99_000, '계좌 진단의 ISA 예상세액도 소유주별 200만원 공제를 한 번만 적용')
 assert.ok(Array.from(isaDiagnostics).every(row => row.type === 'ISA' && row.tone === 'ok' && row.saving === 0), '계좌 진단 행은 카드 표시용 유형·상태 톤·이연 가정액을 함께 준다')
+const acctTree = context.finAccountTree(isaDiagnostics)
+assert.equal(acctTree.length, 1, '소유주 한 명으로 묶인다')
+assert.deepEqual(Array.from(acctTree[0].brokers).map(b => b.broker), ['A증권', 'B증권'], '증권사는 평가액 큰 순')
+assert.equal(acctTree[0].value, 500_000_000, '소유주 소계는 계좌 평가액의 합(새 계산 없음)')
+assert.equal(Math.round(acctTree[0].share), 100, '소유주 비중은 계좌 비중의 합')
 context.cbRenderPlan()
-assert.match(elements['cb-rebal2'].innerHTML, /계좌 배치 진단[\s\S]*fin-acct-summary[\s\S]*fin-acct-grid[\s\S]*fin-acct-card[\s\S]*연간 현금흐름 참고/, '계좌 배치 진단은 유형 구성 막대 + 계좌 카드이고 ISA 는 연간 현금흐름 참고로 표시')
-assert.doesNotMatch(elements['cb-rebal2'].innerHTML, /fin-account-table/, '예전 4칸 표는 없앴다')
+assert.match(elements['cb-rebal2'].innerHTML, /계좌 배치 진단[\s\S]*fin-ice[\s\S]*fin-tree-row lv0[\s\S]*fin-tree-row lv1[\s\S]*fin-tree-row lv2[\s\S]*연간 현금흐름 참고/, '계좌 배치 진단은 3층 면적 막대 + 소유주→증권사→계좌 트리이고 ISA 는 연간 현금흐름 참고로 표시')
+assert.doesNotMatch(elements['cb-rebal2'].innerHTML, /fin-account-table|fin-acct-card/, '예전 표·카드는 없앴다')
 context.cbAllRows = originalAllRows
 
 
