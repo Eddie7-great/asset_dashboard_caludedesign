@@ -5819,14 +5819,16 @@ function renderBubbleChart(mode) {
       }
     },
     tiling: { packing: 'squarify', pad: 3 },
-    pathbar: { visible: true, side: 'top', thickness: 26, textfont: { family: "'Noto Sans KR','Manrope',sans-serif", size: 13, color: textColor } },
+    pathbar: { visible: true, side: 'top', thickness: 30, textfont: { family: "'Noto Sans KR','Manrope',sans-serif", size: 14, color: textColor } },
+    // 이름은 굵게, 비중은 다음 줄 — 한 줄에 같은 굵기로 이어 쓰면 작은 칸에서 둘이 구분되지 않는다.
     textinfo: 'label+percent root',
+    texttemplate: '<b>%{label}</b><br>%{percentRoot:.1%}',
     textposition: 'top left',
     // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
     // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
     textfont: {
       family: "'Noto Sans KR','Manrope',sans-serif",
-      size: 13,
+      size: 16,
       color: customdata.map(d => (d.kind === 'root' || d.kind === 'owner') ? textColor : '#18213a')
     },
     hovertext: hoverText,
@@ -5840,8 +5842,9 @@ function renderBubbleChart(mode) {
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: "'Noto Sans KR','Manrope',sans-serif", color: textColor, size: 13 },
     showlegend: false,
-    // 이 크기 아래로 내려가야 하는 칸은 글자 대신 숨김 — 호버로 확인한다
-    uniformtext: { minsize: 10, mode: 'hide' },
+    // uniformtext 는 모든 칸의 글자를 '가장 빡빡한 칸'에 맞춘 한 크기로 그린다 — minsize 가 곧 실제 글자 크기의
+    // 바닥이다(10 일 때 화면 전체가 10px 로 내려앉았다). 13px 로도 안 들어가는 칸은 숨기고 호버로 확인한다.
+    uniformtext: { minsize: 13, mode: 'hide' },
     hoverlabel: {
       bgcolor: cssVar('--tipbg',isDark?'#f4f7fb':'#18213a'),
       bordercolor: cssVar('--tipbd',isDark?'#ffffff':'#31405e'),

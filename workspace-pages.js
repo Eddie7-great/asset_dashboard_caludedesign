@@ -75,7 +75,10 @@ function cbRenderAccounts(){
         ${g.rows.map(r=>`<div class="acct-holding">
           <span><b>${cbEsc(r.title)}</b>${r.subTitle?` <small>${cbEsc(r.subTitle)}</small>`:''}</span>
           <span class="cb-num">${cbDisp(r.val)}</span>
+          <span class="cb-num">${data.total>0?(r.val/data.total*100).toFixed(1)+'%':'—'}</span>
           <span class="cb-num" style="${r.gainPct==null?'color:var(--lab)':cbUpDn(r.gain)}">${r.gainPct==null?'—':cbSignDisp(r.gain)+' · '+cbPct(r.gainPct)}</span>
+          <span class="cb-num">${cbDivIncomeKRW(r.i)>0?cbDisp(cbDivIncomeKRW(r.i)):'—'}</span>
+          <span></span>
         </div>`).join('')}
       </div>
     </details>`;

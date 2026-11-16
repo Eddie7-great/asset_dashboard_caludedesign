@@ -48,12 +48,14 @@ assert.match(style, /\.glass-panel\.menu-col\{background:var\(--side-bg\)/, '사
 // 세그먼트·전환 탭은 선택 항목을 강조색 바탕으로 칠하지 않는다 — 시뮬레이터 종류 탭은 밑줄형
 assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\]\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
 
-// 강조색 버튼 글자는 --on-acc — 다크의 밝은 강조색 위에 흰 글자는 읽히지 않는다
+// --on-acc 는 강조색 바탕 위 글자색이다(다크의 밝은 강조색 위에 흰 글자는 읽히지 않는다).
+// 시작 버튼(＋추가·＋수입·＋새 목표 추가)은 2026-11-16 부터 파랑 채움이 아니라 일반 버튼과 같은 중립 톤이다.
 assert.match(style, /:root \{[^}]*--on-acc:#ffffff;/);
 assert.match(style, /\[data-theme="dark"\] \{[^}]*--on-acc:#0b1020;/);
 for (const sel of ['.holdings-add-btn', '.cf-entry-open', '.fin-goal-add-btn']) {
   const rule = ws.slice(ws.indexOf(sel + '{'), ws.indexOf('}', ws.indexOf(sel + '{')));
-  assert.match(rule, /color:var\(--on-acc\)/, sel + ' 글자색은 --on-acc');
+  assert.match(rule, /border:1px solid var\(--bd2\);background:var\(--inner\);color:var\(--tx\)/, sel + ' 는 중립 톤 버튼');
+  assert.doesNotMatch(rule, /background:var\(--acc\)/, sel + ' 에 파랑 채움을 다시 쓰지 않는다');
 }
 // 현금 흐름 섹션 전환도 밑줄형
 assert.match(ws, /\.cf-section-tabs \.cf-section-tab\.active\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/);
