@@ -2946,7 +2946,7 @@ function getHoldingsBrokerCellHtml(item){
     + `<span class="broker-txt" data-overflow-watch>${holdingsEsc(broker)}</span>`
     + `<span class="holdings-account" data-overflow-watch>/ ${holdingsEsc(account)}</span></span>`;
 }
-function getHoldingsAssetCellHtml(name,ticker,item){
+function getHoldingsAssetCellHtml(name,ticker,item,tradeIdx){
   const parts = [name,ticker].filter(Boolean);
   let flag = '';
   if (item) {
@@ -2965,7 +2965,10 @@ function getHoldingsAssetCellHtml(name,ticker,item){
   }
   return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(parts.join(' · '))}">`
     + flag
-    + `<strong class="holdings-inline-name" data-overflow-watch>${holdingsEsc(name||'—')}</strong>`
+    // 종목명을 누르면 매수·매도 입력이 열린다(현금·휴대폰 제외). Enter·Space 는 문서 위임이 처리한다.
+    + (Number.isInteger(tradeIdx)&&tradeIdx>=0
+        ? `<strong class="holdings-inline-name holdings-trade-link" data-overflow-watch role="button" tabindex="0" aria-label="${holdingsEsc(name||'종목')} 매수·매도 입력" onclick="openTradeModal(${tradeIdx})">${holdingsEsc(name||'—')}</strong>`
+        : `<strong class="holdings-inline-name" data-overflow-watch>${holdingsEsc(name||'—')}</strong>`)
     + (ticker?`<span class="tkr-txt holdings-inline-ticker" data-overflow-watch>${holdingsEsc(ticker)}</span>`:'')
     + `</span>`;
 }
@@ -3213,7 +3216,7 @@ function renderPortfolio(owner) {
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${holdingsEsc(i.owner||'미지정')}</span></td>`:'';
         const brokerCell=getHoldingsBrokerCellHtml(i);
-        let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 수정" style="color:var(--t3)" onclick="event.stopPropagation();editItem('','',${pIdx})">✎</button><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('','',${pIdx})">✕</button></span>`;
+        let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 수정" onclick="event.stopPropagation();editItem('','',${pIdx})">✎</button><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('','',${pIdx})">✕</button></span>`;
 
         if(grpName==='현금'){
           // [8] 현금: 정렬, 검정폰트, 클릭편집
@@ -3251,7 +3254,7 @@ function renderPortfolio(owner) {
           // [7] 수익금에 (₩)
           const fProfit=i.costUnknown?'<span class="cost-unknown-note">산정 제외</span>':(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
           const fProfitPct=i.costUnknown?'<span class="cost-unknown-note">—</span>':sign+profitPct.toFixed(2)+'%';
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -3271,7 +3274,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -3292,7 +3295,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
         // 검색·시세 미조회 필터는 행만 숨긴다(합계는 위에서 이미 더했다). 현금은 이 시점에 _priceStale 이 정해진다.
         if(!holdingsRowMatches(i)) rowsHtml=rowsHtml.slice(0,_rowStart);
@@ -3603,6 +3606,139 @@ function submitAddModal() {
 }
 
 
+
+// =============================================
+// 매수·매도 입력 — 보유 목록에서 종목명을 누르면 열린다
+// =============================================
+// 수량·평균단가만 바꾼다(예수금은 건드리지 않는다 — 수수료·세금·환전 때문에 실제 잔액과 어긋난다).
+// 주식 매도는 세금·증여 > 실현손익 기록에 한 줄을 남긴다. 가상화폐·금 매도는 남기지 않는다
+// (그 화면은 주식 양도세 계산이라 넣으면 해외주식 22%로 잘못 계산된다).
+// 해외 종목의 실현손익은 자동 계산하지 않는다 — 매수 당시 환율 기록이 없어 원화 금액을 알 수 없다(사용자 결정).
+function tradeApplyPlan(item, t){
+  const fail=error=>({ok:false,error});
+  if(!item||!['주식','가상화폐','금'].includes(item.grp)) return fail('매수·매도를 입력할 수 없는 자산입니다.');
+  const side=t&&t.side==='sell'?'sell':'buy';
+  const qty=Number(t&&t.qty), price=Number(t&&t.price);
+  const date=String((t&&t.date)||''), today=String((t&&t.today)||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail('거래일을 선택하세요.');
+  if(today&&date>today) return fail('미래 날짜는 입력할 수 없습니다.');
+  if(!Number.isFinite(qty)||qty<=0) return fail('수량을 입력하세요.');
+  const held=Number(item.qty)||0, avg=Number(item.avgP)||0;
+  const r8=v=>Math.round(v*1e8)/1e8;
+  if(side==='buy'){
+    if(item.costUnknown) return fail('취득가 미상 자산은 평균단가를 계산할 수 없습니다. ✎ 수정에서 직접 고쳐 주세요.');
+    if(!Number.isFinite(price)||price<=0) return fail('매수 단가를 입력하세요.');
+    const nextQty=r8(held+qty);
+    return {ok:true,side,next:{qty:nextQty,avgP:(held*avg+qty*price)/nextQty},remove:false,pl:null};
+  }
+  if(qty>held+1e-9) return fail('보유 수량보다 많이 팔 수 없습니다.');
+  const nextQty=r8(held-qty), remove=nextQty<=1e-9;
+  let pl=null;
+  if(item.grp==='주식'){
+    const domestic=item.cur==='KRW';
+    const typed=(t.realizedKrw===''||t.realizedKrw==null)?NaN:Number(t.realizedKrw);
+    let amt;
+    if(Number.isFinite(typed)) amt=typed;
+    else if(domestic&&Number.isFinite(price)&&price>0) amt=(price-avg)*qty;
+    else return fail(domestic?'매도 단가 또는 실현손익을 입력하세요.':'해외 종목은 증권사 앱의 실현손익(원화)을 직접 입력하세요.');
+    if(!OWNERS.includes(item.owner)) return fail('소유주가 지정되지 않은 자산입니다.');
+    const accType=getAccountDivTaxInfo(item.acc).type;
+    const account=!domestic?'일반':accType==='ISA'?'ISA':accType==='연금'?'연금저축':'일반';
+    const ruleSetId=typeof assetTaxRulesFor==='function'?(assetTaxRulesFor(date.slice(0,4))?.id||''):'';
+    const memo=`${item.name||item.tkr||'종목'} ${qty.toLocaleString(undefined,{maximumFractionDigits:8})}${item.unit||'주'} 매도`
+      +(Number.isFinite(price)&&price>0?` @${price.toLocaleString(undefined,{maximumFractionDigits:4})}`:'');
+    pl={id:Number(t.id)||Date.now(),month:date.slice(0,7),amt:Math.round(amt),memo:memo.slice(0,240),owner:item.owner,category:domestic?'domestic':'foreign',account,ruleSetId};
+  }
+  return {ok:true,side,next:{qty:remove?0:nextQty,avgP:avg},remove,pl};
+}
+let _tradeItem=null,_tradeSide='buy',_tradePlTouched=false;
+function _tradeNum(id){const raw=String(document.getElementById(id)?.value||'').replace(/,/g,'').trim();return raw===''?NaN:Number(raw);}
+function _tradeInput(){
+  const plRaw=String(document.getElementById('trade-pl')?.value||'').replace(/,/g,'').trim();
+  const foreign=_tradeItem&&_tradeItem.grp==='주식'&&_tradeItem.cur!=='KRW';
+  // 국내 종목은 사용자가 손익 칸을 직접 고쳤을 때만 그 값을 쓴다(아니면 단가로 계산).
+  return {side:_tradeSide,qty:_tradeNum('trade-qty'),price:_tradeNum('trade-price'),date:document.getElementById('trade-date')?.value||'',
+    today:_cfLocalDateKey(new Date()),realizedKrw:(foreign||_tradePlTouched)?plRaw:''};
+}
+function openTradeModal(idx){
+  if(isMobileLayout()) return; // 모바일은 조회 전용
+  const item=pfolioData[idx]; if(!item||item.grp==='현금') return;
+  closeAddModal();
+  _tradeItem=item;_tradePlTouched=false;
+  const today=_cfLocalDateKey(new Date());
+  const d=document.getElementById('trade-date');d.value=today;d.max=today;
+  ['trade-qty','trade-price','trade-pl'].forEach(id=>{document.getElementById(id).value='';});
+  const unit=item.unit||(item.grp==='가상화폐'?'개':'주');
+  document.getElementById('trade-title').textContent=`${item.name||item.tkr} 매수·매도`;
+  document.getElementById('trade-qty-label').textContent=`수량 (${unit})`;
+  document.getElementById('trade-price-label').textContent=item.grp==='주식'?`단가 (${item.cur||'KRW'})`:'단가 (평균단가와 같은 단위)';
+  document.getElementById('trade-now').innerHTML=`<span>${escHtml(item.owner||'')} · ${escHtml(item.broker||'')} / ${escHtml(item.acc||'')}</span>`
+    +`<span>보유 <b>${(Number(item.qty)||0).toLocaleString(undefined,{maximumFractionDigits:8})}${escHtml(unit)}</b> · 평균단가 <b>${item.costUnknown?'미상':(Number(item.avgP)||0).toLocaleString(undefined,{maximumFractionDigits:4})}</b></span>`;
+  const modal=document.getElementById('trade-modal');
+  window._tradeModalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  modal.classList.add('active');modal.setAttribute('aria-hidden','false');
+  tradeSetSide('buy');
+  requestAnimationFrame(()=>document.getElementById('trade-qty')?.focus());
+}
+function closeTradeModal(){
+  const modal=document.getElementById('trade-modal');
+  if(!modal?.classList.contains('active')) return;
+  modal.classList.remove('active');modal.setAttribute('aria-hidden','true');
+  _tradeItem=null;
+  const back=window._tradeModalReturnFocus;window._tradeModalReturnFocus=null;
+  if(back&&document.contains(back)) back.focus();
+}
+function tradeSetSide(side){
+  _tradeSide=side==='sell'?'sell':'buy';
+  document.getElementById('trade-side-buy')?.setAttribute('aria-pressed',_tradeSide==='buy'?'true':'false');
+  document.getElementById('trade-side-sell')?.setAttribute('aria-pressed',_tradeSide==='sell'?'true':'false');
+  const item=_tradeItem, wrap=document.getElementById('trade-pl-wrap'), note=document.getElementById('trade-pl-note');
+  const showPl=!!item&&_tradeSide==='sell'&&item.grp==='주식';
+  if(wrap) wrap.hidden=!showPl;
+  if(note&&item) note.textContent=item.cur==='KRW'
+    ?'(매도 단가 − 평균단가) × 수량으로 채웁니다. 수수료·세금을 뺀 실제 금액으로 고칠 수 있습니다. 세금·증여 > 실현손익 기록에 등록됩니다.'
+    :'해외 종목은 매수 당시 환율 기록이 없어 자동 계산하지 않습니다. 증권사 앱의 실현손익(원화)을 적어 주세요. 세금·증여 > 실현손익 기록에 등록됩니다.';
+  tradePreview();
+}
+function tradePlTouched(){_tradePlTouched=String(document.getElementById('trade-pl')?.value||'').trim()!=='';tradePreview();}
+function tradePreview(){
+  const box=document.getElementById('trade-preview'), err=document.getElementById('trade-error');
+  if(!box||!_tradeItem) return;
+  if(err){err.hidden=true;err.textContent='';}
+  const item=_tradeItem, input=_tradeInput();
+  const plan=tradeApplyPlan(item,input);
+  const fmt=v=>Number(v).toLocaleString(undefined,{maximumFractionDigits:4});
+  // 국내 종목 매도: 손익 칸을 직접 고치지 않았으면 계산값을 보여 준다
+  const plEl=document.getElementById('trade-pl');
+  if(plEl&&_tradeSide==='sell'&&item.grp==='주식'&&item.cur==='KRW'&&!_tradePlTouched&&document.activeElement!==plEl)
+    plEl.value=plan.ok&&plan.pl?plan.pl.amt.toLocaleString():'';
+  if(!plan.ok){box.innerHTML=`<span class="trade-preview-wait">${Number.isFinite(input.qty)&&input.qty>0?escHtml(plan.error):'수량과 단가를 입력하면 반영 결과를 미리 보여 줍니다.'}</span>`;return;}
+  const unit=escHtml(item.unit||(item.grp==='가상화폐'?'개':'주'));
+  let html=plan.remove
+    ?`<div><span>반영 후</span><b>전량 매도 — 보유 목록에서 삭제</b></div>`
+    :`<div><span>반영 후 수량</span><b>${fmt(item.qty)} → ${fmt(plan.next.qty)}${unit}</b></div><div><span>반영 후 평균단가</span><b>${item.costUnknown?'미상':fmt(item.avgP)+' → '+fmt(plan.next.avgP)}</b></div>`;
+  if(plan.pl) html+=`<div><span>실현손익 기록</span><b class="${plan.pl.amt>0?'c-up':plan.pl.amt<0?'c-dn':''}">${plan.pl.amt>0?'+':plan.pl.amt<0?'-':''}₩${Math.abs(plan.pl.amt).toLocaleString()} · ${plan.pl.month.slice(5)}월 · ${plan.pl.category==='domestic'?'국내':'해외'} · ${escHtml(plan.pl.account)}</b></div>`;
+  else if(_tradeSide==='sell') html+=`<div><span>실현손익 기록</span><b>등록 안 함 (세금 화면은 주식만 다룹니다)</b></div>`;
+  box.innerHTML=html;
+}
+function submitTrade(){
+  if(isMobileLayout()) return; // 모바일은 조회 전용
+  const err=document.getElementById('trade-error');
+  const showErr=m=>{if(err){err.textContent=m;err.hidden=false;}};
+  const item=_tradeItem, idx=pfolioData.indexOf(item);
+  if(!item||idx<0){closeTradeModal();return;}
+  // 원장·재무기록 둘 다 불러온 뒤에만 — 한쪽만 저장되면 수량과 실현손익이 어긋난다
+  if(window._kvLoadState?.assets!=='ready'||window._kvLoadState?.ext!=='ready'){showErr('데이터를 아직 불러오지 못해 저장할 수 없습니다. 데이터 상태에서 다시 확인해 주세요.');return;}
+  const plan=tradeApplyPlan(item,_tradeInput());
+  if(!plan.ok){showErr(plan.error);return;}
+  if(plan.remove&&!confirm('전량 매도입니다. 이 종목을 보유 목록에서 삭제할까요?'+(item.dca?'\n(적립식 매수 규칙도 함께 삭제됩니다)':''))) return;
+  if(plan.remove) pfolioData.splice(idx,1);
+  // splitCheckedAt: 지금 수량·단가를 사용자가 확인했으므로 오늘이 분할 기준일이다
+  else pfolioData[idx]={...item,qty:plan.next.qty,avgP:plan.next.avgP,splitCheckedAt:_cfLocalDateKey(new Date())};
+  if(plan.pl){monthlyPLData.push(plan.pl);saveMonthlyPL();}
+  closeTradeModal();
+  syncDivHistory();changeOwner(currentOwner,null);saveAssetsToKV();
+}
 
 
 // =============================================
@@ -5108,6 +5244,7 @@ document.addEventListener('keydown', function(e) {
   }
   if (e.key === 'Escape') {
     closeAddModal();
+    closeTradeModal();
     if (typeof closeREModal === 'function') closeREModal();
     if (typeof closeLiabModal === 'function') closeLiabModal();
     closeCfDetails();
@@ -5187,7 +5324,7 @@ function initDashboard(){
   if (typeof Chart === 'undefined') {
     window.cfDonutChartInst = null; window.cfTrendChartInst = null;
   } else {
-    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:9},callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:12},maxTicksLimit:5,maxRotation:0,callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
 
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }

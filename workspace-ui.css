@@ -787,7 +787,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .fin-ice-seg[data-tip]{border-bottom:2px solid var(--panelSolid)}
 .fin-ice-seg.l1{font-weight:700;background:color-mix(in srgb,var(--own) 22%,var(--panelSolid));box-shadow:inset 0 3px 0 var(--own)}
 .fin-ice-seg.l2{background:var(--inner);color:var(--mut)}
-.fin-ice-seg.l3{color:#fff;font-weight:700;border-bottom:0}
+.fin-ice-seg.l3{color:var(--on-acc);font-weight:700;border-bottom:0}
 .fin-ice-seg.l3.gen{background:var(--acct-gen)}.fin-ice-seg.l3.isa{background:var(--acct-isa)}.fin-ice-seg.l3.pen{background:var(--acct-pen)}
 .fin-ice-seg.l3.is-warn,.fin-ice-hatch{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 5px,transparent 5px 10px)}
 .fin-acct-legend .fin-ice-hatch{background-color:var(--mut)}
@@ -855,3 +855,23 @@ button,input,select,textarea{font-family:var(--font-ui)}
   #view-holdings .pt-table td,#view-holdings .pt-table th{font-size:var(--fs-cap);padding-left:4px;padding-right:4px}
   #view-holdings .pt-table th.sortable{padding-right:11px}
 }
+/* 매수·매도 입력(2026-11-17) — 종목명이 버튼이다. 밑줄은 hover·포커스에서만 */
+.holdings-trade-link{cursor:pointer}
+.holdings-trade-link:hover{color:var(--acc);text-decoration:underline;text-underline-offset:3px}
+.trade-modal{width:460px;max-width:92vw;gap:12px}
+.trade-modal .form-row{margin-bottom:0;flex-wrap:nowrap}
+.trade-modal .form-input{width:100%;box-sizing:border-box;height:36px}
+.trade-now{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:var(--fs-cap);color:var(--mut)}
+.trade-now b{color:var(--tx);font-weight:700}
+.trade-side{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;background:var(--seg-bg);border-radius:var(--r-md)}
+.trade-side button{height:32px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--mut);font:700 var(--fs-body) var(--font-ui);cursor:pointer}
+.trade-side button[aria-pressed="true"]{background:var(--seg-on);color:var(--tx)}
+.trade-note{margin:6px 0 0;font-size:var(--fs-cap);color:var(--lab);line-height:1.55}
+.trade-preview{border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner);padding:10px 12px;font-size:var(--fs-body);display:grid;gap:6px}
+.trade-preview>div{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.trade-preview span{color:var(--mut)}.trade-preview b{color:var(--tx);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.trade-preview b.c-up{color:var(--up)}.trade-preview b.c-dn{color:var(--dn)}
+.trade-preview-wait{color:var(--lab)!important;font-size:var(--fs-cap)}
+.trade-error{margin:0;font-size:var(--fs-cap);color:var(--dn);font-weight:700}
+/* 링크 기본색 — 색을 정하지 않은 링크는 브라우저 기본 파랑(#0000ee)이라 다크 테마에서 읽히지 않는다 */
+:where(a){color:var(--acc)}
