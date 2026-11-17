@@ -46,6 +46,7 @@ assert.match(sim, /data-sim-view="retire" aria-pressed="\$\{_simView==='retire'\
 assert.doesNotMatch(sim, /\b(?:setKV|saveAssetsToKV|saveExtDataToKV|localStorage|fetch)\s*[.(]/, '시뮬레이터는 저장·전송하지 않는다');
 assert.match(sim, /예측이나 투자 권유가 아니며 저장되지 않습니다/);
 assert.match(sim, /세금·수수료·환율과 국민연금·퇴직연금 등 다른 소득은 넣지 않았습니다/);
-assert.equal((sim.match(/id="ret-\$\{key\}" type="number" data-no-comma="1"/g) || []).length, 1, '숫자 입력은 data-no-comma');
+assert.equal((sim.match(/id="ret-\$\{key\}" type="number" data-no-comma="1"/g) || []).length, 1, '나이·비율 입력은 data-no-comma');
+assert.match(sim, /const amount=unit==='만원';[\s\S]*id="ret-\$\{key\}" type="text" inputmode="decimal" value="\$\{simAmtText\(s\[key\]\)\}"/, '금액(만원) 입력은 쉼표가 들어가는 글자 칸');
 assert.match(cobalt, /if\(_cobaltActive==='sim2'&&document\.getElementById\('sim-result'\)\)\{simUpdate\(\);retUpdate\(\);\}/, '시세 갱신 때 입력칸을 다시 만들지 않고 결과만 갱신');
 console.log('PASS 은퇴 자금 예상');

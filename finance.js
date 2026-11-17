@@ -434,10 +434,14 @@ function finGoalDelete(id){
 }
 function finGoalSubmit(){
   const idx=_finGoalEdit!=null?finGoalFind(_finGoalEdit):-1;
-  const g={id:idx>=0?_finGoalEdit:finNewId(),name:(document.getElementById('fin-goal-name')?.value||'').trim(),targetAmount:Number(document.getElementById('fin-goal-target')?.value)||0,targetDate:document.getElementById('fin-goal-date')?.value||'',linkClass:document.getElementById('fin-goal-link')?.value||'investment',currentAmount:Number(document.getElementById('fin-goal-current')?.value)||0};
+  const g={id:idx>=0?_finGoalEdit:finNewId(),name:(document.getElementById('fin-goal-name')?.value||'').trim(),targetAmount:finNumInput('fin-goal-target'),targetDate:document.getElementById('fin-goal-nodate')?.checked?'':(document.getElementById('fin-goal-date')?.value||''),linkClass:document.getElementById('fin-goal-link')?.value||'investment',currentAmount:finNumInput('fin-goal-current')};
   if(!g.name||g.targetAmount<=0){alert('목표명과 목표 금액을 입력해 주세요.');return;}
   if(idx>=0)goalData.splice(idx,1,g);else goalData.push(g);_finGoalEdit=null;_finGoalFormOpen=false;finSaveAndRender(cbRenderPlan);
 }
+// 쉼표가 들어간 금액 칸을 숫자로 읽는다
+function finNumInput(id){ return Number(String(document.getElementById(id)?.value||'').replace(/,/g,''))||0; }
+// 기한 미정 — 날짜 칸은 한 번 채우면 비우기 어려워 체크칸으로 받는다. 저장값은 빈 targetDate 다.
+function finGoalNoDateToggle(){ const on=!!document.getElementById('fin-goal-nodate')?.checked, d=document.getElementById('fin-goal-date'); if(!d)return; d.disabled=on; if(on)d.value=''; }
 function finGoalLinkChange(){ const manual=document.getElementById('fin-goal-link')?.value==='manual'; const f=document.getElementById('fin-goal-current-wrap'); if(f)f.style.display=manual?'flex':'none'; }
 function finSaveTarget(){
   const groups={}; Object.keys(FIN_DEFAULT_TARGET).forEach(k=>groups[k]=Math.max(0,Number(document.getElementById('fin-target-'+k)?.value)||0));
@@ -705,9 +709,9 @@ function cbRenderPlan(){
     ${finGoalContext(ownerF)}${goalRows.length?`<div class="fin-goal-overview">${finGoalProgressCard(goalRows)}${finGoalTimelineCard(goalRows)}</div>`:''}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 가구 공통 · 속도 판정은 연결 자산의 월 적립식 매수액과 견준 목표별 참고값(수익률 0% 가정)</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
     ${showGoalForm?`<div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
-      <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="number" min="0" step="10000" value="${Number.isFinite(Number(ge?.targetAmount))?Number(ge.targetAmount):''}"></label><label>목표일<input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"></label>
+      <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="text" inputmode="numeric" placeholder="0" value="${Number(ge?.targetAmount)>0?Math.round(Number(ge.targetAmount)).toLocaleString():''}"></label><label class="fin-goal-date-field">목표일<span class="fin-goal-date-row"><input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"${ge&&!ge.targetDate?' disabled':''}><span class="fin-goal-nodate"><input id="fin-goal-nodate" type="checkbox" onchange="finGoalNoDateToggle()"${ge&&!ge.targetDate?' checked':''}>기한 미정</span></span></label>
       <label>현재 금액 연결<select id="fin-goal-link" onchange="finGoalLinkChange()"><option value="investment" ${ge?.linkClass==='investment'?'selected':''}>가족 투자자산</option><option value="net" ${ge?.linkClass==='net'?'selected':''}>전체 순자산</option>${Object.keys(FIN_DEFAULT_TARGET).map(k=>`<option value="${k}" ${ge?.linkClass===k?'selected':''}>${cbEsc(CB_CLS[k].label)}</option>`).join('')}<option value="manual" ${ge?.linkClass==='manual'?'selected':''}>직접 입력</option></select></label>
-      <label id="fin-goal-current-wrap" style="display:${ge?.linkClass==='manual'?'flex':'none'}">현재 금액(원)<input id="fin-goal-current" type="number" min="0" value="${Number.isFinite(Number(ge?.currentAmount))?Number(ge.currentAmount):''}"></label>
+      <label id="fin-goal-current-wrap" style="display:${ge?.linkClass==='manual'?'flex':'none'}">현재 금액(원)<input id="fin-goal-current" type="text" inputmode="numeric" placeholder="0" value="${Number(ge?.currentAmount)>0?Math.round(Number(ge.currentAmount)).toLocaleString():''}"></label>
     <div class="fin-form-actions"><button class="primary" onclick="finGoalSubmit()">${ge?'수정 저장':'목표 추가'}</button><button onclick="finGoalCancel()">${ge?'취소':'닫기'}</button></div></div></div>`:''}
 `;
 }

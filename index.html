@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=64">
-  <link rel="stylesheet" href="workspace-ui.css?v=15">
+  <link rel="stylesheet" href="style.css?v=65">
+  <link rel="stylesheet" href="workspace-ui.css?v=16">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -337,7 +337,7 @@
     </div>
     <div class="form-group f-col" id="trade-pl-wrap" hidden>
       <label class="form-label" for="trade-pl">실현손익 (원화)</label>
-      <input type="text" class="form-input" id="trade-pl" placeholder="손실은 -를 붙여 입력" inputmode="decimal" oninput="tradePlTouched()">
+      <input type="text" class="form-input" id="trade-pl" placeholder="손실은 -를 붙여 입력" inputmode="decimal" data-neg="1" oninput="tradePlTouched()">
       <p class="trade-note" id="trade-pl-note"></p>
     </div>
     <div class="trade-preview" id="trade-preview" role="status" aria-live="polite"></div>
@@ -522,13 +522,13 @@
 </div>
 
 <script defer src="tax-rules.js?v=4"></script>
-<script defer src="script.js?v=64"></script>
-<script defer src="finance.js?v=22"></script>
+<script defer src="script.js?v=65"></script>
+<script defer src="finance.js?v=23"></script>
 <script defer src="navigation.js?v=8"></script>
-<script defer src="backtest.js?v=4"></script>
-<script defer src="simulator.js?v=3"></script>
+<script defer src="backtest.js?v=5"></script>
+<script defer src="simulator.js?v=4"></script>
 <script defer src="etf-explorer.js?v=7"></script>
 <script defer src="workspace-pages.js?v=7"></script>
-<script defer src="cobalt.js?v=45"></script>
+<script defer src="cobalt.js?v=46"></script>
 </body>
 </html>

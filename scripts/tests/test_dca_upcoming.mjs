@@ -1,9 +1,10 @@
-// 적립식 '앞으로 30일 매수 일정' — 판정은 기존 cbDcaScheduledOn 을 그대로 쓰고 날짜별로 묶기만 한다.
+// 적립식 '앞으로 10일 매수 일정' — 판정은 기존 cbDcaScheduledOn 을 그대로 쓰고 날짜별로 묶기만 한다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 const cobalt = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8');
+const read = (f) => fs.readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
 const pick = (name) => cobalt.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
 const ctx = vm.createContext({});
 vm.runInContext([
@@ -27,5 +28,10 @@ assert.deepEqual(up, [
 assert.equal(ctx.cbDcaUpcoming(list, '2026-11-01', 2).length, 0, '기간 밖 날짜는 넣지 않는다');
 // 렌더: 활성 규칙이 있을 때만 카드, 예정이 없으면 빈 안내
 assert.match(cobalt, /const up=cbDcaUpcoming\(active\);\n\s*if\(!active\.length\) return '';/);
-assert.match(cobalt, /30일 안에 예정된 매수가 없습니다\./);
+assert.match(cobalt, /10일 안에 예정된 매수가 없습니다\./);
+// 기본 범위는 10일이다 — 3일 규칙은 잡히고 25일 규칙은 범위 밖
+assert.equal(ctx.cbDcaUpcoming(list, '2026-11-01').map((d) => d.key).join(), '2026-11-03', '기본 10일');
+assert.match(cobalt, /aria-label="앞으로 10일 매수 일정"/);
+assert.match(read('workspace-ui.css'), /\.cb-dca-upcoming-list\{display:flex;flex-wrap:wrap;[^}]*\}/, '줄바꿈한다');
+assert.doesNotMatch(read('workspace-ui.css'), /\.cb-dca-upcoming-list\{[^}]*overflow-x/, '옆으로 미는 스크롤바를 만들지 않는다');
 console.log('ok - dca upcoming');

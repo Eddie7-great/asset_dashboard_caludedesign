@@ -3408,7 +3408,7 @@ function cbDcaScheduledOn(i,date){
 }
 // 앞으로 N일의 매수 예정일을 날짜별로 묶는다 — 판정은 cbDcaScheduledOn(휴장일 이월 포함) 그대로다.
 // 실제 체결이 아니라 규칙상 예정일이며, 금액은 회당 원화 환산(cbDcaPerOrderKRW)이다.
-function cbDcaUpcoming(list, asOf, days=30){
+function cbDcaUpcoming(list, asOf, days=10){
   const start=cbDcaDateAt(asOf), out=[];
   for(let n=0;n<days;n++){
     const d=new Date(start); d.setDate(start.getDate()+n);
@@ -3528,9 +3528,9 @@ function cbRenderDca(){
       const up=cbDcaUpcoming(active);
       if(!active.length) return '';
       const WD=['일','월','화','수','목','금','토'];
-      return `<section class="cb-panel cb-dca-upcoming" aria-label="앞으로 30일 매수 일정">
-        <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 30일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small></div>
-        ${up.length?`<ol class="cb-dca-upcoming-list">${up.map(d=>`<li><b>${d.date.getMonth()+1}/${d.date.getDate()} <span>(${WD[d.date.getDay()]})</span></b>${d.items.map(x=>`<span class="cb-dca-upcoming-item"><i style="background:${cbOwnerColor(x.i.owner)}"></i>${cbEsc(cbStrip(x.i.tkr)||x.r.title)}</span>`).join('')}<em>${cbDisp(d.amount)}</em></li>`).join('')}</ol>`:'<div class="cb-dca-upcoming-empty">30일 안에 예정된 매수가 없습니다.</div>'}
+      return `<section class="cb-panel cb-dca-upcoming" aria-label="앞으로 10일 매수 일정">
+        <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 10일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small></div>
+        ${up.length?`<ol class="cb-dca-upcoming-list">${up.map(d=>`<li><b>${d.date.getMonth()+1}/${d.date.getDate()} <span>(${WD[d.date.getDay()]})</span></b>${d.items.map(x=>`<span class="cb-dca-upcoming-item"><i style="background:${cbOwnerColor(x.i.owner)}"></i>${cbEsc(cbStrip(x.i.tkr)||x.r.title)}</span>`).join('')}<em>${cbDisp(d.amount)}</em></li>`).join('')}</ol>`:'<div class="cb-dca-upcoming-empty">10일 안에 예정된 매수가 없습니다.</div>'}
       </section>`;
     })()}
     <div class="cb-dca-detail-grid">
