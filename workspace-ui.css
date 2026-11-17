@@ -965,7 +965,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-meter-zone:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
 .cb-meter-zone:nth-last-child(3){border-radius:0 var(--r-sm) var(--r-sm) 0}
 .cb-meter-fill{border-radius:var(--r-sm)}
-.cb-meter-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:var(--tx)}
+.cb-meter-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--tx)}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
-.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:2px;background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}
+.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}
