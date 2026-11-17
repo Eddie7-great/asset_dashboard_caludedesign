@@ -1468,15 +1468,15 @@ function cbRenderPerf(){
   el.innerHTML = `
     <div class="cb-perf-card-grid">
       ${cards.map(p=>`
-        <div class="cb-panel" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="min-width:0;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
-          <div style="display:flex;align-items:center;gap:7px;font-size:var(--fs-cap);color:var(--mut)">${swatch(p,13)}${cbEsc(p.label)}</div>
-          <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;margin-top:3px;${csR(p.ret)}">${fmtR(p.ret)}</div>
+        <div class="cb-panel cb-perf-card" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="border-top-color:${p.color};${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
+          <div class="cb-perf-card-name">${swatch(p,13)}${cbEsc(p.label)}</div>
+          <div class="cb-perf-card-value" style="${csR(p.ret)}">${fmtR(p.ret)}</div>
         </div>`).join('')}
     </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px;overflow:visible">
-      <div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap">
-        ${entities.map(p=>`<span role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--mut);cursor:pointer;transition:opacity .2s;${selKey&&selKey!==p.key?'opacity:.4':''}">${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
-        <span style="margin-left:auto;font-size:var(--fs-cap);color:var(--dim)">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
+    <div class="cb-panel cb-perf-chart-panel">
+      <div class="cb-perf-legend">
+        ${entities.map(p=>`<span class="cb-perf-legend-item" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')"${selKey&&selKey!==p.key?' style="opacity:.4"':''}>${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
+        <span class="cb-perf-legend-hint">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
       </div>
       <div style="position:relative" onmouseleave="cbPerfHide()">
         ${cbMultiLineSvg(seriesArr, 1100, 220)}

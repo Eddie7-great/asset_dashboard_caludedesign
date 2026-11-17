@@ -969,3 +969,11 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
 .cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}
+/* 성과 화면 카드·범례 — 예전 인라인 고정 스타일을 옮긴 것. 값에 따라 바뀌는 윗선 색·선택 강조·흐림·손익 색만 인라인에 남긴다. */
+.cb-perf-card{min-width:0;padding:12px 14px;border-top:3px solid var(--bd);cursor:pointer;transition:opacity .2s,box-shadow .2s}
+.cb-perf-card-name{display:flex;align-items:center;gap:7px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-perf-card-value{font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;margin-top:3px}
+.cb-perf-chart-panel{margin-top:12px;padding:14px 16px 8px;overflow:visible}
+.cb-perf-legend{display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap}
+.cb-perf-legend-item{display:flex;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--mut);cursor:pointer;transition:opacity .2s}
+.cb-perf-legend-hint{margin-left:auto;font-size:var(--fs-cap);color:var(--dim)}
