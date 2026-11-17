@@ -13,7 +13,8 @@
 - **성과 비교 벤치마크는 구간의 모든 거래일을 보낸다(1년 ≈ 250점) — 서버 `get_benchmark` 와 JS 폴백 `_jsBenchmarkFallback` 둘 다.** 예전의 6등분 샘플링(1년 = 7점)은 곡선을 뭉개고, 화면이 같은 시리즈로 계산하는 MDD(`mddOf`)를 실제보다 작게 만들었다. 한쪽만 되돌리지 않는다(테스트가 두 소스를 함께 확인한다).
 - **성과 그래프(`cbMultiLineSvg`)는 점이 40개를 넘으면 직선으로 잇고(`cbSmoothPath` 는 점이 적을 때만), 선 끝에 이름표(`cbSpreadLabels` 로 14px 이상 벌림)를 단다. 오른쪽 여백은 `CB_PERF_PAD`(투자자산 추이는 `CB_LINE_PAD` 그대로). 날짜 눈금은 `cbPerfTickIdx` 가 고른 6개 안팎만 위치에 맞춰 찍는다(`.cb-perf-xaxis`).** hover·터치(`data-chart-hit="perf:<i>"`)는 점마다 한 칸 그대로다.
 - **성과 하단 수익률은 한 표다(2026-11-17 3차, 예전 2열 × 3행을 바꿨다).** 선택 기간 수익률 높은 순(`sortedRows`, 값 없는 줄은 끝)이고, 이름 옆 막대(`cbPerfBarHtml`)는 그 기간 수익률을 0(가운데) 기준 좌우로 그린다 — 길이는 표 안 최대 절댓값 대비. 휴대폰은 막대 칸을 숨긴다.
-- `test_ui_followups.mjs`·`test_holdings_dashboard_ui.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
+- **표·카드의 막대(새 계산 없음):** 계좌별 보기 비중 칸(`.acct-share`, 길이는 가장 큰 계좌 대비), 리스크 게이지의 현재 값 눈금(`.cb-meter-mark`, 구간 색은 더 진하게 — 판정 기준값은 그대로 `meter` 에서 받는다), 배당 월별 막대의 빗금(`cbDivCalendarSvg` 의 다섯째 인자 `nowMonth`). **배당 빗금은 올해 예상 그래프에서 이번 달부터 남은 달에만 쓰고, 범례에 '12달 모두 추정'을 적는다** — 올해 값은 지난 달도 '과거 지급 패턴 × 현재 보유' 추정이라 받은 금액이 아니다. 지난 연도(지급 이력 재구성)·내년 그래프는 구분하지 않는다.
+- `test_ui_followups.mjs`·`test_holdings_dashboard_ui.mjs`·`test_risk_visuals.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
 
 ### 차트 축 색·쉼표 입력·목표 기한 미정·적립식 10일 (2026-11-18)
 

@@ -87,6 +87,18 @@ assert.equal(divCal.monthAmt[0], 300, '월별 배당 합계 계산')
 assert.equal(divCal.monthDetails[0].length, 2, '전체 모드 월별 배당 상세는 같은 종목도 소유주별로 분리')
 assert.deepEqual(Array.from(divCal.monthDetails[0], row => [row.owner, row.amount]), [['아내', 200], ['본인', 100]], '월별 종목 배당에 소유주와 금액 보존')
 const divSvg = dividendContext.cbDivCalendarSvg(divCal.monthAmt, divCal.monthDetails, 1100, 300)
+{
+  // 올해 예상 그래프: 이번 달부터 남은 달은 빗금, 이번 달 이름표 강조. 지난 연도(-1)는 구분하지 않는다.
+  const amt = Array(12).fill(100)
+  const det = Array.from({ length: 12 }, () => [])
+  const hatched = dividendContext.cbDivCalendarSvg(amt, det, 1100, 300, 10)
+  assert.equal((hatched.match(/fill="url\(#cb-div-hatch\)"/g) || []).length, 2, '11·12월(이번 달부터)만 빗금')
+  assert.match(hatched, />11월 · 이번 달</, '이번 달 이름표 표시')
+  const plain = dividendContext.cbDivCalendarSvg(amt, det, 1100, 300)
+  assert.doesNotMatch(plain, /cb-div-hatch|이번 달/, '지난 연도·내년 그래프는 구분하지 않음')
+  assert.match(cobaltSource, /const divNowMonth = \(!cal\.actual && year===nowY\) \? new Date\(\)\.getMonth\(\) : -1;/, '올해 예상 그래프에서만 이번 달을 표시')
+  assert.match(cobaltSource, /이번 달부터 남은 달 · 12달 모두 추정/, '지난 달을 받은 금액으로 오해하지 않게 모두 추정이라고 적음')
+}
 assert.match(divSvg, /onmousemove="cbDivBarHover\(event,0\)"/, '배당 막대에 종목별 상세 호버 연결')
 assert.match(divSvg, /onclick="cbDivMonthPick\(0\)"/, '배당 막대 클릭을 월별 종목 필터에 연결')
 assert.match(divSvg, />₩300<\/text>/, '막대 위 금액을 1원 단위 원화로 표시')

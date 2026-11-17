@@ -339,7 +339,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-table-panel{padding:16px 18px}
 .acct-table-wrap{overflow-x:auto;margin-top:10px}
 .acct-table{min-width:880px}
-.acct-row,.acct-holding{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(120px,.9fr) minmax(64px,.5fr) minmax(170px,1.1fr) minmax(130px,.9fr) minmax(52px,.4fr);column-gap:20px;align-items:center}
+.acct-row,.acct-holding{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(120px,.9fr) minmax(118px,.75fr) minmax(170px,1.1fr) minmax(130px,.9fr) minmax(52px,.4fr);column-gap:20px;align-items:center}
 .acct-row{padding:12px 10px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .acct-row>span:not(:first-child){text-align:right}
 .acct-head{font-size:var(--fs-cap);color:var(--dim)}
@@ -953,3 +953,19 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-perf-detail-head>.cb-perf-bar-head,.cb-perf-detail-row>.cb-perf-bar{display:none}
   .cb-perf-detail-head,.cb-perf-detail-row{grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr)}
 }
+/* 계좌별 보기 비중 칸 — 막대 + 숫자 한 줄 */
+.acct-row>.acct-share{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.acct-row>.acct-share>.home-weight-bar{margin-right:0}
+/* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
+   눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
+.cb-meter{overflow:visible}
+.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 26%,transparent)}
+.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 36%,transparent)}
+.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 32%,transparent)}
+.cb-meter-zone:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.cb-meter-zone:nth-last-child(3){border-radius:0 var(--r-sm) var(--r-sm) 0}
+.cb-meter-fill{border-radius:var(--r-sm)}
+.cb-meter-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:var(--tx)}
+/* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
+.cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:2px;background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}

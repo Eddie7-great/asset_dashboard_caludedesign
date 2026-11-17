@@ -910,7 +910,9 @@ function cbRiskMeterHtml(m, unit, color){
     : `현재 ${fmt(v)} · ${fmt(m.warnAt)} 초과 주의 · ${fmt(m.badAt)} 초과 위험`;
   return `<div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
     + zones.filter(z=>z[2]>z[1]).map(z=>`<span class="cb-meter-zone ${z[0]}" style="left:${z[1].toFixed(2)}%;width:${(z[2]-z[1]).toFixed(2)}%"></span>`).join('')
-    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`;
+    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span>`
+    // 현재 값 위치 표식 — 채운 길이만으로는 구간 경계와의 거리가 잘 안 읽혀 세로 눈금을 더한다
+    + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%"></span></div>`;
 }
 
 // 통화 구성 100% 누적 막대 — 외화(USD·JPY·AUD·기타)를 왼쪽부터 쌓고 원화는 회색으로 끝에 둔다.
@@ -1976,7 +1978,9 @@ function cbDivBarHide(){
   if(tip) tip.style.display='none';
 }
 // 월별 배당 캘린더 SVG — Y축 금액 + X축 '월' 라벨
-function cbDivCalendarSvg(monthAmt, monthDetails, w, h){
+// nowMonth: 올해 예상 그래프일 때 이번 달 번호(0~11). 이번 달부터 남은 달은 빗금으로 그린다 — 단, 올해 값은
+// 12달 모두 '과거 지급 패턴 × 현재 보유'의 추정이므로 지난 달을 '받은 금액'이라고 부르지 않는다. -1 이면 구분하지 않는다.
+function cbDivCalendarSvg(monthAmt, monthDetails, w, h, nowMonth=-1){
   const upC = (typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52');
   const maxRaw = Math.max(...monthAmt, 1);
   const step = cbNiceStep(maxRaw/4);
@@ -1987,16 +1991,19 @@ function cbDivCalendarSvg(monthAmt, monthDetails, w, h){
   let out='';
   out+=cbAmtGridSvg(cbAxisTicks(0,maxV,step), Y, padL, w-padR, cbDivAxisLab);
   const slot=plotW/12, bw=Math.min(40, slot-12);
+  if(nowMonth>=0) out+=`<defs><pattern id="cb-div-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${upC}" fill-opacity=".28"></rect><rect width="3" height="6" fill="${upC}"></rect></pattern></defs>`;
   for(let m=0;m<12;m++){
     const v=monthAmt[m]||0, xc=padL + slot*m + slot/2, yTop=Y(v);
     if(v>0){
       const selected=_cbDivMonthFilter===m;
       const dimmed=_cbDivMonthFilter!=null&&!selected;
       const monthLabel=`${m+1}월 배당 ${cbKrw(v)}${selected?', 선택됨':''}. 선택하면 해당 월 종목 내역을 표시합니다.`;
-      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${upC}" opacity="${dimmed?'0.32':'0.88'}" stroke="${selected?'var(--tx)':'transparent'}" stroke-width="${selected?'2':'0'}" style="cursor:pointer" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.setAttribute('stroke','var(--tx)');this.setAttribute('stroke-width','2')" onblur="this.setAttribute('stroke','${selected?'var(--tx)':'transparent'}');this.setAttribute('stroke-width','${selected?'2':'0'}')" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()" onclick="cbDivMonthPick(${m})"></rect>`;
+      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${nowMonth>=0&&m>=nowMonth?'url(#cb-div-hatch)':upC}" opacity="${dimmed?'0.32':'0.88'}" stroke="${selected?'var(--tx)':'transparent'}" stroke-width="${selected?'2':'0'}" style="cursor:pointer" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.setAttribute('stroke','var(--tx)');this.setAttribute('stroke-width','2')" onblur="this.setAttribute('stroke','${selected?'var(--tx)':'transparent'}');this.setAttribute('stroke-width','${selected?'2':'0'}')" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()" onclick="cbDivMonthPick(${m})"></rect>`;
       out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--up)" font-size="12" font-weight="700" text-anchor="middle">${cbKrw(v)}</text>`;
     }
-    out+=`<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m+1}월</text>`;
+    out+=m===nowMonth
+      ? `<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--acc)" font-size="12" font-weight="800" text-anchor="middle">${m+1}월 · 이번 달</text>`
+      : `<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m+1}월</text>`;
   }
   // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
   const annual=monthAmt.reduce((sum,value)=>sum+(Number(value)||0),0);
@@ -2082,6 +2089,8 @@ function cbRenderDiv(){
   const years = Array.from(yrSet).sort((a,b)=>b.localeCompare(a));
   const year = (_cbDivYear && years.includes(_cbDivYear)) ? _cbDivYear : nowY;
   const cal = cbDivMonthlyForYear(list, year, netBasis);
+  // 올해 예상 그래프에서만 이번 달 위치를 표시한다(지난 연도는 지급 이력 재구성, 내년은 전부 앞으로라 구분할 것이 없다).
+  const divNowMonth = (!cal.actual && year===nowY) ? new Date().getMonth() : -1;
   const calTotal = cal.monthAmt.reduce((s,v)=>s+v,0);
   const upcomingDividends=cbUpcomingDividendSchedule(list,90);
   const upcomingDividendTotal=upcomingDividends.reduce((s,x)=>s+x.amount,0);
@@ -2162,9 +2171,10 @@ function cbRenderDiv(){
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
         <span class="cb-panel-title">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
+        ${divNowMonth>=0?'<span class="cb-div-hatch-legend"><i aria-hidden="true"></i>이번 달부터 남은 달 · 12달 모두 추정</span>':''}
         <span style="margin-left:auto;font-size:var(--fs-cap);color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
-      <div class="cb-chart-scroll">${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}</div>
+      <div class="cb-chart-scroll">${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300, divNowMonth)}</div>
     </div>
     <div class="cb-div-detail-grid">
     <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
