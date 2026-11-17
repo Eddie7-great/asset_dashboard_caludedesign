@@ -960,6 +960,8 @@ function cbRingSvg(score, size, color){
 }
 // 라인 차트 플롯 영역 좌우 패딩 (Y축 라벨 공간) — hover 히트영역 계산에도 사용
 const CB_LINE_PAD = { l: 48, r: 12 };
+// 성과 비교 선 그래프는 오른쪽 끝에 선 이름표를 달므로 오른쪽 여백을 따로 둔다(투자자산 추이는 CB_LINE_PAD 그대로).
+const CB_PERF_PAD = { l: 48, r: 70 };
 // Catmull-Rom → cubic bezier: 포인트를 지나는 부드러운 곡선 경로
 function cbSmoothPath(pts){
   if (pts.length < 3) return 'M' + pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' L');
@@ -972,6 +974,21 @@ function cbSmoothPath(pts){
   }
   return d;
 }
+// 날짜 눈금으로 쓸 점 번호 — 점이 많아도(일별 ≈ 250점) 6개 안팎만 고른 간격으로 고른다.
+function cbPerfTickIdx(n, count=6){
+  if (n<=0) return [];
+  if (n<=count) return Array.from({length:n},(_,i)=>i);
+  return [...new Set(Array.from({length:count},(_,j)=>Math.round(j*(n-1)/(count-1))))];
+}
+// 선 끝 이름표 세로 위치 — 가까운 이름표끼리 겹치지 않게 최소 간격(gap)만큼 벌리고, 그림 영역을 넘으면 통째로 올린다.
+function cbSpreadLabels(ys, gap, top, bottom){
+  const order = ys.map((y,i)=>({y,i})).sort((a,b)=>a.y-b.y);
+  for (let k=0;k<order.length;k++) order[k].y = Math.max(order[k].y, k?order[k-1].y+gap:top);
+  const over = order.length ? order[order.length-1].y - bottom : 0;
+  if (over>0) order.forEach(o=>{ o.y -= over; });
+  for (let k=order.length-2;k>=0;k--) order[k].y = Math.min(order[k].y, order[k+1].y-gap);
+  const out = Array(ys.length); order.forEach(o=>{ out[o.i]=o.y; }); return out;
+}
 function cbMultiLineSvg(seriesArr, w, h){
   const valid = seriesArr.filter(s=>s.data.some(v=>v!=null));
   const all = valid.flatMap(s=>s.data).filter(v=>v!=null);
@@ -980,7 +997,7 @@ function cbMultiLineSvg(seriesArr, w, h){
   // Y축 세분화: nice-step 눈금 + 전 눈금 금액 라벨
   const step = cbNiceStep((mx-mn+padV*2)/6);
   const lo = Math.floor((mn-padV)/step)*step, hi = Math.ceil((mx+padV)/step)*step;
-  const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
+  const padL=CB_PERF_PAD.l, padR=CB_PERF_PAD.r, plotW=w-padL-padR;
   const y=v=>h-8-((v-lo)/(hi-lo))*(h-16);
   let out='';
   for (let v=lo; v<=hi+step*0.01; v+=step){
@@ -993,12 +1010,22 @@ function cbMultiLineSvg(seriesArr, w, h){
     const pts=s.data.map((v,i)=>({v,i})).filter(p=>p.v!=null);
     if(pts.length<2) return;
     const dx=plotW/(s.data.length-1);
-    const d=cbSmoothPath(pts.map(p=>({x:padL+p.i*dx, y:y(p.v)})));
+    const xy=pts.map(p=>({x:padL+p.i*dx, y:y(p.v)}));
+    // 일별 점(수십~수백 개)은 곡선 보정을 하면 실제 등락이 뭉개진다 — 점이 많으면 직선으로 잇는다.
+    const d=xy.length>40 ? 'M'+xy.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' L') : cbSmoothPath(xy);
+    s._end = { x:xy[xy.length-1].x, y:xy[xy.length-1].y };
     const dimmed = !!s.dim;
     const op = dimmed ? 0.16 : (s.bold ? 1 : 0.85);
     // 렌더 애니메이션: 실선(벤치마크)은 드로잉, 점선(소유주)은 목표 불투명도까지 페이드 인
     const anim = s.isBench ? 'class="cb-line-draw" pathLength="1"' : `class="cb-line-fade" style="--o:${op}"`;
     out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.bold?2.8:1.8}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}" ${s.dash?'stroke-dasharray="5 5"':''} ${anim}></path>`;
+  });
+  // 선 끝 이름표 — 범례를 오가며 색을 맞춰 보지 않아도 어느 선이 누구인지 바로 읽힌다.
+  const ends = valid.filter(s=>s._end && s.label);
+  const ly = cbSpreadLabels(ends.map(s=>s._end.y), 14, 10, h-6);
+  ends.forEach((s,k)=>{
+    const op = s.dim ? 0.3 : 1;
+    out+=`<text class="cb-perf-end-label" x="${(s._end.x+6).toFixed(1)}" y="${(ly[k]+4).toFixed(1)}" font-size="12" font-weight="700" style="fill:${s.color}" opacity="${op}">${cbEsc(s.label)}</text>`;
   });
   // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
@@ -1397,7 +1424,7 @@ function cbRenderPerf(){
   const cards = entities.map(e=>({ ...e, ret: cbLastVal(sel.data[e.key]) }));
   // 클릭 강조: 선택된 소유주/벤치마크 라인은 굵게, 나머지는 흐리게
   // 선 종류: 벤치마크(S&P 500 / KOSPI) = 실선, 소유주 포트폴리오 = 점선
-  const seriesArr = entities.map(e=>({ data:(sel.data[e.key]||[]), color:e.color, isBench:!!e.isBench,
+  const seriesArr = entities.map(e=>({ data:(sel.data[e.key]||[]), color:e.color, isBench:!!e.isBench, label:e.label,
     bold: !e.isBench || e.key===selKey, dash:!e.isBench, dim: !!(selKey && e.key!==selKey) }));
   // 범례·카드·표의 색 스와치도 선 종류를 그대로 반영 (소유주 = 점선, 벤치마크 = 실선)
   const swatch = (e, w) => e.isBench
@@ -1415,9 +1442,18 @@ function cbRenderPerf(){
     const alpha = (!e.isBench && rv!=null && spSel!=null) ? rv-spSel : null;
     return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, mdd: mddOf(sel.data[e.key]) };
   });
+  // 하단 표: 선택 기간 수익률 높은 순(값 없는 줄은 끝). 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
+  const tfIdx = CB_PERF_TFS.indexOf(tf);
+  const sortedRows = rows.slice().sort((a,b)=>{
+    const av=a.vals[tfIdx], bv=b.vals[tfIdx];
+    if (av==null) return bv==null?0:1;
+    if (bv==null) return -1;
+    return bv-av;
+  });
+  const perfBarMax = Math.max(1, ...rows.map(r=>Math.abs(r.vals[tfIdx]||0)));
   const labels = sel.labels||[];
   const N = labels.length;
-  const padLpct = (CB_LINE_PAD.l/1100*100).toFixed(2), padRpct = (CB_LINE_PAD.r/1100*100).toFixed(2);
+  const padLpct = (CB_PERF_PAD.l/1100*100).toFixed(2), padRpct = (CB_PERF_PAD.r/1100*100).toFixed(2);
 
   // 소제목·기간 버튼은 메인 제목 라인(글로벌 헤더)으로
   cbSetHead(
@@ -1451,30 +1487,29 @@ function cbRenderPerf(){
           }).join('') : ''}
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:var(--fs-cap);color:var(--dim);padding:4px 2px 6px;margin-left:${padLpct}%;margin-right:${padRpct}%">${labels.map(l=>`<span>${cbEsc(l)}</span>`).join('')}</div>
+      <div class="cb-perf-xaxis" style="margin-left:${padLpct}%;margin-right:${padRpct}%">${cbPerfTickIdx(N).map(i=>`<span style="left:${(N>1?i/(N-1)*100:50).toFixed(2)}%">${cbEsc(labels[i])}</span>`).join('')}</div>
     </div>
     ${typeof finInvestTrendCard==='function'?finInvestTrendCard():''}
     <div class="cb-panel cb-perf-detail-panel" style="margin-top:12px;padding:16px 18px">
       <div class="cb-perf-detail-grid">
-        ${[
-          [rows.find(r=>r.e.key==='S&P 500'), rows.find(r=>r.e.key==='본인'), rows.find(r=>r.e.key==='자녀1')],
-          [rows.find(r=>r.e.key==='KOSPI'), rows.find(r=>r.e.key==='아내'), rows.find(r=>r.e.key==='아버지')],
-        ].map(group=>`
-          <div class="cb-perf-detail-table">
-            <div class="cb-perf-detail-head">
-              <span>구분</span>
-              ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
-              <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
-              <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
-            </div>
-            ${group.filter(Boolean).map(r=>`
-              <div class="cb-perf-detail-row" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
-                <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
-                ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
-                <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
-                <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
-              </div>`).join('')}
-          </div>`).join('')}
+        <!-- 한 표(6줄)를 선택 기간 수익률 순으로 — 예전에는 좌우 두 표(S&P·본인·자녀1 | KOSPI·아내·아버지)라 순위를 눈으로 맞춰야 했다 -->
+        <div class="cb-perf-detail-table">
+          <div class="cb-perf-detail-head">
+            <span>구분</span>
+            <span class="cb-perf-bar-head">${tf} 수익률</span>
+            ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
+            <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
+            <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
+          </div>
+          ${sortedRows.map(r=>`
+            <div class="cb-perf-detail-row${r.e.isBench?' is-bench':''}" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
+              <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
+              ${cbPerfBarHtml(r.vals[tfIdx], perfBarMax, r.e.color)}
+              ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
+              <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
+              <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
+            </div>`).join('')}
+        </div>
       </div>
       <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
@@ -1490,6 +1525,13 @@ function _cbPerfTipEl(){
     document.body.appendChild(t);
   }
   return t;
+}
+// 성과 표의 선택 기간 막대 — 가운데가 0, 오른쪽 이익·왼쪽 손실. 길이는 표 안 최대 절댓값 대비(새 계산 없이 표의 값만 쓴다).
+function cbPerfBarHtml(v, maxAbs, color){
+  if (v==null || !Number.isFinite(Number(v))) return '<span class="cb-perf-bar" aria-hidden="true"></span>';
+  const half = Math.min(50, Math.abs(v)/(maxAbs||1)*50);
+  const left = v>=0 ? 50 : 50-half;
+  return `<span class="cb-perf-bar" aria-hidden="true"><i style="left:${left.toFixed(2)}%;width:${half.toFixed(2)}%;background:${color}"></i></span>`;
 }
 function cbPerfHover(ev, idx){
   const d = window._cbPerfHover; if(!d) return;

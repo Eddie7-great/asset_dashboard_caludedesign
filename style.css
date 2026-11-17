@@ -920,10 +920,10 @@
     .cb-perf-card-grid{display:grid;grid-template-columns:repeat(6,minmax(124px,1fr));gap:10px;overflow:visible;padding:2px;margin:-2px}
     #cb-perf2{display:flex;flex-direction:column;padding-bottom:12px}
     .cb-perf-detail-panel{display:flex;flex:1 0 270px;min-height:270px;flex-direction:column}
-    .cb-perf-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;flex:1}
+    .cb-perf-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;flex:1}
     .cb-perf-detail-table{min-width:0;border:1px solid var(--bd);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column}
     .cb-perf-detail-head,
-    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr);align-items:center;column-gap:2px}
+    .cb-perf-detail-row{display:grid;grid-template-columns:minmax(80px,110px) minmax(140px,2fr) repeat(6,minmax(46px,1fr)) minmax(62px,1fr) minmax(52px,.9fr);align-items:center;column-gap:6px}
     .cb-perf-detail-head{padding:9px 8px;background:var(--inner);font-size:var(--fs-micro);color:var(--dim);text-align:right}
     .cb-perf-detail-head>span:first-child{text-align:left}
     .cb-perf-detail-head>span{min-width:0;white-space:nowrap}

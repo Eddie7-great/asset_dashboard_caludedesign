@@ -939,3 +939,17 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cal-chip{align-items:flex-start;line-height:1.3}
 .cal-chip>i{margin-top:3px}
 .cal-chip>span{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere;word-break:keep-all}
+/* 성과 비교 날짜 눈금 — 일별 점(≈250개)에서 고른 6개 안팎만 위치에 맞춰 찍는다(예전엔 모든 라벨을 한 줄에 나열해 겹쳤다). */
+.cb-perf-xaxis{position:relative;height:22px;font-size:var(--fs-cap);color:var(--dim)}
+.cb-perf-xaxis>span{position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap}
+.cb-perf-xaxis>span:first-child{transform:none}
+.cb-perf-xaxis>span:last-child{transform:translateX(-100%)}
+/* 성과 표 선택 기간 막대 — 가운데 세로선이 0 */
+.cb-perf-bar{position:relative;display:block;height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner)}
+.cb-perf-bar::after{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
+.cb-perf-bar>i{position:absolute;top:0;bottom:0;border-radius:var(--r-sm)}
+.cb-perf-detail-head>.cb-perf-bar-head{text-align:center}
+@media(max-width:768px){
+  .cb-perf-detail-head>.cb-perf-bar-head,.cb-perf-detail-row>.cb-perf-bar{display:none}
+  .cb-perf-detail-head,.cb-perf-detail-row{grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr)}
+}

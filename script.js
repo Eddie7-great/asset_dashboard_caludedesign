@@ -7135,10 +7135,8 @@ async function _jsBenchmarkFallback(tickersWithWeights) {
     if (baseArr.length < 2) return;
 
     const n = baseArr.length;
-    const step = Math.max(1, Math.floor(n/6));
-    const indices = [];
-    for (let i=0;i<n;i+=step) indices.push(i);
-    if (indices[indices.length-1] !== n-1) indices.push(n-1);
+    // 모든 거래일 — 서버(api/dashboard.py get_benchmark)와 같은 규칙. 6등분 샘플링은 MDD 를 작게 만들었다.
+    const indices = Array.from({length:n}, (_,i)=>i);
 
     const labels = indices.map(i => {
       const d = baseArr[i].dt; return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
