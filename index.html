@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=63">
-  <link rel="stylesheet" href="workspace-ui.css?v=14">
+  <link rel="stylesheet" href="style.css?v=64">
+  <link rel="stylesheet" href="workspace-ui.css?v=15">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -321,6 +321,30 @@
 <!-- 모바일 사이드바 백드롭 -->
 <button type="button" id="sidebar-backdrop" onclick="closeSidebar()" aria-label="사이드바 메뉴 닫기"></button>
 <!-- 자산 추가/수정 모달 -->
+<!-- 매수·매도 입력 — 보유 목록에서 종목명을 누르면 열린다 -->
+<div class="modal-overlay" id="trade-modal" aria-hidden="true">
+  <div class="modal-content f-col trade-modal" role="dialog" aria-modal="true" aria-labelledby="trade-title" tabindex="-1">
+    <div class="modal-header f-between"><h3 style="margin:0" id="trade-title">매수·매도 입력</h3><button type="button" class="modal-close" onclick="closeTradeModal()" aria-label="매수·매도 입력 창 닫기">×</button></div>
+    <div class="trade-now" id="trade-now"></div>
+    <div class="trade-side" role="group" aria-label="거래 종류">
+      <button type="button" id="trade-side-buy" aria-pressed="true" onclick="tradeSetSide('buy')">매수</button>
+      <button type="button" id="trade-side-sell" aria-pressed="false" onclick="tradeSetSide('sell')">매도</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group f-col" style="flex:1"><label class="form-label" for="trade-date">거래일</label><input type="date" class="form-input" id="trade-date" onchange="tradePreview()"></div>
+      <div class="form-group f-col" style="flex:1"><label class="form-label" for="trade-qty" id="trade-qty-label">수량</label><input type="text" class="form-input" id="trade-qty" placeholder="0" inputmode="decimal" oninput="tradePreview()"></div>
+      <div class="form-group f-col" style="flex:1"><label class="form-label" for="trade-price" id="trade-price-label">단가</label><input type="text" class="form-input" id="trade-price" placeholder="0" inputmode="decimal" oninput="tradePreview()"></div>
+    </div>
+    <div class="form-group f-col" id="trade-pl-wrap" hidden>
+      <label class="form-label" for="trade-pl">실현손익 (원화)</label>
+      <input type="text" class="form-input" id="trade-pl" placeholder="손실은 -를 붙여 입력" inputmode="decimal" oninput="tradePlTouched()">
+      <p class="trade-note" id="trade-pl-note"></p>
+    </div>
+    <div class="trade-preview" id="trade-preview" role="status" aria-live="polite"></div>
+    <p class="trade-error" id="trade-error" role="alert" hidden></p>
+    <button type="button" class="btn-submit" style="width:100%" onclick="submitTrade()">등록</button>
+  </div>
+</div>
 <div class="modal-overlay" id="add-modal">
   <div class="modal-content f-col" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="asset-modal-description" tabindex="-1" style="max-width:500px;position:relative;overflow:visible;">
     <p id="asset-modal-description" class="sr-only">소유주, 자산 종류, 금융기관, 수량과 가격 정보를 입력합니다.</p>
@@ -498,13 +522,13 @@
 </div>
 
 <script defer src="tax-rules.js?v=4"></script>
-<script defer src="script.js?v=63"></script>
+<script defer src="script.js?v=64"></script>
 <script defer src="finance.js?v=22"></script>
 <script defer src="navigation.js?v=8"></script>
 <script defer src="backtest.js?v=4"></script>
 <script defer src="simulator.js?v=3"></script>
 <script defer src="etf-explorer.js?v=7"></script>
 <script defer src="workspace-pages.js?v=7"></script>
-<script defer src="cobalt.js?v=44"></script>
+<script defer src="cobalt.js?v=45"></script>
 </body>
 </html>
