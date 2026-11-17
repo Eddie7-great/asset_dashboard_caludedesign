@@ -291,7 +291,8 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dca-upcoming{margin-top:12px;padding:14px 16px}
 .cb-dca-upcoming-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
 .cb-dca-upcoming-head small{font-size:var(--fs-cap);color:var(--lab)}
-.cb-dca-upcoming-list{display:flex;gap:8px;margin:0;padding:0 0 4px;list-style:none;overflow-x:auto}
+/* 10일치라 칸이 많아도 줄바꿈한다 — 옆으로 미는 스크롤바를 만들지 않는다 */
+.cb-dca-upcoming-list{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
 .cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
 .cb-dca-upcoming-list b{font-size:var(--fs-body)}
 .cb-dca-upcoming-list b span{font-weight:500;color:var(--lab)}
@@ -873,5 +874,12 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .trade-preview b.c-up{color:var(--up)}.trade-preview b.c-dn{color:var(--dn)}
 .trade-preview-wait{color:var(--lab)!important;font-size:var(--fs-cap)}
 .trade-error{margin:0;font-size:var(--fs-cap);color:var(--dn);font-weight:700}
+/* 목표일 + 기한 미정(2026-11-18) — 날짜 칸 옆에 체크칸을 한 줄로 둔다 */
+#fin-goal-form .fin-form-grid>label.fin-goal-date-field{flex:1 1 250px}
+.fin-goal-date-row{display:flex;align-items:center;gap:10px}
+.fin-goal-date-row>input[type="date"]{flex:1 1 auto;min-width:0}
+.fin-goal-date-row>input[type="date"]:disabled{opacity:.45}
+.fin-goal-nodate{display:inline-flex;align-items:center;gap:5px;flex:none;white-space:nowrap;color:var(--mut);font-size:var(--fs-cap);cursor:pointer}
+.fin-form-grid .fin-goal-nodate input{width:15px;height:15px;padding:0;flex:none;accent-color:var(--acc)}
 /* 링크 기본색 — 색을 정하지 않은 링크는 브라우저 기본 파랑(#0000ee)이라 다크 테마에서 읽히지 않는다 */
 :where(a){color:var(--acc)}

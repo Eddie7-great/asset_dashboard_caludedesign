@@ -747,6 +747,8 @@
     .cf-fixed-bottom-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(200px,1fr);gap:10px;flex:1;min-height:105px;align-items:stretch}
     .cf-fixed-table-panel{min-height:0;padding:0;overflow:hidden}
     .cf-fixed-dist-panel{min-height:0;padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+    /* 누적 막대와 아래 내역 사이 — 패널의 gap 은 이 안쪽까지 닿지 않아 둘이 붙어 있었다 */
+    #cf-fixed-dist{display:flex;flex-direction:column;gap:16px}
     .cf-fixed-dist-legend{display:flex;flex-direction:column;gap:7px}
     .cf-fixed-dist-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:var(--fs-cap)}
     .cf-fixed-dist-item>i{width:9px;height:9px;border-radius:var(--r-sm);flex-shrink:0}

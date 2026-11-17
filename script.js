@@ -4436,6 +4436,30 @@ function handleAmtInput(el) {
   el.value = parseInt(raw, 10).toLocaleString();
 }
 
+// 소수 허용 입력의 쉼표 표기 — 정수부에만 쉼표, 소수점 뒤와 입력 중인 '12.'·'-' 는 그대로 둔다.
+function formatDecimalInput(raw, allowNeg) {
+  let s = String(raw == null ? '' : raw).replace(/[^0-9.\-]/g, '');
+  const neg = !!allowNeg && s.startsWith('-');
+  s = s.replace(/-/g, '');
+  const dot = s.indexOf('.');
+  let int = dot < 0 ? s : s.slice(0, dot);
+  const dec = dot < 0 ? null : s.slice(dot + 1).replace(/\./g, '');
+  int = int.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (neg ? '-' : '') + int + (dec !== null ? '.' + dec : '');
+}
+function handleDecimalInput(el) {
+  const before = el.value, caret = el.selectionStart;
+  const next = formatDecimalInput(before, el.dataset.neg === '1');
+  if (next === before) return;
+  // 커서 왼쪽에 있던 '쉼표가 아닌 글자' 수를 세어, 새 값에서 같은 자리로 되돌린다
+  const keep = caret == null ? null : formatDecimalInput(before.slice(0, caret), el.dataset.neg === '1').replace(/,/g, '').length;
+  el.value = next;
+  if (keep == null || document.activeElement !== el) return;
+  let pos = 0, seen = 0;
+  while (pos < next.length && seen < keep) { if (next[pos] !== ',') seen++; pos++; }
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+}
+
 // 음수 허용 금액 입력 핸들러 (매도차익/손실 전용)
 function handlePLAmtInput(el) {
   const raw = el.value.replace(/[^0-9-]/g, '');
@@ -4459,15 +4483,8 @@ function initGlobalCommaInputs(root) {
     el.dataset.commaApplied = '1';
     const isDecimal = el.getAttribute('inputmode') === 'decimal';
     if (isDecimal) {
-      // 소수: 입력 중엔 원본 유지 (콤마가 들어가면 소수점 커서 이동이 어지러움), blur 시 정수부에만 콤마
-      el.addEventListener('blur', () => {
-        const raw = String(el.value||'').replace(/,/g,'').trim();
-        if (raw === '' || isNaN(parseFloat(raw))) return;
-        const [intPart, decPart] = raw.split('.');
-        const formatted = parseInt(intPart||'0',10).toLocaleString() + (decPart!==undefined?'.'+decPart:'');
-        el.value = formatted;
-      });
-      el.addEventListener('focus', () => { el.value = String(el.value||'').replace(/,/g,''); });
+      // 소수: 입력하는 동안 정수부에만 쉼표를 넣고 커서 위치는 지킨다(예전에는 칸을 벗어날 때만 넣었다)
+      el.addEventListener('input', () => handleDecimalInput(el));
     } else {
       // 정수: 실시간 콤마
       el.addEventListener('input', () => handleAmtInput(el));
@@ -4508,8 +4525,7 @@ function handleCashAmtInput(el) {
   // 통화를 늘리면 센트·소수가 조용히 잘렸다.
   const curSel = document.getElementById('add-currency');
   if (curMeta(curSel && curSel.value).cashDecimals > 0) {
-    const raw = el.value.replace(/[^0-9.]/g, '');
-    if (el.value !== raw) el.value = raw;
+    handleDecimalInput(el);
   } else {
     handleAmtInput(el);
   }
@@ -5098,8 +5114,27 @@ function applyChartTheme(){
   Chart.defaults.borderColor=grid;
   const tp=Chart.defaults.plugins.tooltip;
   tp.backgroundColor=glass; tp.titleColor=t1; tp.bodyColor=t2; tp.borderColor=border; tp.borderWidth=1;
-  // 테마 적용 후 기존 차트 전부 재드로우 — 초기 다크 로드 시 라이트색으로 그려진 축 라벨이 갱신되지 않던 문제 해결
-  for(const id in Chart.instances){ try{ Chart.instances[id].update(); }catch(e){} }
+  // 이미 만든 차트는 축 색을 자기 설정에 복사해 들고 있다 — 전역 기본값만 바꾸고 update() 해도
+  // 만들 때의 테마 색(다크에서 만든 차트는 밝은 글자)이 그대로 남는다. 축마다 지금 테마 색을 다시 써 넣는다.
+  for(const id in Chart.instances){
+    const chart=Chart.instances[id];
+    try{
+      // 금액 가리기 중에는 축 글자가 투명이고 원래 색이 보관돼 있다 — 보관된 색을 새 테마 값으로 바꾼다.
+      const masked=typeof _amountPrivacyChartState!=='undefined'&&_amountPrivacyChartState.get(chart);
+      Object.entries(chart.options?.scales||{}).forEach(([key,scale])=>{
+        if(!scale) return;
+        if(scale.ticks){
+          if(masked){ const kept=masked.ticks.find(x=>x.key===key); if(kept) kept.color=t2; }
+          else scale.ticks.color=t2;
+        }
+        // 차트가 직접 준 반투명 눈금선(rgba)은 두 테마에서 모두 보이므로 그대로 둔다
+        if(scale.grid&&!/^rgba\(/.test(String(scale.grid.color||''))) scale.grid.color=grid;
+        if(scale.border) scale.border.color=grid;
+      });
+      const legend=chart.options?.plugins?.legend?.labels; if(legend) legend.color=t2;
+      chart.update();
+    }catch(e){}
+  }
 }
 applyChartTheme();
 

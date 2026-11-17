@@ -27,7 +27,9 @@ previous='dca2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',
 for(const id of ['holdings','fam2','bubble','perf2','risk2','plan2','dca2','tax2','gift2','report2','reporty'])assert.ok(ctx.navGroup(id));
 assert.ok(read('script.js').includes("typeof navResolve==='function'?navResolve(requestedView):requestedView"),'legacy snapshot hash must resolve before first history record');
 assert.doesNotMatch(sim,/\b(?:setKV|saveAssetsToKV|saveExtDataToKV|localStorage|fetch)\s*[.(]/,'scenarios cannot persist or transmit');
-assert.match(sim,/id="sim-monthly" type="number" data-no-comma="1"/,'native numeric input must survive global comma formatting');
+assert.match(sim,/id="sim-monthly" type="text" inputmode="decimal" value="\$\{simAmtText\(s\.monthly\)\}"/,'금액 칸은 입력 중 쉼표가 들어가는 글자 칸');
+assert.match(sim,/id="sim-months" type="number" data-no-comma="1"/,'기간·비율 칸은 기본 숫자 칸 그대로');
+assert.match(sim,/function simValue\(value\)\{ const raw=String\(value\)\.replace\(\/,\/g,''\)\.trim\(\);/,'쉼표를 떼고 읽는다');
 const zero=Object.fromEntries(Object.keys(defaults).map(k=>[k,0]));
 const run=(current,weights,monthly,months,mode)=>JSON.parse(JSON.stringify(ctx.simCalculate(current,weights,monthly,months,mode)));
 let r=run(zero,defaults,1000000,12,'gap');

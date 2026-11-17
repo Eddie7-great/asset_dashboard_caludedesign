@@ -39,7 +39,7 @@ function cbRenderSimulator(){
   el.innerHTML=`<div class="sim-view-tabs"><button class="cb-btn" data-sim-view="backtest" aria-pressed="${_simView==='backtest'}" onclick="simView('backtest')">과거 성과 백테스트</button><button class="cb-btn" data-sim-view="allocation" aria-pressed="${_simView==='allocation'}" onclick="simView('allocation')">추가 투자 배분</button><button class="cb-btn" data-sim-view="retire" aria-pressed="${_simView==='retire'}" onclick="simView('retire')">은퇴 자금 예상</button></div><div ${_simView==='retire'?'':'hidden'}>${retHtml()}</div><div ${_simView==='backtest'?'':'hidden'}>${btHtml()}</div><div class="sim-future" ${_simView==='allocation'?'':'hidden'}>
     <div class="sim-mobile-preview"><span id="sim-mobile-total"></span><button class="cb-btn" onclick="document.querySelector('.sim-results').scrollIntoView({behavior:'smooth',block:'start'})">배분 보기 ↓</button></div>
     <div class="sim-layout"><section class="cb-panel sim-controls" aria-label="시뮬레이션 조건"><div class="fin-section-head"><span>투자 조건</span><button class="cb-btn" onclick="simReset()">초기화</button></div>
-      <label class="sim-field" for="sim-monthly">월 투자금 <span>만원</span><input id="sim-monthly" type="number" data-no-comma="1" inputmode="decimal" min="0" max="10000" step="any" value="${s.monthly}" oninput="simInput('monthly',this.value)"></label>
+      <label class="sim-field" for="sim-monthly">월 투자금 <span>만원</span><input id="sim-monthly" type="text" inputmode="decimal" value="${simAmtText(s.monthly)}" oninput="simInput('monthly',this.value)"></label>
       <input class="sim-range" id="sim-monthly-range" type="range" aria-label="월 투자금 조절 (만원)" min="0" max="10000" step="10" value="${s.monthly}" oninput="simInput('monthly',this.value)">
       <label class="sim-field" for="sim-months">적립 기간 <span>개월</span><input id="sim-months" type="number" data-no-comma="1" min="1" max="120" step="1" value="${s.months}" oninput="simInput('months',this.value)"></label>
       <input class="sim-range" id="sim-months-range" type="range" aria-label="적립 기간 조절 (개월)" min="1" max="120" step="1" value="${s.months}" oninput="simInput('months',this.value)">
@@ -52,11 +52,13 @@ function cbRenderSimulator(){
   simUpdate();
   retUpdate();
 }
-function simValue(value){ return String(value).trim()===''?NaN:Number(value); }
+// 금액 칸은 쉼표가 들어간 글자 칸이다 — 쉼표를 떼고 읽는다
+function simValue(value){ const raw=String(value).replace(/,/g,'').trim(); return raw===''?NaN:Number(raw); }
+function simAmtText(v){ return Number.isFinite(Number(v))&&String(v).trim()!==''?(typeof formatDecimalInput==='function'?formatDecimalInput(String(v)):String(v)):''; }
 function simInput(key,value){_simState[key]=simValue(value);simSyncPair('sim-'+key,value);simUpdate();}
 function simWeight(key,value){_simState.weights[key]=simValue(value);simSyncPair('sim-'+key,value);simUpdate();}
 function simSyncPair(id,value){
-  [id,id+'-range'].forEach(key=>{const el=document.getElementById(key);if(el&&el!==document.activeElement)el.value=value;});
+  [id,id+'-range'].forEach(key=>{const el=document.getElementById(key);if(el&&el!==document.activeElement)el.value=el.type==='range'?String(value).replace(/,/g,''):(el.inputMode==='decimal'?simAmtText(String(value).replace(/,/g,'')):value);});
 }
 function simMode(value){_simState.mode=value;simUpdate();}
 function simOwner(owner){_simOwner=owner;if(_retState&&_retState.currentAuto)_retState=null;cbRenderSimulator();cbRestoreFilterFocus('cb-head-widgets','data-owner',owner);}
@@ -124,7 +126,11 @@ function retDefaults(){
 }
 function retField(key,label,unit,attrs){
   const s=_retState;
-  return `<label class="sim-field" for="ret-${key}">${label} <span>${unit}</span><input id="ret-${key}" type="number" data-no-comma="1" inputmode="decimal" ${attrs} value="${s[key]}" oninput="retInput('${key}',this.value)"></label>`;
+  // 금액(만원) 칸은 자릿수가 커지므로 쉼표를 넣는 글자 칸, 나이·비율 칸은 기본 숫자 칸 그대로다
+  const amount=unit==='만원';
+  return `<label class="sim-field" for="ret-${key}">${label} <span>${unit}</span>${amount
+    ?`<input id="ret-${key}" type="text" inputmode="decimal" value="${simAmtText(s[key])}" oninput="retInput('${key}',this.value)">`
+    :`<input id="ret-${key}" type="number" data-no-comma="1" inputmode="decimal" ${attrs} value="${s[key]}" oninput="retInput('${key}',this.value)">`}</label>`;
 }
 function retHtml(){
   if(!_retState)_retState=retDefaults();
