@@ -890,3 +890,18 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-comp-panel{flex:2 0 auto;min-height:0}
 .cf-comp-chart{flex:1 0 calc(var(--cf-bars,6)*20px + 34px);min-height:0}
 .cf-trend-panel{flex:1 0 220px;min-height:0}
+/* 보유 목록 두 줄 행 — 윗줄 이름·증권사·주기, 아랫줄 티커·계좌·회당 금액. 한 줄에 이어 쓰면 'TIGER 미…'로 잘렸다. */
+#view-holdings .holdings-inline-cell.holdings-asset-cell{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:1px;align-items:center;white-space:nowrap}
+#view-holdings .holdings-asset-cell>.holdings-asset-flag{grid-row:1/3;grid-column:1}
+#view-holdings .holdings-asset-cell>.holdings-inline-name,
+#view-holdings .holdings-asset-cell>.holdings-inline-ticker{grid-column:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+#view-holdings .holdings-asset-cell>.holdings-inline-ticker{font-size:var(--fs-cap);color:var(--lab)}
+#view-holdings .holdings-inline-cell.holdings-broker-cell{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+#view-holdings .holdings-broker-cell>span{max-width:100%;line-height:1.35}
+#view-holdings .holdings-broker-cell>.holdings-account{font-size:var(--fs-cap)}
+#view-holdings .pt-table th.dca-head,#view-holdings .pt-table td.dca-cell{text-align:right}
+#view-holdings .pt-table td.dca-cell>span{display:block;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#view-holdings .pt-table td.dca-cell>.dca-amount{color:var(--mut)}
+#view-holdings .pt-table td.holdings-val-cell{font-weight:700;text-align:right}
+.holdings-weight{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:3px;font-size:var(--fs-cap);font-weight:600;color:var(--mut);white-space:nowrap}
+.holdings-weight>.home-weight-bar{width:44px;margin-right:0}

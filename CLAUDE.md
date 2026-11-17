@@ -6,7 +6,8 @@
 - **섹터 이름은 화면에서만 한글이다 — `sectorKo(key)`·`SECTOR_KO`(script.js, `_SECTOR_HUES` 옆), cobalt.js 는 `cbSectorName`.** 내부 키(`_gicsSector` 반환값, `_SECTOR_HUES`, `cbSectors` 의 `label`, 트리맵 id, `data-bubble-sector`, `_cdashSecOpen` 비교)는 영어 그대로다 — 키를 바꾸면 색·드릴다운·펼침 비교가 한꺼번에 어긋난다. 새 섹터 키를 `_gicsSector` 에 추가하면 `SECTOR_KO` 에도 넣는다(테스트가 모든 키의 한글 이름을 확인한다).
 - **트리맵 종목 칸 글자는 `_bubbleWrapLabel` 로 줄바꿈하고(한 줄 9자 안팎, 최대 3줄), 비중 2% 미만 칸은 이름만 쓴다.** `uniformtext: { minsize: 13, mode: 'hide' }` 는 그대로다 — 줄바꿈으로 좁은 칸에도 13px 이름이 들어가게 할 뿐 바닥 크기를 낮추지 않는다. 비중 분석 설명은 '칸을 클릭하면'이다(선버스트 시절의 '원' 문구를 고쳤다).
 - **현금 흐름 '수입/지출 구성' 막대는 이름표를 건너뛰지 않는다(`ticks.autoSkip:false`) — 높이는 카테고리 수(`--cf-bars`)에 맞춘다(`.cf-comp-chart`, workspace-ui.css 맨 끝 블록).** 좁은 높이에서 Chart.js 가 이름표를 반쯤 건너뛰어 막대 절반이 이름 없이 그려졌다. 넘치는 높이는 오른쪽 열이 스크롤한다.
-- `test_ui_followups.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
+- **보유 목록 행은 두 줄이다 — 증권사/계좌(`.holdings-broker-cell`), 종목/티커(`.holdings-asset-cell`, 국기는 두 줄에 걸침), 적립식(`getDcaMergedCellHtml`, 윗줄 주기·아랫줄 회당 금액), 평가액/비중(`holdingsWeightHtml`).** 비중 숫자의 분모는 위 '평가액' 숫자 카드 합계(`sumOf('total')`, 검색으로 숨기기 전·계좌 필터 후)이고, 막대 길이는 표에서 가장 큰 평가액 대비다(홈 보유 표 `.home-weight-bar` 와 같은 모양·자산군 색). 행을 만들 때는 합계를 모르므로 평가액 칸에 `<!--w:값:자산군-->` 자리표시를 두고 합계를 구한 뒤 바꾼다. 1366px 이상에서 잘리는 종목명은 아주 긴 이름(20자 이상)뿐이며 말풍선(`data-overflow-tip`)으로 본다.
+- `test_ui_followups.mjs`·`test_holdings_dashboard_ui.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
 
 ### 차트 축 색·쉼표 입력·목표 기한 미정·적립식 10일 (2026-11-18)
 
@@ -31,7 +32,7 @@
 - **종목 이름 앞에는 국기·자산 아이콘이 붙는다**(`cbFlagCell`). 홈 보유 표(`.home-asset`)와 계좌별 보기의 종목 줄(`.acct-asset`)에도 넣었다. 머리글 '종목'은 국기 칸부터 시작한다(배당 표의 빈 '국가' 칸 머리글·가족 표의 들여쓰기를 없앴다).
 - **머리글 이름은 한 벌이다: 소유주 / 증권사 / 계좌 / 종목 / 수량 / 평균단가 / 현재가 / 매입금액 / 평가액 / 평가손익 / 수익률 / 비중.** `종목명`·`종목명/티커`·`자산명`·`평가금액(KRW)`·`수익금(KRW)` 을 머리글에 다시 쓰지 않는다. 원화 기준이라는 표시는 칸 이름이 아니라 보유 목록 제목 줄('원화 기준 · 총 평가')에 한 번 적는다. 가상화폐 탭의 '거래소 / 계좌'는 뜻이 달라 그대로다. 입력 창의 라벨('종목명 / 티커', '자산명')과 CSV 머리글은 대상이 아니다.
 - **손익은 모든 내역에서 색이다 — 이익 `--up`, 손실 `--dn`, 0·취득가 미상·현금은 회색.** 코발트 표는 `cbGainStyle(value, unknown)` 을 쓴다(`cbUpDn` 은 0 도 초록이라 내역 칸에 쓰지 않는다 — 숫자 카드·요약에는 그대로). 보유 목록(script.js)은 `c-up`/`c-dn` 클래스가 원래 붙어 있었지만 `#view-holdings .pt-table td{color}` 가 더 강해 색이 지워졌다 — `td.c-up`/`td.c-dn` 규칙으로 되살렸다.
-- **보유 목록은 12칸이라 숫자가 잘리기 쉽다.** colgroup 폭(`renderPortfolio` 의 `widths`)은 가상화폐 현재가(9자리)·'+106.39%' 까지 들어가도록 맞췄고, 1520px 미만에서는 12px 글자·좁은 칸 여백을 쓴다. 폭을 바꿀 때는 1280·1366·1440·1600px × 네 탭에서 `scrollWidth>clientWidth` 인 칸이 없는지 확인한다.
+- **보유 목록은 11칸(2026-11-17 3차에 'DCA 주기'·'회당 금액'을 '적립식' 한 칸으로 합쳤다)이라도 숫자가 잘리기 쉽다.** colgroup 폭(`renderPortfolio` 의 `widths`)은 가상화폐 현재가(9자리)·'+106.39%' 까지 들어가도록 맞췄고, 1520px 미만에서는 12px 글자·좁은 칸 여백을 쓴다. 폭을 바꿀 때는 1280·1366·1440·1600px × 네 탭에서 `scrollWidth>clientWidth` 인 칸이 없는지 확인한다.
 - `test_ui_followups.mjs`·`test_holdings_dashboard_ui.mjs` 가 지킨다.
 
 ### 글꼴·버튼 한 벌, 홈 평면 도넛, 세금 두 칸 그래프, 증여 결과 우선, 계좌 트리 (2026-11-16 2차)

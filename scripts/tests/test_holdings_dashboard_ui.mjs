@@ -33,6 +33,8 @@ for (const name of [
   'getDcaCycleLabel',
   'getDcaCellHtml',
   'getDcaAmountCellHtml',
+  'getDcaMergedCellHtml',
+  'holdingsWeightHtml',
   'escHtml',
   'holdingsEsc',
   'updateOverflowTooltip',
@@ -54,6 +56,40 @@ const weeklyDca = {
 assert.match(dcaContext.getDcaCellHtml(weeklyDca), /매주 월·수/, 'DCA 칼럼에는 주기만 표시')
 assert.doesNotMatch(dcaContext.getDcaCellHtml(weeklyDca), /dca-tag|>DCA<|₩500,000/, 'DCA 배지와 금액을 주기 칼럼에서 제거')
 assert.match(dcaContext.getDcaAmountCellHtml(weeklyDca), /₩500,000/, '회당 금액을 별도 칼럼에 표시')
+// 2026-11-17 3차: 'DCA 주기'·'회당 금액' 두 칸을 '적립식' 한 칸(윗줄 주기·아랫줄 금액)으로 합쳤다
+assert.match(dcaContext.getDcaMergedCellHtml(weeklyDca), /<span class="dca-cycle">매주 월·수<\/span><span class="dca-amount">₩500,000<\/span>/, '적립식 한 칸에 주기와 회당 금액을 두 줄로 표시')
+assert.equal((dcaContext.getDcaMergedCellHtml({ dca: false }).match(/—/g) || []).length, 1, '적립식이 아니면 대시 하나만 표시')
+assert.doesNotMatch(scriptSource, /DCA 주기<\/th>|회당 금액<\/th>|dca-cycle-cell|dca-amount-cell/, '보유 목록에 옛 두 칸(DCA 주기·회당 금액)을 남기지 않음')
+assert.equal((scriptSource.match(/<th class="dca-head">적립식<\/th>/g) || []).length, 2, '주식·금 표 머리글은 적립식 한 칸')
+assert.match(scriptSource, /const colspan=grpName==='현금' \? \(showOwner\?6:5\) : \(showOwner\?11:10\);/, '칸 하나를 줄였으므로 빈 행도 11칸(소유주 포함)을 덮음')
+{
+  const widths = scriptSource.match(/const widths=showOwner\s*\?(\[[^\]]*\])\s*:(\[[^\]]*\]);/)
+  assert.ok(widths, 'colgroup 폭 배열을 찾을 수 없음')
+  const withOwner = JSON.parse(widths[1].replace(/'/g, '"')).map(parseFloat)
+  const noOwner = JSON.parse(widths[2].replace(/'/g, '"')).map(parseFloat)
+  assert.equal(withOwner.length, 10, '소유주 칸 제외 10칸')
+  assert.equal(noOwner.length, 10, '소유주 칸 없는 표도 10칸')
+  assert.equal(Math.round((withOwner.reduce((a, b) => a + b, 0) + 6.5) * 10) / 10, 100, '소유주 칸(6.5%)을 더하면 100%')
+  assert.equal(Math.round(noOwner.reduce((a, b) => a + b, 0) * 10) / 10, 100, '소유주 칸 없는 표도 100%')
+  assert.ok(withOwner[1] >= 19, '합친 폭을 종목 칸에 준다(종목명이 잘리지 않게)')
+}
+// 두 줄 칸: 증권사/계좌, 종목/티커
+{
+  const broker = dcaContext.getHoldingsBrokerCellHtml({ broker: '미래에셋증권', acc: '연금저축' })
+  assert.match(broker, /holdings-broker-cell/, '증권사 칸은 두 줄 격자')
+  assert.match(broker, /<span class="holdings-account" data-overflow-watch>연금저축<\/span>/, '아랫줄 계좌에는 / 구분자를 붙이지 않음')
+  assert.match(broker, /data-overflow-tip="미래에셋증권 \/ 연금저축"/, '말풍선은 증권사 / 계좌 한 줄')
+}
+assert.match(workspaceSource, /#view-holdings \.holdings-inline-cell\.holdings-asset-cell\{display:grid;/, '종목 칸은 이름·티커 두 줄 격자')
+// 평가액 칸 비중: 숫자는 합계 대비, 막대 길이는 가장 큰 평가액 대비
+{
+  const w = dcaContext.holdingsWeightHtml(25, 200, 50, 'us')
+  assert.match(w, /<span class="holdings-weight-pct">12\.5%<\/span>/, '비중 숫자는 평가액 합계 대비')
+  assert.match(w, /width:50\.0%/, '막대 길이는 표에서 가장 큰 평가액 대비')
+  assert.match(dcaContext.holdingsWeightHtml(0, 0, 0, 'us'), /0\.0%/, '합계 0 이어도 NaN 을 찍지 않음')
+  assert.match(scriptSource, /const _wTotal=sumOf\('total'\);/, '비중 분모는 평가액 숫자 카드와 같은 합계')
+  assert.equal((scriptSource.match(/<!--w:\$\{(current|cashKRW)\}:/g) || []).length, 4, '네 자산군 표 모두 평가액 칸에 비중을 단다')
+}
 assert.match(dcaContext.getDcaAmountCellHtml({ ...weeklyDca, dcaCur: 'JPY', dcaAmt: 30_000 }), /¥30,000/, '엔화 적립식 금액은 ₩ 가 아니라 ¥ 로 표시')
 assert.match(dcaContext.getDcaAmountCellHtml({ ...weeklyDca, dcaCur: 'USD', dcaAmt: 100 }), /\$100/, '달러 적립식 금액은 $ 로 표시')
 assert.match(
