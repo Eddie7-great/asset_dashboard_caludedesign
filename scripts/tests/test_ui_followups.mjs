@@ -160,6 +160,8 @@ assert.doesNotMatch(scriptSource, /Math\.floor\(n\/6\)/, 'JS 폴백에 6등분 �
 assert.match(dashboardPySource, /\n\s*indices = list\(range\(n\)\)\n/, '서버 벤치마크도 모든 거래일을 보낸다(JS 폴백과 같은 규칙)')
 assert.doesNotMatch(dashboardPySource, /n \/\/ 6/, '서버에 6등분 샘플링이 남지 않음')
 assert.match(cobaltSource, /cbPerfTickIdx\(N\)\.map/, '날짜 눈금은 고른 간격 몇 개만')
+assert.match(cobaltSource, /<div class="cb-chart-scroll"><div class="cb-perf-plot">[\s\S]*?cbMultiLineSvg\(seriesArr, 1100, 220\)[\s\S]*?class="cb-perf-xaxis"[\s\S]*?<\/div><\/div>/, '성과 그래프·날짜 눈금은 휴대폰 가로 스크롤 틀 안에 함께 있다')
+assert.match(workspaceSource, /@media\(max-width:768px\)\{\s*\.cb-perf-plot\{min-width:1040px\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{grid-column:1\/-1\}/, '휴대폰: 성과 그래프는 줄이지 않고 옆으로 밀어 보며, 배당 TOP 3 는 한 줄 전체')
 assert.doesNotMatch(cobaltSource, /rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(r=>r\.e\.key==='아내'\)/, '좌우 두 표로 나누던 고정 배치를 남기지 않음(선택 기간 수익률 순 한 표)')
 assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row\$\{r\.e\.isBench\?' is-bench':''\}"/, '성과 비교 하단 기존 표 행 구조 유지(벤치마크 줄은 is-bench 표시)')
 assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')

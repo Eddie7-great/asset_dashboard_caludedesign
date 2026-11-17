@@ -1478,6 +1478,8 @@ function cbRenderPerf(){
         ${entities.map(p=>`<span class="cb-perf-legend-item" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')"${selKey&&selKey!==p.key?' style="opacity:.4"':''}>${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
         <span class="cb-perf-legend-hint">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
       </div>
+      <!-- 휴대폰은 줄이는 대신 옆으로 밀어 본다(.cb-chart-scroll + .cb-perf-plot 최소 폭) — 1100 좌표계를 390px 에 줄이면 눈금·이름표가 4px 가 된다 -->
+      <div class="cb-chart-scroll"><div class="cb-perf-plot">
       <div style="position:relative" onmouseleave="cbPerfHide()">
         ${cbMultiLineSvg(seriesArr, 1100, 220)}
         <div style="position:absolute;top:0;bottom:0;left:${padLpct}%;right:${padRpct}%">
@@ -1490,6 +1492,7 @@ function cbRenderPerf(){
         </div>
       </div>
       <div class="cb-perf-xaxis" style="margin-left:${padLpct}%;margin-right:${padRpct}%">${cbPerfTickIdx(N).map(i=>`<span style="left:${(N>1?i/(N-1)*100:50).toFixed(2)}%">${cbEsc(labels[i])}</span>`).join('')}</div>
+      </div></div>
     </div>
     ${typeof finInvestTrendCard==='function'?finInvestTrendCard():''}
     <div class="cb-panel cb-perf-detail-panel" style="margin-top:12px;padding:16px 18px">

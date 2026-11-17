@@ -998,3 +998,9 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .home-asset>:first-child{grid-row:1/3}
   .home-asset>b,.home-asset>small{grid-column:2;min-width:0;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+/* 휴대폰: 성과 선 그래프는 다른 SVG 그래프처럼 옆으로 밀어 본다(글자가 4px 로 줄지 않게).
+   배당 상위 TOP 3 카드는 2열 격자의 반 칸이면 종목명이 '아…'만 남아 한 줄 전체를 쓴다. */
+@media(max-width:768px){
+  .cb-perf-plot{min-width:1040px}
+  .cb-div-summary-grid>.cb-div-top3-card{grid-column:1/-1}
+}
