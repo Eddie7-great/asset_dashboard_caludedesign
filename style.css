@@ -1118,7 +1118,8 @@
       /* 넓은 화면에서는 긴 표를 따라 내려오도록 sticky — sticky 는 행 높이로 늘어나면 동작하지 않으므로 위쪽 정렬을 유지한다. */
       .cb-family-mix-card{position:sticky;top:0;align-self:start}
     }
-    @media (min-width:1580px){
+    @media (min-width:1760px){
+      /* 표(13칸)가 한 줄에 다 들어가는 폭에서만 일정 카드를 오른쪽에 둔다 — 그보다 좁으면 표 위 가로 띠(workspace-ui.css) */
       .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 290px}
       .cb-div-upcoming-card{position:sticky;top:0;align-self:start}
     }

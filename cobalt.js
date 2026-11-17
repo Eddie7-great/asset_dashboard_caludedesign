@@ -2130,31 +2130,33 @@ function cbRenderDiv(){
         <span class="cb-panel-title">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:var(--fs-cap)">${_cbDivMonthFilter+1}월 ${cal.actual?'지급':'예상'} 종목 · 전체 보기 ×</button>`:''}
       </div>
-      <div class="cb-thead cb-div-head" style="display:flex;font-size:var(--fs-cap);color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1110px">
-        <span style="width:62px">소유주</span><span style="flex:1">종목</span><span style="width:96px;text-align:right">연간 수입 · ${basisLabel}</span><span class="cb-mobile-secondary" style="width:92px;text-align:right"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+      <!-- 칸 폭은 .cb-div-head/.cb-div-row 격자(workspace-ui.css)가 정한다 — 한 칸만 flex:1 이고 나머지가 고정 폭이면
+           표가 1110px 를 넘어 오른쪽 세 칸(배당성장·주기·배당락)이 화면 밖으로 밀렸다. 머리글 '종목'은 국기 칸부터 두 칸을 덮는다. -->
+      <div class="cb-thead cb-div-head">
+        <span>소유주</span><span class="cb-div-c-name">종목</span><span class="r">연간 수입 · ${basisLabel}</span><span class="r cb-mobile-secondary"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span class="r">보유 주수</span><span class="r cb-mobile-secondary">주당 배당(연)</span><span class="r"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="r cb-mobile-secondary"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="r cb-mobile-secondary"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="r cb-mobile-secondary"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="r cb-mobile-secondary">주기</span><span class="r cb-mobile-secondary"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
       </div>
       ${visibleList.map(x=>`
-        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);min-width:1110px">
-          <span style="width:62px;flex-shrink:0">${cbOwnerTag(x.i.owner)}</span>
-          <span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">${cbFlagSvg(x,15)}</span>
-          <div style="flex:1;display:flex;align-items:center;min-width:0">
+        <div class="cb-div-row">
+          <span>${cbOwnerTag(x.i.owner)}</span>
+          <span class="cb-div-c-flag">${cbFlagSvg(x,15)}</span>
+          <div class="cb-div-c-asset">
             <span class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([x.title,x.tkr].filter(Boolean).join(' · '))}">
               <span class="cb-asset-name" data-overflow-watch>${cbEsc(x.title)}</span>
               ${x.tkr?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(x.tkr)}</span>`:''}
             </span>
           </div>
-          <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
-          <span class="cb-num cb-mobile-secondary" style="width:92px;text-align:right;font-size:var(--fs-cap);${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
-          <span class="cb-num" style="width:76px;text-align:right;font-size:var(--fs-cap);font-weight:600">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
-          <span class="cb-num cb-mobile-secondary" style="width:86px;text-align:right;font-size:var(--fs-cap)">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
-          <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" style="width:70px;text-align:right;font-weight:600">${(x.d.yldNum||0).toFixed(2)}%</span>
-          <span class="cb-mobile-secondary" style="width:64px;text-align:right;font-weight:800;color:var(--up)">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
+          <span class="r b">${cbDisp(x.incomeKRW)}</span>
+          <span class="cb-num cb-mobile-secondary r cap" style="${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
+          <span class="cb-num r cap sb">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
+          <span class="cb-num cb-mobile-secondary r cap">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
+          <span class="r b mut">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r sb">${(x.d.yldNum||0).toFixed(2)}%</span>
+          <span class="cb-mobile-secondary r cb-div-c-yoc">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r b" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
             ? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`
-            : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" style="width:64px;text-align:right;color:var(--mut);font-size:var(--fs-cap)">${cbEsc(x.d.cycle||'—')}</span>
-          <span class="cb-mobile-secondary" style="width:100px;text-align:right;color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.d.exDiv||'—')}</span>
+            : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r cap mut">${cbEsc(x.d.cycle||'—')}</span>
+          <span class="cb-mobile-secondary r cap mut cb-div-c-ex">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
     <div class="cb-panel cb-div-upcoming-card">

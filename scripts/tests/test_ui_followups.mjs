@@ -244,7 +244,19 @@ assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocati
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
-assert.match(styleSource, /@media \(min-width:1580px\)\{[\s\S]*cb-div-detail-grid[\s\S]*290px/, '배당 표가 충분히 넓을 때만 일정 위젯을 우측 배치')
+assert.match(styleSource, /@media \(min-width:1760px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 290px\}/, '배당 표(13칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
+assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
+assert.match(workspaceSource, /@media\(max-width:1759px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
+{
+  const divTable = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-thead cb-div-head"'), cobaltSource.indexOf('<div class="cb-panel cb-div-upcoming-card">'))
+  assert.doesNotMatch(divTable, /width:\d+px|flex:1|min-width:1110px/, '배당 표 칸 폭은 인라인 고정 폭이 아니라 격자 규칙이 정함')
+  const template = workspaceSource.match(/\.cb-div-head,\.cb-div-row\{display:grid;grid-template-columns:([^;]+);/)
+  assert.ok(template, '배당 표 격자 틀')
+  const tracks = template[1].trim().split(/\s+(?![^(]*\))/)
+  assert.equal(tracks.length, 13, '배당 표 13칸(소유주·국기·종목 + 숫자 10칸)')
+  const cells = (divTable.match(/\n          <(?:span|div)[ >]/g) || []).length
+  assert.equal(cells, 13, '행의 칸 수와 격자 칸 수가 같음')
+}
 assert.match(cobaltSource, /cb-family-table-toolbar[\s\S]*전체 투자자산[\s\S]*cb-family-head/, '가족 투자자산 표 제목·검색줄과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(cobaltSource, /cb-div-table-toolbar[\s\S]*배당 종목 내역[\s\S]*cb-div-head/, '배당 내역 제목과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(styleSource, /\.cb-family-table-toolbar,\.cb-div-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*top:43px/, '표 제목줄 아래 칼럼 헤더가 겹치지 않게 고정')

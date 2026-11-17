@@ -57,7 +57,7 @@
 .cb-tax-entry-form{margin-bottom:10px}
 @media(min-width:1180px){
   .cb-dash-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;align-items:stretch}.cb-dash-contrib-card{padding:12px}
-  .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}.cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 270px}
+  .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}
   .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cb-tax-summary-card{padding:10px 12px}
   .cb-div-summary-card{min-height:70px;padding:10px 12px}.cb-risk-overview{grid-template-columns:300px minmax(0,1fr);gap:10px}.cb-risk-primary-card,.cb-risk-insight-card{padding:9px 10px;min-height:72px}.cb-risk-card-grid{gap:8px}
   .fin-form-grid{grid-template-columns:repeat(auto-fit,minmax(130px,160px));gap:9px}.fin-nw-stats{gap:7px;margin-bottom:8px}.fin-nw-stats>div{padding:7px 9px}
@@ -905,3 +905,33 @@ button,input,select,textarea{font-family:var(--font-ui)}
 #view-holdings .pt-table td.holdings-val-cell{font-weight:700;text-align:right}
 .holdings-weight{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:3px;font-size:var(--fs-cap);font-weight:600;color:var(--mut);white-space:nowrap}
 .holdings-weight>.home-weight-bar{width:44px;margin-right:0}
+/* 배당 종목 표 — 모든 칸이 minmax(최소,fr) 로 남는 폭을 나눠 갖는 격자. 최소 폭 합계(약 1000px)는 1366px 화면의 표 폭 안에 든다. */
+.cb-div-head,.cb-div-row{display:grid;grid-template-columns:58px 26px minmax(122px,2.2fr) minmax(92px,1fr) minmax(80px,.8fr) minmax(66px,.6fr) minmax(76px,.7fr) minmax(60px,.55fr) minmax(64px,.55fr) minmax(54px,.5fr) minmax(64px,.55fr) minmax(40px,.4fr) minmax(84px,.8fr);column-gap:8px;align-items:center}
+.cb-div-head{padding:7px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
+.cb-div-row{padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cb-div-head>*,.cb-div-row>*{min-width:0}
+.cb-div-head>.cb-div-c-name{grid-column:span 2}
+.cb-div-head>.r,.cb-div-row>.r{text-align:right}
+.cb-div-row>.cap{font-size:var(--fs-cap)}
+.cb-div-row>.b{font-weight:700}
+.cb-div-row>.sb{font-weight:600}
+.cb-div-row>.mut{color:var(--mut)}
+.cb-div-row>.cb-div-c-flag,.cb-div-row>.cb-div-c-asset{display:flex;align-items:center}
+.cb-div-row>.cb-div-c-yoc{font-weight:800;color:var(--up)}
+.cb-div-row>.cb-div-c-ex{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 1760px 미만: 향후 90일 일정은 표 위 가로 띠로(긴 표 아래에 두면 보이지 않는다). */
+@media(max-width:1759px){
+  .cb-div-detail-grid>.cb-div-upcoming-card{order:-1}
+  .cb-div-upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:18px}
+}
+@media(max-width:768px){
+  /* 휴대폰은 보조 칸(.cb-mobile-secondary)을 숨기므로 남는 6칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게 */
+  .cb-div-head,.cb-div-row{grid-template-columns:52px 24px minmax(120px,1fr) 88px 60px 56px}
+  .cb-div-upcoming-list{grid-template-columns:minmax(0,1fr)}
+}
+/* 배당 상단: TOP 3 카드가 숫자 카드 줄에 못 들어가는 폭(1760px 미만)에서는 아랫줄 전체를 쓰고 세 종목을 가로로 놓는다.
+   예전에는 아랫줄에 400px 카드 하나만 떨어져 오른쪽 770px 가 비었다. */
+@media(min-width:769px) and (max-width:1759px){
+  .cb-div-summary-grid>.cb-div-top3-card{flex-basis:100%;max-width:none}
+  .cb-div-top3-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px}
+}
