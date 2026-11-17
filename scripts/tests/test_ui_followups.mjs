@@ -281,6 +281,10 @@ assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-
 assert.match(styleSource, /@media \(min-width:1760px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 290px\}/, '배당 표(13칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
 assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
 assert.match(workspaceSource, /@media\(max-width:1759px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
+// 좁은 폭(1280~1599px)에서 이름이 잘리던 세 곳: 홈 자산 배분 목록(금액을 이름 아래로), 배당 표·홈 보유 표(티커를 이름 아래로)
+assert.match(workspaceSource, /@media\(min-width:769px\) and \(max-width:1439px\)\{\s*#cb-cdash \.cb-home-allocation-row\{grid-template-columns:9px minmax\(0,1fr\) 50px 11px;[\s\S]*?#cb-cdash \.cb-home-allocation-row>span:nth-child\(3\)\{grid-column:2;grid-row:2\}/, '홈 자산 배분: 1440px 미만에서는 금액을 이름 아래 줄로')
+assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.cb-div-row \.cb-asset-inline\{flex-direction:column;/, '배당 표: 1600px 미만에서는 티커를 이름 아래로')
+assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.home-asset\{display:inline-grid;[\s\S]*?\.home-asset>b,\.home-asset>small\{grid-column:2;/, '홈 보유 표: 1600px 미만에서는 티커를 이름 아래로')
 {
   const divTable = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-thead cb-div-head"'), cobaltSource.indexOf('<div class="cb-panel cb-div-upcoming-card">'))
   assert.doesNotMatch(divTable, /width:\d+px|flex:1|min-width:1110px/, '배당 표 칸 폭은 인라인 고정 폭이 아니라 격자 규칙이 정함')
