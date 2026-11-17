@@ -1,5 +1,13 @@
 # CLAUDE.md
 
+### 가독성 점검: 금액 눈금·섹터 한글·트리맵 글자·현금 흐름 이름표 (2026-11-17 3차)
+
+- **금액 그래프의 눈금은 `cbAmtAxisLab`(부호 없음), 손익 그래프만 `cbTaxAxisLab`(`+250만`)이다.** 투자자산 추이(`finNwChartSvg`)·배당 월별(`cbDivAxisLab`)·증여 두 그래프·은퇴 계산(`retChartSvg`)이 손익용 함수를 빌려 써 `+3.6억`처럼 손익으로 읽혔다. 금액 그래프의 '가로 눈금선 + 왼쪽 라벨'은 `cbAmtGridSvg(values, Y, x1, x2, fmt)`·`cbAxisTicks(lo,hi,step)`(cobalt.js) 한 곳이 그린다. 세금 그래프(두 눈금)는 대상이 아니다.
+- **섹터 이름은 화면에서만 한글이다 — `sectorKo(key)`·`SECTOR_KO`(script.js, `_SECTOR_HUES` 옆), cobalt.js 는 `cbSectorName`.** 내부 키(`_gicsSector` 반환값, `_SECTOR_HUES`, `cbSectors` 의 `label`, 트리맵 id, `data-bubble-sector`, `_cdashSecOpen` 비교)는 영어 그대로다 — 키를 바꾸면 색·드릴다운·펼침 비교가 한꺼번에 어긋난다. 새 섹터 키를 `_gicsSector` 에 추가하면 `SECTOR_KO` 에도 넣는다(테스트가 모든 키의 한글 이름을 확인한다).
+- **트리맵 종목 칸 글자는 `_bubbleWrapLabel` 로 줄바꿈하고(한 줄 9자 안팎, 최대 3줄), 비중 2% 미만 칸은 이름만 쓴다.** `uniformtext: { minsize: 13, mode: 'hide' }` 는 그대로다 — 줄바꿈으로 좁은 칸에도 13px 이름이 들어가게 할 뿐 바닥 크기를 낮추지 않는다. 비중 분석 설명은 '칸을 클릭하면'이다(선버스트 시절의 '원' 문구를 고쳤다).
+- **현금 흐름 '수입/지출 구성' 막대는 이름표를 건너뛰지 않는다(`ticks.autoSkip:false`) — 높이는 카테고리 수(`--cf-bars`)에 맞춘다(`.cf-comp-chart`, workspace-ui.css 맨 끝 블록).** 좁은 높이에서 Chart.js 가 이름표를 반쯤 건너뛰어 막대 절반이 이름 없이 그려졌다. 넘치는 높이는 오른쪽 열이 스크롤한다.
+- `test_ui_followups.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
+
 ### 차트 축 색·쉼표 입력·목표 기한 미정·적립식 10일 (2026-11-18)
 
 - **테마를 바꾸면 이미 만든 Chart.js 차트의 축 색을 다시 써 넣는다(`applyChartTheme`, script.js).** Chart.js 는 차트를 만들 때 축 글자·눈금선 색을 그 차트 설정에 복사해 두므로, `Chart.defaults` 만 바꾸고 `update()` 하면 **만들 때의 테마 색에 굳는다**(다크에서 연 뒤 기본·라이트로 바꾸면 현금 흐름 두 차트의 축이 밝은 글자로 남았다). 축마다 `ticks.color`·`grid.color`·`border.color` 와 범례 색을 지금 토큰으로 바꾼다. 차트가 직접 준 반투명 눈금선(`rgba(…)`)은 그대로 두고, **금액 가리기 중에는 화면 색이 아니라 `_amountPrivacyChartState` 에 보관된 색**을 바꾼다(가리기를 풀 때 옛 테마 색으로 돌아가지 않게). SVG 차트는 CSS 토큰을 직접 써서 해당 없다.

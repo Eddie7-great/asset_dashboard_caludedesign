@@ -4374,6 +4374,9 @@ function renderCashFlow() {
     window.cfDonutChartInst.data.labels=allLabels;
     window.cfDonutChartInst.data.datasets[0].data=allData;
     window.cfDonutChartInst.data.datasets[0].backgroundColor=allColors;
+    // 막대(카테고리) 수만큼 차트 높이를 준다 — 높이가 모자라면 이름표가 겹치거나 빠진다. 폭 규칙은 CSS(.cf-comp-chart)에 있다.
+    window.cfDonutChartInst.canvas?.parentNode?.style.setProperty('--cf-bars',String(Math.max(1,allLabels.length)));
+    window.cfDonutChartInst.resize();
     window.cfDonutChartInst.update();
   }
   const sumEl=document.getElementById('cf-month-summary');
@@ -5359,7 +5362,7 @@ function initDashboard(){
   if (typeof Chart === 'undefined') {
     window.cfDonutChartInst = null; window.cfTrendChartInst = null;
   } else {
-    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:12},maxTicksLimit:5,maxRotation:0,callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:12},maxTicksLimit:5,maxRotation:0,callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{autoSkip:false,font:{size:12}}}}}});
 
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
@@ -5571,6 +5574,48 @@ const _SECTOR_HUES = {
   'Crypto': 30,
   'Gold': 48
 };
+// 섹터 표시 이름(한글). 내부 키(_gicsSector 반환값·_SECTOR_HUES·cbSectors 의 label·드릴다운 비교)는 영어 그대로 두고
+// **화면에 찍는 자리에서만** 이 함수를 거친다 — 키를 바꾸면 색·드릴다운·필터 비교가 한꺼번에 어긋난다.
+const SECTOR_KO = {
+  'Technology': '기술',
+  'Financial Services': '금융',
+  'Health Care': '헬스케어',
+  'Consumer Discretionary': '경기소비재',
+  'Consumer Staples': '필수소비재',
+  'Energy': '에너지',
+  'Communications Services': '커뮤니케이션',
+  'Industrial Services': '산업재',
+  'Materials & Processing': '소재',
+  'Real Estate': '부동산',
+  'Utilities': '유틸리티',
+  'Index ETF': '지수 ETF',
+  'Sector ETF': '섹터 ETF',
+  'Other': '기타',
+  'Cash': '현금',
+  'Crypto': '가상화폐',
+  'Gold': '금'
+};
+function sectorKo(key){
+  return Object.prototype.hasOwnProperty.call(SECTOR_KO, key) ? SECTOR_KO[key] : String(key == null ? '' : key);
+}
+// 트리맵 칸 글자: 좁은 칸에도 들어가도록 이름을 줄바꿈한다(한 줄 9자 안팎, 최대 3줄).
+// 한 줄로 두면 'TIGER 미국S&P500' 같은 이름은 13px 로도 안 들어가 칸이 통째로 빈다.
+function _bubbleWrapLabel(name){
+  const text = String(name || '').trim();
+  if (text.length <= 9) return text;
+  const lines = [];
+  let cur = '';
+  text.split(/\s+/).forEach(word => {
+    const parts = word.length > 9 ? (word.match(/.{1,8}/gu) || [word]) : [word];
+    parts.forEach(part => {
+      if (cur && (cur + ' ' + part).length <= 9) cur += ' ' + part;
+      else { if (cur) lines.push(cur); cur = part; }
+    });
+  });
+  if (cur) lines.push(cur);
+  if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].slice(0, 7) + '…'; }
+  return lines.join('<br>');
+}
 // 색 구성 규칙은 세 테마가 공유하고, 배경에 맞춰 채도·명도만 바꾼다.
 // sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
 const _BUBBLE_THEME_TONES = {
@@ -5923,11 +5968,11 @@ function renderBubbleChart(mode) {
       const gid = `G::${owner}::${sector}`;
       const secColor = _bubbleSectorColor(sector);
       ids.push(gid);
-      labels.push(sector);
+      labels.push(sectorKo(sector));   // 화면 이름만 한글 — id·색·비교 키는 영어 그대로
       parents.push(parentIdForSec);
       values.push(secVal);
       colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.06));
-      customdata.push({ kind: 'grp', owner, name: sector, weight: secWeight, value: secVal });
+      customdata.push({ kind: 'grp', owner, name: sectorKo(sector), weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
       const leafItems = itemsAug
@@ -5974,7 +6019,7 @@ function renderBubbleChart(mode) {
     }
     // 종목명(국문 또는 영문) 과 티커를 한 줄에 괄호로 병기
     const tkrPart = d.tkr ? ` <span style="opacity:.7">(${_cfEsc(d.tkr)})</span>` : '';
-    const secLine = d.sector ? `<br><span style="opacity:.75">${_cfEsc(d.sector)}</span>` : '';
+    const secLine = d.sector ? `<br><span style="opacity:.75">${_cfEsc(sectorKo(d.sector))}</span>` : '';
     return `<b>${_cfEsc(d.owner)} · ${_cfEsc(d.name)}${tkrPart}</b>${secLine}<br><span style="opacity:.8">비중 ${d.weight.toFixed(2)}%</span><br><span style="opacity:.9">평가액 ${fmtKRW(d.value)}</span>`;
   });
 
@@ -5995,7 +6040,10 @@ function renderBubbleChart(mode) {
     pathbar: { visible: true, side: 'top', thickness: 30, textfont: { family: "'Manrope','Noto Sans KR',sans-serif", size: 14, color: textColor } },
     // 이름은 굵게, 비중은 다음 줄 — 한 줄에 같은 굵기로 이어 쓰면 작은 칸에서 둘이 구분되지 않는다.
     textinfo: 'label+percent root',
-    texttemplate: '<b>%{label}</b><br>%{percentRoot:.1%}',
+    // 종목 칸은 줄바꿈한 이름을 쓰고(좁은 칸에도 들어가게), 비중 2% 미만의 작은 칸은 이름만 쓴다 —
+    // 두 줄(이름+비중)이 안 들어가 칸이 통째로 비는 것보다 이름이라도 보이는 편이 낫다. 비중은 호버에 있다.
+    text: labels.map((label, i) => customdata[i].kind === 'leaf' ? _bubbleWrapLabel(label) : label),
+    texttemplate: customdata.map(d => (d.kind === 'leaf' && d.weight < 2) ? '<b>%{text}</b>' : '<b>%{text}</b><br>%{percentRoot:.1%}'),
     textposition: 'top left',
     // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
     // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
@@ -6100,7 +6148,7 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
             <span style="width:8px;height:8px;border-radius:3px;background:${c};flex-shrink:0;"></span>
-            <span style="font-family:var(--font-ui);font-size:var(--fs-cap);font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeSec}</span>
+            <span style="font-family:var(--font-ui);font-size:var(--fs-cap);font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_cfEsc(sectorKo(sec))}</span>
           </div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-shrink:0;">
             <span style="font-family:var(--font-ui);font-size:var(--fs-body);font-weight:800;color:${textPrimary};letter-spacing:0;">${pctStr}%</span>
@@ -6150,7 +6198,7 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const html = [
     `<div class="bubble-inline-leaves" style="padding:4px 8px 9px;border-top:1px solid ${rowBorder};">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 7px;">
-      <div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sector)}</div>
+      <div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sectorKo(sector))}</div>
       <button type="button" data-bubble-sector="${_cfEsc(sector)}" onclick="handleBubbleSectorClick(this.dataset.bubbleSector)" style="font-family:var(--font-ui);font-size:var(--fs-cap);color:${accent};cursor:pointer;font-weight:700;border:0;background:transparent;padding:4px;">닫기</button>
     </div>`,
     `<div style="display:flex;flex-direction:column;gap:${gap}px;">`

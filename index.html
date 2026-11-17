@@ -234,17 +234,17 @@
             </table>
         </div>
         <div class="f-col cf-chart-column" style="gap:12px;height:100%;min-height:0">
-          <div class="glass-panel f-col" style="flex:2;min-height:0">
+          <div class="glass-panel f-col cf-comp-panel">
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
                 <div class="tf-btns"><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="prevCfMonth()" title="이전 달">◀</button><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="nextCfMonth()" title="다음 달">▶</button></div>
               </div>
             </div>
-            <div class="chart-container" style="flex:1"><canvas id="cfDonutChart" role="img" aria-label="현금 흐름 수입과 지출 구성 차트">현금 흐름 수입과 지출 구성 차트입니다.</canvas></div>
+            <div class="chart-container cf-comp-chart"><canvas id="cfDonutChart" role="img" aria-label="현금 흐름 수입과 지출 구성 차트">현금 흐름 수입과 지출 구성 차트입니다.</canvas></div>
             <div id="cf-month-summary" class="cf-chart-summary" aria-live="polite"></div>
           </div>
-          <div class="glass-panel f-col" style="flex:1;min-height:0">
+          <div class="glass-panel f-col cf-trend-panel">
             <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:var(--fs-cap);color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
             <div class="chart-container"><canvas id="cfTrendChart" role="img" aria-label="월별 현금 흐름 추이 차트">월별 현금 흐름 추이 차트입니다.</canvas></div>
           </div>

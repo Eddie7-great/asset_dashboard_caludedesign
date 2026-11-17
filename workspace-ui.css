@@ -883,3 +883,10 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .fin-form-grid .fin-goal-nodate input{width:15px;height:15px;padding:0;flex:none;accent-color:var(--acc)}
 /* 링크 기본색 — 색을 정하지 않은 링크는 브라우저 기본 파랑(#0000ee)이라 다크 테마에서 읽히지 않는다 */
 :where(a){color:var(--acc)}
+
+/* ===== 가독성 점검 (2026-11-17 3차) — 가짜 데이터로 전 화면을 띄워 확인한 잘림·빈칸·막대 ===== */
+/* 현금 흐름 '수입/지출 구성': 막대(카테고리) 수만큼 높이를 준다 — 높이가 모자라면 Chart.js 가 이름표를 건너뛴다.
+   넘치는 만큼은 오른쪽 열(.cf-chart-column)이 스크롤한다. 휴대폰은 기존 240px 규칙이 덮는다. */
+.cf-comp-panel{flex:2 0 auto;min-height:0}
+.cf-comp-chart{flex:1 0 calc(var(--cf-bars,6)*20px + 34px);min-height:0}
+.cf-trend-panel{flex:1 0 220px;min-height:0}

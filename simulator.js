@@ -153,7 +153,7 @@ function retChartSvg(r,retireAge){
   const x=i=>L+(W-L-R)*i/(pts.length-1), y=v=>T+(H-T-B)*(1-v/max);
   const line=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.bal).toFixed(1)}`).join(' ');
   const ri=pts.findIndex(p=>p.age===retireAge);
-  const ticks=[0,.5,1].map(f=>`<line x1="${L}" x2="${W-R}" y1="${y(max*f).toFixed(1)}" y2="${y(max*f).toFixed(1)}" style="stroke:var(--grid)"></line><text x="${L-7}" y="${(y(max*f)+3.5).toFixed(1)}" text-anchor="end" font-size="12" style="fill:var(--lab)">${String(cbTaxAxisLab(max*f)).replace(/^\+/,'')}</text>`).join('');
+  const ticks=[0,.5,1].map(f=>`<line x1="${L}" x2="${W-R}" y1="${y(max*f).toFixed(1)}" y2="${y(max*f).toFixed(1)}" style="stroke:var(--grid)"></line><text x="${L-7}" y="${(y(max*f)+3.5).toFixed(1)}" text-anchor="end" font-size="12" style="fill:var(--lab)">${cbAmtAxisLab(max*f)}</text>`).join('');
   const ages=[0,ri,pts.length-1].filter((v,i,a)=>v>=0&&a.indexOf(v)===i).map(i=>`<text x="${x(i).toFixed(1)}" y="${H-7}" text-anchor="${i===0?'start':i===pts.length-1?'end':'middle'}" font-size="12" style="fill:var(--lab)">${pts[i].age}세${i===ri?' 은퇴':''}</text>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="나이별 자산 추정. ${pts[0].age}세 ${cbDisp(pts[0].bal)}에서 ${retireAge}세 ${cbDisp(r.fv)}까지 늘고 ${pts[pts.length-1].age}세에 모두 쓰는 가정">
     ${ticks}<path d="${line} L${x(pts.length-1).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z" style="fill:var(--acc)" fill-opacity=".10"></path>

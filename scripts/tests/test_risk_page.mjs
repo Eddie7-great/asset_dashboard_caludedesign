@@ -66,7 +66,7 @@ for (const name of ['CB_SINGLE_STOCK_LEV_ISSUER', 'CB_NOT_SINGLE_STOCK', 'CB_LEV
   const end = source.indexOf('\n', source.indexOf(';', start))
   vm.runInContext(source.slice(start, end), context)
 }
-for (const name of ['cbStrip', 'cbIsEtf', 'cbSyntheticEtfHoldings', 'cbLeveragedInverseMeta', 'cbLookThrough', 'cbEtfCrossOverlap', 'cbRisk']) {
+for (const name of ['cbSectorName', 'cbStrip', 'cbIsEtf', 'cbSyntheticEtfHoldings', 'cbLeveragedInverseMeta', 'cbLookThrough', 'cbEtfCrossOverlap', 'cbRisk']) {
   vm.runInContext(extractFunction(name), context)
 }
 

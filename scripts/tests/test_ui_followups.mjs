@@ -10,6 +10,7 @@ const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.ur
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 const workspaceSource = fs.readFileSync(new URL('../../workspace-ui.css', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const simulatorSource = fs.readFileSync(new URL('../../simulator.js', import.meta.url), 'utf8')
 const priceApiSource = fs.readFileSync(new URL('../../api/price.ts', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
@@ -73,7 +74,7 @@ const dividendContext = {
   _cbDivMonthFilter: null,
 }
 vm.createContext(dividendContext)
-for (const name of ['cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), dividendContext)
 }
 const dividendList = [
@@ -153,6 +154,11 @@ vm.createContext(taxAxisContext)
 vm.runInContext(extractFunction(cobaltSource, 'cbTaxAxisLab'), taxAxisContext)
 assert.equal(taxAxisContext.cbTaxAxisLab(2_500_000), '+250만', '양도소득세 Y축 양수에 + 기호 표시')
 assert.equal(taxAxisContext.cbTaxAxisLab(-2_500_000), '−250만', '양도소득세 Y축 음수 기호 유지')
+vm.runInContext(extractFunction(cobaltSource, 'cbAmtAxisLab'), taxAxisContext)
+assert.equal(taxAxisContext.cbAmtAxisLab(360_000_000), '3.6억', '금액 축(투자자산 추이·배당·증여)은 양수에 + 를 붙이지 않음')
+assert.equal(taxAxisContext.cbAmtAxisLab(600_000), '60만', '금액 축 만 단위에도 + 없음')
+assert.equal(taxAxisContext.cbAmtAxisLab(0), '0', '금액 축 0')
+assert.doesNotMatch(financeSource + extractFunction(cobaltSource, 'cbGiftChildChartSvg') + extractFunction(cobaltSource, 'cbGiftSpouseChartSvg') + extractFunction(cobaltSource, 'cbDivAxisLab') + simulatorSource, /cbTaxAxisLab/, '금액 그래프는 손익용 눈금 함수(cbTaxAxisLab)를 빌려 쓰지 않음')
 assert.match(cobaltSource, /const last=fgnPts\[fgnPts\.length-1\], lastV=cum\[maxM\]\.fgnProfit;[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
 assert.match(cobaltSource, /해외 기본공제 사용률[\s\S]*잔여 공제/, '양도소득세 상단에 기본공제 사용률 위젯 추가')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
@@ -173,7 +179,16 @@ assert.match(scriptSource, /function _bubbleSectorColor\(sector\)[\s\S]*tone\.se
 assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*const hue=base\+\(\(hash%13\)-6\)[\s\S]*tone\.leafSat[\s\S]*tone\.leafLight/, '모든 테마에서 섹터 hue를 유지하며 종목별 파스텔 명도만 변형')
 assert.match(scriptSource, /const _BUBBLE_OWNER_SECTORS = \{[\s\S]*function _bubbleOwnerColor\(owner\)[\s\S]*_SECTOR_HUES\[sector\][\s\S]*tone\.sectorSat\+3,tone\.sectorLight-3/, '소유주 구분점도 섹터 팔레트와 같은 테마별 색 생성 규칙 사용')
 assert.match(scriptSource, /function _bubbleOwnerFill\(owner,panelColor\)[\s\S]*colors\.push\(_bubbleOwnerFill\(owner,panelColor\)\)/, '전체 보기의 소유주 칸은 테마별 옅은 채움으로 구분')
-assert.match(scriptSource, /const trace = \{\n\s*type: 'treemap',[\s\S]*tiling: \{ packing: 'squarify'[\s\S]*pathbar: \{ visible: true[\s\S]*textinfo: 'label\+percent root',\n\s*texttemplate: '<b>%\{label\}<\/b><br>%\{percentRoot:\.1%\}'[\s\S]*size: 16,/, '비중 분석은 트리맵 — 경로 막대로 드릴다운 위치를 보여 주고 칸 안에 굵은 이름·비중을 16px 로 쓴다')
+assert.match(scriptSource, /const trace = \{\n\s*type: 'treemap',[\s\S]*tiling: \{ packing: 'squarify'[\s\S]*pathbar: \{ visible: true[\s\S]*textinfo: 'label\+percent root',[\s\S]*text: labels\.map\(\(label, i\) => customdata\[i\]\.kind === 'leaf' \? _bubbleWrapLabel\(label\) : label\),\n\s*texttemplate: customdata\.map\(d => \(d\.kind === 'leaf' && d\.weight < 2\) \? '<b>%\{text\}<\/b>' : '<b>%\{text\}<\/b><br>%\{percentRoot:\.1%\}'\)[\s\S]*size: 16,/, '비중 분석은 트리맵 — 경로 막대로 드릴다운 위치를 보여 주고 칸 안에 굵은 이름·비중을 16px 로 쓴다(작은 칸은 이름만)')
+{
+  const wrapContext = {}
+  vm.createContext(wrapContext)
+  vm.runInContext(extractFunction(scriptSource, '_bubbleWrapLabel'), wrapContext)
+  assert.equal(wrapContext._bubbleWrapLabel('QQQ'), 'QQQ', '짧은 이름은 그대로')
+  assert.equal(wrapContext._bubbleWrapLabel('TIGER 미국S&P500'), 'TIGER<br>미국S&P500', '긴 ETF 이름은 브랜드 뒤에서 줄바꿈')
+  assert.equal(wrapContext._bubbleWrapLabel('KODEX 미국AI전력핵심인프라'), 'KODEX<br>미국AI전력핵심<br>인프라', '붙여 쓴 긴 이름은 8자씩 끊어 세 줄 안에 넣음')
+  assert.ok(wrapContext._bubbleWrapLabel('가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라').split('<br>').length <= 3, '줄 수는 최대 3줄')
+}
 assert.match(scriptSource, /labels\.push\(displayName\);/, '종목 칸에 이름을 직접 쓴다(바깥 리더라인 라벨 없음)')
 assert.match(scriptSource, /uniformtext: \{ minsize: 13, mode: 'hide' \}/, '13px 로도 안 들어가는 칸은 글자를 숨기고 호버로 확인(minsize 가 전체 글자 크기의 바닥)')
 assert.doesNotMatch(scriptSource, /_drawBubbleExternalLabels|_repositionBubbleCenter|bubble-center-summary|type: 'sunburst'/, '선버스트 전용 라벨·가운데 라벨 코드는 없앴다')
@@ -432,8 +447,13 @@ vm.createContext(riskInsightContext)
 ;['finNewId','finEnsureState','finOwnerF','finRows','finMonthlyFixedCost','finCashSafety']
   .forEach(name=>vm.runInContext(extractFunction(financeSource, name), riskInsightContext))
 // cbRiskInsights 가 부르는 함수는 함께 넣는다 — 하나라도 빠지면 ReferenceError 로 죽는다.
-;['cbIsEtf','cbSyntheticEtfHoldings','cbEtfCrossOverlap']
+;['cbIsEtf','cbSyntheticEtfHoldings','cbEtfCrossOverlap','cbSectorName']
   .forEach(name=>vm.runInContext(extractFunction(cobaltSource, name), riskInsightContext))
+// 섹터 표시 이름은 script.js 의 실제 대응표를 넣어 확인한다(키는 영어, 화면 글자만 한글).
+const sectorKoBlock = scriptSource.match(/const SECTOR_KO = \{[\s\S]*?\n\};/)
+assert.ok(sectorKoBlock, 'SECTOR_KO 대응표를 찾을 수 없음')
+vm.runInContext(sectorKoBlock[0], riskInsightContext)
+vm.runInContext(extractFunction(scriptSource, 'sectorKo'), riskInsightContext)
 ;['CB_SINGLE_STOCK_LEV_ISSUER','CB_NOT_SINGLE_STOCK'].forEach(name=>{
   const start = cobaltSource.indexOf(`const ${name}`)
   assert.notEqual(start, -1, `${name} 상수를 찾을 수 없음`)
@@ -466,6 +486,17 @@ assert.equal(riskInsightById['effective-holdings'].value, '2.9개', 'HHI 역수 
 assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 민감도 계산')
 assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')
 assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 집중도 계산')
+assert.match(JSON.stringify(riskInsightById['top2-sectors']), /기술 \+ 지수 ETF/, '리스크 카드의 섹터 이름은 한글로 표시')
+assert.doesNotMatch(JSON.stringify(riskInsightById['top2-sectors']), /Technology|Index ETF/, '리스크 카드에 영어 섹터 키가 그대로 나오지 않음')
+assert.equal(riskInsightContext.sectorKo('Financial Services'), '금융', '섹터 표시 이름 한글 대응')
+assert.equal(riskInsightContext.sectorKo('처음 보는 키'), '처음 보는 키', '대응표에 없는 키는 그대로 돌려줌(빈칸으로 만들지 않음)')
+for (const key of ['Technology','Financial Services','Health Care','Consumer Discretionary','Consumer Staples','Energy','Communications Services','Industrial Services','Materials & Processing','Real Estate','Utilities','Index ETF','Sector ETF','Other','Cash','Crypto','Gold']) {
+  assert.notEqual(riskInsightContext.sectorKo(key), key, `섹터 키 ${key} 에 한글 이름이 있음`)
+}
+assert.match(scriptSource, /labels\.push\(sectorKo\(sector\)\)/, '트리맵 섹터 칸 이름은 한글')
+assert.match(scriptSource, /data-bubble-sector="\$\{safeSec\}"[\s\S]{0,3000}\$\{_cfEsc\(sectorKo\(sec\)\)\}/, '섹터 목록은 글자만 한글이고 클릭 키(data-bubble-sector)는 영어 키 그대로')
+assert.match(cobaltSource, /cbEsc\(cbSectorName\(s\.label\)\)/, '홈 섹터 집중도 줄 이름은 한글')
+assert.match(cobaltSource, /_cdashSecOpen===s\.label/, '홈 섹터 펼침 비교는 영어 키 그대로')
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
 assert.ok(!('liquidity-coverage' in riskInsightById), '현금 유동성 커버리지 카드는 리스크 진단에 없다')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')
