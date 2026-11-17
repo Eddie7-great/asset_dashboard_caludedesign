@@ -9,6 +9,7 @@
 - **보유 목록 행은 두 줄이다 — 증권사/계좌(`.holdings-broker-cell`), 종목/티커(`.holdings-asset-cell`, 국기는 두 줄에 걸침), 적립식(`getDcaMergedCellHtml`, 윗줄 주기·아랫줄 회당 금액), 평가액/비중(`holdingsWeightHtml`).** 비중 숫자의 분모는 위 '평가액' 숫자 카드 합계(`sumOf('total')`, 검색으로 숨기기 전·계좌 필터 후)이고, 막대 길이는 표에서 가장 큰 평가액 대비다(홈 보유 표 `.home-weight-bar` 와 같은 모양·자산군 색). 행을 만들 때는 합계를 모르므로 평가액 칸에 `<!--w:값:자산군-->` 자리표시를 두고 합계를 구한 뒤 바꾼다. 1366px 이상에서 잘리는 종목명은 아주 긴 이름(20자 이상)뿐이며 말풍선(`data-overflow-tip`)으로 본다.
 - **배당 종목 표는 클래스 격자다(`.cb-div-head/.cb-div-row`, workspace-ui.css, 13칸 모두 `minmax(최소,fr)`).** 예전에는 '종목'만 `flex:1` 이고 나머지가 고정 px·`min-width:1110px` 이라 1440px 에서 배당성장·주기·배당락이 화면 밖이었다. 머리글 '종목'은 `grid-column:span 2` 로 국기 칸부터 덮는다. 휴대폰은 보조 칸을 숨기므로 6칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게. 칸을 늘리거나 줄이면 격자 틀의 칸 수도 같이 고친다(테스트가 행의 칸 수와 대조한다).
 - **배당 '향후 90일 일정'은 1760px 이상에서만 표 오른쪽이고(style.css), 그보다 좁으면 표 위 가로 띠다(`order:-1`).** TOP 3 카드도 1760px 미만에서는 숫자 카드 아랫줄 전체를 쓰고 세 종목을 가로로 놓는다 — 400px 카드 하나만 떨어져 오른쪽이 비던 것을 막는다.
+- 일정 달력 칸의 일정 이름(`.cal-chip>span`)은 두 줄까지 쓴다(`line-clamp:2`). 휴대폰은 이름을 숨기는 기존 규칙 그대로다.
 - `test_ui_followups.mjs`·`test_holdings_dashboard_ui.mjs`·`test_risk_page.mjs`·`test_finance_features.mjs` 가 지킨다.
 
 ### 차트 축 색·쉼표 입력·목표 기한 미정·적립식 10일 (2026-11-18)

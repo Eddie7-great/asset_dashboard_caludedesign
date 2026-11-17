@@ -935,3 +935,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-div-summary-grid>.cb-div-top3-card{flex-basis:100%;max-width:none}
   .cb-div-top3-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px}
 }
+/* 일정 달력 칸: 일정 이름을 두 줄까지 쓴다(칸 폭 약 85px 에 한 줄이면 'TIGER 미…'만 보였다). 휴대폰은 이름을 숨기는 기존 규칙 그대로. */
+.cal-chip{align-items:flex-start;line-height:1.3}
+.cal-chip>i{margin-top:3px}
+.cal-chip>span{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere;word-break:keep-all}
