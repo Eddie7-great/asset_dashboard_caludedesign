@@ -513,7 +513,11 @@ function finTreeHtml(tree,total,cfg){
   if(!tree.length)return '<div class="fin-empty">계좌 정보가 있는 투자자산을 등록해 주세요.</div>';
   const typeCls=t=>t==='ISA'?'isa':(t==='연금'?'pen':'gen');
   const pct=v=>v.toFixed(1)+'%';
-  const seg=(value,cls,label,tip,style)=>`<span class="fin-ice-seg ${cls}" style="flex:${Math.max(value,0)} 0 0${style?';'+style:''}" data-tip="${cbEsc(tip)}">${total>0&&value/total>=0.055?cbEsc(label):''}</span>`;
+  // 칸 폭은 세 층 모두 같은 합계(소유주 평가액 합) 대비 % 로 직접 준다 — 예전처럼 flex 몫(flex:값 0 0)에
+  // 칸마다 padding·테두리가 붙으면 칸이 많은 층(계좌)일수록 고정 여백이 몫을 깎아 위층 경계와 어긋났다.
+  // 칸에는 padding·border 를 두지 않고(구분선은 box-shadow, 글자 여백은 안쪽 span) 누적 % 가 층마다 같게 한다.
+  const iceSum=tree.reduce((s,o)=>s+Math.max(o.value,0),0)||1;
+  const seg=(value,cls,label,tip,style)=>`<span class="fin-ice-seg ${cls}" style="flex:0 0 ${(Math.max(value,0)/iceSum*100).toFixed(4)}%${style?';'+style:''}" data-tip="${cbEsc(tip)}">${total>0&&value/total>=0.055?`<span>${cbEsc(label)}</span>`:''}</span>`;
   let l1='',l2='',l3='';
   tree.forEach(o=>{
     l1+=seg(o.value,'l1',`${o.owner} ${pct(o.share)}`,`${o.owner} · ${cbDisp(o.value)} · ${pct(o.share)}`,`--own:${cbOwnerColor(o.owner)}`);

@@ -44,7 +44,7 @@ for (const sel of ['.cb-btn', '.api-btn']) {
 for (const sel of ['.holdings-add-btn', '.fin-goal-add-btn', '.cf-entry-open,.cf-entry-close']) {
   assert.ok(ws.includes(`${sel}{`) && new RegExp(`${sel.replace(/[.,]/g, '\\$&')}\\{[^}]*min-height:var\\(--btn-h\\)`).test(ws), `${sel} 높이는 --btn-h`);
 }
-for (const sel of ['.cb-fam-card-track', '.cb-dca-allocation-track', '.cb-fin-income-track', '.fin-meter', '.cb-tax-deduction-track', '.cb-meter', '.cb-contrib-track']) {
+for (const sel of ['.cb-fam-card-track', '.cb-dca-allocation-track', '.cb-fin-income-track', '.fin-meter', '.cb-tax-deduction-track', '.cb-meter']) {
   assert.match(style, new RegExp(`\\${sel}\\{[^}]*height:var\\(--bar-h\\)`), `${sel} 높이는 --bar-h`);
 }
 assert.match(style, /\.cb-lt-bar\{[^}]*height:var\(--bar-h-lg\)/, '비교용 막대는 --bar-h-lg');

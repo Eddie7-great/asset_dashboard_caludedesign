@@ -101,7 +101,7 @@ function cbRenderAccounts(){
   const treeHtml=finTreeHtml(tree,data.total,{
     cls:'is-acct',
     nameHead:cbSortBtn('acct','name','소유주 / 증권사 / 계좌','text'),
-    head:[`<span>${cbSortBtn('acct','value','평가액')}</span>`,`<span>${cbSortBtn('acct','share','비중','num','l')}</span>`,`<span>${cbSortBtn('acct','gain','평가손익')}</span>`,
+    head:[`<span>${cbSortBtn('acct','value','평가액')}</span>`,`<span>${cbSortBtn('acct','share','비중')}</span>`,`<span>${cbSortBtn('acct','gain','평가손익')}</span>`,
       `<span>${cbSortBtn('acct','dividend','<span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span>')}</span>`,`<span>${cbSortBtn('acct','holdings','종목')}</span>`],
     cells:(n,level)=>{
       if(level==='holding'){
