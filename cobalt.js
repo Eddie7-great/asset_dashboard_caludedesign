@@ -3164,16 +3164,10 @@ function cbRenderTax(){
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">
       <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <div class="cb-panel-title">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
-          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="padding:4px 9px;font-size:var(--fs-cap)">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
-            <button class="cb-btn cb-tax-import" onclick="document.getElementById('cb-tax-import-file')?.click()" data-tip="증권사 거래내역으로 계산한 실현손익 파일(JSON)을 불러옵니다. 파일에 적힌 소유주·연도의 기존 기록은 교체되고, 다른 소유주·연도 기록은 그대로 둡니다." style="padding:4px 9px;font-size:var(--fs-cap)">거래내역 가져오기</button>
-            <input id="cb-tax-import-file" class="cb-tax-import" type="file" accept=".json,application/json" hidden onchange="cbTaxImportFile(this)" />
-          </span>
-        </div>
-        ${typeof finMobileNote==='function'?finMobileNote('실현손익 기록과 거래내역 가져오기'):''}
-        <div class="cb-tax-entry-form">
+        <!-- 제목 · 입력 줄 · 월 필터 · 거래내역 가져오기를 한 줄에 — 폭이 모자라면 입력 줄이 다음 줄로 내려간다 -->
+        <div class="cb-tax-hist-top">
+          <div class="cb-panel-title"><span data-tip="매도로 확정된 손익을 귀속 월별로 적습니다. 세금 계산은 이 기록을 씁니다.">실현손익 기록</span></div>
+          <div class="cb-tax-entry-form">
           <label>귀속 월<select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
           <label>시장<select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
           <label>계좌<select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
@@ -3182,16 +3176,23 @@ function cbRenderTax(){
           <label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
           <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:var(--fs-cap)">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:var(--fs-cap);color:var(--mut)">취소</button>':''}
+          </div>
+          <span class="cb-tax-hist-tools">
+            ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="padding:4px 9px;font-size:var(--fs-cap)">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
+            <button class="cb-btn cb-tax-import" onclick="document.getElementById('cb-tax-import-file')?.click()" data-tip="증권사 거래내역으로 계산한 실현손익 파일(JSON)을 불러옵니다. 파일에 적힌 소유주·연도의 기존 기록은 교체되고, 다른 소유주·연도 기록은 그대로 둡니다." style="padding:4px 9px;font-size:var(--fs-cap)">거래내역 가져오기</button>
+            <input id="cb-tax-import-file" class="cb-tax-import" type="file" accept=".json,application/json" hidden onchange="cbTaxImportFile(this)" />
+          </span>
         </div>
+        ${typeof finMobileNote==='function'?finMobileNote('실현손익 기록과 거래내역 가져오기'):''}
         <div style="overflow-x:auto"><div style="min-width:800px">
           <div class="cb-thead cb-tax-hist-head">
-            <span>소유주</span><span>월</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
+            <span>월</span><span>소유주</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
             <span><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
           ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
             <div class="cb-tax-hist-row">
-              <span>${cbOwnerTag(ownerOf(t))}</span>
               <span style="color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
+              <span>${cbOwnerTag(ownerOf(t))}</span>
               <span style="font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
               <span style="color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
               <span><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>

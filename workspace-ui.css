@@ -661,10 +661,9 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .cb-dca-head,.cb-dca-row{grid-template-columns:62px minmax(150px,1.5fr) 92px 88px 100px 46px}
 }
 /* 실현손익 기록 표 — 메모 칸(flex:1)이 남는 폭을 다 가져가 가운데가 휑했다. 모든 칸이 남는 폭을 나눠 갖는다. */
-.cb-tax-hist-head,.cb-tax-hist-row{display:grid;grid-template-columns:minmax(64px,.7fr) minmax(40px,.4fr) minmax(52px,.5fr) minmax(70px,.7fr) minmax(88px,.8fr) minmax(120px,1.4fr) minmax(112px,1fr) minmax(118px,1fr) 54px;column-gap:12px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
+.cb-tax-hist-head,.cb-tax-hist-row{display:grid;grid-template-columns:44px minmax(64px,.6fr) 46px minmax(60px,.5fr) minmax(88px,.6fr) minmax(160px,2.6fr) minmax(112px,.9fr) minmax(118px,.9fr) 54px;column-gap:12px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
 .cb-tax-hist-head{color:var(--dim);padding:0 6px 7px}
 .cb-tax-hist-head>span,.cb-tax-hist-row>span{min-width:0}
-.cb-tax-hist-head>:nth-child(5),.cb-tax-hist-row>:nth-child(5){text-align:center;justify-self:center}
 .cb-tax-hist-head>:nth-child(7),.cb-tax-hist-head>:nth-child(8),.cb-tax-hist-row>:nth-child(7),.cb-tax-hist-row>:nth-child(8){text-align:right}
 .cb-tax-hist-head>:nth-child(9){text-align:center}
 .cb-tax-hist-row>.cb-tax-memo-cell{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1006,3 +1005,9 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-perf-plot{min-width:1040px}
   .cb-div-summary-grid>.cb-div-top3-card{grid-column:1/-1}
 }
+/* 실현손익 기록: 제목 · 입력 줄 · 월 필터 · 거래내역 가져오기를 한 줄에 둔다(폭이 모자라면 입력 줄이 다음 줄로). */
+.cb-tax-hist-top{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin-bottom:12px}
+.cb-tax-hist-top>.cb-tax-entry-form{flex:1 1 620px;margin:0;column-gap:8px}
+.cb-tax-hist-top .cb-tax-memo-field{flex:1 1 110px}
+.cb-tax-hist-tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+

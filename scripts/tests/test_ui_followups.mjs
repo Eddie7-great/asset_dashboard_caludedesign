@@ -326,8 +326,8 @@ assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s
 assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-no-comma="1"[\s\S]*oninput="handlePLAmtInput\(this\)"/, '양도소득세 수정 금액 입력에도 음수 허용 실시간 쉼표 포맷 적용')
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
-assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>소유주<\/span><span>월<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
-assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row\{display:grid;grid-template-columns:[^;]*minmax\(120px,1\.4fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
+assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>월<\/span><span>소유주<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
+assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row\{display:grid;grid-template-columns:[^;]*minmax\(160px,2\.6fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
 assert.doesNotMatch(cobaltSource, /cb-tax-memo-(head|cell)" style="flex:1/, '메모 칸에 flex:1 을 다시 쓰지 않는다')
 assert.match(cobaltSource, /cbHomeSummary\(sel,nw\)/, '홈 보유 목록 옆 선택 종목 요약 유지')
 assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0/, '대시보드 제목·검색줄을 스크롤 중 고정')
@@ -650,4 +650,6 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
 assert.doesNotMatch(styleSource, /th\.holdings-asset-head\{padding-left:39px/, "보유 목록 '종목' 머리글은 국기 칸부터 시작(들여쓰기 없음)")
 assert.match(workspaceSource, /\.fin-tree\{min-width:900px;display:grid;grid-template-columns:minmax\(200px,max-content\) [^}]*minmax\(320px,1fr\)/, '계좌 배치 진단: 이름 칸은 가장 긴 이름만큼, 남는 폭은 진단 칸')
 assert.match(workspaceSource, /\.fin-tree-row\{display:grid;grid-column:1\/-1;grid-template-columns:subgrid;/, '트리 줄은 부모 격자를 공유(subgrid) — 칸이 줄마다 어긋나지 않게')
+assert.match(cobaltSource, /<div class="cb-tax-hist-top">\s*<div class="cb-panel-title">[\s\S]*?<div class="cb-tax-entry-form">[\s\S]*?<span class="cb-tax-hist-tools">[\s\S]*?cb-tax-import/, '실현손익: 제목·입력 줄·거래내역 가져오기를 한 줄에')
+assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-align:center/, '세제 구분은 가운데가 아니라 왼쪽 정렬(계좌와 세제 사이 빈칸 축소)')
 
