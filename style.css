@@ -361,7 +361,7 @@
     #view-holdings .holdings-inline-ticker{flex-shrink:0}
     #view-holdings .holdings-asset-flag{width:23px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center}
     #view-holdings .holdings-crypto-flag{height:15px;border-radius:var(--r-sm);background:#f2a33c22;color:#d97706;font-size:var(--fs-micro);font-weight:800}
-    #view-holdings .pt-table th.holdings-asset-head{padding-left:39px!important}
+    /* '종목' 머리글은 국기 칸부터 시작한다(홈 보유 표와 같은 선) — 예전 39px 들여쓰기는 이름 칸에 맞춘 것이었다 */
     #view-holdings .pt-table-fixed td.holdings-tooltip-cell{overflow:visible}
     #view-holdings .holdings-owner{display:inline-flex;align-items:center;gap:5px;color:var(--mut);font-size:var(--fs-cap);font-weight:600}
     #view-holdings .holdings-owner-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}

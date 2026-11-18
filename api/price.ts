@@ -140,6 +140,38 @@ const WICS_MAP: Record<string, string> = {
   '229200':'ETF-국내지수', '455050':'ETF-배당',
 };
 
+// 네이버 증권 종목 요약(m.stock.naver.com/api/stock/{code}/integration)에서 연간 배당을 읽는다 — 국내 배당의 세 번째 출처.
+//  - 주식: totalInfos 의 '주당배당금'(dividend, 예: '1,668원')·'배당수익률'(dividendYieldRatio, 예: '0.87%')
+//  - ETF : etfKeyIndicator.dividendYieldTtm(최근 1년 분배율 %) × 전일 종가(lastClosePrice)
+// 지급월·주기·지급일은 주지 않으므로 비워 두고(화면이 주기 기반 기본값을 쓴다), 형식이 어긋나면 null(지어내지 않는다).
+export function parseNaverDividend(d: any): { dps: number; yld: number; cycle: string; months: number[]; cur: string; source: string } | null {
+  if (!d || typeof d !== 'object') return null;
+  const infos: any[] = Array.isArray(d.totalInfos) ? d.totalInfos : [];
+  const num = (v: any): number | null => {
+    const n = Number(String(v ?? '').replace(/[^0-9.\-]/g, ''));
+    return Number.isFinite(n) && String(v ?? '').replace(/[^0-9]/g, '') !== '' ? n : null;
+  };
+  const info = (code: string) => infos.find(x => x && x.code === code);
+  const close = num(info('lastClosePrice')?.value);
+  let dps: number | null = null, yld: number | null = null;
+  if (d.stockEndType === 'etf') {
+    const ttm = Number(d?.etfKeyIndicator?.dividendYieldTtm);
+    if (!Number.isFinite(ttm) || ttm < 0 || close == null || !(close > 0)) return null;
+    yld = ttm;
+    dps = Math.round(close * ttm / 100);
+  } else {
+    const dv = info('dividend'), dy = info('dividendYieldRatio');
+    if (!dv && !dy) return null;
+    dps = num(dv?.value);
+    yld = num(dy?.value);
+    if (dps == null && yld != null && close != null && close > 0) dps = Math.round(close * yld / 100);
+    if (dps == null || dps < 0) return null;
+    if (yld == null && close != null && close > 0) yld = dps / close * 100;
+  }
+  // 주기·지급월은 비운다 — 화면이 내장 배당표의 주기를 먼저 쓰고, 그것도 없으면 주기 기본값(분기)으로 나눈다.
+  return { dps: Math.round(dps), yld: parseFloat((yld || 0).toFixed(2)), cycle: '', months: [], cur: 'KRW', source: 'naver' };
+}
+
 export function getSectorForTicker(tkr: string): string {
   const t = tkr.replace(/\.(KS|KQ)$/, '').toUpperCase();
   if (WICS_MAP[t]) return WICS_MAP[t];
@@ -349,6 +381,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         } catch (e) { return null; }
       }
 
+      // 3차: 네이버 증권(국내 주식·ETF). pykrx·Yahoo 가 모두 실패했거나 연간 배당 0 일 때만 부른다.
+      async function naverDiv(code: string) {
+        try {
+          const r = await fetchWithTimeout(`https://m.stock.naver.com/api/stock/${encodeURIComponent(code)}/integration`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.stock.naver.com/' }
+          }, 8000);
+          if (!r.ok) return null;
+          return parseNaverDividend(await r.json());
+        } catch (e) { return null; }
+      }
+
       const result: Record<string, any> = {};
       const verifiedTickers: string[] = [];
       await mapWithConcurrency(divTickers, async (raw) => {
@@ -361,6 +404,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           if (!info || !(Number(info.dps) > 0)) {
             const yhInfo = await yahooDiv(tkr);
             if (yhInfo) info = yhInfo;
+          }
+          // 3차: 네이버 — 앞 두 출처가 실패했거나 연간 배당 0 이면. 네이버도 0 이면 무배당으로 확인된 것이다.
+          if (!info || !(Number(info.dps) > 0)) {
+            const nvInfo = await naverDiv(tkr);
+            if (nvInfo && (nvInfo.dps > 0 || !info)) info = nvInfo;
           }
         } else {
           info = await yahooDiv(tkr);

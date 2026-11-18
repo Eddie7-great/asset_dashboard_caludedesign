@@ -153,7 +153,7 @@ context.window._netWorthHistory = []
 context.window._divDataCache = {}
 for (const name of ['cbAmtGridSvg', 'cbAxisTicks']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')

@@ -167,8 +167,30 @@ assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class=
 assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')
 assert.match(cobaltSource, /수익률 TOP 5[\s\S]*손실률 TOP 5/, '대시보드에 수익률·손실률 TOP5 위젯 추가')
 assert.match(workspaceSource, /\.cb-home-movers\{display:grid;grid-template-rows:1fr 1fr/, '대시보드 수익률·손실률 TOP5를 세로 2×1로 강제')
-assert.match(cobaltSource, /const contributionRows = mergedRows[\s\S]*Math\.abs\(b\.gain\)-Math\.abs\(a\.gain\)[\s\S]*평가손익 기여도/, '대시보드에 실제 원화 평가손익 기준 기여도 위젯 추가')
-assert.match(cobaltSource, /이익 기여[\s\S]*손실 기여[\s\S]*cb-contrib-track/, '평가손익 기여도에 양·음 손익 합계와 발산형 막대 표시')
+assert.match(cobaltSource, /const contribWf = cbContribSteps\(contributionEligible\);[\s\S]*평가손익 기여도/, '홈 평가손익 기여도는 폭포형(현금·시세 미조회 제외한 같은 기준)')
+{
+  const wfCtx = {}
+  vm.createContext(wfCtx)
+  vm.runInContext(extractFunction(cobaltSource, 'cbContribSteps'), wfCtx)
+  const r = (title, gain) => ({ title, gain })
+  const rows = [r('A', 50), r('B', 30), r('C', 20), r('D', 10), r('E', 5), r('F', 4), r('G', 3), r('L1', -8), r('L2', -6), r('L3', -2), r('L4', -1), r('Z', 0)]
+  const wf = wfCtx.cbContribSteps(rows)
+  const kinds = Array.from(wf.steps, x => x.kind)
+  assert.deepEqual(kinds, ['gain', 'gain', 'gain', 'gain', 'gain', 'gain-rest', 'loss', 'loss', 'loss-rest', 'total'], '이익 상위 5 → 기타 이익 → 손실 상위 2 → 기타 손실 → 합계')
+  assert.equal(wf.total, 105, '합계는 모든 손익의 합(0 은 제외)')
+  assert.equal(wf.steps.at(-1).end, 105, '합계 막대는 0 에서 합계까지')
+  assert.equal(wf.steps[5].count, 2, '기타 이익은 남은 2종목')
+  assert.equal(wf.steps[5].value, 7, '기타 이익 금액은 남은 종목 손익의 합')
+  for (let k = 1; k < wf.steps.length - 1; k++) assert.equal(wf.steps[k].start, wf.steps[k - 1].end, '각 단계는 직전 누적에서 시작')
+  assert.equal(wf.min, 0, '모두 0 이상에서 움직이면 눈금 최솟값은 0')
+  const one = wfCtx.cbContribSteps([r('A', 5), r('B', 4), r('C', 3), r('D', 2), r('E', 1), r('F', 1), r('L1', -1), r('L2', -1), r('L3', -1)])
+  assert.ok(!one.steps.some(x => /rest/.test(x.kind)), "남는 종목이 하나뿐이면 '기타 1종목'으로 묶지 않음")
+  const lossOnly = wfCtx.cbContribSteps([r('L1', -5), r('L2', -3)])
+  assert.equal(lossOnly.total, -8, '손실만 있어도 합계')
+  assert.equal(lossOnly.min, -8, '음수 누적이면 눈금이 0 아래로')
+  assert.equal(wfCtx.cbContribSteps([]).steps.length, 1, '손익이 없으면 합계 한 줄뿐(화면은 안내 문구)')
+}
+assert.match(cobaltSource, /이익 기여[\s\S]*손실 기여[\s\S]*cb-contrib-track cb-wf-track/, '평가손익 기여도에 양·음 손익 합계와 폭포형 막대 표시')
 assert.match(styleSource, /\.cb-dash-insight-grid\{display:grid;grid-template-columns:minmax\(240px,1\.12fr\)[\s\S]*minmax\(205px,.74fr\)[\s\S]*minmax\(235px,.88fr\)/, '대시보드 자산 배분·섹터 위젯은 넓히고 TOP5 폭은 축소')
 assert.match(cobaltSource, /if \(id==='divm'\) cbVerifyDividendDataOnOpen\(\)/, '배당 관리 페이지 진입 때마다 데이터 캐시 검증')
 assert.match(scriptSource, /divCacheTickers_[\s\S]*tickers\.every\(t=>verified\.includes\(t\)\)/, '현재 보유 티커가 일일 배당 캐시에 모두 검증됐는지 확인')
@@ -326,8 +348,8 @@ assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s
 assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-no-comma="1"[\s\S]*oninput="handlePLAmtInput\(this\)"/, '양도소득세 수정 금액 입력에도 음수 허용 실시간 쉼표 포맷 적용')
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
-assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>소유주<\/span><span>월<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
-assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row\{display:grid;grid-template-columns:[^;]*minmax\(120px,1\.4fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
+assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>월<\/span><span>소유주<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
+assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row\{display:grid;grid-template-columns:[^;]*minmax\(160px,2\.6fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
 assert.doesNotMatch(cobaltSource, /cb-tax-memo-(head|cell)" style="flex:1/, '메모 칸에 flex:1 을 다시 쓰지 않는다')
 assert.match(cobaltSource, /cbHomeSummary\(sel,nw\)/, '홈 보유 목록 옆 선택 종목 요약 유지')
 assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0/, '대시보드 제목·검색줄을 스크롤 중 고정')
@@ -609,8 +631,9 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')
   assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(150px,2\.4fr\)/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
-  assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>소유주<\/span><span>종목<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
-  assert.match(workspaceSource, /\.acct-row,\.acct-holding\{display:grid;grid-template-columns:[^}]*column-gap:20px/, '계좌별 내역은 계좌 줄과 종목 줄이 같은 칸 틀을 쓴다')
+  assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>\$\{cbSortBtn\('dca','owner','소유주','text'\)\}<\/span><span>\$\{cbSortBtn\('dca','name','종목','text'\)\}<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
+  assert.match(workspaceSource, /\.fin-tree\.is-acct\{grid-template-columns:/, '계좌별 내역은 트리 한 격자 — 계좌 줄과 종목 줄이 같은 칸 틀(subgrid)을 쓴다')
+  assert.doesNotMatch(workspaceSource, /\.acct-row|\.acct-holding\{/, '예전 계좌별 표 규칙은 지웠다')
 }
 
 // 2026-11-16 2차 — 홈 평면 도넛, 가족 증여 결과 우선, 버튼·글꼴 한 벌
@@ -630,9 +653,9 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   const tables = cobaltSource + pagesSource
   assert.match(cobaltSource, /function cbOwnerTag\(owner, fallback\)\{[\s\S]*class="cb-owner-tag/, '소유주 점 + 이름은 한 함수가 그린다')
   assert.doesNotMatch(tables, /width:7px;height:7px;border-radius:50%;background:\$\{(cbOwnerColor|ownerOf)/, '소유주 점을 표마다 인라인으로 복사하지 않는다')
-  assert.ok((tables.match(/cbOwnerTag\(/g) || []).length >= 7, '홈·가족·배당·적립식·세금·계좌별 표가 같은 소유주 표시를 쓴다')
+  assert.ok((tables.match(/cbOwnerTag\(/g) || []).length >= 6, '홈·가족·배당·적립식·세금 표가 같은 소유주 표시를 쓴다(계좌별 보기는 2026-11-18 부터 트리의 소유주 줄)')
   assert.match(cobaltSource, /\+`<td>\$\{cbOwnerTag\(r\.i\.owner\)\}<\/td>`\s*\+`<td title=[^`]*<span class="home-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '홈 보유 표에도 소유주 점과 국기·자산 아이콘')
-  assert.match(pagesSource, /<span class="acct-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '계좌별 보기의 종목 줄에도 국기·자산 아이콘')
+  assert.match(pagesSource, /holdingName:h=>`<span class="acct-asset" title="[^"]*">\$\{cbFlagCell\(h,24,14\)\}/, '계좌별 보기의 종목 줄에도 국기·자산 아이콘')
   // 손익 색: 이익·손실만 색, 0·취득가 미상·현금은 회색
   const gainFn = new Function(cobaltSource.match(/function cbGainStyle\(v, unknown\)\{[\s\S]*?\n\}/)[0] + '; return cbGainStyle;')()
   assert.equal(gainFn(10), 'color:var(--up)')
@@ -646,3 +669,50 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(scriptSource, /portfolioSortHeader\(grpName,'valKRW','평가액'\)\}\$\{portfolioSortHeader\(grpName,'profit','평가손익'\)\}/)
 }
 
+// 2026-11-18 화면 개선: 보유 목록 '종목' 머리글 들여쓰기 제거, 계좌 배치 진단 트리는 subgrid 한 격자
+assert.doesNotMatch(styleSource, /th\.holdings-asset-head\{padding-left:39px/, "보유 목록 '종목' 머리글은 국기 칸부터 시작(들여쓰기 없음)")
+assert.match(workspaceSource, /\.fin-tree\{min-width:900px;display:grid;grid-template-columns:minmax\(200px,max-content\) [^}]*minmax\(320px,1fr\)/, '계좌 배치 진단: 이름 칸은 가장 긴 이름만큼, 남는 폭은 진단 칸')
+assert.match(workspaceSource, /\.fin-tree-row\{display:grid;grid-column:1\/-1;grid-template-columns:subgrid;/, '트리 줄은 부모 격자를 공유(subgrid) — 칸이 줄마다 어긋나지 않게')
+assert.match(cobaltSource, /<div class="cb-tax-hist-top">\s*<div class="cb-panel-title">[\s\S]*?<div class="cb-tax-entry-form">[\s\S]*?<span class="cb-tax-hist-tools">[\s\S]*?cb-tax-import/, '실현손익: 제목·입력 줄·거래내역 가져오기를 한 줄에')
+assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-align:center/, '세제 구분은 가운데가 아니라 왼쪽 정렬(계좌와 세제 사이 빈칸 축소)')
+
+
+// 2026-11-18 표 정렬 — 머리글을 누르면 그 칸으로, 다시 누르면 반대, 값 없음은 끝, 다른 화면으로 옮기면 기본 순서
+{
+  const ctx = vm.createContext({ OWNERS: ['본인', '아내', '자녀1', '아버지'], cbRerender() { ctx.rerenders++ }, rerenders: 0, cbRestoreFilterFocus() {}, _cobaltActive: 'cdash' })
+  vm.runInContext(['cbSortCompare', 'cbSortRows', 'cbSortDir', 'cbAriaSort', 'cbSortBtn', 'cbTableSortClick', 'cbOwnerRank', 'cbHoldingSortGetters', 'cbResetViewState'].map(n => extractFunction(cobaltSource, n)).join('\n') + '\nvar _cbTableSort={};', ctx)
+  const rows = [
+    { key: 'a', title: '애플', i: { owner: '아내', grp: '주식', qty: 2 }, qty: 2, val: 300, cost: 200, gain: 100, gainPct: 0.5 },
+    { key: 'b', title: '골드바', i: { owner: '본인', grp: '금', qty: 1, costUnknown: true }, qty: 1, val: 900, cost: 0, gain: 0, gainPct: null },
+    { key: 'c', title: '삼성전자', i: { owner: '아버지', grp: '주식', qty: 10 }, qty: 10, val: 500, cost: 600, gain: -100, gainPct: -1 / 6 },
+    { key: 'd', title: '원화 예수금', i: { owner: '본인', grp: '현금', qty: 1000 }, qty: 1000, val: 1000, cost: 1000, gain: 0, gainPct: null },
+  ]
+  const order = () => Array.from(ctx.cbSortRows('home', rows, ctx.cbHoldingSortGetters()), r => r.key)
+  assert.deepEqual(order(), ['a', 'b', 'c', 'd'], '정렬하지 않으면 화면의 기본 순서 그대로')
+  ctx.cbTableSortClick('home', 'gain', 'num')
+  assert.deepEqual(order(), ['a', 'c', 'b', 'd'], '숫자 칸은 첫 클릭 내림차순 · 취득가 미상과 현금은 끝')
+  assert.equal(ctx.rerenders, 1, '정렬은 렌더 때 적용 — 시세 갱신으로 다시 그려도 유지된다')
+  ctx.cbTableSortClick('home', 'gain', 'num')
+  assert.deepEqual(order(), ['c', 'a', 'b', 'd'], '다시 누르면 오름차순 · 값 없음은 여전히 끝')
+  assert.equal(ctx.cbAriaSort('home', 'gain'), 'ascending')
+  ctx.cbTableSortClick('home', 'owner', 'text')
+  assert.deepEqual(order(), ['b', 'd', 'a', 'c'], '소유주는 글자 칸 — 첫 클릭 오름차순(소유주 순서), 같은 값끼리는 기본 순서')
+  ctx.cbTableSortClick('home', 'avg', 'num')
+  assert.deepEqual(order(), ['a', 'c', 'b', 'd'], '평단가는 원화 환산(매입금액 ÷ 수량)으로 비교')
+  const btn = ctx.cbSortBtn('home', 'avg', '평단가')
+  assert.match(btn, /class="cb-sort-btn is-r is-on" data-sort-btn="home:avg"/, '켜진 칸 표시 · 숫자 칸은 화살표가 글자 앞(is-r)')
+  assert.match(btn, /<span class="sr-only">, 내림차순 정렬됨<\/span>/, '정렬 상태를 화면 낭독기에도 알린다')
+  assert.match(ctx.cbSortBtn('home', 'name', '종목', 'text'), /class="cb-sort-btn" data-sort-btn="home:name"[^>]*>종목<i class="cb-sort-ind" aria-hidden="true">↕<\/i><\/button>/)
+  vm.runInContext('var _calDay=null,_acctOpen=new Set();cbResetViewState();', ctx)
+  assert.deepEqual(order(), ['a', 'b', 'c', 'd'], '다른 화면으로 옮기면(cbResetViewState) 기본 순서')
+  // 대상 표: 홈 보유·구성원 비교·배당·적립식·계좌별 보기·ETF 구성종목·보유 목록
+  for (const t of ['home', 'fam', 'div', 'dca']) assert.match(cobaltSource, new RegExp(`cbSortRows\\('${t}',`), `${t} 표는 렌더 때 정렬한다`)
+  const pages = fs.readFileSync(new URL('../../workspace-pages.js', import.meta.url), 'utf8')
+  const etf = fs.readFileSync(new URL('../../etf-explorer.js', import.meta.url), 'utf8')
+  assert.match(pages, /cbSortRows\('acct',finAccountTree\(treeRows\),sortGet\)/, '계좌별 보기는 각 단계 안에서 정렬')
+  assert.ok(etf.indexOf("cbSortRows('etf'") < etf.indexOf('const pages=Math.max(1,Math.ceil(rows.length/ETF_PAGE_SIZE))'), 'ETF 구성종목은 쪽을 나누기 전에 정렬')
+  assert.match(cobaltSource, /if\(table==='etf'&&typeof etfRefreshResults==='function'\)\{ _etfPage=0;/, 'ETF 정렬은 1쪽으로 돌아가고 표만 다시 그린다')
+  assert.match(scriptSource, /portfolioSortHeader\(grpName,'name','종목','text-left holdings-asset-head'\)/, '보유 목록 종목·계좌·소유주 칸도 정렬')
+  assert.match(scriptSource, /Object\.entries\(_sortState\)\.forEach\(\(\[g,st\]\)=>applyPortfolioSort\(/, '보유 목록은 다시 그린 뒤 정렬을 되살린다')
+  assert.match(cobaltSource, /function cbResetViewState\(\)\{[\s\S]*?_cbTableSort=\{\};[\s\S]*?_sortState=\{\}/, '화면을 옮기면 모든 표 정렬을 지운다')
+}

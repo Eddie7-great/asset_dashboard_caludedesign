@@ -25,7 +25,7 @@ function extractFunction(source, name) {
   throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-const dcaContext = {}
+const dcaContext = { _taxRuleValue: (_path, fallback) => fallback }
 vm.createContext(dcaContext)
 // 통화 기호는 CURRENCY_META 단일 출처에서 온다 — 정의부를 그대로 가져온다.
 vm.runInContext(scriptSource.slice(scriptSource.indexOf('const CURRENCY_META'), scriptSource.indexOf('function curRateKnown(')), dcaContext)
@@ -34,6 +34,7 @@ for (const name of [
   'getDcaCellHtml',
   'getDcaAmountCellHtml',
   'getDcaMergedCellHtml',
+  'getAccountDivTaxInfo',
   'holdingsWeightHtml',
   'escHtml',
   'holdingsEsc',
@@ -60,7 +61,7 @@ assert.match(dcaContext.getDcaAmountCellHtml(weeklyDca), /₩500,000/, '회당 �
 assert.match(dcaContext.getDcaMergedCellHtml(weeklyDca), /<span class="dca-cycle">매주 월·수<\/span><span class="dca-amount">₩500,000<\/span>/, '적립식 한 칸에 주기와 회당 금액을 두 줄로 표시')
 assert.equal((dcaContext.getDcaMergedCellHtml({ dca: false }).match(/—/g) || []).length, 1, '적립식이 아니면 대시 하나만 표시')
 assert.doesNotMatch(scriptSource, /DCA 주기<\/th>|회당 금액<\/th>|dca-cycle-cell|dca-amount-cell/, '보유 목록에 옛 두 칸(DCA 주기·회당 금액)을 남기지 않음')
-assert.equal((scriptSource.match(/<th class="dca-head">적립식<\/th>/g) || []).length, 2, '주식·금 표 머리글은 적립식 한 칸')
+assert.equal((scriptSource.match(/portfolioSortHeader\(grpName,'dca','적립식','dca-head'\)/g) || []).length, 2, '주식·금 표 머리글은 적립식 한 칸(2026-11-18 부터 정렬 머리글)')
 assert.match(scriptSource, /const colspan=grpName==='현금' \? \(showOwner\?6:5\) : \(showOwner\?11:10\);/, '칸 하나를 줄였으므로 빈 행도 11칸(소유주 포함)을 덮음')
 {
   const widths = scriptSource.match(/const widths=showOwner\s*\?(\[[^\]]*\])\s*:(\[[^\]]*\]);/)
@@ -77,7 +78,9 @@ assert.match(scriptSource, /const colspan=grpName==='현금' \? \(showOwner\?6:5
 {
   const broker = dcaContext.getHoldingsBrokerCellHtml({ broker: '미래에셋증권', acc: '연금저축' })
   assert.match(broker, /holdings-broker-cell/, '증권사 칸은 두 줄 격자')
-  assert.match(broker, /<span class="holdings-account" data-overflow-watch>연금저축<\/span>/, '아랫줄 계좌에는 / 구분자를 붙이지 않음')
+  assert.match(broker, /<span class="holdings-account cb-acct-name" data-overflow-watch><i class="fin-tree-kind pen" aria-hidden="true"><\/i>연금저축<\/span>/, '아랫줄 계좌에는 / 구분자 없이 세제 유형 색 네모(연금)')
+  assert.match(dcaContext.getHoldingsBrokerCellHtml({ broker: 'A', acc: '중개형 ISA' }), /fin-tree-kind isa/, 'ISA 계좌 색')
+  assert.match(dcaContext.getHoldingsBrokerCellHtml({ broker: 'A', acc: '일반' }), /fin-tree-kind gen/, '일반 계좌 색')
   assert.match(broker, /data-overflow-tip="미래에셋증권 \/ 연금저축"/, '말풍선은 증권사 / 계좌 한 줄')
 }
 assert.match(workspaceSource, /#view-holdings \.holdings-inline-cell\.holdings-asset-cell\{display:grid;/, '종목 칸은 이름·티커 두 줄 격자')
@@ -214,9 +217,9 @@ assert.match(scriptSource, /function toggleLayoutPreview\(\)[\s\S]*openLayoutPre
 assert.match(scriptSource, /mobilePreview[\s\S]*desktopPreview[\s\S]*sidebar-layout-label/, '미리보기 안에서는 전환 버튼 문구를 반대 버전으로 변경')
 assert.match(scriptSource, /초기 대시보드 렌더가 그 해시를 덮어쓰지 않게[\s\S]*navResolve\(requestedView\):requestedView\)!==normalized/, '기존 별칭을 해석한 뒤 모바일 미리보기의 페이지 해시를 유지')
 assert.match(styleSource, /\.layout-preview-overlay\.mode-mobile \.layout-preview-stage\{width:390px[\s\S]*\.mode-desktop \.layout-preview-stage\{width:1280px/, '미리보기 iframe에 실제 모바일·PC 반응형 폭 적용')
-assert.match(cobaltSource, /<div class="cb-thead cb-div-head">\s*<span>소유주<\/span><span class="cb-div-c-name">종목<\/span>[\s\S]*<span class="cb-div-c-flag">\$\{cbFlagSvg\(x,15\)\}<\/span>/, "배당 관리: 머리글 '종목'은 국기 칸부터 시작하고 행의 국기 칸은 유지")
+assert.match(cobaltSource, /<div class="cb-thead cb-div-head">\s*<span>\$\{cbSortBtn\('div','owner','소유주','text'\)\}<\/span><span class="cb-div-c-name">\$\{cbSortBtn\('div','name','종목','text'\)\}<\/span>[\s\S]*<span class="cb-div-c-flag">\$\{cbFlagSvg\(x,15\)\}<\/span>/, "배당 관리: 머리글 '종목'은 국기 칸부터 시작하고 행의 국기 칸은 유지")
 assert.match(workspaceSource, /\.cb-div-head>\.cb-div-c-name\{grid-column:span 2\}/, "배당 머리글 '종목'이 국기·이름 두 칸을 덮음")
-assert.match(cobaltSource, /연간 수입 · \$\{basisLabel\}<\/span><span[^>]*>[\s\S]{0,400}?배당세<\/span><\/span><span[^>]*>보유 주수<\/span><span[^>]*>주당 배당\(연\)/, '배당 내역을 연간 수입 → 배당세 → 보유 주수 → 주당 배당 순으로 배치')
+assert.match(cobaltSource, /cbSortBtn\('div','income',`연간 수입 · \$\{basisLabel\}`\)[\s\S]{0,200}?cbSortBtn\('div','tax',[\s\S]{0,200}?배당세<\/span>`\)\}<\/span><span[^>]*>\$\{cbSortBtn\('div','qty','보유 주수'\)\}<\/span><span[^>]*>\$\{cbSortBtn\('div','dps','[^']*주당 배당\(연\)/, '배당 내역을 연간 수입 → 배당세 → 보유 주수 → 주당 배당 순으로 배치')
 assert.match(scriptSource, /holdings-asset-flag/, '자산 내역 종목명 왼쪽에 국기·자산 아이콘 슬롯 추가')
 assert.doesNotMatch(cobaltSource, /function cbDcaDel\(/, '자산 내역에서 불러오는 DCA 페이지의 별도 삭제 기능 제거')
 assert.doesNotMatch(cobaltSource, /width:44px;text-align:right">관리<\/span>/, 'DCA 페이지 관리 칼럼 제거')
@@ -230,7 +233,7 @@ assert.match(cobaltSource, /<aside class="cb-panel home-stock-summary"/, '선택
 // 선택은 행 전체가 받는다. 종목명만 감싼 버튼은 티커·수량·금액 칸을 죽은 영역으로 만들었다.
 assert.match(cobaltSource, /<tr class="\$\{r\.key===_cdashSel\?'is-selected':''\}" role="button" tabindex="0"[\s\S]{0,120}data-key="\$\{cbEsc\(r\.key\)\}" onclick="cbDashPick\(this\.dataset\.key\)"/, '행 전체가 선택 대상이며 키는 data-key 로만 전달')
 assert.doesNotMatch(cobaltSource, /home-stock-pick/, '중첩 버튼 제거 — 남기면 클릭이 두 번 발생')
-assert.match(cobaltSource, /<th>소유주<\/th><th>종목<\/th><th>수량<\/th><th>매입금액<\/th><th>평가액<\/th><th>비중<\/th><th>평가손익<\/th><th>수익률<\/th><th><span class="sr-only">시세 상태<\/span>/, '홈 보유 목록 9개 칼럼 (매입금액·비중·시세 상태 포함)')
+assert.match(cobaltSource, /\[\['owner','소유주','text'\],\['name','종목','text'\],\['qty','수량'\],\['cost','매입금액'\],\['val','평가액'\],\['share','비중'\],\['gain','평가손익'\],\['pct','수익률'\]\]\.map\(\(\[k,l,t\]\)=>`<th aria-sort="\$\{cbAriaSort\('home',k\)\}">\$\{cbSortBtn\('home',k,l,t\)\}<\/th>`\)\.join\(''\)\}<th><span class="sr-only">시세 상태<\/span>/, '홈 보유 목록 9개 칼럼 (매입금액·비중·시세 상태 포함, 2026-11-18 부터 정렬 머리글 8칸)')
 assert.match(cobaltSource, /colspan="9">검색 결과가 없습니다/, '빈 결과 행도 9칸을 덮는다')
 // cbCostKRW 는 취득가 미상일 때 0 을 돌려준다 — 그대로 그리면 ₩0 이 찍힌다.
 assert.match(cobaltSource, /\$\{r\.i\.costUnknown\?'—':cbDisp\(r\.cost\)\}/, '취득가 미상 매입금액은 0원이 아니라 —')

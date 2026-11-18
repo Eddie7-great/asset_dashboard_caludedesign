@@ -325,16 +325,22 @@ function etfRefreshResults(){
   const m=etfModel(),diff=m.comparison;
   const deltas=new Map(diff.rows.map(h=>[cbStrip(h.t),h]));
   const direct=_etfDirectOnly?cbDirectStockMap(_etfOwner):null;
-  const rows=m.quality.rows
+  let rows=m.quality.rows
     .filter(h=>!_etfQuery||[h.t,h.n,etfIdentity(h).name].join(' ').toLowerCase().includes(_etfQuery.toLowerCase()))
     .filter(h=>!direct||direct.has(cbStrip(h.t)));
+  // 머리글 정렬(cbSortRows, cobalt.js)은 페이지를 나누기 전에 한다 — 한 쪽 안에서만 정렬하면 순서가 틀린다.
+  // 변화가 없는 종목은 비교가 완전할 때만 0 이고, 비교할 수 없거나 일부만 비교했으면 값 없음(끝)이다.
+  if(typeof cbSortRows==='function') rows=cbSortRows('etf',rows,{
+    name:h=>etfIdentity(h).name||h.n||h.t, weight:h=>h.w,
+    change:h=>{const d=deltas.get(cbStrip(h.t));return d?d.delta:(diff.comparable&&diff.complete?0:null);},
+  });
   const pages=Math.max(1,Math.ceil(rows.length/ETF_PAGE_SIZE));_etfPage=Math.max(0,Math.min(_etfPage,pages-1));
   const changeNote=!m.previous?'직전 기준일 자료가 없어 변화를 비교하지 않습니다.'
     :!diff.comparable?'출처가 달라 비중 변화를 비교하지 않습니다.'
     :!diff.complete?`${m.previous.asOf} → ${m.entry.asOf} · 일부 자료라 양쪽에 확인된 종목만 비교합니다`
     :`${m.previous.asOf} → ${m.entry.asOf} · 비중 차이(%p), 매매량과 다를 수 있음`;
   const note=`${rows.length}종목${_etfDirectOnly?' · 직접 보유만':''} · ${m.quality.label} · ${changeNote}`;
-  root.innerHTML=`<p class="etf-caption" role="status">${cbEsc(note)}</p><div class="etf-table"><div class="etf-table-head"><span>종목</span><span>비중</span><span>변화</span></div>${rows.slice(_etfPage*ETF_PAGE_SIZE,(_etfPage+1)*ETF_PAGE_SIZE).map(h=>{
+  root.innerHTML=`<p class="etf-caption" role="status">${cbEsc(note)}</p><div class="etf-table"><div class="etf-table-head">${typeof cbSortBtn==='function'?`<span>${cbSortBtn('etf','name','종목','text')}</span><span>${cbSortBtn('etf','weight','비중')}</span><span>${cbSortBtn('etf','change','변화')}</span>`:'<span>종목</span><span>비중</span><span>변화</span>'}</div>${rows.slice(_etfPage*ETF_PAGE_SIZE,(_etfPage+1)*ETF_PAGE_SIZE).map(h=>{
     const d=deltas.get(cbStrip(h.t));
     // 편입·편출은 숫자만으로 구분되지 않으므로 라벨을 남긴다. 비중 증가/감소는
     // 옆의 %p 값이 이미 말해 주므로 라벨을 찍지 않는다.

@@ -258,6 +258,8 @@ function cbFlagSvg(r, h){
 function cbFlagCell(r, slot, h){
   return `<span style="width:${slot||30}px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${cbFlagSvg(r, h||16)}</span>`;
 }
+// 표의 '계좌' 칸 — 윗줄 증권사, 아랫줄 세제 유형 색 네모 + 계좌명. 보유 목록과 같은 구현(getHoldingsBrokerCellHtml)을 쓴다.
+function cbAccountCell(i){ return getHoldingsBrokerCellHtml(i||{}); }
 function cbAccountLabel(i){
   const broker = String((i&&i.broker)||'').trim();
   const account = String((i&&i.acc)||'').trim();
@@ -367,6 +369,40 @@ function cbRestoreFilterFocus(rootId, attr, value){
     if(hit && typeof hit.focus==='function') hit.focus();
   };
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(run); else run();
+}
+// ── 표 정렬(2026-11-18) ── 종목이 나오는 내역 표의 머리글을 누르면 그 칸으로 정렬한다.
+// 상태는 표마다 {key,dir} 하나이고 렌더 때 행 배열에 적용한다 — 그래서 시세 갱신·소유주 변경으로 다시 그려도
+// 순서가 유지되고, 다른 화면으로 옮길 때만 지운다(cbResetViewState). 첫 클릭은 숫자 내림차순·글자 오름차순,
+// 같은 칸을 다시 누르면 반대. 값이 없는 행(취득가 미상·시세 없음 등)은 어느 방향에서도 끝이다.
+let _cbTableSort={};
+function cbSortCompare(av,bv,dir){
+  const none=v=>v==null||v===''||(typeof v==='number'&&!Number.isFinite(v));
+  if(none(av)) return none(bv)?0:1;
+  if(none(bv)) return -1;
+  if(typeof av==='number'&&typeof bv==='number') return (av-bv)*dir;
+  return String(av).localeCompare(String(bv),'ko')*dir;
+}
+// 정렬 상태가 없으면 받은 순서(각 화면의 기본 순서) 그대로. 같은 값끼리는 기본 순서를 지킨다.
+function cbSortRows(table,rows,getters){
+  const st=_cbTableSort[table], get=st&&getters?getters[st.key]:null;
+  if(!get) return rows;
+  return rows.map((r,i)=>({r,i,v:get(r)})).sort((a,b)=>cbSortCompare(a.v,b.v,st.dir)||a.i-b.i).map(x=>x.r);
+}
+function cbSortDir(table,key){ const st=_cbTableSort[table]; return st&&st.key===key?st.dir:0; }
+function cbAriaSort(table,key){ const d=cbSortDir(table,key); return d===1?'ascending':d===-1?'descending':'none'; }
+// 머리글 버튼. type 'text' 는 첫 클릭 오름차순, 그 밖은 내림차순. 상태는 화살표와 화면 낭독용 글자로 함께 알린다.
+// 오른쪽 정렬 칸(is-r — 숫자 칸 기본, 글자 칸은 align 'r')은 화살표를 글자 앞에 그린다 — 머리글 끝이 값 끝과 맞는다.
+function cbSortBtn(table,key,label,type,align){
+  const d=cbSortDir(table,key), right=align?align==='r':type!=='text';
+  return `<button type="button" class="cb-sort-btn${right?' is-r':''}${d?' is-on':''}" data-sort-btn="${table}:${key}" onclick="cbTableSortClick('${table}','${key}','${type==='text'?'text':'num'}')">${label}<i class="cb-sort-ind" aria-hidden="true">${d===1?'▲':d===-1?'▼':'↕'}</i>${d?`<span class="sr-only">, ${d===1?'오름차순':'내림차순'} 정렬됨</span>`:''}</button>`;
+}
+function cbTableSortClick(table,key,type){
+  const st=_cbTableSort[table];
+  if(st&&st.key===key) st.dir=-st.dir; else _cbTableSort[table]={key,dir:type==='text'?1:-1};
+  // ETF 구성종목은 표만 다시 그린다(화면 전체를 다시 그리면 구성종목 조회가 다시 돈다). 정렬하면 1쪽으로.
+  if(table==='etf'&&typeof etfRefreshResults==='function'){ _etfPage=0; etfRefreshResults(); cbRestoreFilterFocus('etf-results','data-sort-btn',`${table}:${key}`); return; }
+  cbRerender();
+  cbRestoreFilterFocus('cb-'+_cobaltActive,'data-sort-btn',`${table}:${key}`);
 }
 // 소유주 필터 버튼 행 (전체 + 소유주 4인). onclick 은 소유주명을 인자로 받는 전역 함수명.
 function cbOwnerBtns(current, fnName){
@@ -1034,6 +1070,28 @@ function cbMultiLineSvg(seriesArr, w, h){
 }
 
 // ───────────────────────── 페이지: 대시보드 ─────────────────────────
+// 평가손익 기여도 폭포형 막대의 단계. 새 손익 계산은 없다 — 각 행의 r.gain 을 차례로 더할 뿐이다.
+// 이익 상위 topGain 종목 → '기타 이익' → 손실 상위 topLoss 종목 → '기타 손실' → 합계.
+// 각 단계는 직전 누적(start)에서 새 누적(end)까지의 구간이고, 마지막 '합계'는 0 에서 합계까지다.
+function cbContribSteps(rows, topGain=5, topLoss=2){
+  const list=(rows||[]).filter(r=>r&&Number.isFinite(r.gain)&&r.gain!==0);
+  const gains=list.filter(r=>r.gain>0).sort((a,b)=>b.gain-a.gain);
+  const losses=list.filter(r=>r.gain<0).sort((a,b)=>a.gain-b.gain);
+  const sum=arr=>arr.reduce((t,r)=>t+r.gain,0);
+  // 남는 종목이 하나뿐이면 '기타 1종목'으로 묶지 않고 이름으로 보인다
+  if(gains.length===topGain+1) topGain++;
+  if(losses.length===topLoss+1) topLoss++;
+  const steps=[]; let cum=0;
+  const push=(kind,label,value,row,count)=>{ steps.push({kind,label,value,row:row||null,count:count||1,start:cum,end:cum+value}); cum+=value; };
+  gains.slice(0,topGain).forEach(r=>push('gain',r.title,r.gain,r));
+  if(gains.length>topGain) push('gain-rest',`기타 이익 ${gains.length-topGain}종목`,sum(gains.slice(topGain)),null,gains.length-topGain);
+  losses.slice(0,topLoss).forEach(r=>push('loss',r.title,r.gain,r));
+  if(losses.length>topLoss) push('loss-rest',`기타 손실 ${losses.length-topLoss}종목`,sum(losses.slice(topLoss)),null,losses.length-topLoss);
+  const total=cum;
+  steps.push({kind:'total',label:'합계',value:total,row:null,count:list.length,start:0,end:total});
+  const pts=[0,...steps.map(x=>x.end),...steps.map(x=>x.start)];
+  return {steps,total,min:Math.min(...pts),max:Math.max(...pts),gainCount:gains.length,lossCount:losses.length};
+}
 function cbRenderDash(){
   cbEnsureDivHist();
   const el = document.getElementById('cb-cdash'); if(!el) return;
@@ -1094,16 +1152,14 @@ function cbRenderDash(){
     ? `<div class="cb-mover-stale">시세 미조회 ${moverStaleRows.length}종목 제외 · ${cbEsc(moverStaleRows.slice(0,3).map(r=>r.title).join(', '))}${moverStaleRows.length>3?` 외 ${moverStaleRows.length-3}종목`:''}</div>`
     : '';
   // 수익률 순위가 작은 보유액을 과대평가하지 않도록 실제 원화 평가손익의 절대 기여도를 별도로 비교한다.
-  const contributionRows = mergedRows
-    .filter(r=>r.i.grp!=='현금' && !cbRowPriceStale(r) && Number.isFinite(r.gain) && Math.abs(r.gain)>0)
-    .sort((a,b)=>Math.abs(b.gain)-Math.abs(a.gain))
-    .slice(0,6);
-  const contributionMax = Math.max(1,...contributionRows.map(r=>Math.abs(r.gain)));
+  // 폭포형: 이익 상위 5 → 기타 이익 → 손실 상위 2 → 기타 손실 → 합계. 현금·시세 미조회는 뺀다(아래 요약과 같은 기준).
+  const contribStale = mergedRows.filter(r=>r.i.grp!=='현금' && cbRowPriceStale(r)).length;
   // 합계도 목록과 같은 stale 제외를 적용한다 — 안 그러면 목록엔 없는 시세 미조회
   // 종목의 손익이 상단 '이익/손실 기여' 배지에는 섞여 두 숫자가 서로 다른 기준이 된다.
   const contributionEligible = mergedRows.filter(r=>r.i.grp!=='현금' && !cbRowPriceStale(r));
   const contributionGain = contributionEligible.reduce((s,r)=>s+Math.max(0,r.gain||0),0);
   const contributionLoss = contributionEligible.reduce((s,r)=>s+Math.min(0,r.gain||0),0);
+  const contribWf = cbContribSteps(contributionEligible);
   const moverCard = (title, list, tone, empty) => `
     <div class="cb-panel cb-mover-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px;margin-bottom:5px">
@@ -1123,32 +1179,39 @@ function cbRenderDash(){
   const contributionCard = `
     <div class="cb-panel cb-dash-contrib-card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:7px">
-        <span data-tip="각 종목의 평가손익 원화 금액을 절대값 순으로 비교합니다. 막대 길이는 가장 큰 손익 대비 상대 크기이며 전체 비율은 아닙니다." class="cb-panel-title">평가손익 기여도</span>
+        <span data-tip="이익이 큰 종목부터 차례로 더하고 손실을 빼 합계 평가손익이 되는 과정입니다. 막대는 직전 누적에서 이 종목을 더한 누적까지의 구간이고, %는 합계 평가손익 대비 비중입니다. 현금과 시세 미조회 종목은 뺍니다." class="cb-panel-title">평가손익 기여도</span>
         <span style="font-size:var(--fs-cap);color:var(--dim);white-space:nowrap">${ownerF?cbEsc(ownerF):'전체 소유주'}</span>
       </div>
       <div class="cb-contrib-summary">
         <span>이익 기여 <b class="cb-num" style="color:var(--up)">${cbSignDisp(contributionGain)}</b></span>
         <span>손실 기여 <b class="cb-num" style="color:var(--dn)">${contributionLoss<0?cbDisp(contributionLoss):cbDisp(0)}</b></span>
       </div>
-      <div class="cb-contrib-list">
-        ${contributionRows.map(r=>{
-          const width=Math.max(2,Math.min(49,Math.abs(r.gain)/contributionMax*49));
-          const tip=[r.title,r.subTitle,_cdashOwner==='전체'?r.i.owner:''].filter(Boolean).join(' · ');
+      <div class="cb-contrib-list cb-wf" role="list" aria-label="평가손익이 종목별로 쌓여 합계가 되는 과정">
+        ${contribWf.steps.length>1 ? contribWf.steps.map(st=>{
+          const span=(contribWf.max-contribWf.min)||1;
+          const pos=v=>(v-contribWf.min)/span*100;
+          const left=Math.min(pos(st.start),pos(st.end)), width=Math.max(.8,Math.abs(pos(st.end)-pos(st.start)));
+          const tone=st.kind==='total'?'total':(st.value>=0?'gain':'loss');
+          const share=contribWf.total>0&&st.kind!=='total'?st.value/contribWf.total*100:null;
+          const owner=st.row&&_cdashOwner==='전체'?st.row.i.owner:'';
+          const label=st.kind==='total'?(contribStale?`합계 · 시세 미조회 ${contribStale}종목 제외`:'합계'):st.label;
+          const tip=[st.row?[st.row.title,st.row.subTitle,owner].filter(Boolean).join(' · '):label, cbSignDisp(st.value), share!=null?`합계의 ${share.toFixed(1)}%`:'', st.kind!=='total'?`누적 ${cbSignDisp(st.end)}`:''].filter(Boolean).join(' · ');
           return `
-          <div class="cb-contrib-row">
+          <div class="cb-wf-row is-${tone}" role="listitem" data-tip="${cbEsc(tip)}">
             <div class="cb-contrib-row-head">
-              <span class="cb-tip-block" data-overflow-tip="${cbEsc(tip)}" style="display:flex;align-items:center;gap:5px;min-width:0;flex:1">
-                <i class="cb-owner-dot" style="background:${cbOwnerColor(r.i.owner)}"></i>
-                <span data-overflow-watch style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--mut)">${cbEsc(r.title)}${_cdashOwner==='전체'?` <span style="color:var(--dim);font-weight:500">· ${cbEsc(r.i.owner)}</span>`:''}</span>
+              <span style="display:flex;align-items:center;gap:5px;min-width:0;flex:1">
+                ${st.row?`<i class="cb-owner-dot" style="background:${cbOwnerColor(st.row.i.owner)}"></i>`:''}
+                <span class="cb-wf-name">${cbEsc(label)}${owner?` <span class="cb-wf-owner">· ${cbEsc(owner)}</span>`:''}</span>
               </span>
-              <b class="cb-num" style="${cbUpDn(r.gain)};flex-shrink:0">${cbSignDisp(r.gain)}</b>
+              <b class="cb-num" style="${st.kind==='total'?'color:var(--tx)':cbUpDn(st.value)};flex-shrink:0">${cbSignDisp(st.value)}</b>
+              ${share!=null?`<span class="cb-num cb-wf-share">${Math.abs(share)>=10?share.toFixed(0):share.toFixed(1)}%</span>`:''}
             </div>
-            <div class="cb-contrib-track" aria-label="${cbEsc(r.title)} 평가손익 ${cbEsc(cbSignDisp(r.gain))}">
-              <span class="cb-contrib-axis"></span>
-              <span class="cb-contrib-bar" style="${r.gain>=0?'left:50%':'right:50%'};width:${width}%;background:${r.gain>=0?'var(--up)':'var(--dn)'}"></span>
+            <div class="cb-contrib-track cb-wf-track">
+              <span class="cb-wf-zero" style="left:${pos(0).toFixed(2)}%"></span>
+              <span class="cb-wf-bar ${tone}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span>
             </div>
           </div>`;
-        }).join('') || '<div style="margin:auto;text-align:center;color:var(--dim);font-size:var(--fs-cap)">평가손익 데이터가 없습니다</div>'}
+        }).join('') : '<div style="margin:auto;text-align:center;color:var(--dim);font-size:var(--fs-cap)">평가손익 데이터가 없습니다</div>'}
       </div>
     </div>`;
 
@@ -1288,7 +1351,23 @@ function cbHomeSummary(sel,nw){
 
   return selPanel;
 }
+// 홈·구성원 비교 표가 함께 쓰는 정렬 값. 단가는 통화가 섞이므로 원화 환산(평가액·매입금액 ÷ 수량)으로 비교한다.
+function cbOwnerRank(o){ const k=OWNERS.indexOf(o); return k<0?OWNERS.length:k; }
+function cbHoldingSortGetters(){
+  const unknown=r=>r.i.costUnknown||r.i.grp==='현금';
+  const qty=r=>Number(r.qty??r.i.qty)||0;
+  return {
+    owner:r=>cbOwnerRank(r.i.owner), name:r=>r.title||r.i.name||r.i.tkr||'',
+    acct:r=>[r.i.broker||'',r.i.acc||''].join(' '),
+    qty:r=>r.i.grp==='현금'?null:qty(r),
+    avg:r=>unknown(r)||!(qty(r)>0)?null:r.cost/qty(r),
+    cur:r=>r.i.grp==='현금'||!(qty(r)>0)?null:r.val/qty(r),
+    cost:r=>r.i.costUnknown?null:r.cost, val:r=>r.val, share:r=>r.val,
+    gain:r=>unknown(r)?null:r.gain, pct:r=>r.gainPct==null?null:r.gainPct,
+  };
+}
 function cbHomeHoldings(rows){
+  rows=cbSortRows('home',rows,cbHoldingSortGetters());
   const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
@@ -1311,7 +1390,7 @@ function cbHomeHoldings(rows){
   return `<div class="home-holdings-layout">`
     +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3>`
     +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
-    +`<div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목</th><th>수량</th><th>매입금액</th><th>평가액</th><th>비중</th><th>평가손익</th><th>수익률</th><th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
+    +`<div class="home-table-wrap"><table><thead><tr>${[['owner','소유주','text'],['name','종목','text'],['qty','수량'],['cost','매입금액'],['val','평가액'],['share','비중'],['gain','평가손익'],['pct','수익률']].map(([k,l,t])=>`<th aria-sort="${cbAriaSort('home',k)}">${cbSortBtn('home',k,l,t)}</th>`).join('')}<th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
     +`<tbody>${rows.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
     +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
@@ -1617,36 +1696,31 @@ function cbRenderFam(){
           <input value="${cbEsc(_famQ)}" oninput="cbFamSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:var(--font-ui);font-size:var(--fs-cap);width:100%;outline:none" />
         </div>
       </div>
-      <div class="cb-tblwrap"><div style="min-width:826px">
-      <div class="cb-thead cb-family-head" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)">
-        <span style="width:62px;flex-shrink:0">소유주</span>
-        <span style="flex:1;min-width:0">종목</span>
-        <span style="width:76px;text-align:right;flex-shrink:0">수량</span>
-        <span style="width:90px;text-align:right;flex-shrink:0"><span data-tip="보유 수량 전체의 평균 매수 단가(가중평균)">평단가</span></span>
-        <span style="width:90px;text-align:right;flex-shrink:0">현재가</span>
-        <span style="width:100px;text-align:right;flex-shrink:0">평가액</span>
-        <span style="width:96px;text-align:right;flex-shrink:0">평가손익</span>
-        <span style="width:56px;text-align:right;flex-shrink:0">수익률</span>
+      <!-- 칸 폭은 .cb-family-head/.cb-family-row 격자(workspace-ui.css). 소유주 · 계좌 · 종목 순서는 보유 목록과 같다. -->
+      <div class="cb-tblwrap"><div class="cb-family-table">
+      <div class="cb-thead cb-family-head">
+        <span>${cbSortBtn('fam','owner','소유주','text')}</span><span>${cbSortBtn('fam','acct','계좌','text')}</span><span>${cbSortBtn('fam','name','종목','text')}</span>
+        <span class="r">${cbSortBtn('fam','qty','수량')}</span>
+        <span class="r">${cbSortBtn('fam','avg','<span data-tip="보유 수량 전체의 평균 매수 단가(가중평균) · 정렬은 원화 환산 기준">평단가</span>')}</span>
+        <span class="r">${cbSortBtn('fam','cur','<span data-tip="정렬은 원화 환산 기준">현재가</span>')}</span><span class="r">${cbSortBtn('fam','val','평가액')}</span><span class="r">${cbSortBtn('fam','gain','평가손익')}</span><span class="r">${cbSortBtn('fam','pct','수익률')}</span>
       </div>
-      ${held.map(r=>`
-        <div class="cb-hrow" style="display:flex;align-items:center;gap:10px;padding:7px 9px">
-          <span style="width:62px;flex-shrink:0">${cbOwnerTag(r.i.owner)}</span>
-          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
-            ${cbFlagCell(r, 30, 16)}
-            <div style="min-width:0">
-              <div class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([r.title,r.subTitle].filter(Boolean).join(' · '))}">
-                <span class="cb-asset-name" data-overflow-watch>${cbEsc(r.title)}</span>
-                ${r.subTitle?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(r.subTitle)}</span>`:''}
-              </div>
-              <div class="cb-tip-block" data-overflow-tip="${cbEsc([r.i.broker,r.i.acc].filter(Boolean).join(' · ')||'—')}"><span data-overflow-watch style="display:block;font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.i.broker||'—')}${r.i.acc?' · '+cbEsc(r.i.acc):''}</span></div>
+      ${cbSortRows('fam',held,cbHoldingSortGetters()).map(r=>`
+        <div class="cb-hrow cb-family-row">
+          <span>${cbOwnerTag(r.i.owner)}</span>
+          <span>${cbAccountCell(r.i)}</span>
+          <div class="cb-family-asset">
+            ${cbFlagCell(r, 26, 15)}
+            <div class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([r.title,r.subTitle].filter(Boolean).join(' · '))}">
+              <span class="cb-asset-name" data-overflow-watch>${cbEsc(r.title)}</span>
+              ${r.subTitle?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(r.subTitle)}</span>`:''}
             </div>
           </div>
-          <span class="cb-num" style="width:76px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'예수금':cbEsc(Number(r.i.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})+(r.i.grp==='가상화폐'?'개':r.i.unit||'주'))}</span>
-          <span class="cb-num" style="width:90px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(cbAvgNative(r.i),r.i.cur)}</span>
-          <span class="cb-num" style="width:90px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</span>
-          <span style="width:100px;text-align:right;font-size:var(--fs-body);font-weight:700;flex-shrink:0">${cbDisp(r.val)}</span>
-          <span style="width:96px;text-align:right;font-size:var(--fs-cap);font-weight:600;flex-shrink:0;${cbGainStyle(r.gain,r.i.grp==='현금'||r.i.costUnknown)}">${r.i.grp==='현금'||r.i.costUnknown?'—':cbSignDisp(r.gain)}</span>
-          <span style="width:56px;text-align:right;font-size:var(--fs-cap);font-weight:600;flex-shrink:0;${cbGainStyle(r.gainPct,r.gainPct==null)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'예수금':cbEsc(Number(r.i.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})+(r.i.grp==='가상화폐'?'개':r.i.unit||'주'))}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'—':cbFmtNative(cbAvgNative(r.i),r.i.cur)}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</span>
+          <span class="cb-num r b">${cbDisp(r.val)}</span>
+          <span class="cb-num r cap sb" style="${cbGainStyle(r.gain,r.i.grp==='현금'||r.i.costUnknown)}">${r.i.grp==='현금'||r.i.costUnknown?'—':cbSignDisp(r.gain)}</span>
+          <span class="cb-num r cap sb" style="${cbGainStyle(r.gainPct,r.gainPct==null)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
         </div>`).join('')}
       </div></div>
     </div>
@@ -2188,9 +2262,13 @@ function cbRenderDiv(){
       <!-- 칸 폭은 .cb-div-head/.cb-div-row 격자(workspace-ui.css)가 정한다 — 한 칸만 flex:1 이고 나머지가 고정 폭이면
            표가 1110px 를 넘어 오른쪽 세 칸(배당성장·주기·배당락)이 화면 밖으로 밀렸다. 머리글 '종목'은 국기 칸부터 두 칸을 덮는다. -->
       <div class="cb-thead cb-div-head">
-        <span>소유주</span><span class="cb-div-c-name">종목</span><span class="r">연간 수입 · ${basisLabel}</span><span class="r cb-mobile-secondary"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span class="r">보유 주수</span><span class="r cb-mobile-secondary">주당 배당(연)</span><span class="r"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="r cb-mobile-secondary"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="r cb-mobile-secondary"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="r cb-mobile-secondary"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="r cb-mobile-secondary">주기</span><span class="r cb-mobile-secondary"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+        <span>${cbSortBtn('div','owner','소유주','text')}</span><span class="cb-div-c-name">${cbSortBtn('div','name','종목','text')}</span><span class="r">${cbSortBtn('div','income',`연간 수입 · ${basisLabel}`)}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','tax',`<span data-tip="${cbEsc(divTaxTip)}">배당세</span>`)}</span><span class="r">${cbSortBtn('div','qty','보유 주수')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','dps','<span data-tip="정렬은 원화 환산 기준">주당 배당(연)</span>')}</span><span class="r">${cbSortBtn('div','share','<span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yld','<span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yoc','<span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','growth','<span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','cycle','주기','text','r')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','ex','<span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span>','text','r')}</span>
       </div>
-      ${visibleList.map(x=>`
+      ${cbSortRows('div',visibleList,{
+        owner:x=>cbOwnerRank(x.i.owner), name:x=>x.title||'', income:x=>x.incomeKRW, share:x=>x.incomeKRW, tax:x=>x.taxKRW,
+        qty:x=>Number(x.qty)||0, dps:x=>(Number(x.d.annualDps)||0)*cbRate(x.d.cur||x.i.cur), yld:x=>x.d.yldNum??null,
+        yoc:x=>x.yoc, growth:x=>x.g, cycle:x=>x.d.cycle&&x.d.cycle!=='-'?x.d.cycle:null, ex:x=>x.d.exDiv&&x.d.exDiv!=='-'?x.d.exDiv:null,
+      }).map(x=>`
         <div class="cb-div-row">
           <span>${cbOwnerTag(x.i.owner)}</span>
           <span class="cb-div-c-flag">${cbFlagSvg(x,15)}</span>
@@ -2210,7 +2288,7 @@ function cbRenderDiv(){
           <span class="cb-mobile-secondary r b" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
             ? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`
             : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary r cap mut">${cbEsc(x.d.cycle||'—')}</span>
+          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')}</span>
           <span class="cb-mobile-secondary r cap mut cb-div-c-ex">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
@@ -3164,16 +3242,10 @@ function cbRenderTax(){
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">
       <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <div class="cb-panel-title">실현손익 기록 <span style="color:var(--dim)">· 매도 확정 손익</span></div>
-          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="padding:4px 9px;font-size:var(--fs-cap)">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
-            <button class="cb-btn cb-tax-import" onclick="document.getElementById('cb-tax-import-file')?.click()" data-tip="증권사 거래내역으로 계산한 실현손익 파일(JSON)을 불러옵니다. 파일에 적힌 소유주·연도의 기존 기록은 교체되고, 다른 소유주·연도 기록은 그대로 둡니다." style="padding:4px 9px;font-size:var(--fs-cap)">거래내역 가져오기</button>
-            <input id="cb-tax-import-file" class="cb-tax-import" type="file" accept=".json,application/json" hidden onchange="cbTaxImportFile(this)" />
-          </span>
-        </div>
-        ${typeof finMobileNote==='function'?finMobileNote('실현손익 기록과 거래내역 가져오기'):''}
-        <div class="cb-tax-entry-form">
+        <!-- 제목 · 입력 줄 · 월 필터 · 거래내역 가져오기를 한 줄에 — 폭이 모자라면 입력 줄이 다음 줄로 내려간다 -->
+        <div class="cb-tax-hist-top">
+          <div class="cb-panel-title"><span data-tip="매도로 확정된 손익을 귀속 월별로 적습니다. 세금 계산은 이 기록을 씁니다.">실현손익 기록</span></div>
+          <div class="cb-tax-entry-form">
           <label>귀속 월<select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
           <label>시장<select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
           <label>계좌<select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
@@ -3182,16 +3254,23 @@ function cbRenderTax(){
           <label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
           <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:var(--fs-cap)">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:var(--fs-cap);color:var(--mut)">취소</button>':''}
+          </div>
+          <span class="cb-tax-hist-tools">
+            ${_cbTaxMonthFilter?`<button class="cb-btn" onclick="cbTaxMonthPick(${_cbTaxMonthFilter})" style="padding:4px 9px;font-size:var(--fs-cap)">${_cbTaxMonthFilter}월 내역 · 전체 보기 ×</button>`:''}
+            <button class="cb-btn cb-tax-import" onclick="document.getElementById('cb-tax-import-file')?.click()" data-tip="증권사 거래내역으로 계산한 실현손익 파일(JSON)을 불러옵니다. 파일에 적힌 소유주·연도의 기존 기록은 교체되고, 다른 소유주·연도 기록은 그대로 둡니다." style="padding:4px 9px;font-size:var(--fs-cap)">거래내역 가져오기</button>
+            <input id="cb-tax-import-file" class="cb-tax-import" type="file" accept=".json,application/json" hidden onchange="cbTaxImportFile(this)" />
+          </span>
         </div>
+        ${typeof finMobileNote==='function'?finMobileNote('실현손익 기록과 거래내역 가져오기'):''}
         <div style="overflow-x:auto"><div style="min-width:800px">
           <div class="cb-thead cb-tax-hist-head">
-            <span>소유주</span><span>월</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
+            <span>월</span><span>소유주</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
             <span><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
           ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
             <div class="cb-tax-hist-row">
-              <span>${cbOwnerTag(ownerOf(t))}</span>
               <span style="color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
+              <span>${cbOwnerTag(ownerOf(t))}</span>
               <span style="font-weight:800;color:${t.category==='domestic'?'var(--acc2)':'var(--warn)'}">${t.category==='domestic'?'국내':'해외'}</span>
               <span style="color:var(--mut)">${cbEsc(cbTaxAcctOf(t))}</span>
               <span><span class="cb-tax-treatment is-${treatment.tone}" data-tip="${cbEsc(treatment.tip)}">${cbEsc(treatment.label)}</span></span>
@@ -3605,9 +3684,13 @@ function cbRenderDca(){
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>
       <div class="cb-thead cb-dca-head">
-        <span>소유주</span><span>종목</span><span class="cb-mobile-secondary">회당 금액</span><span>주기</span><span>다음 매수</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary">계좌</span><span>월 환산</span><span>관리</span>
+        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text','r')}</span><span>${cbSortBtn('dca','next','다음 매수','text','r')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text','r')}</span><span>${cbSortBtn('dca','monthly','월 환산')}</span><span>관리</span>
       </div>
-      ${items.map(x=>{
+      ${cbSortRows('dca',items,{
+        owner:x=>cbOwnerRank(x.i.owner), name:x=>x.r.title||'', order:x=>cbDcaPerOrderKRW(x.i), cycle:x=>cbDcaRuleLabel(x.i),
+        next:x=>x.i.dca&&x.schedule.nextDate?x.schedule.nextDate:null, qty:x=>x.schedule.expectedQty>0?x.schedule.expectedQty:null,
+        acct:x=>x.i.broker||null, monthly:x=>cbDcaPerMonthKRW(x.i),
+      }).map(x=>{
         const r=x.r;
         const amtLabel = x.i.dcaMode==='qty'
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
@@ -3753,8 +3836,18 @@ function cbCountUp(id){
   };
   requestAnimationFrame(tick);
 }
+// 화면을 옮길 때만 지우는 화면 안 상태(표 정렬·달력에서 고른 날·펼친 계좌 등).
+// 같은 화면을 다시 그릴 때(시세 갱신·소유주 변경)는 유지된다.
+function cbResetViewState(){
+  if (typeof _calDay!=='undefined') _calDay=null;
+  if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
+  _cbTableSort={};
+  if (typeof _sortState!=='undefined') _sortState={};   // 보유 목록 표 정렬(script.js)
+}
 switchView = function(id, btn){
   id=navResolve(id);
+  const _prevView=document.querySelector('.view-section.active')?.id?.replace('view-','');
+  if (_prevView && _prevView!==id) cbResetViewState();
   navPrepare(id);
   ['cb-perf-tip','cb-div-bar-tip','table-float-tip'].forEach(tipId=>{
     const tip=document.getElementById(tipId);

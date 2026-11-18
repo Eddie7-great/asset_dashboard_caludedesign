@@ -19,12 +19,12 @@ function fn(source,name) {
 
 // Sorting reads raw values, so signs, display currency and masked text cannot change the order.
 {
-  const ctx=vm.createContext({_sortState:{}})
-  vm.runInContext(fn(script,'portfolioSortData')+'\n'+fn(script,'sortPortfolioTable'),ctx)
+  const ctx=vm.createContext({_sortState:{},PORTFOLIO_SORT_ASC_FIRST:['owner','acct','name'],holdingsEsc:v=>String(v).replace(/"/g,'&quot;')})
+  vm.runInContext(fn(script,'portfolioSortData')+'\n'+fn(script,'sortPortfolioTable')+'\n'+fn(script,'applyPortfolioSort'),ctx)
   const values=[-2400,1200,null,0,900]
   const rows=values.map((value,id)=>({id,getAttribute:key=>key==='data-sort-profit'?value==null?'':String(value):null}))
   const tbody={querySelectorAll:()=>rows,appendChild:row=>{rows.splice(rows.indexOf(row),1);rows.push(row)}}
-  const header={classList:{add(){},remove(){}},setAttribute(k,v){this[k]=v},closest:()=>table}
+  const header={classList:{add(){},remove(){}},setAttribute(k,v){this[k]=v},getAttribute:k=>k==='data-sort-field'?'profit':null,closest:()=>table}
   const table={querySelector:()=>tbody,querySelectorAll:()=>[header]}
   const button={closest:()=>header}
   ctx.sortPortfolioTable('주식','profit',button)
@@ -37,6 +37,20 @@ function fn(source,name) {
   assert.equal($('tr').attr('data-sort-profitpct'),'-12.3')
   assert.equal($('tr').attr('data-sort-avgp'),'123.45','달러·엔화 기호가 없는 원시 가격')
   assert.equal($('tr').attr('data-sort-profit'),'','미상을 0으로 바꾸지 않음')
+  assert.equal(load('<tr '+ctx.portfolioSortData({name:'S&P "500"'})+'></tr>',null,false)('tr').attr('data-sort-name'),'S&P "500"','글자 정렬 값도 원문 그대로(이스케이프)')
+  // 글자 칸(종목)은 첫 클릭이 오름차순(가나다), 빈 값은 끝 — 2026-11-18
+  const names=['테슬라','',  '애플','Invesco QQQ','삼성전자']
+  const nrows=names.map((value,id)=>({id,getAttribute:key=>key==='data-sort-name'?value:null}))
+  const ntbody={querySelectorAll:()=>nrows,appendChild:row=>{nrows.splice(nrows.indexOf(row),1);nrows.push(row)}}
+  const nheader={classList:{add(){},remove(){}},setAttribute(k,v){this[k]=v},getAttribute:k=>k==='data-sort-field'?'name':null,closest:()=>ntable}
+  const ntable={querySelector:()=>ntbody,querySelectorAll:()=>[nheader]}
+  ctx.sortPortfolioTable('주식','name',{closest:()=>nheader})
+  assert.deepEqual(nrows.map(r=>names[r.id]),['삼성전자','애플','테슬라','Invesco QQQ',''],'글자는 오름차순(한국어 정렬: 한글 → 영문)부터, 빈 값은 끝')
+  assert.equal(nheader['aria-sort'],'ascending')
+  // 다시 그린 표에도 같은 상태를 되살린다(applyPortfolioSort) — 상태는 화면을 옮길 때만 지운다
+  nrows.sort((a,b)=>a.id-b.id)
+  ctx.applyPortfolioSort(ntable,ctx._sortState['주식'])
+  assert.deepEqual(nrows.map(r=>names[r.id]),['삼성전자','애플','테슬라','Invesco QQQ',''])
 }
 
 // Only the actual same-origin preview iframe may reuse a server-verified session.
