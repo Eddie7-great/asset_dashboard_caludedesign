@@ -100,4 +100,28 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.match(script, /giftKind:item\.giftKind==='child'\|\|item\.giftKind==='spouse'\?item\.giftKind:''/, '자동이체 저장값이 증여 연결을 지킨다');
   assert.match(cobalt, /r\.auto\?'<em class="cb-gift-auto-tag"/, '자동 기록은 삭제 버튼 대신 자동 표시');
 }
+// 2026-11-18 4차: 증여 기록 → 현금 흐름 연동
+{
+  vm.runInContext(pick(cobalt, 'cbGiftSyncCashflow'), ctx);
+  vm.runInContext("var cfData=[{date:'2025-12-05',type:'지출',cat:'저축/투자',desc:'[자동] 자녀1 증권계좌',amt:300000,owner:'본인',isAuto:true,atId:7,scheduleMonth:'2025-12'}];var cfDeletedKeys=['auto:7:2025-11'];var saved=0;function saveCfData(){saved++;}function _getCycleLabel(){return '매월 5일';}", ctx);
+  vm.runInContext("autoTransferData[0].giftFrom='2025-10';autoTransferData[0].cat='저축/투자';", ctx);
+  ctx.window._giftActual = { records: [{ id: 'r1', kind: 'spouse', date: '2025-07-01', amt: 5_000_000, memo: '생일' }] };
+  assert.equal(ctx.cbGiftSyncCashflow(), true);
+  const cf = plain(vm.runInContext('cfData', ctx));
+  const auto7 = cf.filter(c => c.atId === 7).map(c => c.date).sort();
+  const now = new Date(), want = []
+  for (let d = new Date(2025, 9, 5, 12); d <= now; d.setMonth(d.getMonth() + 1)) { const k = ctx.finLocalDateKey(d); if (!k.startsWith('2025-11')) want.push(k) }
+  assert.deepEqual(auto7, want, '빠진 달만 채우고(2025-11 은 사용자가 지운 달이라 제외), 이미 있는 2025-12 줄은 그대로')
+  assert.equal(cf.filter(c => c.atId === 7 && c.date.startsWith('2025-12')).length, 1, '이미 있는 달은 두 줄이 되지 않는다');
+  assert.ok(cf.filter(c => c.giftBackfill).every(c => c.isAuto && c.desc === '[자동] 자녀1 증권계좌' && c.cat === '저축/투자'), '채운 줄은 자동이체 줄과 같은 모양');
+  const rec = cf.find(c => c.giftRecId === 'r1');
+  assert.ok(rec && rec.amt === 5_000_000 && rec.date === '2025-07-01' && rec.type === '지출' && rec.owner === '본인' && rec.cat === '저축/투자', '손으로 적은 기록은 지출 한 줄');
+  assert.equal(ctx.cbGiftSyncCashflow(), false, '두 번 불러도 같은 줄을 또 만들지 않는다');
+  ctx.window._giftActual.records = [];
+  vm.runInContext("delete autoTransferData[0].giftKind;", ctx);
+  assert.equal(ctx.cbGiftSyncCashflow(), true);
+  const after = plain(vm.runInContext('cfData', ctx));
+  assert.deepEqual(after.map(c => c.date), ['2025-12-05'], '연결을 끊고 기록을 지우면 채운 줄만 사라지고 원래 현금 흐름 줄은 남는다');
+  assert.match(script, /if\(item\.giftBackfill===true\)row\.giftBackfill=true;/, '현금 흐름 저장값이 연동 표식을 지킨다');
+}
 console.log('PASS 증여 기록장');

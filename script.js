@@ -828,6 +828,10 @@ function _normalizeCfRows(rows){
     const divKey=_boundedStoredText(item.divKey,220);
     if(divKey)row.divKey=divKey;
     if(item.dateStatus==='pending')row.dateStatus='pending';
+    // 증여 연동(2026-11-18 4차): 기록장 수기 기록에서 만든 줄(giftRecId), 증여 연결 자동이체의 지난 달을 채운 줄(giftBackfill)
+    const giftRecId=_boundedStoredText(item.giftRecId,60);
+    if(giftRecId)row.giftRecId=giftRecId;
+    if(item.giftBackfill===true)row.giftBackfill=true;
     return row;
   }).filter(Boolean);
 }

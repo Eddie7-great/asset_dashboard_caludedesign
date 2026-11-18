@@ -2473,6 +2473,49 @@ function cbGiftTransferRecords(asOf){
   });
   return out;
 }
+// 증여 기록 → 현금 흐름 연동(2026-11-18 4차). 기록장에 잡힌 증여가 현금 흐름에도 지출로 있어야 한다.
+//  1) 증여로 연결한 자동이체: 기록장 자동 기록(cbGiftTransferRecords)과 같은 이체일에 그 자동이체의 현금 흐름 줄이 없으면
+//     자동이체 줄과 같은 모양으로 채운다(giftBackfill). 사용자가 지운 달(cfDeletedKeys 'auto:id:YYYY-MM')은 다시 넣지 않는다.
+//     연결을 끊거나 시작 월을 늦추면 그 범위 밖의 채운 줄은 지운다 — 원래 현금 흐름이 만든 줄(giftBackfill 없음)은 건드리지 않는다.
+//  2) 손으로 적은 기록: 기록마다 지출 한 줄(giftRecId, 본인 → 가족 계좌라 자산 이동 '저축/투자'), 기록을 지우면 그 줄도 지운다.
+// 바뀐 것이 있으면 true — 저장은 부르는 쪽(cbGiftSave → saveExtDataToKV, cfData 포함)이 한다.
+function cbGiftSyncCashflow(){
+  if(typeof cfData==='undefined'||!Array.isArray(cfData)) return false;
+  const today=finLocalDateKey(new Date()), before=cfData.length;
+  const deleted=new Set(typeof cfDeletedKeys!=='undefined'&&Array.isArray(cfDeletedKeys)?cfDeletedKeys:[]);
+  const ats=typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[];
+  const auto=cbGiftTransferRecords(today);
+  const wantKey=new Set(auto.map(r=>`${r.atId}|${r.date}`));
+  let changed=false;
+  // 범위 밖이 된 채운 줄 지우기
+  for(let k=cfData.length-1;k>=0;k--){
+    const c=cfData[k];
+    if(c&&c.giftBackfill===true&&!wantKey.has(`${c.atId}|${c.date}`)){ cfData.splice(k,1); changed=true; }
+  }
+  auto.forEach(r=>{
+    const at=ats.find(x=>String(x.id)===String(r.atId)); if(!at) return;
+    const ym=r.date.slice(0,7), monthly=['monthly','month-end','month-start'].includes(at.cycle);
+    if(cfData.some(c=>c&&String(c.atId)===String(at.id)&&(c.date===r.date||(monthly&&String(c.date||'').slice(0,7)===ym)))) return;
+    if(deleted.has(`auto:${at.id}:${ym}`)) return;
+    cfData.push({date:r.date,type:'지출',cat:at.cat||'기타',desc:'[자동] '+(at.desc||''),amt:r.amt,owner:at.owner||'미지정',isAuto:true,atId:at.id,scheduleMonth:ym,
+      cycleLabel:typeof _getCycleLabel==='function'?_getCycleLabel(at):'',giftBackfill:true});
+    changed=true;
+  });
+  const stored=Array.isArray(cbGiftCfg().records)?cbGiftCfg().records:[];
+  const ids=new Set(stored.map(r=>String(r.id)));
+  for(let k=cfData.length-1;k>=0;k--){
+    const c=cfData[k];
+    if(c&&c.giftRecId&&!ids.has(String(c.giftRecId))){ cfData.splice(k,1); changed=true; }
+  }
+  const LABEL={child:'자녀',spouse:'배우자'};
+  stored.forEach(r=>{
+    if(!r||!r.id||cfData.some(c=>c&&String(c.giftRecId)===String(r.id))) return;
+    cfData.push({date:r.date,type:'지출',cat:'저축/투자',desc:`[증여] ${LABEL[r.kind]||''}${r.memo?' · '+r.memo:''}`.slice(0,240),amt:Number(r.amt)||0,owner:'본인',giftRecId:String(r.id)});
+    changed=true;
+  });
+  if(changed&&typeof saveCfData==='function') saveCfData();
+  return changed||cfData.length!==before;
+}
 // 증여 화면에서 지출 자동이체를 증여로 연결·해제한다(원본은 현금 흐름의 자동이체 그대로, 표식만 붙인다).
 function cbGiftLinkTransfer(atId, field, value){
   if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
@@ -2482,6 +2525,7 @@ function cbGiftLinkTransfer(atId, field, value){
     else { delete at.giftKind; delete at.giftFrom; }
   } else if(field==='from'&&/^\d{4}-\d{2}$/.test(value||'')) at.giftFrom=value;
   if(typeof saveAutoTransfers==='function') saveAutoTransfers(false);
+  cbGiftSyncCashflow();
   cbGiftSave();
 }
 // 증여로 셀 시작 월 — 연도·월 두 선택 목록(브라우저 월 달력은 직접 입력이 안 되고 과거로 넘기기 어렵다). 최근 10년까지.
@@ -2530,6 +2574,7 @@ function cbGiftAddRecord(){
   const cfg=cbGiftCfg(); if(!Array.isArray(cfg.records)) cfg.records=[];
   if(cfg.records.length>=500) return fail('기록은 500건까지 저장할 수 있습니다.');
   cfg.records.push({id:finNewId(),kind,date,amt,memo:val('cb-gift-rec-memo').trim().slice(0,120)});
+  cbGiftSyncCashflow();
   cbGiftSave();
 }
 function cbGiftDelRecord(id){
@@ -2537,7 +2582,7 @@ function cbGiftDelRecord(id){
   const cfg=cbGiftCfg(), list=Array.isArray(cfg.records)?cfg.records:[];
   const i=list.findIndex(r=>r&&String(r.id)===String(id)); if(i<0) return;
   if(typeof confirm==='function'&&!confirm('이 증여 기록을 삭제할까요?')) return;
-  list.splice(i,1); cbGiftSave();
+  list.splice(i,1); cbGiftSyncCashflow(); cbGiftSave();
 }
 function cbGiftLedgerHtml(scope){
   const kinds=[scope.child?'child':null,scope.spouse?'spouse':null].filter(Boolean);
@@ -2751,6 +2796,9 @@ function cbGiftSpouseChartSvg(w,h){
 // ── 렌더 ────────────────────────────────────────────────────
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
+  // 이미 연결해 둔 자동이체·적어 둔 기록이 현금 흐름에 빠져 있으면 채운다(재무 기록을 불러온 뒤에만, 바뀐 것이 있을 때만 저장).
+  if(window._kvLoadState?.ext==='ready'&&!(typeof isMobileLayout==='function'&&isMobileLayout())&&cbGiftSyncCashflow())
+    Promise.resolve(saveExtDataToKV()).catch(e=>console.error('[gift cashflow sync]',e));
   const years = cbGiftYears(), rate = cbGiftRate();
   const child = cbGiftChildPlan(), spouse = cbGiftSpousePlan();
   const childPvT  = child.reduce((s,g)=>s+g.pv,0);
