@@ -8,6 +8,7 @@ const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url)
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 const workspaceSource = fs.readFileSync(new URL('../../workspace-ui.css', import.meta.url), 'utf8')
+const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`)
@@ -97,3 +98,21 @@ const dark = styleSource.slice(styleSource.indexOf('--t1:#e7e9ee'), styleSource.
 assert.match(dark, /--t2:#c2c8d2;--t3:#a9b0bc/, '다크 테마의 보조 글자(축 눈금·캡션)는 배경 대비를 높인 값')
 
 console.log('test_trade_entry: ok')
+// 2026-11-18 3차: 창 바깥(어두운 바탕)을 누르면 닫힌다 — 안에서 누른 채 끌고 나온 경우는 닫지 않는다
+assert.match(scriptSource, /e\.target\.id==='trade-modal'&&_tradeDownOutside\)closeTradeModal\(\)/, '매수·매도 창은 바깥을 누르면 닫힌다(안에서 끌고 나온 경우 제외)')
+// 2026-11-18 3차: 실현손익 ↔ 보유 연동
+{
+  const stock = { grp: '주식', owner: '본인', acc: '일반', cur: 'KRW', qty: 10, avgP: 1000, name: 'SK스퀘어', tkr: '402340.KS' }
+  const skipped = plan(stock, { side: 'sell', qty: 4, skipPl: true })
+  assert.equal(skipped.ok, true, '이미 기록한 매도는 단가·손익 없이도 수량만 줄인다')
+  assert.equal(skipped.pl, null, '실현손익 줄을 새로 만들지 않는다(중복 방지)')
+  assert.equal(skipped.next.qty, 6)
+  assert.equal(skipped.next.avgP, 1000, '평균단가는 그대로')
+  assert.equal(plan(stock, { side: 'sell', qty: 11, skipPl: true }).ok, false, '보유보다 많이 팔 수 없다')
+  vm.runInContext(extractFunction(scriptSource, 'tradeExistingPlRows'), ctx)
+  const rows = [{ owner: '본인', memo: 'SK스퀘어 10주 매도' }, { owner: '아내', memo: 'SK스퀘어 매도' }, { owner: '본인', memo: '402340 일부 매도' }, { owner: '본인', memo: '삼성전자 매도' }]
+  assert.equal(ctx.tradeExistingPlRows(stock, rows).length, 2, '같은 소유주 · 메모에 종목명이나 티커가 있는 줄만 안내')
+  assert.match(indexSource, /id="trade-pl-skip"[^>]*>\s*실현손익은 이미 기록함/, '매도 창에 이미 기록함 선택')
+  assert.match(cobaltSource, /id="cb-tax-hold"[\s\S]*id="cb-tax-hold-qty"/, '실현손익 입력 줄에 보유 반영(종목·수량)')
+  assert.match(cobaltSource, /tradeApplyPlan\(item,\{side:'sell',qty,date:finLocalDateKey\(new Date\(\)\),today:finLocalDateKey\(new Date\(\)\),skipPl:true\}\)/, '보유 반영은 매도 창과 같은 계산(새 실현손익 줄 없음)')
+}

@@ -10,7 +10,7 @@ const pick = (src, name) => { const m = src.match(new RegExp(`function ${name}\\
 const plain = v => JSON.parse(JSON.stringify(v));
 
 const ctx = vm.createContext({ window: { _giftActual: {} } });
-for (const n of ['cbGiftCfg', 'cbGiftRecords', 'cbGiftWindowStart', 'cbGiftLedgerSum', 'cbGiftPrior', 'cbGiftDeductionReview']) vm.runInContext(pick(cobalt, n), ctx);
+for (const n of ['cbGiftCfg', 'cbGiftRecords', 'cbGiftTransferRecords', 'cbGiftWindowStart', 'cbGiftLedgerSum', 'cbGiftPrior', 'cbGiftDeductionReview']) vm.runInContext(pick(cobalt, n), ctx);
 
 // 10년 창: 기준일의 10년 전 같은 날부터 기준일까지(양 끝 포함), 2월 29일은 28일로
 assert.equal(ctx.cbGiftWindowStart('2026-11-10'), '2016-11-10');
@@ -75,4 +75,25 @@ assert.match(html, /증여일마다의 10년 기간을 각각 판정하지 않�
 assert.match(ws, /@media\(max-width:768px\)\{\.cb-gift-ledger-form,\.cb-gift-ledger-row>:last-child\{display:none\}/);
 assert.match(script, /targetAlloc:window\._targetAlloc\|\|null,balanceSheet:window\._balanceSheet\|\|null,giftActual:window\._giftActual\|\|null/, '저장 실패 되돌리기가 기록장을 포함');
 assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 당사자 범위를 따른다');
+
+// 2026-11-18 3차: 증여로 연결한 자동이체는 이체일마다 기록장에 자동 기록(저장하지 않음 · giftFrom 이후 · 오늘까지)
+{
+  const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  Object.assign(ctx, {
+    finLocalDateKey: key,
+    _autoTransferOccursOn: (at, d) => d.getDate() === at.dayOfMonth,
+    _effectiveAutoTransferAmt: at => at.amt,
+  });
+  vm.runInContext("var autoTransferData=[{id:7,type:'지출',owner:'본인',desc:'자녀1 증권계좌',amt:300000,dayOfMonth:5,startMonth:'2026-01',giftKind:'child',giftFrom:'2026-08'},{id:8,type:'지출',desc:'관리비',amt:200000,dayOfMonth:5,startMonth:'2026-01'},{id:9,type:'수입',desc:'용돈',amt:1,dayOfMonth:5,giftKind:'child',giftFrom:'2026-01'}];", ctx);
+  const auto = plain(ctx.cbGiftTransferRecords('2026-11-10'));
+  assert.deepEqual(auto.map(r => r.date), ['2026-08-05', '2026-09-05', '2026-10-05', '2026-11-05'], 'giftFrom 이후 · 기준일까지의 이체일만 · 증여로 연결한 지출만');
+  assert.ok(auto.every(r => r.kind === 'child' && r.amt === 300000 && r.auto === true && r.memo === '[자동이체] 자녀1 증권계좌'));
+  ctx.window._giftActual = { records: [], childPrior: { confirmed: true, asOf: '2026-11-10' } };
+  const p2 = ctx.cbGiftPrior('child');
+  assert.equal(p2.fromLedger, true, '연결한 자동이체가 있으면 기록장 합계로 판정 입력');
+  assert.equal(p2.amount, ctx.cbGiftLedgerSum(plain(ctx.cbGiftRecords('child')), 'child', '2026-11-10'));
+  assert.equal(ctx.window._giftActual.records.length, 0, '자동 기록은 저장하지 않는다(연결을 끊으면 사라진다)');
+  assert.match(script, /giftKind:item\.giftKind==='child'\|\|item\.giftKind==='spouse'\?item\.giftKind:''/, '자동이체 저장값이 증여 연결을 지킨다');
+  assert.match(cobalt, /r\.auto\?'<em class="cb-gift-auto-tag"/, '자동 기록은 삭제 버튼 대신 자동 표시');
+}
 console.log('PASS 증여 기록장');

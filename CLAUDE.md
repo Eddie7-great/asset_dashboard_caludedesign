@@ -1,5 +1,15 @@
 # CLAUDE.md
 
+### 홈 정리·실현손익↔보유·자동이체 증여 연결·줄바꿈 (2026-11-18 3차)
+
+- **스크롤 상자(`.cb-scroll`·`.home-table-wrap`)는 `position:relative` 다.** 기준이 없으면 안쪽의 `.sr-only`(position:absolute)가 스크롤 상자를 빠져나와 바깥 `.content-area` 높이를 늘린다 — 홈에서 휠을 끝까지 내리면 빈 화면이 나오고 스크롤바가 셋이었다. 새 스크롤 상자를 만들면 같이 준다.
+- 홈: '지난달 결산 보기' 링크·섹터 진단 문구(`sectorNote`)는 없앴다(사용자 결정). 기여도 요약은 라벨·금액 한 줄(`.cb-contrib-summary.is-inline`), 타일 이름은 **미국 종목은 티커, 그 밖은 종목명**(`r.cls==='us'`).
+- **정렬 화살표가 걸리는 마지막 칸은 오른쪽을 14px 비운다**(계좌별 보기 '종목', 구성원 비교 '수익률', ETF '변화') — 안 비우면 화살표가 표 밖으로 나가 가로 스크롤바가 생긴다.
+- 매수·매도 창은 바깥(어두운 바탕)을 누르면 닫힌다 — 안에서 누른 채 끌고 나온 경우는 닫지 않는다(script.js `_tradeDownOutside`, index.html 에 `div onclick` 을 두지 않는다 — 접근성 테스트).
+- **실현손익 기록 ↔ 보유 수량 연동.** 실현손익 줄에는 종목·수량이 없어 저장된 기록에서 보유를 자동으로 줄일 수 없다. 대신 (1) 매도 창의 '실현손익은 이미 기록함'(`skipPl`, `tradeApplyPlan` 이 실현손익 줄을 만들지 않고 수량만 줄임)과 같은 소유주·메모에 종목명/티커가 있는 기존 기록 안내(`tradeExistingPlRows`), (2) 세금 화면 입력 줄의 '보유 반영'(종목·수량 — 같은 `tradeApplyPlan(...,{skipPl:true})`, 소유주가 다르면 거부, 두 원격 로드가 ready 일 때만)을 둔다. 수정 중인 기록에는 보유 반영이 없다.
+- **자동이체를 증여로 연결한다(`at.giftKind:'child'|'spouse'`, `at.giftFrom:'YYYY-MM'`, `_normalizeAutoTransfers` 가 지킨다).** 가족 증여 기록장의 '자동이체를 증여로 연결'(`cbGiftLinkTransfer`)에서 고른다. `cbGiftTransferRecords` 가 giftFrom 이후·오늘까지·최근 10년의 이체일(`_autoTransferOccursOn`)·금액(`_effectiveAutoTransferAmt`)으로 기록을 **저장하지 않고 그때그때** 만들어 `cbGiftRecords` 에 합친다(`auto:true`, 삭제 버튼 대신 '자동' 표시, 연결을 끊으면 사라진다). 기록장 합계·판정 규칙(기준일 하나 단순 합산)은 그대로다.
+- **좁은 카드의 여러 문장 안내는 마침표 뒤에서 줄을 바꾸거나(`cbSentenceHtml`, 리스크 카드 메시지) 짧게 쓴다**(데이터 상태 안내, 세금 요약 카드 보조 문구 `.cb-tax-card-sub` 는 다음 줄 한 덩어리, 연금 카드는 라벨|값 줄). 긴 제목 설명은 말풍선으로 옮긴다. ISA 값의 '연간 현금흐름 참고' 표기는 줄여 쓰지 않는다.
+
 ### 화면 개선 8건 + 2차: 손익 타일 지도·점 그림·네이버 배당·표 정렬·계좌 트리·실현손익·달력 (2026-11-18)
 
 - **보유 목록 '종목' 머리글은 국기 칸부터 시작한다**(홈 보유 표와 같은 선). 예전 `th.holdings-asset-head{padding-left:39px}` 들여쓰기를 다시 넣지 않는다.
@@ -83,7 +93,7 @@
 
 ### 결산 리포트 메뉴·월말 자동 기록·사이드바 접기 (2026-11-11)
 
-- **상위 메뉴는 8개다.** 세금·증여 뒤에 `결산 리포트`(`menu-report2`) 가족이 있고 탭은 `report2`(월간, `cbRenderReport`)·`reporty`(연간, `cbRenderReportYear`) 둘이다(workspace-pages.js). 두 탭은 `_reportOwner` 를 함께 쓴다(`navOwner`/`navPrepare`). 홈 숫자 카드 아래 '지난달 결산 보기' 링크가 월간으로 온다. **조회 전용**이다.
+- **상위 메뉴는 8개다.** 세금·증여 뒤에 `결산 리포트`(`menu-report2`) 가족이 있고 탭은 `report2`(월간, `cbRenderReport`)·`reporty`(연간, `cbRenderReportYear`) 둘이다(workspace-pages.js). 두 탭은 `_reportOwner` 를 함께 쓴다(`navOwner`/`navPrepare`). (홈의 '지난달 결산 보기' 링크는 2026-11-18 3차에 없앴다 — 사용자 결정, 메뉴로 간다.) **조회 전용**이다.
 - **지난 결산은 매일 도는 배치가 남긴다 — 앱을 열지 않아도 된다.** `scripts/net_worth_snapshot.py` 의 `build_month_entry` 가 일별 기록과 **같은 실행·같은 저장 한 번에** `ext_data.reportArchive['YYYY-MM']`(총액·소유주별·자산군·손익·종목 내역 `holdings`·목표)을 덮어쓴다. 그래서 달의 마지막 실행분(그날 종가)이 그 달 결산으로, 12월 것이 그해 결산으로 남는다. 최대 240개월, 종목 내역은 최근 36개월만(`merge_archive`).
   **이 필드를 쓰는 곳은 배치 하나다.** 앱은 `_normalizeReportArchive` 로 읽고, `saveExtDataToKV` 가 받은 값을 그대로 다시 싣는다 — 빼면 앱 저장이 지난 결산을 지운다. 사용자 입력이 아니므로 `_extSnapshot`/`_extRestore` 되돌리기 대상이 아니다.
   **계산은 두 곳에 있다:** 이번 달은 앱의 `reportBuildEntry`(지금 원장을 실시간으로), 지난 달은 배치의 `build_month_entry`. 한쪽을 고치면 반드시 다른 쪽도 고치고, `test_net_worth_snapshot.py` 가 같은 입력으로 두 결과를 대조한다(가상화폐 원화 평단 규칙·현금/취득가 미상 손익 제외·목표 연결·JS 반올림까지).

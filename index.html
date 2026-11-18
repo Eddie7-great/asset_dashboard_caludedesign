@@ -339,6 +339,8 @@
       <label class="form-label" for="trade-pl">실현손익 (원화)</label>
       <input type="text" class="form-input" id="trade-pl" placeholder="손실은 -를 붙여 입력" inputmode="decimal" data-neg="1" oninput="tradePlTouched()">
       <p class="trade-note" id="trade-pl-note"></p>
+      <label class="trade-skip"><input type="checkbox" id="trade-pl-skip" onchange="tradePreview()"> 실현손익은 이미 기록함 — 보유 수량만 줄이기</label>
+      <p class="trade-note trade-pl-match" id="trade-pl-match" hidden></p>
     </div>
     <div class="trade-preview" id="trade-preview" role="status" aria-live="polite"></div>
     <p class="trade-error" id="trade-error" role="alert" hidden></p>
