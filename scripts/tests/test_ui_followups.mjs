@@ -401,6 +401,13 @@ vm.createContext(privacyContext)
 vm.runInContext(extractFunction(scriptSource, '_maskAmountText'), privacyContext)
 assert.equal(privacyContext._maskAmountText('평가액 +₩12,345,678원'), '평가액 +₩••••', '원화 금액 마스킹')
 assert.equal(privacyContext._maskAmountText('배당 $123.45 · 환산 ¥9,876'), '배당 $•••• · 환산 ¥••••', '외화 금액 마스킹')
+// 2026-11-18 4차: 만·억 단위 줄임 금액(타일·그래프 눈금)도 가린다, 만기 같은 낱말은 그대로
+assert.equal(privacyContext._maskAmountText('+1,755만'), '+••••만', '기여도 타일 줄임 금액')
+assert.equal(privacyContext._maskAmountText('2,000만'), '••••만', '점 그림 세로 눈금')
+assert.equal(privacyContext._maskAmountText('−500만'), '−••••만')
+assert.equal(privacyContext._maskAmountText('3.6억'), '••••억', '증여 그래프 눈금')
+assert.equal(privacyContext._maskAmountText('ISA 3년 만기 · 12개월'), 'ISA 3년 만기 · 12개월', '만기 같은 낱말은 금액이 아니다')
+assert.equal(privacyContext._maskAmountText('+50%'), '+50%', '비율은 그대로')
 
 const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'], OWNERS:['본인','아내','자녀1','아버지'], _taxRuleValue:(_path,fallback)=>fallback }
 vm.createContext(taxTreatmentContext)

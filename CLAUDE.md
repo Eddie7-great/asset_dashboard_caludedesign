@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+### 금액 가리기 만·억·사이드바 접기 버튼 (2026-11-18 4차)
+
+- **금액 가리기는 '원' 없이 만·억으로 줄인 금액도 가린다**(`_maskAmountText` 의 마지막 규칙: `+1,755만`·`2,000만`·`3.6억` → `+••••만`). 기여도 타일 금액·점 그림 세로 눈금·세금/증여 그래프 눈금이 `cbTaxAxisLab`/`cbAmtAxisLab` 로 '원' 없이 찍혀 가려지지 않았다. 단위 뒤에 한글이 이어지면(만기·억제) 금액이 아니므로 그대로 둔다. 비율(%)은 대상이 아니다.
+- **사이드바 접기 버튼은 사이드바 왼쪽 위(`<aside>` 바로 앞, `position:fixed;top:22px;left:25px`)다** — 접혀도 같은 자리에 남아 다시 편다. 사이드바는 위쪽 52px 를 비워 둔다. 접을 때 사이드바는 버튼 중심(`transform-origin:25px 22px`)으로 작아지며(`scale(.06)`·둥글게·투명) 빨려 들어가고(가속 `--ease-in`), 펼 때는 거꾸로(감속 `--ease-out`), 시간은 `--dur*1.6`. 접힌 동안 `#page-head` 는 왼쪽 64px 를 비운다. 전환 뒤 `resize` 는 420ms 뒤에 보낸다(전환 384ms 보다 늦게). 움직임 줄이기에서는 전환을 끈다.
+
 ### 홈 정리·실현손익↔보유·자동이체 증여 연결·줄바꿈 (2026-11-18 3차)
 
 - **스크롤 상자(`.cb-scroll`·`.home-table-wrap`)는 `position:relative` 다.** 기준이 없으면 안쪽의 `.sr-only`(position:absolute)가 스크롤 상자를 빠져나와 바깥 `.content-area` 높이를 늘린다 — 홈에서 휠을 끝까지 내리면 빈 화면이 나오고 스크롤바가 셋이었다. 새 스크롤 상자를 만들면 같이 준다.
@@ -102,7 +107,7 @@
 - **'무엇이 달라졌나' 장(`reportHoldingDiff`)은 거래 기록이 아니라 두 시점 보유의 차이다.** 소유주·증권사·계좌·`cbStrip(티커)` 로 맞댄다 — 앱은 불러올 때 `005930` 을 `005930.KS` 로 고쳐 쓰므로 접미사를 떼지 않으면 같은 종목이 '새로 담음'과 '모두 팖'으로 갈린다. 원가가 그대로인데 수량만 바뀌면 분할·병합으로 보고 매매로 세지 않는다. 평가액 변화를 '새로 넣거나 뺀 돈(취득원가 변화 합, 현금 포함)'과 나머지로 나눈다. 종목 수정은 **입력한 달**에 잡힌다.
 - 배당 장: 끝난 달은 현금 흐름(`cfData`)에 기록된 '배당금' 수입, 이번 달부터는 `divHistoryOf` 세후 추정이다(빗금 막대). 기록하지 않은 달은 0 으로 보인다는 사실을 문구로 밝힌다. 연간 실현손익은 `monthlyPLData` 그해 합계다.
 - **화면 단위 전환:** 결산 두 화면의 스크롤 영역(`.rep-scroll`)만 `scroll-snap-type:y mandatory` 이고, 장(`.rep-page`) 높이는 `reportMount` 가 `ResizeObserver` 로 스크롤 영역 높이(`--rep-h`)에 맞춘다(퍼센트 높이는 flex 스크롤 영역에서 믿을 수 없다). 휠 한 칸에 한 장(작은 휠은 스냅만으로는 제자리로 돌아간다), 오른쪽 점(`.rep-dots`, 진짜 버튼)으로 이동, 시세 갱신 재렌더에도 스크롤 위치 유지. 860px 이하·높이 620px 미만은 스냅을 끈다.
-- **사이드바 접기(`toggleSideCollapsed`/`applySideCollapsed`, 769px 이상):** 헤더의 `#side-collapse-btn` 이 `body.side-collapsed` 를 토글하고 `.layout` 격자 폭을 토큰 시간으로 애니메이션한다. 접힌 사이드바는 `inert`, 상태는 `localStorage.sideCollapsed`(KV 아님), 전환 뒤 `resize` 를 보내 차트를 새 폭에 맞춘다. 휴대폰은 기존 햄버거 서랍 그대로다.
+- **사이드바 접기(`toggleSideCollapsed`/`applySideCollapsed`, 769px 이상):** `#side-collapse-btn`(2026-11-18 4차에 헤더에서 사이드바 왼쪽 위로 옮겼다 — 위 절)이 `body.side-collapsed` 를 토글하고 `.layout` 격자 폭을 토큰 시간으로 애니메이션한다. 접힌 사이드바는 `inert`, 상태는 `localStorage.sideCollapsed`(KV 아님), 전환 뒤 `resize` 를 보내 차트를 새 폭에 맞춘다. 휴대폰은 기존 햄버거 서랍 그대로다.
 - **화면 다듬기(같은 날 후속):** 사이드바 자식 고정 폭은 `.menu-col>*{box-sizing:border-box;width:188px}` 다 — content-box 로 두면 환율·금 상자(안쪽 여백+테두리)가 사이드바 밖으로 나가 오른쪽 값이 잘린다. 보유 목록은 탭과 도구(검색·계좌·시세 미조회만·＋추가)를 한 머리줄(`.holdings-head`)에 두고 도구를 오른쪽 정렬한다(휴대폰은 그대로). 배당 상단 카드는 보조 문구를 제목 줄 오른쪽(`.cb-div-summary-head`)에 두고, 769px 이상에서 TOP 3 카드는 폭 상한(400px)을 두고 숫자 카드들이 남는 폭을 나눠 가지며(2026-11-16 — TOP 3 가 남는 폭을 다 쓰면 종목명과 금액이 양 끝으로 멀어진다), 연간 배당 수입 카드에는 세전/세후·소유주를 적지 않는다(머리줄 버튼이 이미 보여 준다). 결산 화면은 `word-break:keep-all` 로 한글을 어절 단위로만 줄바꿈하고, 장 제목(`.rep-title`)은 한 덩어리로 두어 배지만 다음 줄로 내린다.
 - `scripts/tests/test_report_page.mjs`·`test_sidebar_collapse.mjs`·`test_net_worth_snapshot.py` 가 지킨다.
 

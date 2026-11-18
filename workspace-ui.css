@@ -586,24 +586,34 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 }
 @media(prefers-reduced-motion:reduce){.rep-scroll{scroll-behavior:auto}.rep-dots button,.rep-dots button span{transition:none}}
 
-/* ===== 사이드바 접기/펴기(2026-11-11) — 넓은 화면만. 휴대폰은 기존 햄버거 서랍 그대로 =====
-   격자 첫 칸 폭(210px ↔ 0)과 간격을 함께 줄여 본문이 자연스럽게 넓어진다. 사이드바 안쪽은 폭을 고정해
-   줄어드는 동안 글자가 줄바꿈되며 찌그러지지 않고 잘려 나간다. 움직임 토큰만 쓴다. */
+/* ===== 사이드바 접기/펴기(2026-11-11, 2026-11-18 4차에 버튼 위치·효과 변경) — 넓은 화면만. 휴대폰은 기존 햄버거 서랍 그대로 =====
+   버튼은 사이드바 왼쪽 위에 고정(position:fixed)이라 접혀도 같은 자리에 남는다. 접을 때 사이드바는 그 버튼 쪽으로
+   작아지며 빨려 들어가고(transform-origin = 버튼 중심, 가속 곡선), 펼 때는 버튼에서 거꾸로 펼쳐진다(감속 곡선).
+   격자 첫 칸 폭(210px ↔ 0)과 간격을 함께 줄여 본문이 자연스럽게 넓어진다. 움직임 토큰만 쓴다. */
 .side-collapse-btn{display:none}
 @media(min-width:769px){
-  .side-collapse-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;padding:0;border:1px solid var(--bd);border-radius:var(--r-md);background:transparent;color:var(--mut);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
-  .side-collapse-btn:hover{background:var(--hover-bg);color:var(--tx)}
+  .side-collapse-btn{position:fixed;top:22px;left:25px;z-index:30;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:1px solid var(--side-line);border-radius:var(--r-md);background:transparent;color:var(--side-mut);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out),border-color var(--dur) var(--ease-out)}
+  .side-collapse-btn:hover{background:var(--side-inner);color:var(--side-tx)}
+  body.side-collapsed .side-collapse-btn{border-color:var(--bd);background:var(--panel);color:var(--mut)}
+  body.side-collapsed .side-collapse-btn:hover{background:var(--hover-bg);color:var(--tx)}
   .side-collapse-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .side-collapse-arrow{transform-box:fill-box;transform-origin:center;transition:transform var(--dur) var(--ease-out)}
   body.side-collapsed .side-collapse-arrow{transform:rotate(180deg)}
-  .layout{transition:grid-template-columns calc(var(--dur)*1.25) var(--ease-out),gap calc(var(--dur)*1.25) var(--ease-out)}
-  .menu-col{min-width:0;overflow:hidden;transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out),padding var(--dur) var(--ease-out),border-width var(--dur) var(--ease-out)}
+  /* 사이드바 위쪽에 버튼 자리를 비운다 */
+  .menu-col{padding-top:52px}
+  .layout{transition:grid-template-columns calc(var(--dur)*1.6) var(--ease-out),gap calc(var(--dur)*1.6) var(--ease-out)}
+  /* 펼칠 때(기본 상태로 돌아갈 때) — 감속 곡선 */
+  .menu-col{min-width:0;overflow:hidden;transform-origin:25px 22px;transition:opacity calc(var(--dur)*1.6) var(--ease-out),transform calc(var(--dur)*1.6) var(--ease-out),border-radius calc(var(--dur)*1.6) var(--ease-out),padding calc(var(--dur)*1.6) var(--ease-out),border-width calc(var(--dur)*1.6) var(--ease-out)}
   /* 여백·테두리를 포함해 188px — content-box 로 두면 환율 상자(안쪽 여백+테두리 26px)가 사이드바 밖으로 나가 오른쪽 값이 잘린다 */
   .menu-col>*{box-sizing:border-box;width:188px;flex-shrink:0}
-  body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0}
-  body.side-collapsed .menu-col{opacity:0;transform:translateX(-18px);padding-left:0;padding-right:0;border-width:0;pointer-events:none}
+  body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0;transition-timing-function:var(--ease-in)}
+  /* 접을 때 — 버튼 쪽으로 빨려 들어간다(가속 곡선) */
+  body.side-collapsed .menu-col{opacity:0;transform:scale(.06);border-radius:50%;padding-left:0;padding-right:0;border-width:0;pointer-events:none;transition-timing-function:var(--ease-in)}
+  /* 접힌 동안 제목이 버튼 밑으로 들어가지 않게 */
+  #page-head{transition:padding-left calc(var(--dur)*1.6) var(--ease-out)}
+  body.side-collapsed #page-head{padding-left:64px!important}
 }
-@media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow,#page-head{transition:none!important}}
 /* 배당 상단 카드(2026-11-11) — 보조 문구('산출 n/m', '상위 3종목 합계')는 값 아래가 아니라 제목 줄 오른쪽 끝.
    넓은 화면에서 TOP 3 카드는 내용 폭(종목명 + 금액)에 맞추고 숫자 카드들이 남는 폭을 나눠 갖는다 —
    TOP 3 가 남는 폭을 다 쓰면 종목명(왼쪽 끝)과 금액(오른쪽 끝)이 멀어져 한 줄로 읽히지 않는다.
