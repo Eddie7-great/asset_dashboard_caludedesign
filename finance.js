@@ -326,12 +326,8 @@ function finNwChartSvg(series,w,h){
   const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
   const y=v=>h-8-((v-lo)/((hi-lo)||1))*(h-16);
   const dx=plotW/(series.length-1);
-  let grid='';
-  for(let v=lo; v<=hi+step*0.01; v+=step){
-    const yy=y(v).toFixed(1);
-    grid+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    grid+=`<text x="${padL-7}" y="${(y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(v)}</text>`;
-  }
+  // 금액 축이라 + 를 붙이지 않는다(cbAmtAxisLab). 눈금선·라벨은 금액 그래프 공통 뼈대를 쓴다.
+  const grid=cbAmtGridSvg(cbAxisTicks(lo,hi,step), y, padL, w-padR);
   const pts=series.map((p,i)=>({x:padL+i*dx, y:y(p.v)}));
   const line=cbSmoothPath(pts);
   const up=series[series.length-1].v>=series[0].v;

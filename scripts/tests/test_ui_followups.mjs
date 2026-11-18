@@ -10,6 +10,8 @@ const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.ur
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 const workspaceSource = fs.readFileSync(new URL('../../workspace-ui.css', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const simulatorSource = fs.readFileSync(new URL('../../simulator.js', import.meta.url), 'utf8')
+const dashboardPySource = fs.readFileSync(new URL('../../api/dashboard.py', import.meta.url), 'utf8')
 const priceApiSource = fs.readFileSync(new URL('../../api/price.ts', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {
@@ -73,7 +75,7 @@ const dividendContext = {
   _cbDivMonthFilter: null,
 }
 vm.createContext(dividendContext)
-for (const name of ['cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), dividendContext)
 }
 const dividendList = [
@@ -85,6 +87,18 @@ assert.equal(divCal.monthAmt[0], 300, '월별 배당 합계 계산')
 assert.equal(divCal.monthDetails[0].length, 2, '전체 모드 월별 배당 상세는 같은 종목도 소유주별로 분리')
 assert.deepEqual(Array.from(divCal.monthDetails[0], row => [row.owner, row.amount]), [['아내', 200], ['본인', 100]], '월별 종목 배당에 소유주와 금액 보존')
 const divSvg = dividendContext.cbDivCalendarSvg(divCal.monthAmt, divCal.monthDetails, 1100, 300)
+{
+  // 올해 예상 그래프: 이번 달부터 남은 달은 빗금, 이번 달 이름표 강조. 지난 연도(-1)는 구분하지 않는다.
+  const amt = Array(12).fill(100)
+  const det = Array.from({ length: 12 }, () => [])
+  const hatched = dividendContext.cbDivCalendarSvg(amt, det, 1100, 300, 10)
+  assert.equal((hatched.match(/fill="url\(#cb-div-hatch\)"/g) || []).length, 2, '11·12월(이번 달부터)만 빗금')
+  assert.match(hatched, />11월 · 이번 달</, '이번 달 이름표 표시')
+  const plain = dividendContext.cbDivCalendarSvg(amt, det, 1100, 300)
+  assert.doesNotMatch(plain, /cb-div-hatch|이번 달/, '지난 연도·내년 그래프는 구분하지 않음')
+  assert.match(cobaltSource, /const divNowMonth = \(!cal\.actual && year===nowY\) \? new Date\(\)\.getMonth\(\) : -1;/, '올해 예상 그래프에서만 이번 달을 표시')
+  assert.match(cobaltSource, /이번 달부터 남은 달 · 12달 모두 추정/, '지난 달을 받은 금액으로 오해하지 않게 모두 추정이라고 적음')
+}
 assert.match(divSvg, /onmousemove="cbDivBarHover\(event,0\)"/, '배당 막대에 종목별 상세 호버 연결')
 assert.match(divSvg, /onclick="cbDivMonthPick\(0\)"/, '배당 막대 클릭을 월별 종목 필터에 연결')
 assert.match(divSvg, />₩300<\/text>/, '막대 위 금액을 1원 단위 원화로 표시')
@@ -123,10 +137,33 @@ assert.match(styleSource, /\.cb-perf-card-grid\{display:grid;grid-template-colum
 assert.match(styleSource, /\.cb-perf-card-grid\{[^}]*overflow:visible/, '성과 비교 상단 카드의 외곽선 때문에 세로 스크롤바가 생기지 않게 함')
 assert.match(cobaltSource, /const entities = \[\s*\.\.\.OWNERS\.map/, '성과 데이터 유무와 무관하게 모든 소유주 탭·그래프 범례 유지')
 assert.match(cobaltSource, /if \(id==='perf2'\) cbVerifyPerfOwnersOnOpen\(\)/, '성과 비교 진입 때 누락 소유주 데이터 재검증')
-assert.match(styleSource, /\.cb-perf-detail-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, '성과 비교 하단 위젯을 2열 × 3행으로 배치')
-assert.match(cobaltSource, /\[rows\.find\(r=>r\.e\.key==='S&P 500'\), rows\.find\(r=>r\.e\.key==='본인'\), rows\.find\(r=>r\.e\.key==='자녀1'\)\]/, '성과 비교 하단 왼쪽을 S&P 500·본인·자녀1 순으로 배치')
-assert.match(cobaltSource, /\[rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(r=>r\.e\.key==='아내'\), rows\.find\(r=>r\.e\.key==='아버지'\)\]/, '성과 비교 하단 오른쪽을 KOSPI·아내·아버지 순으로 배치')
-assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row"/, '성과 비교 하단 기존 표 행 구조 유지')
+assert.match(styleSource, /\.cb-perf-detail-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/, '성과 비교 하단은 한 표(2026-11-17 3차 — 좌우 두 표는 순위를 눈으로 맞춰야 했다)')
+assert.equal((cobaltSource.match(/<div class="cb-perf-detail-table">/g) || []).length, 1, '수익률 표는 하나')
+assert.match(cobaltSource, /const sortedRows = rows\.slice\(\)\.sort\([\s\S]*?return bv-av;/, '선택 기간 수익률 높은 순으로 정렬(값 없는 줄은 끝)')
+assert.match(cobaltSource, /\$\{cbPerfBarHtml\(r\.vals\[tfIdx\], perfBarMax, r\.e\.color\)\}/, '선택 기간 수익률 막대 칸')
+{
+  const perfCtx = {}
+  vm.createContext(perfCtx)
+  for (const name of ['cbPerfBarHtml', 'cbPerfTickIdx', 'cbSpreadLabels']) vm.runInContext(extractFunction(cobaltSource, name), perfCtx)
+  assert.match(perfCtx.cbPerfBarHtml(10, 20, '#5b9bff'), /left:50\.00%;width:25\.00%/, '이익 막대는 0(가운데)에서 오른쪽으로')
+  assert.match(perfCtx.cbPerfBarHtml(-20, 20, '#5b9bff'), /left:0\.00%;width:50\.00%/, '손실 막대는 0에서 왼쪽으로, 최대 절댓값이면 끝까지')
+  assert.doesNotMatch(perfCtx.cbPerfBarHtml(null, 20, '#000'), /<i /, '값이 없으면 막대를 그리지 않음')
+  assert.deepEqual(Array.from(perfCtx.cbPerfTickIdx(250)), [0, 50, 100, 149, 199, 249], '일별 250점에서 날짜 눈금은 6개만 고른 간격으로')
+  assert.deepEqual(Array.from(perfCtx.cbPerfTickIdx(5)), [0, 1, 2, 3, 4], '점이 적으면 모두 표시')
+  const spread = Array.from(perfCtx.cbSpreadLabels([100, 102, 101, 50], 14, 10, 210))
+  const sorted = spread.slice().sort((a, b) => a - b)
+  for (let k = 1; k < sorted.length; k++) assert.ok(sorted[k] - sorted[k - 1] >= 13.99, '선 끝 이름표는 최소 간격만큼 벌어짐')
+  assert.ok(Array.from(perfCtx.cbSpreadLabels([205, 206, 207], 14, 10, 210)).every(y => y <= 210), '아래쪽 끝을 넘으면 통째로 올림')
+}
+assert.match(scriptSource, /const indices = Array\.from\(\{length:n\}, \(_,i\)=>i\);/, 'JS 벤치마크 폴백은 모든 거래일을 보낸다(6등분 샘플링 금지)')
+assert.doesNotMatch(scriptSource, /Math\.floor\(n\/6\)/, 'JS 폴백에 6등분 샘플링이 남지 않음')
+assert.match(dashboardPySource, /\n\s*indices = list\(range\(n\)\)\n/, '서버 벤치마크도 모든 거래일을 보낸다(JS 폴백과 같은 규칙)')
+assert.doesNotMatch(dashboardPySource, /n \/\/ 6/, '서버에 6등분 샘플링이 남지 않음')
+assert.match(cobaltSource, /cbPerfTickIdx\(N\)\.map/, '날짜 눈금은 고른 간격 몇 개만')
+assert.match(cobaltSource, /<div class="cb-chart-scroll"><div class="cb-perf-plot">[\s\S]*?cbMultiLineSvg\(seriesArr, 1100, 220\)[\s\S]*?class="cb-perf-xaxis"[\s\S]*?<\/div><\/div>/, '성과 그래프·날짜 눈금은 휴대폰 가로 스크롤 틀 안에 함께 있다')
+assert.match(workspaceSource, /@media\(max-width:768px\)\{\s*\.cb-perf-plot\{min-width:1040px\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{grid-column:1\/-1\}/, '휴대폰: 성과 그래프는 줄이지 않고 옆으로 밀어 보며, 배당 TOP 3 는 한 줄 전체')
+assert.doesNotMatch(cobaltSource, /rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(r=>r\.e\.key==='아내'\)/, '좌우 두 표로 나누던 고정 배치를 남기지 않음(선택 기간 수익률 순 한 표)')
+assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row\$\{r\.e\.isBench\?' is-bench':''\}"/, '성과 비교 하단 기존 표 행 구조 유지(벤치마크 줄은 is-bench 표시)')
 assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')
 assert.match(cobaltSource, /수익률 TOP 5[\s\S]*손실률 TOP 5/, '대시보드에 수익률·손실률 TOP5 위젯 추가')
 assert.match(workspaceSource, /\.cb-home-movers\{display:grid;grid-template-rows:1fr 1fr/, '대시보드 수익률·손실률 TOP5를 세로 2×1로 강제')
@@ -153,6 +190,11 @@ vm.createContext(taxAxisContext)
 vm.runInContext(extractFunction(cobaltSource, 'cbTaxAxisLab'), taxAxisContext)
 assert.equal(taxAxisContext.cbTaxAxisLab(2_500_000), '+250만', '양도소득세 Y축 양수에 + 기호 표시')
 assert.equal(taxAxisContext.cbTaxAxisLab(-2_500_000), '−250만', '양도소득세 Y축 음수 기호 유지')
+vm.runInContext(extractFunction(cobaltSource, 'cbAmtAxisLab'), taxAxisContext)
+assert.equal(taxAxisContext.cbAmtAxisLab(360_000_000), '3.6억', '금액 축(투자자산 추이·배당·증여)은 양수에 + 를 붙이지 않음')
+assert.equal(taxAxisContext.cbAmtAxisLab(600_000), '60만', '금액 축 만 단위에도 + 없음')
+assert.equal(taxAxisContext.cbAmtAxisLab(0), '0', '금액 축 0')
+assert.doesNotMatch(financeSource + extractFunction(cobaltSource, 'cbGiftChildChartSvg') + extractFunction(cobaltSource, 'cbGiftSpouseChartSvg') + extractFunction(cobaltSource, 'cbDivAxisLab') + simulatorSource, /cbTaxAxisLab/, '금액 그래프는 손익용 눈금 함수(cbTaxAxisLab)를 빌려 쓰지 않음')
 assert.match(cobaltSource, /const last=fgnPts\[fgnPts\.length-1\], lastV=cum\[maxM\]\.fgnProfit;[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
 assert.match(cobaltSource, /해외 기본공제 사용률[\s\S]*잔여 공제/, '양도소득세 상단에 기본공제 사용률 위젯 추가')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
@@ -173,7 +215,16 @@ assert.match(scriptSource, /function _bubbleSectorColor\(sector\)[\s\S]*tone\.se
 assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*const hue=base\+\(\(hash%13\)-6\)[\s\S]*tone\.leafSat[\s\S]*tone\.leafLight/, '모든 테마에서 섹터 hue를 유지하며 종목별 파스텔 명도만 변형')
 assert.match(scriptSource, /const _BUBBLE_OWNER_SECTORS = \{[\s\S]*function _bubbleOwnerColor\(owner\)[\s\S]*_SECTOR_HUES\[sector\][\s\S]*tone\.sectorSat\+3,tone\.sectorLight-3/, '소유주 구분점도 섹터 팔레트와 같은 테마별 색 생성 규칙 사용')
 assert.match(scriptSource, /function _bubbleOwnerFill\(owner,panelColor\)[\s\S]*colors\.push\(_bubbleOwnerFill\(owner,panelColor\)\)/, '전체 보기의 소유주 칸은 테마별 옅은 채움으로 구분')
-assert.match(scriptSource, /const trace = \{\n\s*type: 'treemap',[\s\S]*tiling: \{ packing: 'squarify'[\s\S]*pathbar: \{ visible: true[\s\S]*textinfo: 'label\+percent root',\n\s*texttemplate: '<b>%\{label\}<\/b><br>%\{percentRoot:\.1%\}'[\s\S]*size: 16,/, '비중 분석은 트리맵 — 경로 막대로 드릴다운 위치를 보여 주고 칸 안에 굵은 이름·비중을 16px 로 쓴다')
+assert.match(scriptSource, /const trace = \{\n\s*type: 'treemap',[\s\S]*tiling: \{ packing: 'squarify'[\s\S]*pathbar: \{ visible: true[\s\S]*textinfo: 'label\+percent root',[\s\S]*text: labels\.map\(\(label, i\) => customdata\[i\]\.kind === 'leaf' \? _bubbleWrapLabel\(label\) : label\),\n\s*texttemplate: customdata\.map\(d => \(d\.kind === 'leaf' && d\.weight < 2\) \? '<b>%\{text\}<\/b>' : '<b>%\{text\}<\/b><br>%\{percentRoot:\.1%\}'\)[\s\S]*size: 16,/, '비중 분석은 트리맵 — 경로 막대로 드릴다운 위치를 보여 주고 칸 안에 굵은 이름·비중을 16px 로 쓴다(작은 칸은 이름만)')
+{
+  const wrapContext = {}
+  vm.createContext(wrapContext)
+  vm.runInContext(extractFunction(scriptSource, '_bubbleWrapLabel'), wrapContext)
+  assert.equal(wrapContext._bubbleWrapLabel('QQQ'), 'QQQ', '짧은 이름은 그대로')
+  assert.equal(wrapContext._bubbleWrapLabel('TIGER 미국S&P500'), 'TIGER<br>미국S&P500', '긴 ETF 이름은 브랜드 뒤에서 줄바꿈')
+  assert.equal(wrapContext._bubbleWrapLabel('KODEX 미국AI전력핵심인프라'), 'KODEX<br>미국AI전력핵심<br>인프라', '붙여 쓴 긴 이름은 8자씩 끊어 세 줄 안에 넣음')
+  assert.ok(wrapContext._bubbleWrapLabel('가나다라마바사아자차카타파하가나다라마바사아자차카타파하가나다라').split('<br>').length <= 3, '줄 수는 최대 3줄')
+}
 assert.match(scriptSource, /labels\.push\(displayName\);/, '종목 칸에 이름을 직접 쓴다(바깥 리더라인 라벨 없음)')
 assert.match(scriptSource, /uniformtext: \{ minsize: 13, mode: 'hide' \}/, '13px 로도 안 들어가는 칸은 글자를 숨기고 호버로 확인(minsize 가 전체 글자 크기의 바닥)')
 assert.doesNotMatch(scriptSource, /_drawBubbleExternalLabels|_repositionBubbleCenter|bubble-center-summary|type: 'sunburst'/, '선버스트 전용 라벨·가운데 라벨 코드는 없앴다')
@@ -229,7 +280,23 @@ assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocati
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
-assert.match(styleSource, /@media \(min-width:1580px\)\{[\s\S]*cb-div-detail-grid[\s\S]*290px/, '배당 표가 충분히 넓을 때만 일정 위젯을 우측 배치')
+assert.match(styleSource, /@media \(min-width:1760px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 290px\}/, '배당 표(13칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
+assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
+assert.match(workspaceSource, /@media\(max-width:1759px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
+// 좁은 폭(1280~1599px)에서 이름이 잘리던 세 곳: 홈 자산 배분 목록(금액을 이름 아래로), 배당 표·홈 보유 표(티커를 이름 아래로)
+assert.match(workspaceSource, /@media\(min-width:769px\) and \(max-width:1439px\)\{\s*#cb-cdash \.cb-home-allocation-row\{grid-template-columns:9px minmax\(0,1fr\) 50px 11px;[\s\S]*?#cb-cdash \.cb-home-allocation-row>span:nth-child\(3\)\{grid-column:2;grid-row:2\}/, '홈 자산 배분: 1440px 미만에서는 금액을 이름 아래 줄로')
+assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.cb-div-row \.cb-asset-inline\{flex-direction:column;/, '배당 표: 1600px 미만에서는 티커를 이름 아래로')
+assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.home-asset\{display:inline-grid;[\s\S]*?\.home-asset>b,\.home-asset>small\{grid-column:2;/, '홈 보유 표: 1600px 미만에서는 티커를 이름 아래로')
+{
+  const divTable = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-thead cb-div-head"'), cobaltSource.indexOf('<div class="cb-panel cb-div-upcoming-card">'))
+  assert.doesNotMatch(divTable, /width:\d+px|flex:1|min-width:1110px/, '배당 표 칸 폭은 인라인 고정 폭이 아니라 격자 규칙이 정함')
+  const template = workspaceSource.match(/\.cb-div-head,\.cb-div-row\{display:grid;grid-template-columns:([^;]+);/)
+  assert.ok(template, '배당 표 격자 틀')
+  const tracks = template[1].trim().split(/\s+(?![^(]*\))/)
+  assert.equal(tracks.length, 13, '배당 표 13칸(소유주·국기·종목 + 숫자 10칸)')
+  const cells = (divTable.match(/\n          <(?:span|div)[ >]/g) || []).length
+  assert.equal(cells, 13, '행의 칸 수와 격자 칸 수가 같음')
+}
 assert.match(cobaltSource, /cb-family-table-toolbar[\s\S]*전체 투자자산[\s\S]*cb-family-head/, '가족 투자자산 표 제목·검색줄과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(cobaltSource, /cb-div-table-toolbar[\s\S]*배당 종목 내역[\s\S]*cb-div-head/, '배당 내역 제목과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(styleSource, /\.cb-family-table-toolbar,\.cb-div-table-toolbar\{position:sticky;top:0[\s\S]*\.cb-family-table-panel \.cb-family-head,[\s\S]*top:43px/, '표 제목줄 아래 칼럼 헤더가 겹치지 않게 고정')
@@ -432,8 +499,13 @@ vm.createContext(riskInsightContext)
 ;['finNewId','finEnsureState','finOwnerF','finRows','finMonthlyFixedCost','finCashSafety']
   .forEach(name=>vm.runInContext(extractFunction(financeSource, name), riskInsightContext))
 // cbRiskInsights 가 부르는 함수는 함께 넣는다 — 하나라도 빠지면 ReferenceError 로 죽는다.
-;['cbIsEtf','cbSyntheticEtfHoldings','cbEtfCrossOverlap']
+;['cbIsEtf','cbSyntheticEtfHoldings','cbEtfCrossOverlap','cbSectorName']
   .forEach(name=>vm.runInContext(extractFunction(cobaltSource, name), riskInsightContext))
+// 섹터 표시 이름은 script.js 의 실제 대응표를 넣어 확인한다(키는 영어, 화면 글자만 한글).
+const sectorKoBlock = scriptSource.match(/const SECTOR_KO = \{[\s\S]*?\n\};/)
+assert.ok(sectorKoBlock, 'SECTOR_KO 대응표를 찾을 수 없음')
+vm.runInContext(sectorKoBlock[0], riskInsightContext)
+vm.runInContext(extractFunction(scriptSource, 'sectorKo'), riskInsightContext)
 ;['CB_SINGLE_STOCK_LEV_ISSUER','CB_NOT_SINGLE_STOCK'].forEach(name=>{
   const start = cobaltSource.indexOf(`const ${name}`)
   assert.notEqual(start, -1, `${name} 상수를 찾을 수 없음`)
@@ -466,6 +538,17 @@ assert.equal(riskInsightById['effective-holdings'].value, '2.9개', 'HHI 역수 
 assert.equal(riskInsightById['fx-shock'].value, '−4.0%', '환율 10% 하락 민감도 계산')
 assert.equal(riskInsightById['country-concentration'].value, '미국 40.0%', '최대 국가 집중도 계산')
 assert.equal(riskInsightById['top2-sectors'].value, '70.0%', '상위 두 섹터 집중도 계산')
+assert.match(JSON.stringify(riskInsightById['top2-sectors']), /기술 \+ 지수 ETF/, '리스크 카드의 섹터 이름은 한글로 표시')
+assert.doesNotMatch(JSON.stringify(riskInsightById['top2-sectors']), /Technology|Index ETF/, '리스크 카드에 영어 섹터 키가 그대로 나오지 않음')
+assert.equal(riskInsightContext.sectorKo('Financial Services'), '금융', '섹터 표시 이름 한글 대응')
+assert.equal(riskInsightContext.sectorKo('처음 보는 키'), '처음 보는 키', '대응표에 없는 키는 그대로 돌려줌(빈칸으로 만들지 않음)')
+for (const key of ['Technology','Financial Services','Health Care','Consumer Discretionary','Consumer Staples','Energy','Communications Services','Industrial Services','Materials & Processing','Real Estate','Utilities','Index ETF','Sector ETF','Other','Cash','Crypto','Gold']) {
+  assert.notEqual(riskInsightContext.sectorKo(key), key, `섹터 키 ${key} 에 한글 이름이 있음`)
+}
+assert.match(scriptSource, /labels\.push\(sectorKo\(sector\)\)/, '트리맵 섹터 칸 이름은 한글')
+assert.match(scriptSource, /data-bubble-sector="\$\{safeSec\}"[\s\S]{0,3000}\$\{_cfEsc\(sectorKo\(sec\)\)\}/, '섹터 목록은 글자만 한글이고 클릭 키(data-bubble-sector)는 영어 키 그대로')
+assert.match(cobaltSource, /cbEsc\(cbSectorName\(s\.label\)\)/, '홈 섹터 집중도 줄 이름은 한글')
+assert.match(cobaltSource, /_cdashSecOpen===s\.label/, '홈 섹터 펼침 비교는 영어 키 그대로')
 assert.equal(riskInsightById['dividend-dependency'].value, '100.0%', '배당원 TOP3 의존도 계산')
 assert.ok(!('liquidity-coverage' in riskInsightById), '현금 유동성 커버리지 카드는 리스크 진단에 없다')
 assert.equal(riskInsightById['recovery-return'].value, '14.3%', '평가손실 원금 회복 필요 수익률 계산')

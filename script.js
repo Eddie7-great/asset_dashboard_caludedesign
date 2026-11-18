@@ -2774,6 +2774,21 @@ function getDcaAmountCellHtml(item){
     : sym + (Number(item.dcaAmt)||0).toLocaleString();
   return `<span class="dca-amount">${amt}</span>`;
 }
+// 보유 목록의 '적립식' 한 칸 — 윗줄 주기, 아랫줄 회당 금액. 예전에는 'DCA 주기'·'회당 금액' 두 칸이었는데
+// 대부분 '—' 인 두 칸이 표 폭의 13%를 차지해 종목명이 'TIGER 미…'로 잘렸다.
+function getDcaMergedCellHtml(item){
+  if (!item || !item.dca) return getDcaCellHtml(item);
+  return getDcaCellHtml(item) + getDcaAmountCellHtml(item);
+}
+// 평가액 칸 아랫줄의 비중 막대 — 막대 길이는 표에서 가장 큰 평가액 대비(홈 보유 표와 같은 방식),
+// 숫자는 위 '평가액' 숫자 카드 합계 대비 비중이다. 새 계산 없이 각 행의 평가액만 쓴다.
+function holdingsWeightHtml(val, total, max, cls){
+  const v=Number(val)||0;
+  const color=(typeof CB_CLS!=='undefined'&&CB_CLS[cls]?.color)||'var(--acc)';
+  const width=max>0?Math.max(2,v/max*100):0;
+  const pct=total>0?v/total*100:0;
+  return `<span class="holdings-weight"><span class="home-weight-bar" aria-hidden="true"><i style="width:${width.toFixed(1)}%;background:${color}"></i></span><span class="holdings-weight-pct">${pct.toFixed(1)}%</span></span>`;
+}
 function holdingsEsc(s){ return escHtml(s); }
 function updateOverflowTooltip(el){
   if (!el) return false;
@@ -2942,9 +2957,10 @@ if (typeof document!=='undefined' && !window._tableFloatTipEventsBound){
 function getHoldingsBrokerCellHtml(item){
   const broker = item.broker || '—';
   const account = item.acc || '—';
-  return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(broker+' / '+account)}">`
+  // 윗줄 증권사, 아랫줄 계좌 — 한 줄에 '미래에셋증권 / 연금저축'을 이어 쓰면 둘 다 잘렸다.
+  return `<span class="holdings-inline-cell holdings-broker-cell cb-tip-block" data-overflow-tip="${holdingsEsc(broker+' / '+account)}">`
     + `<span class="broker-txt" data-overflow-watch>${holdingsEsc(broker)}</span>`
-    + `<span class="holdings-account" data-overflow-watch>/ ${holdingsEsc(account)}</span></span>`;
+    + `<span class="holdings-account" data-overflow-watch>${holdingsEsc(account)}</span></span>`;
 }
 function getHoldingsAssetCellHtml(name,ticker,item,tradeIdx){
   const parts = [name,ticker].filter(Boolean);
@@ -2963,7 +2979,8 @@ function getHoldingsAssetCellHtml(name,ticker,item,tradeIdx){
       flag = '<span class="holdings-asset-flag holdings-crypto-flag" aria-label="가상화폐">₿</span>';
     }
   }
-  return `<span class="holdings-inline-cell cb-tip-block" data-overflow-tip="${holdingsEsc(parts.join(' · '))}">`
+  // 윗줄 이름, 아랫줄 티커(국기는 두 줄에 걸쳐 가운데) — CSS .holdings-asset-cell 격자
+  return `<span class="holdings-inline-cell holdings-asset-cell cb-tip-block" data-overflow-tip="${holdingsEsc(parts.join(' · '))}">`
     + flag
     // 종목명을 누르면 매수·매도 입력이 열린다(현금·휴대폰 제외). Enter·Space 는 문서 위임이 처리한다.
     + (Number.isInteger(tradeIdx)&&tradeIdx>=0
@@ -3208,11 +3225,12 @@ function renderPortfolio(owner) {
       return (a.name||a.tkr||'').localeCompare(b.name||b.tkr||'','ko');
     });
     let grpTotal=0,grpInvest=0,grpKnownTotal=0,grpKnownCount=0,rowsHtml='';
-    const colspan=grpName==='현금' ? (showOwner?6:5) : (showOwner?12:11);
+    const colspan=grpName==='현금' ? (showOwner?6:5) : (showOwner?11:10);
     if(grpItems.length===0){rowsHtml=`<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--t3)">등록된 자산 내역이 없습니다.</td></tr>`;}
     else{
       grpItems.forEach(i=>{
         const _rowStart=rowsHtml.length;
+        const _wCls=x=>typeof cbCls==='function'?cbCls(x):'';
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${holdingsEsc(i.owner||'미지정')}</span></td>`:'';
         const brokerCell=getHoldingsBrokerCellHtml(i);
@@ -3232,7 +3250,7 @@ function renderPortfolio(owner) {
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<button type="button" class="editable-val editable-val-button" aria-label="잔액 수정" onclick="makeEditable(this,'','','qty',true,${pIdx})">${fBal}</button>`;
           // [9] 자산명 + 통화 배지 나란히
-          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.cur,i)}</td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td style="font-weight:600;color:var(--t1);text-align:right">${fKRW}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.cur,i)}</td><td style="text-align:right;font-weight:600;color:var(--t1)">${fBalEdit}</td><td class="holdings-val-cell">${fKRW}<!--w:${cashKRW}:cash--></td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
@@ -3254,7 +3272,7 @@ function renderPortfolio(owner) {
           // [7] 수익금에 (₩)
           const fProfit=i.costUnknown?'<span class="cost-unknown-note">산정 제외</span>':(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
           const fProfitPct=i.costUnknown?'<span class="cost-unknown-note">—</span>':sign+profitPct.toFixed(2)+'%';
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -3274,7 +3292,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -3295,7 +3313,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cycle-cell">${getDcaCellHtml(i)}</td><td class="dca-amount-cell">${getDcaAmountCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td style="font-weight:700">${fAmt}</td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({qty:i.qty,avgP:i.avgP,curP:i.curP,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
         // 검색·시세 미조회 필터는 행만 숨긴다(합계는 위에서 이미 더했다). 현금은 이 시점에 _priceStale 이 정해진다.
         if(!holdingsRowMatches(i)) rowsHtml=rowsHtml.slice(0,_rowStart);
@@ -3312,22 +3330,23 @@ function renderPortfolio(owner) {
     if(grpName==='현금'){
       theadHtml=`<tr>${ownerTh}<th class="text-left">증권사 / 계좌</th><th class="text-left holdings-asset-head">종목</th><th>보유금액</th><th>평가액</th><th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else if(grpName==='금'){
-      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">거래소 / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-head">적립식</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     } else {
       const brokerLabel=grpName==='가상화폐'?'거래소':'증권사';
-      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-cycle-head">DCA 주기</th><th class="dca-amount-head">회당 금액</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
+      theadHtml=`<tr>${ownerTh}<th class="text-left">${brokerLabel} / 계좌</th><th class="text-left holdings-asset-head">종목</th><th class="dca-head">적립식</th>${portfolioSortHeader(grpName,'qty','수량')}${portfolioSortHeader(grpName,'avgP','평균단가')}${portfolioSortHeader(grpName,'curP','현재가')}${portfolioSortHeader(grpName,'valKRW','평가액')}${portfolioSortHeader(grpName,'profit','평가손익')}${portfolioSortHeader(grpName,'profitPct','수익률')}<th class="mgmt-head"><span class="mgmt-head-grid"><span></span><span class="mgmt-head-label">관리</span></span></th></tr>`;
     }
     // 주식/가상화폐/금 표 컬럼 폭 동일화: 동일 colgroup + table-layout:fixed → 세 표가 세로로 줄 맞음
     const _isFixed=grpName!=='현금';
     let colgroupHtml='';
     if(_isFixed){
       const ownerCol=showOwner?'<col style="width:6.5%">':'';
-      // 순서: [소유주] 증권사/계좌 · 종목명/티커 · DCA 주기 · 회당 금액 · 수량 · 평균단가 · 현재가 · 평가금액 · 수익금 · 수익률 · 관리
+      // 순서: [소유주] 증권사/계좌 · 종목 · 적립식 · 수량 · 평균단가 · 현재가 · 평가액 · 평가손익 · 수익률 · 관리
+      // 증권사/계좌·종목·적립식은 두 줄(윗줄·아랫줄)이라 한 줄일 때보다 좁아도 잘리지 않는다.
+      // 'DCA 주기'·'회당 금액' 두 칸을 '적립식' 한 칸으로 합쳐 얻은 폭을 종목 칸에 준다(15% → 19%).
+      // 숫자 글꼴(Manrope)은 한글 글꼴의 숫자보다 넓다 — 평가액 칸은 아랫줄 비중 막대까지 들어가게 둔다.
       const widths=showOwner
-        // 증권사/계좌 칸이 7%일 때는 1440px 에서도 '키움… / …'로 잘렸다 — 비어 있는 일이 많은 DCA·관리 칸에서 폭을 가져온다.
-        // 숫자 글꼴(Manrope)은 한글 글꼴의 숫자보다 넓다 — 회당 금액·수익금 칸이 '₩500,…'로 잘리지 않게 폭을 준다.
-        ?['10%','15%','6%','7%','6%','9%','9.5%','9%','10%','6.5%','5.5%']
-        :['12%','17%','6%','7%','6%','9%','9%','11%','9%','7%','7%'];
+        ?['9.5%','19.5%','8%','6%','9%','9.5%','10%','10%','6.5%','5.5%']
+        :['12%','21%','8%','6%','9%','9%','12%','9.5%','7%','6.5%'];
       colgroupHtml='<colgroup>'+ownerCol+widths.map(w=>`<col style="width:${w}">`).join('')+'</colgroup>';
     }
     const _fixedCls=_isFixed?' pt-table-fixed':'';
@@ -3337,6 +3356,12 @@ function renderPortfolio(owner) {
   });
   // 숫자 카드 — 위 그룹 합계를 더할 뿐 새 계산은 없다. 현금은 평가액에만 들어가고 손익에서 빠진다.
   const sumOf=k=>HOLDINGS_TABS.reduce((t,g)=>t+(grpStats[g]?.[k]||0),0);
+  // 평가액 칸 비중: 분모는 아래 '평가액' 숫자 카드와 같은 합계(검색·필터로 숨기기 전), 막대 길이는 가장 큰 평가액 대비.
+  {
+    const _wTotal=sumOf('total');
+    const _wMax=Math.max(0,...Array.from(html.matchAll(/<!--w:([^:>]*):/g),m=>Number(m[1])||0));
+    html=html.replace(/<!--w:([^:>]*):([a-z]*)-->/g,(_,v,cls)=>holdingsWeightHtml(Number(v),_wTotal,_wMax,cls));
+  }
   const investNonCash=HOLDINGS_TABS.filter(g=>g!=='현금').reduce((t,g)=>t+(grpStats[g]?.invest||0),0);
   const knownNonCash=HOLDINGS_TABS.filter(g=>g!=='현금').reduce((t,g)=>t+(grpStats[g]?.known||0),0);
   const profitAll=knownNonCash-investNonCash;
@@ -4374,6 +4399,9 @@ function renderCashFlow() {
     window.cfDonutChartInst.data.labels=allLabels;
     window.cfDonutChartInst.data.datasets[0].data=allData;
     window.cfDonutChartInst.data.datasets[0].backgroundColor=allColors;
+    // 막대(카테고리) 수만큼 차트 높이를 준다 — 높이가 모자라면 이름표가 겹치거나 빠진다. 폭 규칙은 CSS(.cf-comp-chart)에 있다.
+    window.cfDonutChartInst.canvas?.parentNode?.style.setProperty('--cf-bars',String(Math.max(1,allLabels.length)));
+    window.cfDonutChartInst.resize();
     window.cfDonutChartInst.update();
   }
   const sumEl=document.getElementById('cf-month-summary');
@@ -5359,7 +5387,7 @@ function initDashboard(){
   if (typeof Chart === 'undefined') {
     window.cfDonutChartInst = null; window.cfTrendChartInst = null;
   } else {
-    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:12},maxTicksLimit:5,maxRotation:0,callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+    window.cfDonutChartInst=new Chart(document.getElementById('cfDonutChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw;return` ${v>=0?'+₩':'-₩'}${Math.abs(Math.round(v)).toLocaleString()}`;}}}},scales:{x:{grid:{color:'rgba(150,150,150,.1)',borderDash:[2,2]},ticks:{font:{size:12},maxTicksLimit:5,maxRotation:0,callback:v=>{if(v===0)return'₩0';const abs=Math.abs(v);const sign=v<0?'-':'';if(abs>=10000000)return sign+'₩'+(abs/10000000).toFixed(1)+'천만';if(abs>=1000000)return sign+'₩'+(abs/1000000).toFixed(1)+'백만';return sign+'₩'+(abs/10000).toFixed(0)+'만';}}},y:{grid:{display:false},ticks:{autoSkip:false,font:{size:12}}}}}});
 
     window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
@@ -5571,6 +5599,48 @@ const _SECTOR_HUES = {
   'Crypto': 30,
   'Gold': 48
 };
+// 섹터 표시 이름(한글). 내부 키(_gicsSector 반환값·_SECTOR_HUES·cbSectors 의 label·드릴다운 비교)는 영어 그대로 두고
+// **화면에 찍는 자리에서만** 이 함수를 거친다 — 키를 바꾸면 색·드릴다운·필터 비교가 한꺼번에 어긋난다.
+const SECTOR_KO = {
+  'Technology': '기술',
+  'Financial Services': '금융',
+  'Health Care': '헬스케어',
+  'Consumer Discretionary': '경기소비재',
+  'Consumer Staples': '필수소비재',
+  'Energy': '에너지',
+  'Communications Services': '커뮤니케이션',
+  'Industrial Services': '산업재',
+  'Materials & Processing': '소재',
+  'Real Estate': '부동산',
+  'Utilities': '유틸리티',
+  'Index ETF': '지수 ETF',
+  'Sector ETF': '섹터 ETF',
+  'Other': '기타',
+  'Cash': '현금',
+  'Crypto': '가상화폐',
+  'Gold': '금'
+};
+function sectorKo(key){
+  return Object.prototype.hasOwnProperty.call(SECTOR_KO, key) ? SECTOR_KO[key] : String(key == null ? '' : key);
+}
+// 트리맵 칸 글자: 좁은 칸에도 들어가도록 이름을 줄바꿈한다(한 줄 9자 안팎, 최대 3줄).
+// 한 줄로 두면 'TIGER 미국S&P500' 같은 이름은 13px 로도 안 들어가 칸이 통째로 빈다.
+function _bubbleWrapLabel(name){
+  const text = String(name || '').trim();
+  if (text.length <= 9) return text;
+  const lines = [];
+  let cur = '';
+  text.split(/\s+/).forEach(word => {
+    const parts = word.length > 9 ? (word.match(/.{1,8}/gu) || [word]) : [word];
+    parts.forEach(part => {
+      if (cur && (cur + ' ' + part).length <= 9) cur += ' ' + part;
+      else { if (cur) lines.push(cur); cur = part; }
+    });
+  });
+  if (cur) lines.push(cur);
+  if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].slice(0, 7) + '…'; }
+  return lines.join('<br>');
+}
 // 색 구성 규칙은 세 테마가 공유하고, 배경에 맞춰 채도·명도만 바꾼다.
 // sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
 const _BUBBLE_THEME_TONES = {
@@ -5923,11 +5993,11 @@ function renderBubbleChart(mode) {
       const gid = `G::${owner}::${sector}`;
       const secColor = _bubbleSectorColor(sector);
       ids.push(gid);
-      labels.push(sector);
+      labels.push(sectorKo(sector));   // 화면 이름만 한글 — id·색·비교 키는 영어 그대로
       parents.push(parentIdForSec);
       values.push(secVal);
       colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.06));
-      customdata.push({ kind: 'grp', owner, name: sector, weight: secWeight, value: secVal });
+      customdata.push({ kind: 'grp', owner, name: sectorKo(sector), weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
       const leafItems = itemsAug
@@ -5974,7 +6044,7 @@ function renderBubbleChart(mode) {
     }
     // 종목명(국문 또는 영문) 과 티커를 한 줄에 괄호로 병기
     const tkrPart = d.tkr ? ` <span style="opacity:.7">(${_cfEsc(d.tkr)})</span>` : '';
-    const secLine = d.sector ? `<br><span style="opacity:.75">${_cfEsc(d.sector)}</span>` : '';
+    const secLine = d.sector ? `<br><span style="opacity:.75">${_cfEsc(sectorKo(d.sector))}</span>` : '';
     return `<b>${_cfEsc(d.owner)} · ${_cfEsc(d.name)}${tkrPart}</b>${secLine}<br><span style="opacity:.8">비중 ${d.weight.toFixed(2)}%</span><br><span style="opacity:.9">평가액 ${fmtKRW(d.value)}</span>`;
   });
 
@@ -5995,7 +6065,10 @@ function renderBubbleChart(mode) {
     pathbar: { visible: true, side: 'top', thickness: 30, textfont: { family: "'Manrope','Noto Sans KR',sans-serif", size: 14, color: textColor } },
     // 이름은 굵게, 비중은 다음 줄 — 한 줄에 같은 굵기로 이어 쓰면 작은 칸에서 둘이 구분되지 않는다.
     textinfo: 'label+percent root',
-    texttemplate: '<b>%{label}</b><br>%{percentRoot:.1%}',
+    // 종목 칸은 줄바꿈한 이름을 쓰고(좁은 칸에도 들어가게), 비중 2% 미만의 작은 칸은 이름만 쓴다 —
+    // 두 줄(이름+비중)이 안 들어가 칸이 통째로 비는 것보다 이름이라도 보이는 편이 낫다. 비중은 호버에 있다.
+    text: labels.map((label, i) => customdata[i].kind === 'leaf' ? _bubbleWrapLabel(label) : label),
+    texttemplate: customdata.map(d => (d.kind === 'leaf' && d.weight < 2) ? '<b>%{text}</b>' : '<b>%{text}</b><br>%{percentRoot:.1%}'),
     textposition: 'top left',
     // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
     // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
@@ -6100,7 +6173,7 @@ function _renderBubbleSectorTable(itemsAug, totalVal, isDark) {
         <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
             <span style="width:8px;height:8px;border-radius:3px;background:${c};flex-shrink:0;"></span>
-            <span style="font-family:var(--font-ui);font-size:var(--fs-cap);font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeSec}</span>
+            <span style="font-family:var(--font-ui);font-size:var(--fs-cap);font-weight:700;color:${textPrimary};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_cfEsc(sectorKo(sec))}</span>
           </div>
           <div style="display:flex;align-items:baseline;gap:8px;flex-shrink:0;">
             <span style="font-family:var(--font-ui);font-size:var(--fs-body);font-weight:800;color:${textPrimary};letter-spacing:0;">${pctStr}%</span>
@@ -6150,7 +6223,7 @@ function _renderBubbleLeavesPanel(sector, itemsAug, isDark, returnHtml = false) 
   const html = [
     `<div class="bubble-inline-leaves" style="padding:4px 8px 9px;border-top:1px solid ${rowBorder};">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 7px;">
-      <div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sector)}</div>
+      <div style="font-family:var(--font-ui);font-size:var(--fs-cap);letter-spacing:.08em;color:${headerColor};font-weight:700;">${_cfEsc(sectorKo(sector))}</div>
       <button type="button" data-bubble-sector="${_cfEsc(sector)}" onclick="handleBubbleSectorClick(this.dataset.bubbleSector)" style="font-family:var(--font-ui);font-size:var(--fs-cap);color:${accent};cursor:pointer;font-weight:700;border:0;background:transparent;padding:4px;">닫기</button>
     </div>`,
     `<div style="display:flex;flex-direction:column;gap:${gap}px;">`
@@ -7062,10 +7135,8 @@ async function _jsBenchmarkFallback(tickersWithWeights) {
     if (baseArr.length < 2) return;
 
     const n = baseArr.length;
-    const step = Math.max(1, Math.floor(n/6));
-    const indices = [];
-    for (let i=0;i<n;i+=step) indices.push(i);
-    if (indices[indices.length-1] !== n-1) indices.push(n-1);
+    // 모든 거래일 — 서버(api/dashboard.py get_benchmark)와 같은 규칙. 6등분 샘플링은 MDD 를 작게 만들었다.
+    const indices = Array.from({length:n}, (_,i)=>i);
 
     const labels = indices.map(i => {
       const d = baseArr[i].dt; return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;

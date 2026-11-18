@@ -132,6 +132,7 @@ Object.assign(context, {
   cbOwnerBtns: () => '<div class="owner-tabs"></div>',
   cbNiceStep: raw => Math.pow(10, Math.ceil(Math.log10(Math.max(1, raw)))),
   cbTaxAxisLab: v => String(Math.round(v)),
+  cbAmtAxisLab: v => String(Math.round(v)),
   cbSmoothPath: pts => 'M' + pts.map(p => `${p.x},${p.y}`).join(' L'),
   cbUpDn: v => (v >= 0 ? 'color:var(--up)' : 'color:var(--dn)'),
   CB_LINE_PAD: { l: 48, r: 12 },
@@ -150,6 +151,7 @@ Object.assign(context, {
 })
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
 for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)

@@ -57,7 +57,7 @@
 .cb-tax-entry-form{margin-bottom:10px}
 @media(min-width:1180px){
   .cb-dash-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;align-items:stretch}.cb-dash-contrib-card{padding:12px}
-  .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}.cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 270px}
+  .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}
   .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cb-tax-summary-card{padding:10px 12px}
   .cb-div-summary-card{min-height:70px;padding:10px 12px}.cb-risk-overview{grid-template-columns:300px minmax(0,1fr);gap:10px}.cb-risk-primary-card,.cb-risk-insight-card{padding:9px 10px;min-height:72px}.cb-risk-card-grid{gap:8px}
   .fin-form-grid{grid-template-columns:repeat(auto-fit,minmax(130px,160px));gap:9px}.fin-nw-stats{gap:7px;margin-bottom:8px}.fin-nw-stats>div{padding:7px 9px}
@@ -339,7 +339,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-table-panel{padding:16px 18px}
 .acct-table-wrap{overflow-x:auto;margin-top:10px}
 .acct-table{min-width:880px}
-.acct-row,.acct-holding{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(120px,.9fr) minmax(64px,.5fr) minmax(170px,1.1fr) minmax(130px,.9fr) minmax(52px,.4fr);column-gap:20px;align-items:center}
+.acct-row,.acct-holding{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(120px,.9fr) minmax(118px,.75fr) minmax(170px,1.1fr) minmax(130px,.9fr) minmax(52px,.4fr);column-gap:20px;align-items:center}
 .acct-row{padding:12px 10px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .acct-row>span:not(:first-child){text-align:right}
 .acct-head{font-size:var(--fs-cap);color:var(--dim)}
@@ -883,3 +883,124 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .fin-form-grid .fin-goal-nodate input{width:15px;height:15px;padding:0;flex:none;accent-color:var(--acc)}
 /* 링크 기본색 — 색을 정하지 않은 링크는 브라우저 기본 파랑(#0000ee)이라 다크 테마에서 읽히지 않는다 */
 :where(a){color:var(--acc)}
+
+/* ===== 가독성 점검 (2026-11-17 3차) — 가짜 데이터로 전 화면을 띄워 확인한 잘림·빈칸·막대 ===== */
+/* 현금 흐름 '수입/지출 구성': 막대(카테고리) 수만큼 높이를 준다 — 높이가 모자라면 Chart.js 가 이름표를 건너뛴다.
+   넘치는 만큼은 오른쪽 열(.cf-chart-column)이 스크롤한다. 휴대폰은 기존 240px 규칙이 덮는다. */
+.cf-comp-panel{flex:2 0 auto;min-height:0}
+.cf-comp-chart{flex:1 0 calc(var(--cf-bars,6)*20px + 34px);min-height:0}
+.cf-trend-panel{flex:1 0 220px;min-height:0}
+/* 보유 목록 두 줄 행 — 윗줄 이름·증권사·주기, 아랫줄 티커·계좌·회당 금액. 한 줄에 이어 쓰면 'TIGER 미…'로 잘렸다. */
+#view-holdings .holdings-inline-cell.holdings-asset-cell{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:1px;align-items:center;white-space:nowrap}
+#view-holdings .holdings-asset-cell>.holdings-asset-flag{grid-row:1/3;grid-column:1}
+#view-holdings .holdings-asset-cell>.holdings-inline-name,
+#view-holdings .holdings-asset-cell>.holdings-inline-ticker{grid-column:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+#view-holdings .holdings-asset-cell>.holdings-inline-ticker{font-size:var(--fs-cap);color:var(--lab)}
+#view-holdings .holdings-inline-cell.holdings-broker-cell{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+#view-holdings .holdings-broker-cell>span{max-width:100%;line-height:1.35}
+#view-holdings .holdings-broker-cell>.holdings-account{font-size:var(--fs-cap)}
+#view-holdings .pt-table th.dca-head,#view-holdings .pt-table td.dca-cell{text-align:right}
+#view-holdings .pt-table td.dca-cell>span{display:block;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#view-holdings .pt-table td.dca-cell>.dca-amount{color:var(--mut)}
+#view-holdings .pt-table td.holdings-val-cell{font-weight:700;text-align:right}
+.holdings-weight{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:3px;font-size:var(--fs-cap);font-weight:600;color:var(--mut);white-space:nowrap}
+.holdings-weight>.home-weight-bar{width:44px;margin-right:0}
+/* 배당 종목 표 — 모든 칸이 minmax(최소,fr) 로 남는 폭을 나눠 갖는 격자. 최소 폭 합계(약 1000px)는 1366px 화면의 표 폭 안에 든다. */
+.cb-div-head,.cb-div-row{display:grid;grid-template-columns:58px 26px minmax(122px,2.2fr) minmax(92px,1fr) minmax(80px,.8fr) minmax(66px,.6fr) minmax(76px,.7fr) minmax(60px,.55fr) minmax(64px,.55fr) minmax(54px,.5fr) minmax(64px,.55fr) minmax(40px,.4fr) minmax(84px,.8fr);column-gap:8px;align-items:center}
+.cb-div-head{padding:7px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
+.cb-div-row{padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cb-div-head>*,.cb-div-row>*{min-width:0}
+.cb-div-head>.cb-div-c-name{grid-column:span 2}
+.cb-div-head>.r,.cb-div-row>.r{text-align:right}
+.cb-div-row>.cap{font-size:var(--fs-cap)}
+.cb-div-row>.b{font-weight:700}
+.cb-div-row>.sb{font-weight:600}
+.cb-div-row>.mut{color:var(--mut)}
+.cb-div-row>.cb-div-c-flag,.cb-div-row>.cb-div-c-asset{display:flex;align-items:center}
+.cb-div-row>.cb-div-c-yoc{font-weight:800;color:var(--up)}
+.cb-div-row>.cb-div-c-ex{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 1760px 미만: 향후 90일 일정은 표 위 가로 띠로(긴 표 아래에 두면 보이지 않는다). */
+@media(max-width:1759px){
+  .cb-div-detail-grid>.cb-div-upcoming-card{order:-1}
+  .cb-div-upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:18px}
+}
+@media(max-width:768px){
+  /* 휴대폰은 보조 칸(.cb-mobile-secondary)을 숨기므로 남는 6칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게 */
+  .cb-div-head,.cb-div-row{grid-template-columns:52px 24px minmax(120px,1fr) 88px 60px 56px}
+  .cb-div-upcoming-list{grid-template-columns:minmax(0,1fr)}
+}
+/* 배당 상단: TOP 3 카드가 숫자 카드 줄에 못 들어가는 폭(1760px 미만)에서는 아랫줄 전체를 쓰고 세 종목을 가로로 놓는다.
+   예전에는 아랫줄에 400px 카드 하나만 떨어져 오른쪽 770px 가 비었다. */
+@media(min-width:769px) and (max-width:1759px){
+  .cb-div-summary-grid>.cb-div-top3-card{flex-basis:100%;max-width:none}
+  .cb-div-top3-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px}
+}
+/* 일정 달력 칸: 일정 이름을 두 줄까지 쓴다(칸 폭 약 85px 에 한 줄이면 'TIGER 미…'만 보였다). 휴대폰은 이름을 숨기는 기존 규칙 그대로. */
+.cal-chip{align-items:flex-start;line-height:1.3}
+.cal-chip>i{margin-top:3px}
+.cal-chip>span{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere;word-break:keep-all}
+/* 성과 비교 날짜 눈금 — 일별 점(≈250개)에서 고른 6개 안팎만 위치에 맞춰 찍는다(예전엔 모든 라벨을 한 줄에 나열해 겹쳤다). */
+.cb-perf-xaxis{position:relative;height:22px;font-size:var(--fs-cap);color:var(--dim)}
+.cb-perf-xaxis>span{position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap}
+.cb-perf-xaxis>span:first-child{transform:none}
+.cb-perf-xaxis>span:last-child{transform:translateX(-100%)}
+/* 성과 표 선택 기간 막대 — 가운데 세로선이 0 */
+.cb-perf-bar{position:relative;display:block;height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner)}
+.cb-perf-bar::after{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
+.cb-perf-bar>i{position:absolute;top:0;bottom:0;border-radius:var(--r-sm)}
+.cb-perf-detail-head>.cb-perf-bar-head{text-align:center}
+@media(max-width:768px){
+  .cb-perf-detail-head>.cb-perf-bar-head,.cb-perf-detail-row>.cb-perf-bar{display:none}
+  .cb-perf-detail-head,.cb-perf-detail-row{grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr)}
+}
+/* 계좌별 보기 비중 칸 — 막대 + 숫자 한 줄 */
+.acct-row>.acct-share{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.acct-row>.acct-share>.home-weight-bar{margin-right:0}
+/* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
+   눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
+.cb-meter{overflow:visible}
+.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 26%,transparent)}
+.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 36%,transparent)}
+.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 32%,transparent)}
+.cb-meter-zone:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.cb-meter-zone:nth-last-child(3){border-radius:0 var(--r-sm) var(--r-sm) 0}
+.cb-meter-fill{border-radius:var(--r-sm)}
+.cb-meter-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--tx)}
+/* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
+.cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}
+/* 성과 화면 카드·범례 — 예전 인라인 고정 스타일을 옮긴 것. 값에 따라 바뀌는 윗선 색·선택 강조·흐림·손익 색만 인라인에 남긴다. */
+.cb-perf-card{min-width:0;padding:12px 14px;border-top:3px solid var(--bd);cursor:pointer;transition:opacity .2s,box-shadow .2s}
+.cb-perf-card-name{display:flex;align-items:center;gap:7px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-perf-card-value{font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;margin-top:3px}
+.cb-perf-chart-panel{margin-top:12px;padding:14px 16px 8px;overflow:visible}
+.cb-perf-legend{display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap}
+.cb-perf-legend-item{display:flex;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--mut);cursor:pointer;transition:opacity .2s}
+.cb-perf-legend-hint{margin-left:auto;font-size:var(--fs-cap);color:var(--dim)}
+/* 홈 자산 배분 목록: 카드가 좁은 폭(1440px 미만)에서는 금액을 이름 아래로 내린다 — 한 줄에 두면 이름 칸이 28px 로 줄어
+   '한…'·'가상…'으로 잘렸다. 1440px 이상은 기존 한 줄 그대로. */
+@media(min-width:769px) and (max-width:1439px){
+  #cb-cdash .cb-home-allocation-row{grid-template-columns:9px minmax(0,1fr) 50px 11px;gap:1px 8px!important;padding:5px 6px!important}
+  #cb-cdash .cb-home-allocation-row>i{grid-column:1;grid-row:1/3}
+  #cb-cdash .cb-home-allocation-row>span:nth-child(2){grid-column:2;grid-row:1}
+  #cb-cdash .cb-home-allocation-row>span:nth-child(3){grid-column:2;grid-row:2}
+  #cb-cdash .cb-home-allocation-row>b{grid-column:3;grid-row:1/3}
+  #cb-cdash .cb-home-allocation-row>em{grid-column:4;grid-row:1/3}
+}
+/* 배당 종목 표: 1600px 미만에서는 종목명 아래에 티커를 둔다(보유 목록과 같은 두 줄) — 한 줄이면 1280px 에서 이름이 75px 로 줄었다. */
+@media(max-width:1599px){
+  .cb-div-row .cb-asset-inline{flex-direction:column;align-items:flex-start;gap:0;line-height:1.35}
+  .cb-div-row .cb-asset-name{max-width:100%}
+}
+/* 홈 보유 표: 1600px 미만에서는 티커를 종목명 아래로(보유 목록·배당 표와 같은 두 줄) — 한 줄이면 1280px 에서 이름이 50px 대로 줄었다. */
+@media(max-width:1599px){
+  .home-asset{display:inline-grid;grid-template-columns:auto minmax(0,1fr);column-gap:6px;row-gap:0;align-items:center}
+  .home-asset>:first-child{grid-row:1/3}
+  .home-asset>b,.home-asset>small{grid-column:2;min-width:0;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+/* 휴대폰: 성과 선 그래프는 다른 SVG 그래프처럼 옆으로 밀어 본다(글자가 4px 로 줄지 않게).
+   배당 상위 TOP 3 카드는 2열 격자의 반 칸이면 종목명이 '아…'만 남아 한 줄 전체를 쓴다. */
+@media(max-width:768px){
+  .cb-perf-plot{min-width:1040px}
+  .cb-div-summary-grid>.cb-div-top3-card{grid-column:1/-1}
+}

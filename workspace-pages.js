@@ -59,13 +59,15 @@ function cbRenderAccounts(){
       <span class="acct-kind-sub">${k.accounts?`${k.share.toFixed(1)}% · 계좌 ${k.accounts}개 · ${k.holdings}종목`:'해당 계좌 없음'}</span>
       <span class="acct-kind-note">${ACCT_KIND_NOTE[k.kind]}</span>
     </div>`).join('');
+  // 비중 막대 길이는 가장 큰 계좌 대비(숫자는 그대로 투자자산 대비 비중) — 홈 보유 표와 같은 모양
+  const maxShare=Math.max(0,...data.groups.map(g=>g.share||0));
   const body=data.groups.map(g=>{
     const info=getAccountDivTaxInfo(g.acc);
     return `<details class="acct-group">
       <summary class="acct-row">
         <span class="acct-name">${cbOwnerTag(g.owner)}<span>${cbEsc(g.broker)} · ${cbEsc(g.acc)}</span><em class="acct-kind-chip">${g.kind}</em>${g.stale?`<em class="acct-stale-chip">시세 미조회 ${g.stale}</em>`:''}</span>
         <span class="cb-num">${cbDisp(g.value)}</span>
-        <span class="cb-num">${g.share.toFixed(1)}%</span>
+        <span class="cb-num acct-share"><span class="home-weight-bar" aria-hidden="true"><i style="width:${maxShare>0?Math.max(2,g.share/maxShare*100).toFixed(1):0}%;background:var(--acc)"></i></span>${g.share.toFixed(1)}%</span>
         <span class="cb-num" style="${cbGainStyle(g.gain,g.gainPct==null)}">${g.gainPct==null?'—':cbSignDisp(g.gain)+' · '+cbPct(g.gainPct)}</span>
         <span class="cb-num">${g.dividend>0?cbDisp(g.dividend):'—'}</span>
         <span class="cb-num">${g.rows.length}</span>

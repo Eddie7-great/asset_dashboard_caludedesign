@@ -673,9 +673,10 @@ def get_benchmark(p_tkrs=None, p_weights=None):
             if len(period_df) < 2: continue
                 
             n = len(period_df)
-            step = max(1, n // 6)
-            indices = list(range(0, n, step))
-            if indices[-1] != n - 1: indices.append(n - 1)
+            # 구간의 모든 거래일을 보낸다(1년 ≈ 250점). 예전에는 6등분한 점(1년 = 7점)만 보내
+            # 곡선이 뭉개지고, 화면이 같은 시리즈로 계산하는 MDD 가 실제 낙폭보다 작게 나왔다.
+            # JS 폴백(script.js _jsBenchmarkFallback)도 같은 규칙이다 — 한쪽만 바꾸지 않는다.
+            indices = list(range(n))
                 
             # 포트폴리오: 구간당 1회 (생존 컬럼, 가중치, base) 해석 — 인덱스마다 재탐색 방지.
             # KOSDAQ은 .KQ, yfinance 미수록 KR은 pykrx(.KR) 컬럼으로 폴백한다.

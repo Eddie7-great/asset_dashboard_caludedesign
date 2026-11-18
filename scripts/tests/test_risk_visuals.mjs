@@ -18,6 +18,7 @@ vm.runInContext(source.slice(start, end), ctx)
   assert.match(html, /cb-meter-zone warn" style="left:20\.00%;width:10\.00%/, '주의~위험 기준은 주의 구간')
   assert.match(html, /cb-meter-zone bad" style="left:30\.00%;width:70\.00%/, '위험 기준 이후는 위험 구간')
   assert.match(html, /cb-meter-fill" style="width:13\.20%;background:var\(--up\)/, '현재 값까지 채움')
+  assert.match(html, /cb-meter-mark" style="left:13\.20%"/, '현재 값 위치에 세로 표식')
   assert.match(html, /aria-label="현재 13\.2% · 20% 초과 주의 · 30% 초과 위험"/, '색 없이도 기준을 읽을 수 있게 설명')
 }
 // ── 게이지: 낮을수록 위험(현금 비중 등) ─────────────────────────

@@ -53,7 +53,7 @@ const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비�
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
   cashflow: '월별 수입·지출 기록과 고정비 관리 · 고정비로 분류한 항목이 투자 계획 > 목표의 현금 안전판 기준이 됩니다',
-  bubble:   '주식·ETF·가상화폐·금·현금 비중 비교 · ETF는 펀드 단위이며 원을 클릭하면 하위 종목으로 들어갑니다',
+  bubble:   '주식·ETF·가상화폐·금·현금 비중 비교 · ETF는 펀드 단위이며 칸을 클릭하면 하위 종목으로 들어갑니다',
 };
 
 // ───────────────────────── 헬퍼 ─────────────────────────
@@ -376,6 +376,8 @@ function cbOwnerBtns(current, fnName){
 }
 
 // 섹터 집계 (주식 기준. includeCrypto=true면 가상화폐를 'Crypto'로 별도 분류해 포함)
+// 섹터 표시 이름 — 한글 대응표는 script.js 의 sectorKo 하나다. 집계 키(label)는 영어 그대로 둔다.
+function cbSectorName(key){ return typeof sectorKo==='function' ? sectorKo(key) : String(key==null?'':key); }
 function cbSectors(includeCrypto, ownerFilter){
   const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
@@ -707,7 +709,7 @@ function cbRisk(ownerFilter){
     mk('가상화폐 비중', cryptoPct, cryptoPct.toFixed(1)+'%', 20, 35,
       ['가상화폐 비중이 관리 가능한 수준입니다.','가상화폐가 20%를 넘습니다. 일반 권고(5–15%)보다 높습니다.','가상화폐가 35%를 초과해 변동성을 지배합니다.']),
     mk('섹터 집중도', topSec.pct, Math.round(topSec.pct)+'%', 35, 50,
-      ['주식 섹터 분산이 양호합니다.','최대 섹터 '+topSec.label+' 비중이 35%를 넘습니다.',topSec.label+' 편중이 50%를 초과합니다. 섹터 분산이 시급합니다.']),
+      ['주식 섹터 분산이 양호합니다.','최대 섹터 '+cbSectorName(topSec.label)+' 비중이 35%를 넘습니다.',cbSectorName(topSec.label)+' 편중이 50%를 초과합니다. 섹터 분산이 시급합니다.']),
     mk('추정 연 변동성', vol, vol.toFixed(1)+'%', 22, 32,
       ['전체 변동성이 균형 잡힌 범위입니다.','변동성이 다소 높습니다. 안전자산 확대를 검토하세요.','변동성이 매우 높습니다. 하락장 손실 폭이 클 수 있습니다.']),
     mk('현금 완충 비중', cashPct, cashPct.toFixed(1)+'%', 5, 3,
@@ -799,7 +801,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
   const sectors=cbSectors(false,ownerFilter).list;
   const topTwoSectors=sectors.slice(0,2);
   const topTwoSectorPct=topTwoSectors.reduce((s,x)=>s+x.pct,0);
-  const topTwoSectorNames=topTwoSectors.map(x=>x.label).join(' + ')||'섹터 없음';
+  const topTwoSectorNames=topTwoSectors.map(x=>cbSectorName(x.label)).join(' + ')||'섹터 없음';
 
   // 같은 티커라도 소유주가 다르면 별도 배당원으로 유지한다.
   const dividendMap=new Map();
@@ -908,7 +910,9 @@ function cbRiskMeterHtml(m, unit, color){
     : `현재 ${fmt(v)} · ${fmt(m.warnAt)} 초과 주의 · ${fmt(m.badAt)} 초과 위험`;
   return `<div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
     + zones.filter(z=>z[2]>z[1]).map(z=>`<span class="cb-meter-zone ${z[0]}" style="left:${z[1].toFixed(2)}%;width:${(z[2]-z[1]).toFixed(2)}%"></span>`).join('')
-    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`;
+    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span>`
+    // 현재 값 위치 표식 — 채운 길이만으로는 구간 경계와의 거리가 잘 안 읽혀 세로 눈금을 더한다
+    + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%"></span></div>`;
 }
 
 // 통화 구성 100% 누적 막대 — 외화(USD·JPY·AUD·기타)를 왼쪽부터 쌓고 원화는 회색으로 끝에 둔다.
@@ -958,6 +962,8 @@ function cbRingSvg(score, size, color){
 }
 // 라인 차트 플롯 영역 좌우 패딩 (Y축 라벨 공간) — hover 히트영역 계산에도 사용
 const CB_LINE_PAD = { l: 48, r: 12 };
+// 성과 비교 선 그래프는 오른쪽 끝에 선 이름표를 달므로 오른쪽 여백을 따로 둔다(투자자산 추이는 CB_LINE_PAD 그대로).
+const CB_PERF_PAD = { l: 48, r: 70 };
 // Catmull-Rom → cubic bezier: 포인트를 지나는 부드러운 곡선 경로
 function cbSmoothPath(pts){
   if (pts.length < 3) return 'M' + pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' L');
@@ -970,6 +976,21 @@ function cbSmoothPath(pts){
   }
   return d;
 }
+// 날짜 눈금으로 쓸 점 번호 — 점이 많아도(일별 ≈ 250점) 6개 안팎만 고른 간격으로 고른다.
+function cbPerfTickIdx(n, count=6){
+  if (n<=0) return [];
+  if (n<=count) return Array.from({length:n},(_,i)=>i);
+  return [...new Set(Array.from({length:count},(_,j)=>Math.round(j*(n-1)/(count-1))))];
+}
+// 선 끝 이름표 세로 위치 — 가까운 이름표끼리 겹치지 않게 최소 간격(gap)만큼 벌리고, 그림 영역을 넘으면 통째로 올린다.
+function cbSpreadLabels(ys, gap, top, bottom){
+  const order = ys.map((y,i)=>({y,i})).sort((a,b)=>a.y-b.y);
+  for (let k=0;k<order.length;k++) order[k].y = Math.max(order[k].y, k?order[k-1].y+gap:top);
+  const over = order.length ? order[order.length-1].y - bottom : 0;
+  if (over>0) order.forEach(o=>{ o.y -= over; });
+  for (let k=order.length-2;k>=0;k--) order[k].y = Math.min(order[k].y, order[k+1].y-gap);
+  const out = Array(ys.length); order.forEach(o=>{ out[o.i]=o.y; }); return out;
+}
 function cbMultiLineSvg(seriesArr, w, h){
   const valid = seriesArr.filter(s=>s.data.some(v=>v!=null));
   const all = valid.flatMap(s=>s.data).filter(v=>v!=null);
@@ -978,7 +999,7 @@ function cbMultiLineSvg(seriesArr, w, h){
   // Y축 세분화: nice-step 눈금 + 전 눈금 금액 라벨
   const step = cbNiceStep((mx-mn+padV*2)/6);
   const lo = Math.floor((mn-padV)/step)*step, hi = Math.ceil((mx+padV)/step)*step;
-  const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
+  const padL=CB_PERF_PAD.l, padR=CB_PERF_PAD.r, plotW=w-padL-padR;
   const y=v=>h-8-((v-lo)/(hi-lo))*(h-16);
   let out='';
   for (let v=lo; v<=hi+step*0.01; v+=step){
@@ -991,12 +1012,22 @@ function cbMultiLineSvg(seriesArr, w, h){
     const pts=s.data.map((v,i)=>({v,i})).filter(p=>p.v!=null);
     if(pts.length<2) return;
     const dx=plotW/(s.data.length-1);
-    const d=cbSmoothPath(pts.map(p=>({x:padL+p.i*dx, y:y(p.v)})));
+    const xy=pts.map(p=>({x:padL+p.i*dx, y:y(p.v)}));
+    // 일별 점(수십~수백 개)은 곡선 보정을 하면 실제 등락이 뭉개진다 — 점이 많으면 직선으로 잇는다.
+    const d=xy.length>40 ? 'M'+xy.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' L') : cbSmoothPath(xy);
+    s._end = { x:xy[xy.length-1].x, y:xy[xy.length-1].y };
     const dimmed = !!s.dim;
     const op = dimmed ? 0.16 : (s.bold ? 1 : 0.85);
     // 렌더 애니메이션: 실선(벤치마크)은 드로잉, 점선(소유주)은 목표 불투명도까지 페이드 인
     const anim = s.isBench ? 'class="cb-line-draw" pathLength="1"' : `class="cb-line-fade" style="--o:${op}"`;
     out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.bold?2.8:1.8}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}" ${s.dash?'stroke-dasharray="5 5"':''} ${anim}></path>`;
+  });
+  // 선 끝 이름표 — 범례를 오가며 색을 맞춰 보지 않아도 어느 선이 누구인지 바로 읽힌다.
+  const ends = valid.filter(s=>s._end && s.label);
+  const ly = cbSpreadLabels(ends.map(s=>s._end.y), 14, 10, h-6);
+  ends.forEach((s,k)=>{
+    const op = s.dim ? 0.3 : 1;
+    out+=`<text class="cb-perf-end-label" x="${(s._end.x+6).toFixed(1)}" y="${(ly[k]+4).toFixed(1)}" font-size="12" font-weight="700" style="fill:${s.color}" opacity="${op}">${cbEsc(s.label)}</text>`;
   });
   // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">${out}</svg>`;
@@ -1029,8 +1060,8 @@ function cbRenderDash(){
   _cdashSecList = secs.map(s=>s.label);
   const topSec = secs[0];
   const sectorNote = !topSec ? '주식·가상화폐 자산이 없습니다'
-    : topSec.pct>=50 ? '⚠ '+topSec.label+' 편중이 심합니다 (50%+)'
-    : topSec.pct>=35 ? topSec.label+' 비중이 높은 편입니다' : '섹터 분산이 양호합니다';
+    : topSec.pct>=50 ? '⚠ '+cbSectorName(topSec.label)+' 편중이 심합니다 (50%+)'
+    : topSec.pct>=35 ? cbSectorName(topSec.label)+' 비중이 높은 편입니다' : '섹터 분산이 양호합니다';
 
   // 펼침 목록 공통 행 (자산군/섹터 클릭 시 노출되는 종목)
   const miniRow = (r, baseV) => `
@@ -1186,7 +1217,7 @@ function cbRenderDash(){
           return `
           <div class="cb-hrow" role="button" tabindex="0" onclick="cbDashSecToggle(${n})" style="padding:6px 8px;cursor:pointer;${open?'background:var(--accSoft)':''}">
             <div style="display:flex;justify-content:space-between;gap:8px;font-size:var(--fs-cap);margin-bottom:5px">
-              <span style="color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cbEsc(s.label)} <span style="color:var(--dim);font-size:var(--fs-cap)">${open?'▾':'▸'}</span></span>
+              <span style="color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cbEsc(cbSectorName(s.label))} <span style="color:var(--dim);font-size:var(--fs-cap)">${open?'▾':'▸'}</span></span>
               <span style="font-weight:700;flex-shrink:0">${s.pct.toFixed(1)}%</span>
             </div>
             <div class="cb-sector-track"><i${n===0?' class="is-top"':''} style="width:${Math.round(s.pct)}%"></i></div>
@@ -1248,7 +1279,7 @@ function cbHomeSummary(sel,nw){
         ${cell('현재가', sel.i.grp==='현금'?'—':cbFmtNative(sel.i.curP,sel.i.cur), '', 'cb-num')}
         ${cell('수익률', sel.gainPct==null?'—':cbPct(sel.gainPct), sel.gainPct==null?'color:var(--lab)':cbUpDn(sel.gainPct))}
         ${cell('<span data-tip="현재 선택한 소유주 포트폴리오에서 이 종목의 평가액이 차지하는 비중">포트폴리오 비중</span>', (nw>0?sel.val/nw*100:0).toFixed(1)+'%')}
-        ${cell('섹터', cbEsc(sector), 'font-size:var(--fs-cap);font-weight:600;white-space:nowrap', '', 'grid-column:1/-1')}
+        ${cell('섹터', cbEsc(cbSectorName(sector)), 'font-size:var(--fs-cap);font-weight:600;white-space:nowrap', '', 'grid-column:1/-1')}
       </div>
       <div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--bd)">
         <div class="cb-panel-title" style="margin-bottom:7px">배당 정보</div>${divBox}${d&&divState.state!=='ready'?`<p class="cb-div-status ${divState.state}">${cbEsc(divState.text)} · 이전 조회값 표시</p>`:''}
@@ -1395,7 +1426,7 @@ function cbRenderPerf(){
   const cards = entities.map(e=>({ ...e, ret: cbLastVal(sel.data[e.key]) }));
   // 클릭 강조: 선택된 소유주/벤치마크 라인은 굵게, 나머지는 흐리게
   // 선 종류: 벤치마크(S&P 500 / KOSPI) = 실선, 소유주 포트폴리오 = 점선
-  const seriesArr = entities.map(e=>({ data:(sel.data[e.key]||[]), color:e.color, isBench:!!e.isBench,
+  const seriesArr = entities.map(e=>({ data:(sel.data[e.key]||[]), color:e.color, isBench:!!e.isBench, label:e.label,
     bold: !e.isBench || e.key===selKey, dash:!e.isBench, dim: !!(selKey && e.key!==selKey) }));
   // 범례·카드·표의 색 스와치도 선 종류를 그대로 반영 (소유주 = 점선, 벤치마크 = 실선)
   const swatch = (e, w) => e.isBench
@@ -1413,9 +1444,18 @@ function cbRenderPerf(){
     const alpha = (!e.isBench && rv!=null && spSel!=null) ? rv-spSel : null;
     return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, mdd: mddOf(sel.data[e.key]) };
   });
+  // 하단 표: 선택 기간 수익률 높은 순(값 없는 줄은 끝). 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
+  const tfIdx = CB_PERF_TFS.indexOf(tf);
+  const sortedRows = rows.slice().sort((a,b)=>{
+    const av=a.vals[tfIdx], bv=b.vals[tfIdx];
+    if (av==null) return bv==null?0:1;
+    if (bv==null) return -1;
+    return bv-av;
+  });
+  const perfBarMax = Math.max(1, ...rows.map(r=>Math.abs(r.vals[tfIdx]||0)));
   const labels = sel.labels||[];
   const N = labels.length;
-  const padLpct = (CB_LINE_PAD.l/1100*100).toFixed(2), padRpct = (CB_LINE_PAD.r/1100*100).toFixed(2);
+  const padLpct = (CB_PERF_PAD.l/1100*100).toFixed(2), padRpct = (CB_PERF_PAD.r/1100*100).toFixed(2);
 
   // 소제목·기간 버튼은 메인 제목 라인(글로벌 헤더)으로
   cbSetHead(
@@ -1428,16 +1468,18 @@ function cbRenderPerf(){
   el.innerHTML = `
     <div class="cb-perf-card-grid">
       ${cards.map(p=>`
-        <div class="cb-panel" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="min-width:0;padding:12px 14px;border-top:3px solid ${p.color};cursor:pointer;transition:opacity .2s,box-shadow .2s;${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
-          <div style="display:flex;align-items:center;gap:7px;font-size:var(--fs-cap);color:var(--mut)">${swatch(p,13)}${cbEsc(p.label)}</div>
-          <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;margin-top:3px;${csR(p.ret)}">${fmtR(p.ret)}</div>
+        <div class="cb-panel cb-perf-card" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="border-top-color:${p.color};${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
+          <div class="cb-perf-card-name">${swatch(p,13)}${cbEsc(p.label)}</div>
+          <div class="cb-perf-card-value" style="${csR(p.ret)}">${fmtR(p.ret)}</div>
         </div>`).join('')}
     </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px;overflow:visible">
-      <div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap">
-        ${entities.map(p=>`<span role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--mut);cursor:pointer;transition:opacity .2s;${selKey&&selKey!==p.key?'opacity:.4':''}">${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
-        <span style="margin-left:auto;font-size:var(--fs-cap);color:var(--dim)">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
+    <div class="cb-panel cb-perf-chart-panel">
+      <div class="cb-perf-legend">
+        ${entities.map(p=>`<span class="cb-perf-legend-item" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')"${selKey&&selKey!==p.key?' style="opacity:.4"':''}>${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
+        <span class="cb-perf-legend-hint">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
       </div>
+      <!-- 휴대폰은 줄이는 대신 옆으로 밀어 본다(.cb-chart-scroll + .cb-perf-plot 최소 폭) — 1100 좌표계를 390px 에 줄이면 눈금·이름표가 4px 가 된다 -->
+      <div class="cb-chart-scroll"><div class="cb-perf-plot">
       <div style="position:relative" onmouseleave="cbPerfHide()">
         ${cbMultiLineSvg(seriesArr, 1100, 220)}
         <div style="position:absolute;top:0;bottom:0;left:${padLpct}%;right:${padRpct}%">
@@ -1449,30 +1491,30 @@ function cbRenderPerf(){
           }).join('') : ''}
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:var(--fs-cap);color:var(--dim);padding:4px 2px 6px;margin-left:${padLpct}%;margin-right:${padRpct}%">${labels.map(l=>`<span>${cbEsc(l)}</span>`).join('')}</div>
+      <div class="cb-perf-xaxis" style="margin-left:${padLpct}%;margin-right:${padRpct}%">${cbPerfTickIdx(N).map(i=>`<span style="left:${(N>1?i/(N-1)*100:50).toFixed(2)}%">${cbEsc(labels[i])}</span>`).join('')}</div>
+      </div></div>
     </div>
     ${typeof finInvestTrendCard==='function'?finInvestTrendCard():''}
     <div class="cb-panel cb-perf-detail-panel" style="margin-top:12px;padding:16px 18px">
       <div class="cb-perf-detail-grid">
-        ${[
-          [rows.find(r=>r.e.key==='S&P 500'), rows.find(r=>r.e.key==='본인'), rows.find(r=>r.e.key==='자녀1')],
-          [rows.find(r=>r.e.key==='KOSPI'), rows.find(r=>r.e.key==='아내'), rows.find(r=>r.e.key==='아버지')],
-        ].map(group=>`
-          <div class="cb-perf-detail-table">
-            <div class="cb-perf-detail-head">
-              <span>구분</span>
-              ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
-              <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
-              <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
-            </div>
-            ${group.filter(Boolean).map(r=>`
-              <div class="cb-perf-detail-row" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
-                <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
-                ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
-                <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
-                <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
-              </div>`).join('')}
-          </div>`).join('')}
+        <!-- 한 표(6줄)를 선택 기간 수익률 순으로 — 예전에는 좌우 두 표(S&P·본인·자녀1 | KOSPI·아내·아버지)라 순위를 눈으로 맞춰야 했다 -->
+        <div class="cb-perf-detail-table">
+          <div class="cb-perf-detail-head">
+            <span>구분</span>
+            <span class="cb-perf-bar-head">${tf} 수익률</span>
+            ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
+            <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
+            <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
+          </div>
+          ${sortedRows.map(r=>`
+            <div class="cb-perf-detail-row${r.e.isBench?' is-bench':''}" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(r.e.key)}')" style="${selKey===r.e.key?'background:var(--accSoft)':(selKey?'opacity:.55':'')}">
+              <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
+              ${cbPerfBarHtml(r.vals[tfIdx], perfBarMax, r.e.color)}
+              ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
+              <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
+              <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
+            </div>`).join('')}
+        </div>
       </div>
       <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
@@ -1488,6 +1530,13 @@ function _cbPerfTipEl(){
     document.body.appendChild(t);
   }
   return t;
+}
+// 성과 표의 선택 기간 막대 — 가운데가 0, 오른쪽 이익·왼쪽 손실. 길이는 표 안 최대 절댓값 대비(새 계산 없이 표의 값만 쓴다).
+function cbPerfBarHtml(v, maxAbs, color){
+  if (v==null || !Number.isFinite(Number(v))) return '<span class="cb-perf-bar" aria-hidden="true"></span>';
+  const half = Math.min(50, Math.abs(v)/(maxAbs||1)*50);
+  const left = v>=0 ? 50 : 50-half;
+  return `<span class="cb-perf-bar" aria-hidden="true"><i style="left:${left.toFixed(2)}%;width:${half.toFixed(2)}%;background:${color}"></i></span>`;
 }
 function cbPerfHover(ev, idx){
   const d = window._cbPerfHover; if(!d) return;
@@ -1772,7 +1821,7 @@ function cbRiskOwner(o){ _cbRiskOwner=o; cbRenderRisk(); cbRestoreFilterFocus('c
 // 배당 캘린더 Y축 금액 라벨 (만/억 + 소액은 천 단위)
 function cbDivAxisLab(v){
   if (v===0) return '0';
-  if (Math.abs(v)>=10000) return cbTaxAxisLab(v);
+  if (Math.abs(v)>=10000) return cbAmtAxisLab(v);
   return Math.round(v/1000).toLocaleString('ko-KR')+'천';
 }
 function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
@@ -1932,7 +1981,9 @@ function cbDivBarHide(){
   if(tip) tip.style.display='none';
 }
 // 월별 배당 캘린더 SVG — Y축 금액 + X축 '월' 라벨
-function cbDivCalendarSvg(monthAmt, monthDetails, w, h){
+// nowMonth: 올해 예상 그래프일 때 이번 달 번호(0~11). 이번 달부터 남은 달은 빗금으로 그린다 — 단, 올해 값은
+// 12달 모두 '과거 지급 패턴 × 현재 보유'의 추정이므로 지난 달을 '받은 금액'이라고 부르지 않는다. -1 이면 구분하지 않는다.
+function cbDivCalendarSvg(monthAmt, monthDetails, w, h, nowMonth=-1){
   const upC = (typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52');
   const maxRaw = Math.max(...monthAmt, 1);
   const step = cbNiceStep(maxRaw/4);
@@ -1941,22 +1992,21 @@ function cbDivCalendarSvg(monthAmt, monthDetails, w, h){
   const plotW=w-padL-padR, plotH=h-padT-padB;
   const Y=v=> padT + plotH - (v/maxV)*plotH;
   let out='';
-  for(let v=0; v<=maxV+step*0.01; v+=step){
-    const yy=Y(v).toFixed(1);
-    out+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    out+=`<text x="${padL-7}" y="${(Y(v)+3.4).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbDivAxisLab(v)}</text>`;
-  }
+  out+=cbAmtGridSvg(cbAxisTicks(0,maxV,step), Y, padL, w-padR, cbDivAxisLab);
   const slot=plotW/12, bw=Math.min(40, slot-12);
+  if(nowMonth>=0) out+=`<defs><pattern id="cb-div-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${upC}" fill-opacity=".28"></rect><rect width="3" height="6" fill="${upC}"></rect></pattern></defs>`;
   for(let m=0;m<12;m++){
     const v=monthAmt[m]||0, xc=padL + slot*m + slot/2, yTop=Y(v);
     if(v>0){
       const selected=_cbDivMonthFilter===m;
       const dimmed=_cbDivMonthFilter!=null&&!selected;
       const monthLabel=`${m+1}월 배당 ${cbKrw(v)}${selected?', 선택됨':''}. 선택하면 해당 월 종목 내역을 표시합니다.`;
-      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${upC}" opacity="${dimmed?'0.32':'0.88'}" stroke="${selected?'var(--tx)':'transparent'}" stroke-width="${selected?'2':'0'}" style="cursor:pointer" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.setAttribute('stroke','var(--tx)');this.setAttribute('stroke-width','2')" onblur="this.setAttribute('stroke','${selected?'var(--tx)':'transparent'}');this.setAttribute('stroke-width','${selected?'2':'0'}')" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()" onclick="cbDivMonthPick(${m})"></rect>`;
+      out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${nowMonth>=0&&m>=nowMonth?'url(#cb-div-hatch)':upC}" opacity="${dimmed?'0.32':'0.88'}" stroke="${selected?'var(--tx)':'transparent'}" stroke-width="${selected?'2':'0'}" style="cursor:pointer" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.setAttribute('stroke','var(--tx)');this.setAttribute('stroke-width','2')" onblur="this.setAttribute('stroke','${selected?'var(--tx)':'transparent'}');this.setAttribute('stroke-width','${selected?'2':'0'}')" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()" onclick="cbDivMonthPick(${m})"></rect>`;
       out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--up)" font-size="12" font-weight="700" text-anchor="middle">${cbKrw(v)}</text>`;
     }
-    out+=`<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m+1}월</text>`;
+    out+=m===nowMonth
+      ? `<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--acc)" font-size="12" font-weight="800" text-anchor="middle">${m+1}월 · 이번 달</text>`
+      : `<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m+1}월</text>`;
   }
   // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
   const annual=monthAmt.reduce((sum,value)=>sum+(Number(value)||0),0);
@@ -2042,6 +2092,8 @@ function cbRenderDiv(){
   const years = Array.from(yrSet).sort((a,b)=>b.localeCompare(a));
   const year = (_cbDivYear && years.includes(_cbDivYear)) ? _cbDivYear : nowY;
   const cal = cbDivMonthlyForYear(list, year, netBasis);
+  // 올해 예상 그래프에서만 이번 달 위치를 표시한다(지난 연도는 지급 이력 재구성, 내년은 전부 앞으로라 구분할 것이 없다).
+  const divNowMonth = (!cal.actual && year===nowY) ? new Date().getMonth() : -1;
   const calTotal = cal.monthAmt.reduce((s,v)=>s+v,0);
   const upcomingDividends=cbUpcomingDividendSchedule(list,90);
   const upcomingDividendTotal=upcomingDividends.reduce((s,x)=>s+x.amount,0);
@@ -2122,9 +2174,10 @@ function cbRenderDiv(){
     <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
         <span class="cb-panel-title">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
+        ${divNowMonth>=0?'<span class="cb-div-hatch-legend"><i aria-hidden="true"></i>이번 달부터 남은 달 · 12달 모두 추정</span>':''}
         <span style="margin-left:auto;font-size:var(--fs-cap);color:var(--mut)">${year}년 합계 <b style="color:var(--up)">${cbDisp(calTotal)}</b></span>
       </div>
-      <div class="cb-chart-scroll">${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300)}</div>
+      <div class="cb-chart-scroll">${cbDivCalendarSvg(cal.monthAmt, cal.monthDetails, 1100, 300, divNowMonth)}</div>
     </div>
     <div class="cb-div-detail-grid">
     <div class="cb-panel cb-table-panel cb-div-history-panel" style="padding:14px 16px">
@@ -2132,31 +2185,33 @@ function cbRenderDiv(){
         <span class="cb-panel-title">배당 종목 내역</span>
         ${_cbDivMonthFilter!=null?`<button class="cb-btn" onclick="cbDivMonthPick(${_cbDivMonthFilter})" style="margin-left:auto;padding:4px 9px;font-size:var(--fs-cap)">${_cbDivMonthFilter+1}월 ${cal.actual?'지급':'예상'} 종목 · 전체 보기 ×</button>`:''}
       </div>
-      <div class="cb-thead cb-div-head" style="display:flex;font-size:var(--fs-cap);color:var(--dim);padding:7px 8px;border-bottom:1px solid var(--bd);min-width:1110px">
-        <span style="width:62px">소유주</span><span style="flex:1">종목</span><span style="width:96px;text-align:right">연간 수입 · ${basisLabel}</span><span class="cb-mobile-secondary" style="width:92px;text-align:right"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span style="width:76px;text-align:right">보유 주수</span><span class="cb-mobile-secondary" style="width:86px;text-align:right">주당 배당(연)</span><span style="width:68px;text-align:right"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="cb-mobile-secondary" style="width:70px;text-align:right"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="cb-mobile-secondary" style="width:78px;text-align:right"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="cb-mobile-secondary" style="width:64px;text-align:right">주기</span><span class="cb-mobile-secondary" style="width:100px;text-align:right"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+      <!-- 칸 폭은 .cb-div-head/.cb-div-row 격자(workspace-ui.css)가 정한다 — 한 칸만 flex:1 이고 나머지가 고정 폭이면
+           표가 1110px 를 넘어 오른쪽 세 칸(배당성장·주기·배당락)이 화면 밖으로 밀렸다. 머리글 '종목'은 국기 칸부터 두 칸을 덮는다. -->
+      <div class="cb-thead cb-div-head">
+        <span>소유주</span><span class="cb-div-c-name">종목</span><span class="r">연간 수입 · ${basisLabel}</span><span class="r cb-mobile-secondary"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span class="r">보유 주수</span><span class="r cb-mobile-secondary">주당 배당(연)</span><span class="r"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="r cb-mobile-secondary"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="r cb-mobile-secondary"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="r cb-mobile-secondary"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="r cb-mobile-secondary">주기</span><span class="r cb-mobile-secondary"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
       </div>
       ${visibleList.map(x=>`
-        <div class="cb-div-row" style="display:flex;align-items:center;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);min-width:1110px">
-          <span style="width:62px;flex-shrink:0">${cbOwnerTag(x.i.owner)}</span>
-          <span style="width:38px;display:flex;align-items:center;justify-content:flex-start;flex-shrink:0">${cbFlagSvg(x,15)}</span>
-          <div style="flex:1;display:flex;align-items:center;min-width:0">
+        <div class="cb-div-row">
+          <span>${cbOwnerTag(x.i.owner)}</span>
+          <span class="cb-div-c-flag">${cbFlagSvg(x,15)}</span>
+          <div class="cb-div-c-asset">
             <span class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([x.title,x.tkr].filter(Boolean).join(' · '))}">
               <span class="cb-asset-name" data-overflow-watch>${cbEsc(x.title)}</span>
               ${x.tkr?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(x.tkr)}</span>`:''}
             </span>
           </div>
-          <span style="width:96px;text-align:right;font-weight:700">${cbDisp(x.incomeKRW)}</span>
-          <span class="cb-num cb-mobile-secondary" style="width:92px;text-align:right;font-size:var(--fs-cap);${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
-          <span class="cb-num" style="width:76px;text-align:right;font-size:var(--fs-cap);font-weight:600">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
-          <span class="cb-num cb-mobile-secondary" style="width:86px;text-align:right;font-size:var(--fs-cap)">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
-          <span style="width:68px;text-align:right;font-weight:700;color:var(--mut)">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" style="width:70px;text-align:right;font-weight:600">${(x.d.yldNum||0).toFixed(2)}%</span>
-          <span class="cb-mobile-secondary" style="width:64px;text-align:right;font-weight:800;color:var(--up)">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
+          <span class="r b">${cbDisp(x.incomeKRW)}</span>
+          <span class="cb-num cb-mobile-secondary r cap" style="${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
+          <span class="cb-num r cap sb">${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</span>
+          <span class="cb-num cb-mobile-secondary r cap">${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</span>
+          <span class="r b mut">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r sb">${(x.d.yldNum||0).toFixed(2)}%</span>
+          <span class="cb-mobile-secondary r cb-div-c-yoc">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r b" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
             ? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`
-            : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="width:78px;text-align:right;font-weight:700;${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary" style="width:64px;text-align:right;color:var(--mut);font-size:var(--fs-cap)">${cbEsc(x.d.cycle||'—')}</span>
-          <span class="cb-mobile-secondary" style="width:100px;text-align:right;color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.d.exDiv||'—')}</span>
+            : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r cap mut">${cbEsc(x.d.cycle||'—')}</span>
+          <span class="cb-mobile-secondary r cap mut cb-div-c-ex">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
     <div class="cb-panel cb-div-upcoming-card">
@@ -2441,17 +2496,13 @@ function cbGiftChildChartSvg(w,h){
   const step = cbNiceStep(Math.max(cumNom*1.12, 1)/5);
   const maxV = Math.max(step, Math.ceil(cumNom*1.12/step)*step);
   const gridN = Math.round(maxV/step);
-  const padL=54, padR=10, padT=12, padB=24;
+  const padL=60, padR=10, padT=12, padB=24;   // 왼쪽 눈금 '5,000만'이 잘리지 않는 폭
   const plotW=w-padL-padR, plotH=h-padT-padB;
   const X=k=>padL + k*(plotW/years);
   const Y=v=>padT + plotH - (v/maxV)*plotH;
   const slot=plotW/years, bw=Math.max(2, slot*0.72);
   let out='';
-  for(let g=0; g<=gridN; g++){
-    const v=step*g, yy=Y(v).toFixed(1);
-    out+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    out+=`<text x="${padL-6}" y="${(Y(v)+3.6).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(v)}</text>`;
-  }
+  out+=cbAmtGridSvg(Array.from({length:gridN+1},(_,g)=>step*g), Y, padL, w-padR);
   // 누적 명목(회색, 뒤) → 구간 누적 PV(구간색, 앞)
   rows.forEach((r,k)=>{
     const xc = X(k) + slot/2;
@@ -2490,17 +2541,13 @@ function cbGiftSpouseChartSvg(w,h){
 
   const maxV = Math.max(CB_GIFT_SPOUSE_LIMIT, cumAll*1.12);
   const step = maxV/5;
-  const padL=54, padR=10, padT=12, padB=24;
+  const padL=60, padR=10, padT=12, padB=24;   // 왼쪽 눈금 '5,000만'이 잘리지 않는 폭
   const plotW=w-padL-padR, plotH=h-padT-padB;
   const X=k=>padL + k*(plotW/years);
   const Y=v=>padT + plotH - (v/maxV)*plotH;
   const slot=plotW/years, bw=Math.max(2, slot*0.72);
   let out='';
-  for(let g=0; g<=5; g++){
-    const v=step*g, yy=Y(v).toFixed(1);
-    out+=`<line x1="${padL}" x2="${w-padR}" y1="${yy}" y2="${yy}" style="stroke:var(--grid)" stroke-width="1"></line>`;
-    out+=`<text x="${padL-6}" y="${(Y(v)+3.6).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(v)}</text>`;
-  }
+  out+=cbAmtGridSvg(Array.from({length:6},(_,g)=>step*g), Y, padL, w-padR);
   rows.forEach((r,k)=>{
     const xc = X(k) + slot/2;
     const yA = Y(r.cumAll);
@@ -2809,6 +2856,27 @@ function cbTaxAxisLab(v){
   const sign = v>0 ? '+' : '−';
   if (a>=100000000) return sign+(a/100000000).toFixed(a%100000000?1:0)+'억';
   return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만';
+}
+// 금액(손익이 아닌 절대 금액) 눈금 — 양수에 + 를 붙이지 않는다. 손익 축(세금 그래프)만 cbTaxAxisLab 을 쓴다.
+// 예전에는 투자자산 추이·배당·증여 그래프가 cbTaxAxisLab 을 빌려 써서 '+3.6억'처럼 손익으로 읽혔다.
+function cbAmtAxisLab(v){
+  if (v===0) return '0';
+  const a = Math.abs(v), sign = v<0 ? '−' : '';
+  if (a>=100000000) return sign+(a/100000000).toFixed(a%100000000?1:0)+'억';
+  return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만';
+}
+// 금액 그래프 공통 뼈대: 가로 눈금선 + 왼쪽 금액 라벨. values = 눈금 값 배열, Y = 값→y 좌표, x1~x2 = 그림 영역 좌우.
+function cbAmtGridSvg(values, Y, x1, x2, fmt){
+  const lab = fmt || cbAmtAxisLab;
+  return values.map(v=>{
+    const yy = Y(v);
+    return `<line x1="${x1}" x2="${x2}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"></line>`
+      + `<text x="${x1-7}" y="${(yy+3.5).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${lab(v)}</text>`;
+  }).join('');
+}
+// lo~hi 를 step 간격으로 나눈 눈금 값 배열(부동소수 오차로 마지막 눈금이 빠지지 않게 여유를 둔다).
+function cbAxisTicks(lo, hi, step){
+  const out=[]; for(let v=lo; v<=hi+step*0.01; v+=step) out.push(v); return out;
 }
 // 월별 실현손익 막대(국내/해외, 왼쪽 눈금) 위에 해외 누적선 + 해외 기본공제(250만) 기준선(오른쪽 눈금)을 겹친 한 칸 + hover 상세
 // when: 화면이 보고 있는 연도 — 세율·공제 규칙과 hover 의 'N년 규칙' 표기가 같은 해를 가리키게 한다.
