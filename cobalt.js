@@ -2463,8 +2463,10 @@ function cbGiftTransferRecords(asOf){
     const fromYm=at.giftFrom||at.startMonth; if(!/^\d{4}-\d{2}/.test(fromYm||'')) return;
     let d=new Date(Number(fromYm.slice(0,4)),Number(fromYm.slice(5,7))-1,1,12);
     if(d<floor) d=new Date(floor.getFullYear(),floor.getMonth(),floor.getDate(),12);
+    // 앱에 자동이체를 등록한 달(startMonth)보다 실제 이체가 먼저 시작됐을 수 있으므로, 증여 집계는 사용자가 고른 시작 월을 따른다.
+    const atG={...at,startMonth:fromYm.slice(0,7)};
     for(;d<=end;d.setDate(d.getDate()+1)){
-      if(!_autoTransferOccursOn(at,d)) continue;
+      if(!_autoTransferOccursOn(atG,d)) continue;
       const key=finLocalDateKey(d), amt=Math.round(Number(_effectiveAutoTransferAmt(at,d.getFullYear(),d.getMonth()+1))||0);
       if(amt>0) out.push({id:`at-${at.id}-${key}`,kind:at.giftKind,date:key,amt,memo:`[자동이체] ${at.desc||''}`.trim(),auto:true,atId:at.id});
     }
@@ -2482,6 +2484,15 @@ function cbGiftLinkTransfer(atId, field, value){
   if(typeof saveAutoTransfers==='function') saveAutoTransfers(false);
   cbGiftSave();
 }
+// 증여로 셀 시작 월 — 연도·월 두 선택 목록(브라우저 월 달력은 직접 입력이 안 되고 과거로 넘기기 어렵다). 최근 10년까지.
+function cbGiftFromPicker(at){
+  const now=new Date(), cy=now.getFullYear(), cm=now.getMonth()+1;
+  const cur=/^\d{4}-\d{2}$/.test(at.giftFrom||'')?at.giftFrom:`${cy}-${String(cm).padStart(2,'0')}`;
+  const y=Number(cur.slice(0,4)), m=Number(cur.slice(5,7)), id=cbEsc(at.id);
+  const years=[]; for(let k=cy;k>=cy-10;k--) years.push(k);
+  const set=(yy,mm)=>`cbGiftLinkTransfer('${id}','from',${yy}+'-'+String(${mm}).padStart(2,'0'))`;
+  return `<span class="cb-gift-link-from"><select class="cb-input cb-num" aria-label="증여 시작 연도" onchange="${set('this.value',`this.parentNode.querySelector('[data-gift-m]').value`)}">${years.map(k=>`<option value="${k}"${k===y?' selected':''}>${k}년</option>`).join('')}</select><select class="cb-input cb-num" data-gift-m aria-label="증여 시작 월" onchange="${set(`this.parentNode.querySelector('select').value`,'this.value')}">${Array.from({length:12},(_,i)=>i+1).map(k=>`<option value="${k}"${k===m?' selected':''}>${k}월</option>`).join('')}</select>부터</span>`;
+}
 function cbGiftTransferLinkHtml(kinds){
   const list=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[]).filter(at=>at&&at.type==='지출');
   if(!list.length) return '';
@@ -2491,7 +2502,7 @@ function cbGiftTransferLinkHtml(kinds){
       <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(at.amt||0)}</small></span>
       <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 연결" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
         <option value="">증여 아님</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
-      ${at.giftKind?`<label class="cb-gift-link-from">부터<input type="month" class="cb-input cb-num" value="${cbEsc(at.giftFrom||'')}" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','from',this.value)"></label>`:'<span></span>'}
+      ${at.giftKind?cbGiftFromPicker(at):'<span></span>'}
     </div>`).join('');
   return `<details class="cb-gift-link"${list.some(at=>at.giftKind)?' open':''}><summary>자동이체를 증여로 연결 <span>· 가족 계좌로 매달 보내는 이체를 고르면 이체일마다 기록장에 자동으로 더합니다</span></summary>${rows}</details>`;
 }
