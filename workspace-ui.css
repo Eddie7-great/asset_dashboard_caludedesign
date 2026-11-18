@@ -1113,4 +1113,20 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 좁은 카드의 줄바꿈(2026-11-18 3차): 제목 줄은 한 줄, 세금 카드 보조 문구는 다음 줄 한 덩어리 */
 .cb-dca-table-toolbar .cb-panel-title,.acct-tree-head .cb-panel-title,.cb-dash-table-toolbar h3{white-space:nowrap}
 .cb-tax-card-sub{display:block;margin-top:2px;color:var(--dim);font-weight:500;letter-spacing:0}
-
+/* 고정비 등록 폼의 대출 상환 조건(2026-11-18 4차) — 카테고리 '대출납입금'일 때만 보이고 폼 격자 한 줄을 다 쓴다 */
+.cf-fixed-loan{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px;align-items:end;min-width:0;margin:0;padding:12px 14px;border:1px dashed var(--bd2);border-radius:var(--r-md);background:var(--inner)}
+.cf-fixed-loan[hidden]{display:none}
+.cf-fixed-loan-legend{padding:0 6px;font-size:var(--fs-cap);font-weight:700;color:var(--tx)}
+.cf-fixed-loan-legend small{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--mut)}
+.cf-fixed-loan .form-group{width:150px}
+.cf-fixed-loan .cf-fixed-loan-rate{width:96px}
+.cf-fixed-loan-pair{display:flex;gap:6px}
+.cf-fixed-loan-pair>.form-input{min-width:0}
+.cf-fixed-loan-pair>input{width:64px;flex:0 0 64px}
+.cf-fixed-loan-pair>select{flex:1 1 auto}
+.cf-fixed-loan .form-group:has(#cf-fixed-loan-y){width:190px}
+.cf-fixed-loan-preview{flex-basis:100%;margin:0;font-size:var(--fs-cap);line-height:1.5;color:var(--mut)}
+#cf-fixed-amt.is-computed{background:var(--inner);color:var(--tx);cursor:default}
+.cf-fixed-loan-note{font-size:var(--fs-cap);color:var(--mut);font-variant-numeric:tabular-nums}
+#cf-fixed-table tr.has-loan>td{border-bottom:0;padding-bottom:2px}
+#cf-fixed-table tr.cf-fixed-loan-row>td{padding-top:0}
