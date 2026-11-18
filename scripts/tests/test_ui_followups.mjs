@@ -631,7 +631,7 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')
   assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(150px,2\.4fr\)/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
-  assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>소유주<\/span><span>종목<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
+  assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>\$\{cbSortBtn\('dca','owner','소유주','text'\)\}<\/span><span>\$\{cbSortBtn\('dca','name','종목','text'\)\}<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
   assert.match(workspaceSource, /\.fin-tree\.is-acct\{grid-template-columns:/, '계좌별 내역은 트리 한 격자 — 계좌 줄과 종목 줄이 같은 칸 틀(subgrid)을 쓴다')
   assert.doesNotMatch(workspaceSource, /\.acct-row|\.acct-holding\{/, '예전 계좌별 표 규칙은 지웠다')
 }
@@ -676,3 +676,43 @@ assert.match(workspaceSource, /\.fin-tree-row\{display:grid;grid-column:1\/-1;gr
 assert.match(cobaltSource, /<div class="cb-tax-hist-top">\s*<div class="cb-panel-title">[\s\S]*?<div class="cb-tax-entry-form">[\s\S]*?<span class="cb-tax-hist-tools">[\s\S]*?cb-tax-import/, '실현손익: 제목·입력 줄·거래내역 가져오기를 한 줄에')
 assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-align:center/, '세제 구분은 가운데가 아니라 왼쪽 정렬(계좌와 세제 사이 빈칸 축소)')
 
+
+// 2026-11-18 표 정렬 — 머리글을 누르면 그 칸으로, 다시 누르면 반대, 값 없음은 끝, 다른 화면으로 옮기면 기본 순서
+{
+  const ctx = vm.createContext({ OWNERS: ['본인', '아내', '자녀1', '아버지'], cbRerender() { ctx.rerenders++ }, rerenders: 0, cbRestoreFilterFocus() {}, _cobaltActive: 'cdash' })
+  vm.runInContext(['cbSortCompare', 'cbSortRows', 'cbSortDir', 'cbAriaSort', 'cbSortBtn', 'cbTableSortClick', 'cbOwnerRank', 'cbHoldingSortGetters', 'cbResetViewState'].map(n => extractFunction(cobaltSource, n)).join('\n') + '\nvar _cbTableSort={};', ctx)
+  const rows = [
+    { key: 'a', title: '애플', i: { owner: '아내', grp: '주식', qty: 2 }, qty: 2, val: 300, cost: 200, gain: 100, gainPct: 0.5 },
+    { key: 'b', title: '골드바', i: { owner: '본인', grp: '금', qty: 1, costUnknown: true }, qty: 1, val: 900, cost: 0, gain: 0, gainPct: null },
+    { key: 'c', title: '삼성전자', i: { owner: '아버지', grp: '주식', qty: 10 }, qty: 10, val: 500, cost: 600, gain: -100, gainPct: -1 / 6 },
+    { key: 'd', title: '원화 예수금', i: { owner: '본인', grp: '현금', qty: 1000 }, qty: 1000, val: 1000, cost: 1000, gain: 0, gainPct: null },
+  ]
+  const order = () => Array.from(ctx.cbSortRows('home', rows, ctx.cbHoldingSortGetters()), r => r.key)
+  assert.deepEqual(order(), ['a', 'b', 'c', 'd'], '정렬하지 않으면 화면의 기본 순서 그대로')
+  ctx.cbTableSortClick('home', 'gain', 'num')
+  assert.deepEqual(order(), ['a', 'c', 'b', 'd'], '숫자 칸은 첫 클릭 내림차순 · 취득가 미상과 현금은 끝')
+  assert.equal(ctx.rerenders, 1, '정렬은 렌더 때 적용 — 시세 갱신으로 다시 그려도 유지된다')
+  ctx.cbTableSortClick('home', 'gain', 'num')
+  assert.deepEqual(order(), ['c', 'a', 'b', 'd'], '다시 누르면 오름차순 · 값 없음은 여전히 끝')
+  assert.equal(ctx.cbAriaSort('home', 'gain'), 'ascending')
+  ctx.cbTableSortClick('home', 'owner', 'text')
+  assert.deepEqual(order(), ['b', 'd', 'a', 'c'], '소유주는 글자 칸 — 첫 클릭 오름차순(소유주 순서), 같은 값끼리는 기본 순서')
+  ctx.cbTableSortClick('home', 'avg', 'num')
+  assert.deepEqual(order(), ['a', 'c', 'b', 'd'], '평단가는 원화 환산(매입금액 ÷ 수량)으로 비교')
+  const btn = ctx.cbSortBtn('home', 'avg', '평단가')
+  assert.match(btn, /class="cb-sort-btn is-r is-on" data-sort-btn="home:avg"/, '켜진 칸 표시 · 숫자 칸은 화살표가 글자 앞(is-r)')
+  assert.match(btn, /<span class="sr-only">, 내림차순 정렬됨<\/span>/, '정렬 상태를 화면 낭독기에도 알린다')
+  assert.match(ctx.cbSortBtn('home', 'name', '종목', 'text'), /class="cb-sort-btn" data-sort-btn="home:name"[^>]*>종목<i class="cb-sort-ind" aria-hidden="true">↕<\/i><\/button>/)
+  vm.runInContext('var _calDay=null,_acctOpen=new Set();cbResetViewState();', ctx)
+  assert.deepEqual(order(), ['a', 'b', 'c', 'd'], '다른 화면으로 옮기면(cbResetViewState) 기본 순서')
+  // 대상 표: 홈 보유·구성원 비교·배당·적립식·계좌별 보기·ETF 구성종목·보유 목록
+  for (const t of ['home', 'fam', 'div', 'dca']) assert.match(cobaltSource, new RegExp(`cbSortRows\\('${t}',`), `${t} 표는 렌더 때 정렬한다`)
+  const pages = fs.readFileSync(new URL('../../workspace-pages.js', import.meta.url), 'utf8')
+  const etf = fs.readFileSync(new URL('../../etf-explorer.js', import.meta.url), 'utf8')
+  assert.match(pages, /cbSortRows\('acct',finAccountTree\(treeRows\),sortGet\)/, '계좌별 보기는 각 단계 안에서 정렬')
+  assert.ok(etf.indexOf("cbSortRows('etf'") < etf.indexOf('const pages=Math.max(1,Math.ceil(rows.length/ETF_PAGE_SIZE))'), 'ETF 구성종목은 쪽을 나누기 전에 정렬')
+  assert.match(cobaltSource, /if\(table==='etf'&&typeof etfRefreshResults==='function'\)\{ _etfPage=0;/, 'ETF 정렬은 1쪽으로 돌아가고 표만 다시 그린다')
+  assert.match(scriptSource, /portfolioSortHeader\(grpName,'name','종목','text-left holdings-asset-head'\)/, '보유 목록 종목·계좌·소유주 칸도 정렬')
+  assert.match(scriptSource, /Object\.entries\(_sortState\)\.forEach\(\(\[g,st\]\)=>applyPortfolioSort\(/, '보유 목록은 다시 그린 뒤 정렬을 되살린다')
+  assert.match(cobaltSource, /function cbResetViewState\(\)\{[\s\S]*?_cbTableSort=\{\};[\s\S]*?_sortState=\{\}/, '화면을 옮기면 모든 표 정렬을 지운다')
+}

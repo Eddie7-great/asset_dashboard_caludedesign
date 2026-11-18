@@ -89,6 +89,8 @@ assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자�
     cbSignDisp: v => (v >= 0 ? '+' : '-') + Math.abs(v), cbPct: v => (v * 100).toFixed(1) + '%',
   });
   vm.runInContext(fn('finAccountTree') + '\n' + fn('finTreeHtml'), ctx);
+  const cfn = name => { const m = cobalt.match(new RegExp(`function ${name}\\([^)]*\\)\\{[\\s\\S]*?\\n\\}`)); assert.ok(m, name); return m[0]; };
+  vm.runInContext(['cbSortCompare', 'cbSortRows', 'cbSortDir', 'cbSortBtn', 'cbOwnerRank'].map(cfn).join('\n') + '\nvar _cbTableSort={};', ctx);
   rows = [
     row({ i: { acc: 'ISA', div: 100 }, title: '배당ETF', val: 1000, cost: 800, gain: 200 }),
     row({ i: { acc: 'ISA' }, title: '성장주', val: 500, cost: 600, gain: -100 }),
@@ -113,6 +115,15 @@ assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자�
   assert.equal((els['cb-acct2'].innerHTML.match(/fin-tree-row lv3/g) || []).length, 3, '모두 펼치기');
   assert.match(els['cb-acct2'].innerHTML, /data-acct-all="1"[^>]*>모두 접기</);
   assert.match(cobalt, /function cbResetViewState\(\)\{[\s\S]*?_acctOpen=new Set\(\)/, '다른 화면으로 옮기면 펼친 계좌를 접는다');
+  // 머리글 정렬은 각 단계 안에서 — 평가액 오름차순이면 성장주(500)가 배당ETF(1000)보다 먼저, 소유주도 작은 쪽(본인 1500)이 먼저
+  vm.runInContext("_cbTableSort={acct:{key:'value',dir:1}};cbRenderAccounts();", ctx);
+  h = els['cb-acct2'].innerHTML;
+  assert.ok(h.indexOf('성장주') < h.indexOf('배당ETF'), '종목 줄은 계좌 안에서 정렬');
+  assert.ok(h.indexOf('<b>본인</b>') < h.indexOf('<b>아내</b>'), '소유주 단계도 같은 칸으로 정렬');
+  assert.match(h, /data-sort-btn="acct:value"/, '머리글은 정렬 버튼');
+  vm.runInContext("_cbTableSort={acct:{key:'value',dir:-1}};cbRenderAccounts();", ctx);
+  h = els['cb-acct2'].innerHTML;
+  assert.ok(h.indexOf('<b>아내</b>') < h.indexOf('<b>본인</b>'), '내림차순이면 큰 소유주(아내 2500)가 먼저');
 }
 
 // ── 통합 일정: 기존 판정 함수에 날짜마다 묻는다 ──

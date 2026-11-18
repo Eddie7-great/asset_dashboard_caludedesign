@@ -1059,3 +1059,15 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-family-mix-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
   .cb-family-mix-legend{display:flex;flex-wrap:wrap;gap:5px 16px}
 }
+/* 표 정렬 머리글(2026-11-18, cbSortBtn) — 머리글 글자 그대로의 버튼 + 화살표. 켜진 칸만 강조색.
+   화살표는 글자 폭에 들어가지 않고 칸 사이 여백에 걸린다(절대 위치) — 좁은 칸(배당 '주당 배당(연)')의
+   머리글이 화살표만큼 넓어져 옆 칸을 침범하지 않게. 오른쪽 정렬 칸(.is-r)은 글자 앞(왼쪽), 그 밖은 뒤. */
+.cb-sort-btn{position:relative;display:inline;margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;letter-spacing:inherit;text-align:inherit;cursor:pointer;white-space:nowrap}
+.cb-sort-btn:hover,.cb-sort-btn.is-on{color:var(--acc)}
+.cb-sort-btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:var(--r-sm)}
+.cb-sort-ind{position:absolute;top:50%;left:calc(100% + 2px);transform:translateY(-50%);font-style:normal;font-size:var(--fs-cap);line-height:1;opacity:.4;pointer-events:none}
+.cb-sort-btn.is-r .cb-sort-ind{left:auto;right:calc(100% + 2px)}
+.cb-sort-btn.is-on .cb-sort-ind{opacity:1}
+/* 보유 목록의 왼쪽 정렬 머리글(소유주·계좌·종목)은 화살표를 칸 오른쪽 끝이 아니라 글자 바로 뒤에 둔다. */
+.pt-table th.sortable.text-left>.table-sort-btn{display:inline;width:auto}
+.pt-table th.sortable.text-left::after{position:static;display:inline-block;margin-left:2px;transform:scale(.7)}

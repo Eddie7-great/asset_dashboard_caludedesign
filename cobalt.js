@@ -370,6 +370,40 @@ function cbRestoreFilterFocus(rootId, attr, value){
   };
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(run); else run();
 }
+// ── 표 정렬(2026-11-18) ── 종목이 나오는 내역 표의 머리글을 누르면 그 칸으로 정렬한다.
+// 상태는 표마다 {key,dir} 하나이고 렌더 때 행 배열에 적용한다 — 그래서 시세 갱신·소유주 변경으로 다시 그려도
+// 순서가 유지되고, 다른 화면으로 옮길 때만 지운다(cbResetViewState). 첫 클릭은 숫자 내림차순·글자 오름차순,
+// 같은 칸을 다시 누르면 반대. 값이 없는 행(취득가 미상·시세 없음 등)은 어느 방향에서도 끝이다.
+let _cbTableSort={};
+function cbSortCompare(av,bv,dir){
+  const none=v=>v==null||v===''||(typeof v==='number'&&!Number.isFinite(v));
+  if(none(av)) return none(bv)?0:1;
+  if(none(bv)) return -1;
+  if(typeof av==='number'&&typeof bv==='number') return (av-bv)*dir;
+  return String(av).localeCompare(String(bv),'ko')*dir;
+}
+// 정렬 상태가 없으면 받은 순서(각 화면의 기본 순서) 그대로. 같은 값끼리는 기본 순서를 지킨다.
+function cbSortRows(table,rows,getters){
+  const st=_cbTableSort[table], get=st&&getters?getters[st.key]:null;
+  if(!get) return rows;
+  return rows.map((r,i)=>({r,i,v:get(r)})).sort((a,b)=>cbSortCompare(a.v,b.v,st.dir)||a.i-b.i).map(x=>x.r);
+}
+function cbSortDir(table,key){ const st=_cbTableSort[table]; return st&&st.key===key?st.dir:0; }
+function cbAriaSort(table,key){ const d=cbSortDir(table,key); return d===1?'ascending':d===-1?'descending':'none'; }
+// 머리글 버튼. type 'text' 는 첫 클릭 오름차순, 그 밖은 내림차순. 상태는 화살표와 화면 낭독용 글자로 함께 알린다.
+// 오른쪽 정렬 칸(is-r — 숫자 칸 기본, 글자 칸은 align 'r')은 화살표를 글자 앞에 그린다 — 머리글 끝이 값 끝과 맞는다.
+function cbSortBtn(table,key,label,type,align){
+  const d=cbSortDir(table,key), right=align?align==='r':type!=='text';
+  return `<button type="button" class="cb-sort-btn${right?' is-r':''}${d?' is-on':''}" data-sort-btn="${table}:${key}" onclick="cbTableSortClick('${table}','${key}','${type==='text'?'text':'num'}')">${label}<i class="cb-sort-ind" aria-hidden="true">${d===1?'▲':d===-1?'▼':'↕'}</i>${d?`<span class="sr-only">, ${d===1?'오름차순':'내림차순'} 정렬됨</span>`:''}</button>`;
+}
+function cbTableSortClick(table,key,type){
+  const st=_cbTableSort[table];
+  if(st&&st.key===key) st.dir=-st.dir; else _cbTableSort[table]={key,dir:type==='text'?1:-1};
+  // ETF 구성종목은 표만 다시 그린다(화면 전체를 다시 그리면 구성종목 조회가 다시 돈다). 정렬하면 1쪽으로.
+  if(table==='etf'&&typeof etfRefreshResults==='function'){ _etfPage=0; etfRefreshResults(); cbRestoreFilterFocus('etf-results','data-sort-btn',`${table}:${key}`); return; }
+  cbRerender();
+  cbRestoreFilterFocus('cb-'+_cobaltActive,'data-sort-btn',`${table}:${key}`);
+}
 // 소유주 필터 버튼 행 (전체 + 소유주 4인). onclick 은 소유주명을 인자로 받는 전역 함수명.
 function cbOwnerBtns(current, fnName){
   return `<div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">
@@ -1317,7 +1351,23 @@ function cbHomeSummary(sel,nw){
 
   return selPanel;
 }
+// 홈·구성원 비교 표가 함께 쓰는 정렬 값. 단가는 통화가 섞이므로 원화 환산(평가액·매입금액 ÷ 수량)으로 비교한다.
+function cbOwnerRank(o){ const k=OWNERS.indexOf(o); return k<0?OWNERS.length:k; }
+function cbHoldingSortGetters(){
+  const unknown=r=>r.i.costUnknown||r.i.grp==='현금';
+  const qty=r=>Number(r.qty??r.i.qty)||0;
+  return {
+    owner:r=>cbOwnerRank(r.i.owner), name:r=>r.title||r.i.name||r.i.tkr||'',
+    acct:r=>[r.i.broker||'',r.i.acc||''].join(' '),
+    qty:r=>r.i.grp==='현금'?null:qty(r),
+    avg:r=>unknown(r)||!(qty(r)>0)?null:r.cost/qty(r),
+    cur:r=>r.i.grp==='현금'||!(qty(r)>0)?null:r.val/qty(r),
+    cost:r=>r.i.costUnknown?null:r.cost, val:r=>r.val, share:r=>r.val,
+    gain:r=>unknown(r)?null:r.gain, pct:r=>r.gainPct==null?null:r.gainPct,
+  };
+}
 function cbHomeHoldings(rows){
+  rows=cbSortRows('home',rows,cbHoldingSortGetters());
   const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
@@ -1340,7 +1390,7 @@ function cbHomeHoldings(rows){
   return `<div class="home-holdings-layout">`
     +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small>${rows.length}개 · 소유주별 계좌 합산</small></h3>`
     +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
-    +`<div class="home-table-wrap"><table><thead><tr><th>소유주</th><th>종목</th><th>수량</th><th>매입금액</th><th>평가액</th><th>비중</th><th>평가손익</th><th>수익률</th><th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
+    +`<div class="home-table-wrap"><table><thead><tr>${[['owner','소유주','text'],['name','종목','text'],['qty','수량'],['cost','매입금액'],['val','평가액'],['share','비중'],['gain','평가손익'],['pct','수익률']].map(([k,l,t])=>`<th aria-sort="${cbAriaSort('home',k)}">${cbSortBtn('home',k,l,t)}</th>`).join('')}<th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
     +`<tbody>${rows.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
     +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
@@ -1649,12 +1699,12 @@ function cbRenderFam(){
       <!-- 칸 폭은 .cb-family-head/.cb-family-row 격자(workspace-ui.css). 소유주 · 계좌 · 종목 순서는 보유 목록과 같다. -->
       <div class="cb-tblwrap"><div class="cb-family-table">
       <div class="cb-thead cb-family-head">
-        <span>소유주</span><span>계좌</span><span>종목</span>
-        <span class="r">수량</span>
-        <span class="r"><span data-tip="보유 수량 전체의 평균 매수 단가(가중평균)">평단가</span></span>
-        <span class="r">현재가</span><span class="r">평가액</span><span class="r">평가손익</span><span class="r">수익률</span>
+        <span>${cbSortBtn('fam','owner','소유주','text')}</span><span>${cbSortBtn('fam','acct','계좌','text')}</span><span>${cbSortBtn('fam','name','종목','text')}</span>
+        <span class="r">${cbSortBtn('fam','qty','수량')}</span>
+        <span class="r">${cbSortBtn('fam','avg','<span data-tip="보유 수량 전체의 평균 매수 단가(가중평균) · 정렬은 원화 환산 기준">평단가</span>')}</span>
+        <span class="r">${cbSortBtn('fam','cur','<span data-tip="정렬은 원화 환산 기준">현재가</span>')}</span><span class="r">${cbSortBtn('fam','val','평가액')}</span><span class="r">${cbSortBtn('fam','gain','평가손익')}</span><span class="r">${cbSortBtn('fam','pct','수익률')}</span>
       </div>
-      ${held.map(r=>`
+      ${cbSortRows('fam',held,cbHoldingSortGetters()).map(r=>`
         <div class="cb-hrow cb-family-row">
           <span>${cbOwnerTag(r.i.owner)}</span>
           <span>${cbAccountCell(r.i)}</span>
@@ -2212,9 +2262,13 @@ function cbRenderDiv(){
       <!-- 칸 폭은 .cb-div-head/.cb-div-row 격자(workspace-ui.css)가 정한다 — 한 칸만 flex:1 이고 나머지가 고정 폭이면
            표가 1110px 를 넘어 오른쪽 세 칸(배당성장·주기·배당락)이 화면 밖으로 밀렸다. 머리글 '종목'은 국기 칸부터 두 칸을 덮는다. -->
       <div class="cb-thead cb-div-head">
-        <span>소유주</span><span class="cb-div-c-name">종목</span><span class="r">연간 수입 · ${basisLabel}</span><span class="r cb-mobile-secondary"><span data-tip="${cbEsc(divTaxTip)}">배당세</span></span><span class="r">보유 주수</span><span class="r cb-mobile-secondary">주당 배당(연)</span><span class="r"><span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span></span><span class="r cb-mobile-secondary"><span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span></span><span class="r cb-mobile-secondary"><span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span></span><span class="r cb-mobile-secondary"><span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span></span><span class="r cb-mobile-secondary">주기</span><span class="r cb-mobile-secondary"><span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span></span>
+        <span>${cbSortBtn('div','owner','소유주','text')}</span><span class="cb-div-c-name">${cbSortBtn('div','name','종목','text')}</span><span class="r">${cbSortBtn('div','income',`연간 수입 · ${basisLabel}`)}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','tax',`<span data-tip="${cbEsc(divTaxTip)}">배당세</span>`)}</span><span class="r">${cbSortBtn('div','qty','보유 주수')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','dps','<span data-tip="정렬은 원화 환산 기준">주당 배당(연)</span>')}</span><span class="r">${cbSortBtn('div','share','<span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yld','<span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yoc','<span data-tip="Yield on Cost — 평단가 대비 배당수익률">YoC</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','growth','<span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','cycle','주기','text','r')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','ex','<span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span>','text','r')}</span>
       </div>
-      ${visibleList.map(x=>`
+      ${cbSortRows('div',visibleList,{
+        owner:x=>cbOwnerRank(x.i.owner), name:x=>x.title||'', income:x=>x.incomeKRW, share:x=>x.incomeKRW, tax:x=>x.taxKRW,
+        qty:x=>Number(x.qty)||0, dps:x=>(Number(x.d.annualDps)||0)*cbRate(x.d.cur||x.i.cur), yld:x=>x.d.yldNum??null,
+        yoc:x=>x.yoc, growth:x=>x.g, cycle:x=>x.d.cycle&&x.d.cycle!=='-'?x.d.cycle:null, ex:x=>x.d.exDiv&&x.d.exDiv!=='-'?x.d.exDiv:null,
+      }).map(x=>`
         <div class="cb-div-row">
           <span>${cbOwnerTag(x.i.owner)}</span>
           <span class="cb-div-c-flag">${cbFlagSvg(x,15)}</span>
@@ -3630,9 +3684,13 @@ function cbRenderDca(){
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>
       <div class="cb-thead cb-dca-head">
-        <span>소유주</span><span>종목</span><span class="cb-mobile-secondary">회당 금액</span><span>주기</span><span>다음 매수</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary"><span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span></span><span class="cb-mobile-secondary">계좌</span><span>월 환산</span><span>관리</span>
+        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text','r')}</span><span>${cbSortBtn('dca','next','다음 매수','text','r')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text','r')}</span><span>${cbSortBtn('dca','monthly','월 환산')}</span><span>관리</span>
       </div>
-      ${items.map(x=>{
+      ${cbSortRows('dca',items,{
+        owner:x=>cbOwnerRank(x.i.owner), name:x=>x.r.title||'', order:x=>cbDcaPerOrderKRW(x.i), cycle:x=>cbDcaRuleLabel(x.i),
+        next:x=>x.i.dca&&x.schedule.nextDate?x.schedule.nextDate:null, qty:x=>x.schedule.expectedQty>0?x.schedule.expectedQty:null,
+        acct:x=>x.i.broker||null, monthly:x=>cbDcaPerMonthKRW(x.i),
+      }).map(x=>{
         const r=x.r;
         const amtLabel = x.i.dcaMode==='qty'
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
@@ -3783,6 +3841,8 @@ function cbCountUp(id){
 function cbResetViewState(){
   if (typeof _calDay!=='undefined') _calDay=null;
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
+  _cbTableSort={};
+  if (typeof _sortState!=='undefined') _sortState={};   // 보유 목록 표 정렬(script.js)
 }
 switchView = function(id, btn){
   id=navResolve(id);

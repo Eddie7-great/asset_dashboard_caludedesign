@@ -78,7 +78,17 @@ function cbRenderAccounts(){
   const treeRows=data.groups.map(g=>({key:g.key,owner:g.owner,broker:g.broker,acc:g.acc,kind:g.kind,
     type:getAccountDivTaxInfo(g.acc).type,value:g.value,dividend:g.dividend,share:g.share,gain:g.gain,cost:g.cost,
     holdings:g.rows.length,stale:g.stale,rows:g.rows,tone:'ok'}));
-  const tree=finAccountTree(treeRows);
+  // 머리글을 누르면 각 단계 안에서(소유주끼리·증권사끼리·계좌끼리·종목끼리) 그 칸으로 정렬한다(cbSortRows, 화면을 옮기면 기본 순서).
+  // 이름 정렬의 소유주 단계는 소유주 순서다. 단계는 모양으로 가른다: 소유주(brokers)·증권사(accounts)·계좌(rows)·종목(i).
+  const sortGet={
+    name:n=>n.brokers?cbOwnerRank(n.owner):n.accounts?n.broker:n.i?(n.title||''):n.acc,
+    value:n=>n.i?n.val:n.value, share:n=>n.i?n.val:n.value,
+    gain:n=>n.i?(n.i.grp==='현금'||n.i.costUnknown?null:n.gain):(n.cost>0?n.gain:null),
+    dividend:n=>n.i?cbDivIncomeKRW(n.i):n.dividend,
+    holdings:n=>n.i?null:n.holdings,
+  };
+  const tree=cbSortRows('acct',finAccountTree(treeRows),sortGet).map(o=>({...o,
+    brokers:cbSortRows('acct',o.brokers,sortGet).map(b=>({...b,accounts:cbSortRows('acct',b.accounts,sortGet)}))}));
   _acctKeys=[]; tree.forEach(o=>o.brokers.forEach(b=>b.accounts.forEach(a=>_acctKeys.push(a.key))));
   const pct=v=>v.toFixed(1)+'%';
   const bar=(share,cls)=>`<span class="fin-tree-bar${cls?' '+cls:''}"><i style="width:${Math.max(0,Math.min(100,share)).toFixed(2)}%"></i></span>`;
@@ -90,7 +100,9 @@ function cbRenderAccounts(){
   const allOpen=_acctKeys.length>0&&_acctKeys.every(k=>_acctOpen.has(k));
   const treeHtml=finTreeHtml(tree,data.total,{
     cls:'is-acct',
-    head:['<span>평가액</span>','<span>비중</span>','<span>평가손익</span>','<span><span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span></span>','<span>종목</span>'],
+    nameHead:cbSortBtn('acct','name','소유주 / 증권사 / 계좌','text'),
+    head:[`<span>${cbSortBtn('acct','value','평가액')}</span>`,`<span>${cbSortBtn('acct','share','비중','num','l')}</span>`,`<span>${cbSortBtn('acct','gain','평가손익')}</span>`,
+      `<span>${cbSortBtn('acct','dividend','<span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span>')}</span>`,`<span>${cbSortBtn('acct','holdings','종목')}</span>`],
     cells:(n,level)=>{
       if(level==='holding'){
         const unknown=n.i.grp==='현금'||n.i.costUnknown, d=cbDivIncomeKRW(n.i);
@@ -104,7 +116,7 @@ function cbRenderAccounts(){
     },
     accountAttrs:(a,idx)=>` role="button" tabindex="0" data-acct-idx="${idx}" aria-expanded="${_acctOpen.has(a.key)}" onclick="acctToggle(${idx})"`,
     accountName:a=>`<b>${cbEsc(a.acc)}</b>${a.kind==='증여계좌'?'<em class="acct-kind-chip">증여계좌</em>':''}${a.stale?`<em class="acct-stale-chip">시세 미조회 ${a.stale}</em>`:''}<span class="fin-tree-caret" aria-hidden="true">${_acctOpen.has(a.key)?'▾':'▸'}</span>`,
-    children:a=>_acctOpen.has(a.key)?a.rows:[],
+    children:a=>_acctOpen.has(a.key)?cbSortRows('acct',a.rows,sortGet):[],
     holdingName:h=>`<span class="acct-asset" title="${cbEsc([h.title,h.subTitle].filter(Boolean).join(' · '))}">${cbFlagCell(h,24,14)}<b>${cbEsc(h.title)}</b>${h.subTitle?` <small>${cbEsc(h.subTitle)}</small>`:''}</span>`,
     legend:'<span class="fin-acct-note">증여계좌는 과세가 일반 계좌와 같아 일반 색입니다 · 계좌 줄을 누르면 보유 종목이 펼쳐집니다</span>',
   });
