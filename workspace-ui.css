@@ -103,7 +103,6 @@
 #cb-head-widgets,#owner-tabs-container,#bubble-owner-bar{margin-left:0!important}
 #cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1.2fr 1.2fr 1.2fr;align-items:stretch}
 .cb-dash-sector-card .cb-hrow>div>span:first-child{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere}
-.cb-dash-sector-note{overflow-wrap:anywhere}
 .home-holdings-layout{margin-top:12px}.home-table-column{padding:14px 16px;min-width:0}
 .home-table-column .cb-dash-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:0 0 10px}
 .home-table-column h3{margin:0;font-size:var(--fs-card)}.home-table-column small{font-size:var(--fs-micro);color:var(--lab);font-weight:400}
@@ -392,7 +391,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-gift-ledger-error{flex-basis:100%;margin:0;font-size:var(--fs-cap);color:var(--warn);font-weight:600}
 .cb-gift-ledger-out{display:block;padding:7px 9px;text-align:right;background:var(--inner);color:var(--mut)}
 .cb-gift-ledger-table{margin-top:12px;overflow-x:auto}
-.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 34px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cb-gift-ledger-row{display:grid;grid-template-columns:104px 84px 130px minmax(120px,1fr) 76px 44px;gap:10px;align-items:center;min-width:600px;padding:8px 4px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cb-gift-ledger-row.is-head{font-size:var(--fs-cap);color:var(--dim)}
 .cb-gift-ledger-row>:nth-child(3){text-align:right}
 .cb-gift-ledger-memo-cell{min-width:0;overflow-wrap:anywhere;color:var(--mut)}
@@ -573,7 +572,6 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .rep-dots button:hover span,.rep-dots button:focus-visible span{opacity:1}
 .rep-month-pick{display:inline-flex;align-items:center;gap:6px;margin-left:8px;font-size:var(--fs-cap);color:var(--mut)}
 .rep-month-pick select{min-height:32px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--panelSolid);color:var(--tx);font:500 var(--fs-body) var(--font-ui)}
-.rep-home-link{align-self:flex-start;font-size:var(--fs-cap);color:var(--acc);text-underline-offset:3px;cursor:pointer;background:none;border:0;padding:2px 0;text-decoration:underline;font-family:inherit}
 /* 좁은 화면·낮은 창: 장 내용이 한 화면보다 길어 스냅이 내용을 가두므로 끄고 이어서 스크롤한다 */
 @media(max-width:860px),(max-height:620px){
   .rep-scroll{scroll-snap-type:none}
@@ -1071,4 +1069,38 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-scatter-dot{fill-opacity:.5;stroke:var(--panelSolid);stroke-width:1.5}
 .cb-scatter-dot:hover{fill-opacity:.9;stroke:var(--tx)}
 .cb-scatter-dot[data-tip]{border-bottom:0}
+/* 2026-11-18 3차 — 홈 화면 */
+/* 스크롤 영역(.cb-scroll·홈 보유 표)은 위치 기준(position:relative)이다. 기준이 없으면 안쪽의 화면 낭독용 글자(.sr-only,
+   position:absolute)가 스크롤 상자를 빠져나와 바깥 .content-area 높이를 늘려, 휠을 끝까지 내리면 빈 화면이 나오고 스크롤바가 셋 생겼다. */
+.cb-scroll,.home-table-wrap{position:relative}
+/* 평가손익 기여도 요약: 라벨과 금액을 한 줄에 나란히 */
+.cb-contrib-summary.is-inline>span{flex-direction:row;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap}
+.cb-contrib-summary.is-inline b{font-size:var(--fs-cap)}
+
+/* 정렬 화살표는 칼럼명 오른쪽에 걸리므로(절대 위치) 마지막 칸이 정렬 칸인 표는 그만큼 오른쪽을 비운다 — 안 비우면 화살표 14px 이
+   표 밖으로 나가 가로 스크롤바가 생긴다(계좌별 보기 '종목', 구성원 비교 '수익률', ETF 구성종목 '변화'). 값 칸도 같이 비워 끝선을 맞춘다. */
+.fin-tree.is-acct>.fin-tree-row>:last-child,.cb-family-head>:last-child,.cb-family-row>:last-child,.etf-table-head>:last-child,.etf-table-row>:last-child{padding-right:14px}
+/* 실현손익 ↔ 보유 연동(2026-11-18 3차): 세금 화면 입력 줄의 '보유 반영', 매도 창의 '이미 기록함' */
+.cb-tax-hold-field{display:flex;align-items:center;gap:6px}
+.cb-tax-hold-field select{max-width:220px}
+.cb-tax-hold-field input{width:90px}
+.trade-skip{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:var(--fs-cap);color:var(--tx);cursor:pointer}
+.trade-pl-match{color:var(--warn)}
+
+/* 자동이체를 증여로 연결(2026-11-18 3차, 가족 증여 기록장) */
+.cb-gift-link{margin:10px 0;border:1px solid var(--bd);border-radius:var(--r-md);padding:8px 12px}
+.cb-gift-link>summary{cursor:pointer;font-size:var(--fs-body);font-weight:700}
+.cb-gift-link>summary>span{font-weight:500;font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-link-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 210px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bd);font-size:var(--fs-cap)}
+.cb-gift-link-row:first-of-type{margin-top:8px}
+.cb-gift-link-row.is-on{background:var(--accSoft)}
+.cb-gift-link-name{display:flex;align-items:center;gap:8px;min-width:0}
+.cb-gift-link-name>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-gift-link-name>small{color:var(--lab);white-space:nowrap}
+.cb-gift-link-from{display:flex;align-items:center;gap:6px;color:var(--mut);white-space:nowrap}
+.cb-gift-auto-tag{white-space:nowrap;font-style:normal;font-size:var(--fs-cap);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
+@media(max-width:768px){.cb-gift-link-row{grid-template-columns:1fr}.cb-gift-link select,.cb-gift-link input{pointer-events:none}}
+/* 좁은 카드의 줄바꿈(2026-11-18 3차): 제목 줄은 한 줄, 세금 카드 보조 문구는 다음 줄 한 덩어리 */
+.cb-dca-table-toolbar .cb-panel-title,.acct-tree-head .cb-panel-title,.cb-dash-table-toolbar h3{white-space:nowrap}
+.cb-tax-card-sub{display:block;margin-top:2px;color:var(--dim);font-weight:500;letter-spacing:0}
 

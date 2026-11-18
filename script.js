@@ -247,7 +247,7 @@ const ALL_OWNERS = ['전체', ...OWNERS];
 
 // 배당 주기 → 연간 지급 횟수 / 주기 라벨 / 요일 라벨 (단일 소스)
 const CYCLE_COUNT = {'월배당':12,'분기':4,'반기':2,'연간':1,'-':1};
-const CYCLE_LABEL = {daily:'매일',weekly:'매주',monthly:'매월','month-end':'매월말','month-start':'매월초'};
+const CYCLE_LABEL = {daily:'매일',weekly:'매주',monthly:'매월','month-end':'매월말','month-start':'매월초',quarterly:'분기',yearly:'매년'};
 const DOW_LABELS = ['일','월','화','수','목','금','토'];
 
 // 공용 헬퍼 (중복 통합)
@@ -859,8 +859,12 @@ function _normalizeAutoTransfers(rows){
         return {from:String(change.from),amt:_safeStoredNumber(change.amt,{min:0,max:1_000_000_000_000})};
       }).filter(Boolean):[],
       skipMonths:Array.isArray(item.skipMonths)?[...new Set(item.skipMonths.filter(month=>_isStoredDateKey(month,true)).map(String))].slice(0,240):[],
+      // 증여 연결(2026-11-18 3차): 가족 계좌로 보내는 지출 자동이체를 증여로 집계한다. giftFrom(YYYY-MM)부터의 이체만 센다.
+      giftKind:item.giftKind==='child'||item.giftKind==='spouse'?item.giftKind:'',
+      giftFrom:_isStoredDateKey(item.giftFrom,true)?String(item.giftFrom).slice(0,7):'',
     };
     if(row.isFixedCost===undefined)delete row.isFixedCost;
+    if(!row.giftKind){delete row.giftKind;delete row.giftFrom;}
     return row;
   }).filter(Boolean);
 }
@@ -3683,7 +3687,8 @@ function tradeApplyPlan(item, t){
   if(qty>held+1e-9) return fail('보유 수량보다 많이 팔 수 없습니다.');
   const nextQty=r8(held-qty), remove=nextQty<=1e-9;
   let pl=null;
-  if(item.grp==='주식'){
+  // skipPl: 같은 매도를 실현손익 기록에 이미 적어 둔 경우(세금 화면 직접 입력·거래내역 가져오기) — 보유 수량만 줄이고 새 줄을 만들지 않는다
+  if(item.grp==='주식'&&!(t&&t.skipPl)){
     const domestic=item.cur==='KRW';
     const typed=(t.realizedKrw===''||t.realizedKrw==null)?NaN:Number(t.realizedKrw);
     let amt;
@@ -3707,7 +3712,13 @@ function _tradeInput(){
   const foreign=_tradeItem&&_tradeItem.grp==='주식'&&_tradeItem.cur!=='KRW';
   // 국내 종목은 사용자가 손익 칸을 직접 고쳤을 때만 그 값을 쓴다(아니면 단가로 계산).
   return {side:_tradeSide,qty:_tradeNum('trade-qty'),price:_tradeNum('trade-price'),date:document.getElementById('trade-date')?.value||'',
-    today:_cfLocalDateKey(new Date()),realizedKrw:(foreign||_tradePlTouched)?plRaw:''};
+    today:_cfLocalDateKey(new Date()),realizedKrw:(foreign||_tradePlTouched)?plRaw:'',skipPl:!!document.getElementById('trade-pl-skip')?.checked};
+}
+// 이 종목의 매도가 실현손익 기록에 이미 있는지(같은 소유주 · 메모에 종목명이나 티커). 판정이 아니라 안내용이다.
+function tradeExistingPlRows(item, rows){
+  if(!item||item.grp!=='주식') return [];
+  const keys=[item.name,String(item.tkr||'').replace(/\.(KS|KQ|T)$/i,'')].map(v=>String(v||'').trim().toLowerCase()).filter(v=>v.length>=2);
+  return (rows||[]).filter(r=>r&&r.owner===item.owner&&keys.some(k=>String(r.memo||'').toLowerCase().includes(k)));
 }
 function openTradeModal(idx){
   if(isMobileLayout()) return; // 모바일은 조회 전용
@@ -3717,6 +3728,7 @@ function openTradeModal(idx){
   const today=_cfLocalDateKey(new Date());
   const d=document.getElementById('trade-date');d.value=today;d.max=today;
   ['trade-qty','trade-price','trade-pl'].forEach(id=>{document.getElementById(id).value='';});
+  const skip=document.getElementById('trade-pl-skip'); if(skip) skip.checked=false;
   const unit=item.unit||(item.grp==='가상화폐'?'개':'주');
   document.getElementById('trade-title').textContent=`${item.name||item.tkr} 매수·매도`;
   document.getElementById('trade-qty-label').textContent=`수량 (${unit})`;
@@ -3728,6 +3740,12 @@ function openTradeModal(idx){
   modal.classList.add('active');modal.setAttribute('aria-hidden','false');
   tradeSetSide('buy');
   requestAnimationFrame(()=>document.getElementById('trade-qty')?.focus());
+}
+// 창 바깥(어두운 바탕)을 누르면 닫는다 — 안에서 누른 채 끌고 나와 바깥에서 뗀 경우는 닫지 않는다(입력 중 텍스트 선택 보호).
+let _tradeDownOutside=false;
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('pointerdown',e=>{_tradeDownOutside=!!e.target&&e.target.id==='trade-modal';},true);
+  document.addEventListener('click',e=>{if(e.target&&e.target.id==='trade-modal'&&_tradeDownOutside)closeTradeModal();_tradeDownOutside=false;});
 }
 function closeTradeModal(){
   const modal=document.getElementById('trade-modal');
@@ -3744,6 +3762,12 @@ function tradeSetSide(side){
   const item=_tradeItem, wrap=document.getElementById('trade-pl-wrap'), note=document.getElementById('trade-pl-note');
   const showPl=!!item&&_tradeSide==='sell'&&item.grp==='주식';
   if(wrap) wrap.hidden=!showPl;
+  const match=document.getElementById('trade-pl-match');
+  if(match){
+    const found=showPl?tradeExistingPlRows(item,typeof monthlyPLData!=='undefined'?monthlyPLData:[]):[];
+    match.hidden=!found.length;
+    match.textContent=found.length?`실현손익 기록에 이 종목 매도가 ${found.length}건 있습니다(${found.slice(0,2).map(r=>`${String(r.month).slice(0,7)} ${r.memo}`).join(', ')}). 같은 매도라면 위 칸에 체크해 중복 기록을 막으세요.`:'';
+  }
   if(note&&item) note.textContent=item.cur==='KRW'
     ?'(매도 단가 − 평균단가) × 수량으로 채웁니다. 수수료·세금을 뺀 실제 금액으로 고칠 수 있습니다. 세금·증여 > 실현손익 기록에 등록됩니다.'
     :'해외 종목은 매수 당시 환율 기록이 없어 자동 계산하지 않습니다. 증권사 앱의 실현손익(원화)을 적어 주세요. 세금·증여 > 실현손익 기록에 등록됩니다.';
@@ -3759,7 +3783,8 @@ function tradePreview(){
   const fmt=v=>Number(v).toLocaleString(undefined,{maximumFractionDigits:4});
   // 국내 종목 매도: 손익 칸을 직접 고치지 않았으면 계산값을 보여 준다
   const plEl=document.getElementById('trade-pl');
-  if(plEl&&_tradeSide==='sell'&&item.grp==='주식'&&item.cur==='KRW'&&!_tradePlTouched&&document.activeElement!==plEl)
+  if(plEl) plEl.disabled=!!input.skipPl;
+  if(plEl&&_tradeSide==='sell'&&item.grp==='주식'&&item.cur==='KRW'&&!_tradePlTouched&&!input.skipPl&&document.activeElement!==plEl)
     plEl.value=plan.ok&&plan.pl?plan.pl.amt.toLocaleString():'';
   if(!plan.ok){box.innerHTML=`<span class="trade-preview-wait">${Number.isFinite(input.qty)&&input.qty>0?escHtml(plan.error):'수량과 단가를 입력하면 반영 결과를 미리 보여 줍니다.'}</span>`;return;}
   const unit=escHtml(item.unit||(item.grp==='가상화폐'?'개':'주'));
@@ -3767,6 +3792,7 @@ function tradePreview(){
     ?`<div><span>반영 후</span><b>전량 매도 — 보유 목록에서 삭제</b></div>`
     :`<div><span>반영 후 수량</span><b>${fmt(item.qty)} → ${fmt(plan.next.qty)}${unit}</b></div><div><span>반영 후 평균단가</span><b>${item.costUnknown?'미상':fmt(item.avgP)+' → '+fmt(plan.next.avgP)}</b></div>`;
   if(plan.pl) html+=`<div><span>실현손익 기록</span><b class="${plan.pl.amt>0?'c-up':plan.pl.amt<0?'c-dn':''}">${plan.pl.amt>0?'+':plan.pl.amt<0?'-':''}₩${Math.abs(plan.pl.amt).toLocaleString()} · ${plan.pl.month.slice(5)}월 · ${plan.pl.category==='domestic'?'국내':'해외'} · ${escHtml(plan.pl.account)}</b></div>`;
+  else if(_tradeSide==='sell'&&input.skipPl&&item.grp==='주식') html+=`<div><span>실현손익 기록</span><b>추가 안 함 (이미 기록함)</b></div>`;
   else if(_tradeSide==='sell') html+=`<div><span>실현손익 기록</span><b>등록 안 함 (세금 화면은 주식만 다룹니다)</b></div>`;
   box.innerHTML=html;
 }

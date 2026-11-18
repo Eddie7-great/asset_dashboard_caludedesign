@@ -67,5 +67,5 @@ assert.match(ctx.finExportPanelHtml(), /onclick="finExport\('cashflow'\)" disabl
 
 const exportSrc = pick('finExport') + pick('finExportSets');
 assert.doesNotMatch(exportSrc, /fetch\(|setKV|saveExtDataToKV|saveAssetsToKV|localStorage/, '서버로 보내거나 저장하지 않는다');
-assert.match(fin, /주문 전 실제 증권사 시세를 확인해야 합니다\.<\/p><\/div><\/div><\/div>\$\{finExportPanelHtml\(\)\}`;/, '데이터 상태 화면 하단');
+assert.match(fin, /주문 전 증권사 시세를 확인하세요\.<\/p><\/div><\/div><\/div>\$\{finExportPanelHtml\(\)\}`;/, '데이터 상태 화면 하단');
 console.log('PASS 내보내기(CSV)');

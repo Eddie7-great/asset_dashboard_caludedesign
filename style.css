@@ -1071,7 +1071,6 @@
     .cb-lt-detail{width:190px;flex-shrink:0;font-size:var(--fs-micro);color:var(--lab);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dash-insight-grid{display:grid;grid-template-columns:minmax(240px,1.12fr) minmax(240px,1.12fr) minmax(205px,.74fr) minmax(235px,.88fr);gap:12px;margin-top:14px;align-items:stretch}
     .cb-dash-sector-card{display:flex;flex-direction:column}
-    .cb-dash-sector-note{font-size:var(--fs-micro);color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
 
     .cb-dash-contrib-card{padding:14px 13px;min-width:0;display:flex;flex-direction:column}
     .cb-contrib-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0 8px}
@@ -1224,8 +1223,7 @@
       .cb-dca-head .cb-mobile-secondary,.cb-dca-row .cb-mobile-secondary{display:none!important}
       .cb-div-head,.cb-div-row{min-width:620px!important}
       .cb-div-head .cb-mobile-secondary,.cb-div-row .cb-mobile-secondary{display:none!important}
-      .cb-dash-sector-note{padding-top:12px}
-      /* width:calc(100%-4px) 전역 핵 금지 — 사이드바(.glass-panel.menu-col)의 드로어 폭까지 덮어써 풀스크린이 됐음 */
+        /* width:calc(100%-4px) 전역 핵 금지 — 사이드바(.glass-panel.menu-col)의 드로어 폭까지 덮어써 풀스크린이 됐음 */
       .glass-panel{min-height:0;max-width:100%;box-sizing:border-box}
       /* 차트 컨테이너 고정 높이 — auto 높이 패널에서 Chart.js responsive 리사이즈
          피드백 루프(무한 늘어짐)·0높이(잘림) 동시 차단 */

@@ -357,7 +357,7 @@ assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0/, '대
 assert.match(workspaceSource, /\.home-stock-summary\{position:sticky;top:12px/, '홈 우측 선택 종목 요약을 스크롤 중 고정')
 assert.match(styleSource, /#cb-perf2\{display:flex;flex-direction:column;padding-bottom:12px\}[\s\S]*\.cb-perf-detail-panel\{display:flex;flex:1 0 270px/, '성과 비교 하단 위젯이 남은 세로 공간을 채움')
 assert.match(cobaltSource, /class="cb-perf-value\$\{CB_PERF_TFS\[k\]===tf\?' is-active':''\}"/, '성과 표 선택 음영을 셀 전체가 아닌 텍스트 크기에 맞춤')
-assert.match(cobaltSource, /class="cb-dash-sector-note"/, '대시보드 섹터 진단 문구를 위젯 하단에 배치')
+assert.doesNotMatch(cobaltSource, /cb-dash-sector-note|섹터 분산이 양호합니다'/, '홈 섹터 타일 아래 진단 문구는 없앴다(2026-11-18 3차, 사용자 결정)')
 assert.match(scriptSource, /function _recordViewHistory\(id\)[\s\S]*history\.pushState/, '페이지 전환을 브라우저 뒤로·앞으로 가기 기록에 연결')
 assert.match(scriptSource, /costUnknown[\s\S]*initialCurP/, '취득가 미상 금을 별도 상태로 저장하면서 현재 평가가는 유지')
 assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 좌우 터치 스크롤 허용')
