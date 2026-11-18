@@ -1130,3 +1130,23 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-loan-note{font-size:var(--fs-cap);color:var(--mut);font-variant-numeric:tabular-nums}
 #cf-fixed-table tr.has-loan>td{border-bottom:0;padding-bottom:2px}
 #cf-fixed-table tr.cf-fixed-loan-row>td{padding-top:0}
+/* 고정비 관리의 적립식 매수 묶음(2026-11-18 4차) — 분포 카드 아래, 고정비와 별도 */
+/* 두 카드는 제 높이 그대로 쌓고, 넘치면 오른쪽 열 전체가 스크롤한다 — 한 카드를 줄이면 분포 범례가 잘린다 */
+.cf-fixed-side{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;overflow-y:auto}
+.cf-fixed-side>.glass-panel{flex:0 0 auto;overflow:visible}
+.cf-fixed-dca-panel{padding:14px;display:flex;flex-direction:column;gap:8px}
+.cf-fixed-dca-panel[hidden]{display:none}
+.cf-fixed-dca-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cf-fixed-dca-head .cb-label small{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--mut)}
+.cf-fixed-dca-link{padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:var(--fs-cap);cursor:pointer;white-space:nowrap}
+.cf-fixed-dca-link:hover{text-decoration:underline}
+.cf-fixed-dca-sub{margin:0;font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
+.cf-fixed-dca-list{display:flex;flex-direction:column}
+.cf-fixed-dca-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cf-fixed-dca-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.cf-fixed-dca-rule{font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.cf-fixed-dca-row b,.cf-fixed-dca-total b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.cf-fixed-dca-total{display:flex;justify-content:space-between;gap:8px;padding-top:2px;font-size:var(--fs-body);color:var(--tx)}
+.cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
+#cf-fixed-dca-sum[hidden]{display:none}
+@media(max-width:768px){.cf-fixed-side{overflow:visible}}

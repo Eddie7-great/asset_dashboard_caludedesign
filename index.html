@@ -254,7 +254,7 @@
       </div>
       <div id="cf-fixed-section" class="cf-fixed-section" style="display:none" role="tabpanel" aria-labelledby="cf-section-tab-fixed">
         <div class="cf-fixed-summary-grid">
-          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">월 고정비</div><div id="cf-fixed-monthly" class="cf-fixed-summary-value">₩0</div><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계</div></div>
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">월 고정비</div><div id="cf-fixed-monthly" class="cf-fixed-summary-value">₩0</div><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계</div><div id="cf-fixed-dca-sum" class="cf-fixed-summary-note" hidden></div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">연간 환산액</div><div id="cf-fixed-annual" class="cf-fixed-summary-value">₩0</div><div class="cf-fixed-summary-note">월 환산액 × 12개월</div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">수입 대비 고정비율</div><div id="cf-fixed-ratio" class="cf-fixed-summary-value">-</div><div id="cf-fixed-ratio-note" class="cf-fixed-summary-note">이번 달 수입 기준</div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">다음 결제 예정</div><div id="cf-fixed-next" class="cf-fixed-summary-value cf-fixed-summary-next">-</div><div id="cf-fixed-next-note" class="cf-fixed-summary-note">예정된 결제가 없습니다</div></div>
@@ -300,9 +300,13 @@
               </table>
             </div>
           </div>
-          <div class="glass-panel cf-fixed-dist-panel">
-            <div class="cb-label">카테고리별 고정비 분포</div>
-            <div id="cf-fixed-dist"></div>
+          <div class="cf-fixed-side">
+            <div class="glass-panel cf-fixed-dist-panel">
+              <div class="cb-label">카테고리별 고정비 분포</div>
+              <div id="cf-fixed-dist"></div>
+            </div>
+            <!-- 적립식 매수(2026-11-18 4차) — 고정비 합계에 넣지 않는 별도 묶음. 조회 전용, 수정은 보유 목록 -->
+            <div class="glass-panel cf-fixed-dca-panel" id="cf-fixed-dca" hidden></div>
           </div>
         </div>
       </div>
