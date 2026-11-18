@@ -57,7 +57,7 @@
 .cb-tax-entry-form{margin-bottom:10px}
 @media(min-width:1180px){
   .cb-dash-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;align-items:stretch}.cb-dash-contrib-card{padding:12px}
-  .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}
+  .cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}
   .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cb-tax-summary-card{padding:10px 12px}
   .cb-div-summary-card{min-height:70px;padding:10px 12px}.cb-risk-overview{grid-template-columns:300px minmax(0,1fr);gap:10px}.cb-risk-primary-card,.cb-risk-insight-card{padding:9px 10px;min-height:72px}.cb-risk-card-grid{gap:8px}
   .fin-form-grid{grid-template-columns:repeat(auto-fit,minmax(130px,160px));gap:9px}.fin-nw-stats{gap:7px;margin-bottom:8px}.fin-nw-stats>div{padding:7px 9px}
@@ -337,26 +337,8 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-kind-sub{font-size:var(--fs-cap);color:var(--lab)}
 .acct-kind-note{font-size:var(--fs-cap);color:var(--dim);margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)}
 .acct-table-panel{padding:16px 18px}
-.acct-table-wrap{overflow-x:auto;margin-top:10px}
-.acct-table{min-width:880px}
-.acct-row,.acct-holding{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(120px,.9fr) minmax(118px,.75fr) minmax(170px,1.1fr) minmax(130px,.9fr) minmax(52px,.4fr);column-gap:20px;align-items:center}
-.acct-row{padding:12px 10px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
-.acct-row>span:not(:first-child){text-align:right}
-.acct-head{font-size:var(--fs-cap);color:var(--dim)}
-.acct-group>summary{cursor:pointer;list-style:none}
-.acct-group>summary::-webkit-details-marker{display:none}
-.acct-group>summary:hover,.acct-group[open]>summary{background:var(--inner)}
-.acct-name{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
-.acct-name>i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.acct-name>span{color:var(--mut)}
 .acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:var(--fs-micro);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 .acct-stale-chip{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
-.acct-holdings{padding:4px 0 10px;border-bottom:1px solid var(--bd);background:var(--inner)}
-.acct-tax-line{font-size:var(--fs-cap);color:var(--dim);padding:6px 10px 6px 25px}
-.acct-holding{padding:7px 10px;font-size:var(--fs-cap);border-top:1px solid var(--bd)}
-.acct-holding>span:first-child{padding-left:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.acct-holding>span:not(:first-child){text-align:right}
-.acct-holding small{color:var(--lab);font-family:var(--font-num)}
 .acct-foot,.cal-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
 .cal-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .cal-title{font-size:var(--fs-card);min-width:104px;text-align:center}
@@ -845,8 +827,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-owner-tag.is-none{color:var(--dim)}
 .home-asset,.acct-asset{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;vertical-align:middle}
 .home-asset>b,.acct-asset>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.acct-name>.cb-owner-tag{font-size:var(--fs-body);font-weight:700;color:var(--tx)}
-.acct-holding>span.acct-asset{display:flex}
 /* 보유 목록의 손익 칸 — 기본 칸 색 규칙(#view-holdings .pt-table td)이 .c-up/.c-dn 보다 강해 색이 지워지던 것을 되살린다. */
 #view-holdings .pt-table td.c-up{color:var(--up);font-weight:600}
 #view-holdings .pt-table td.c-dn{color:var(--dn);font-weight:600}
@@ -954,9 +934,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-perf-detail-head>.cb-perf-bar-head,.cb-perf-detail-row>.cb-perf-bar{display:none}
   .cb-perf-detail-head,.cb-perf-detail-row{grid-template-columns:minmax(66px,84px) repeat(6,minmax(34px,1fr)) minmax(56px,1fr) minmax(42px,.82fr)}
 }
-/* 계좌별 보기 비중 칸 — 막대 + 숫자 한 줄 */
-.acct-row>.acct-share{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
-.acct-row>.acct-share>.home-weight-bar{margin-right:0}
 /* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
    눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
 .cb-meter{overflow:visible}
@@ -1036,3 +1013,49 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-wf-bar.gain{background:var(--up)}
 .cb-wf-bar.loss{background:var(--dn)}
 .cb-wf-bar.total{background:var(--mut)}
+/* 계좌별 보기 트리(.fin-tree.is-acct) — 리밸런싱 계좌 배치 진단과 같은 부품, 열만 다르다:
+   이름 · 평가액 · 비중 · 평가손익 · 연 배당 · 종목 수. 계좌 줄을 누르면 종목 줄(lv3)이 펼쳐진다. */
+.fin-tree.is-acct{grid-template-columns:minmax(240px,max-content) minmax(116px,1fr) minmax(130px,1fr) minmax(172px,1.2fr) minmax(116px,1fr) minmax(44px,.4fr)}
+.fin-tree.is-acct .fin-tree-row>span:nth-child(5),.fin-tree.is-acct .fin-tree-row>span:nth-child(6){text-align:right}
+.fin-tree.is-acct .fin-tree-row.lv2{cursor:pointer}
+.fin-tree.is-acct .fin-tree-row.lv2:hover{background:var(--hover)}
+.fin-tree.is-acct .fin-tree-row.lv2[aria-expanded="true"]{background:var(--accSoft)}
+.fin-tree-row.lv3{min-height:34px;font-size:var(--fs-cap);color:var(--mut)}
+.fin-tree-row.lv3 .acct-asset b{font-weight:600;color:var(--tx)}
+.fin-tree-row.lv3 .acct-asset small{color:var(--lab)}
+.fin-tree-name>.acct-kind-chip,.fin-tree-name>.acct-stale-chip{margin-left:8px}
+.fin-tree-caret{margin-left:8px;color:var(--dim);font-size:var(--fs-cap)}
+.acct-tree-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.acct-tree-head .cb-btn{font-size:var(--fs-cap)}
+@media(max-width:768px){
+  .fin-tree.is-acct .fin-tree-row>span:nth-child(n+3){display:none}
+  /* 이름 칸이 넘치면 티커가 금액에 붙는다 — 두 칸 사이를 띄우고 이름은 칸 안에서 말줄임 */
+  .fin-tree.is-acct .fin-tree-row{column-gap:10px}
+  .fin-tree.is-acct .fin-tree-name{overflow:hidden}
+}
+/* 계좌 칸(보유 목록·구성원 비교 공용) — 윗줄 증권사, 아랫줄 세제 유형 색 네모 + 계좌명 */
+.cb-acct-cell{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;max-width:100%}
+.cb-acct-cell>span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+.cb-acct-broker{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
+.cb-acct-name{display:flex;align-items:center;font-size:var(--fs-cap);color:var(--lab)}
+.cb-acct-name>.fin-tree-kind{margin-right:5px}
+/* 구성원 비교 표 — 클래스 격자(인라인 고정 폭·flex:1 을 쓰지 않는다) */
+.cb-family-table{min-width:820px}
+.cb-family-head,.cb-family-row{display:grid;grid-template-columns:58px minmax(92px,.8fr) minmax(170px,2.4fr) minmax(60px,.55fr) minmax(76px,.65fr) minmax(76px,.65fr) minmax(96px,.85fr) minmax(92px,.8fr) minmax(52px,.5fr);column-gap:8px;align-items:center;padding:7px 9px}
+.cb-family-head{border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
+.cb-family-head>*,.cb-family-row>*{min-width:0}
+.cb-family-head>.r,.cb-family-row>.r{text-align:right}
+.cb-family-row>.cap{font-size:var(--fs-cap)}
+.cb-family-row>.b{font-weight:700}
+.cb-family-row>.sb{font-weight:600}
+.cb-family-asset{display:flex;align-items:center;gap:8px;min-width:0}
+/* 계좌 칸이 두 줄이므로 종목도 이름 / 티커 두 줄 — 한 줄이면 티커가 이름 폭을 먹어 긴 ETF 이름이 잘린다. */
+.cb-family-asset .cb-asset-inline{flex-direction:column;align-items:flex-start;gap:0;line-height:1.35}
+/* 구성원 비교(2026-11-18) — 표에 '계좌' 칸이 생겨 1420px 미만에서는 옆 카드(자산군 구성)와 나란히 두면 평가손익·수익률이
+   가로 스크롤로 밀린다. 그 폭에서는 카드를 표 위 가로 띠로 올린다(배당 '향후 90일 일정'과 같은 방식). 1420px 이상은 오른쪽 sticky(style.css). */
+@media(min-width:769px) and (max-width:1419px){
+  .cb-family-detail-grid{grid-template-columns:minmax(0,1fr)}
+  .cb-family-mix-card{order:-1}
+  .cb-family-mix-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+  .cb-family-mix-legend{display:flex;flex-wrap:wrap;gap:5px 16px}
+}

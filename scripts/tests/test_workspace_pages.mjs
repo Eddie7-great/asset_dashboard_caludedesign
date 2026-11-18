@@ -76,6 +76,45 @@ d = ctx.acctGroups('아내');
 assert.equal(d.total, 2500);
 assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자자산');
 
+// ── 계좌별 보기 트리(2026-11-18): 리밸런싱과 같은 부품(finTreeHtml), 계좌 줄을 누르면 종목이 펼쳐진다 ──
+{
+  const fin = read('finance.js');
+  const fn = name => { const m = fin.match(new RegExp(`function ${name}\\([^)]*\\)\\{[\\s\\S]*?\\n\\}`)); assert.ok(m, name); return m[0]; };
+  const els = { 'cb-acct2': { innerHTML: '' } };
+  Object.assign(ctx, {
+    document: { getElementById: id => els[id] || null },
+    finOwnerF: o => (o === '전체' ? null : o), cbSetHead: () => {}, cbOwnerBtns: () => '', cbRestoreFilterFocus: () => {},
+    cbEsc: v => String(v ?? ''), cbDisp: v => '₩' + Math.round(v).toLocaleString('en-US'), cbOwnerColor: () => '#000',
+    cbFlagCell: () => '<i class="flag"></i>', cbGainStyle: v => (v > 0 ? 'color:var(--up)' : v < 0 ? 'color:var(--dn)' : 'color:var(--lab)'),
+    cbSignDisp: v => (v >= 0 ? '+' : '-') + Math.abs(v), cbPct: v => (v * 100).toFixed(1) + '%',
+  });
+  vm.runInContext(fn('finAccountTree') + '\n' + fn('finTreeHtml'), ctx);
+  rows = [
+    row({ i: { acc: 'ISA', div: 100 }, title: '배당ETF', val: 1000, cost: 800, gain: 200 }),
+    row({ i: { acc: 'ISA' }, title: '성장주', val: 500, cost: 600, gain: -100 }),
+    row({ i: { owner: '아내', acc: '연금저축', broker: 'B증권' }, title: '연금ETF', val: 2500, cost: 2000, gain: 500 }),
+  ];
+  vm.runInContext("_acctOwner='전체';_acctOpen=new Set();cbRenderAccounts();", ctx);
+  let h = els['cb-acct2'].innerHTML;
+  assert.match(h, /class="fin-tree is-acct"/, '리밸런싱과 같은 트리 부품(열 설정만 다르다)');
+  assert.equal((h.match(/fin-tree-row lv2/g) || []).length, 2, '계좌 줄 2개');
+  assert.equal((h.match(/fin-tree-row lv3/g) || []).length, 0, '처음에는 종목 줄을 접어 둔다');
+  assert.match(h, /<i class="fin-tree-kind isa"><\/i><b>ISA<\/b>/, '계좌 층 색은 세제 유형');
+  assert.match(h, /role="button" tabindex="0" data-acct-idx="0" aria-expanded="false" onclick="acctToggle\(0\)"/, '계좌 줄은 키보드로도 누를 수 있다');
+  assert.match(h, /<span class="cb-num">₩1,500<\/span>/, '계좌 평가액 = 종목 평가액 합(새 계산 없음)');
+  vm.runInContext('acctToggle(0);', ctx);
+  h = els['cb-acct2'].innerHTML;
+  assert.equal((h.match(/fin-tree-row lv3/g) || []).length, 2, '누르면 그 계좌의 종목이 펼쳐진다');
+  assert.match(h, /aria-expanded="true"/);
+  assert.ok(h.indexOf('배당ETF') < h.indexOf('성장주'), '종목은 평가액 큰 순');
+  vm.runInContext('acctToggle(0);', ctx);
+  assert.equal((els['cb-acct2'].innerHTML.match(/fin-tree-row lv3/g) || []).length, 0, '다시 누르면 접힌다');
+  vm.runInContext('acctToggleAll();', ctx);
+  assert.equal((els['cb-acct2'].innerHTML.match(/fin-tree-row lv3/g) || []).length, 3, '모두 펼치기');
+  assert.match(els['cb-acct2'].innerHTML, /data-acct-all="1"[^>]*>모두 접기</);
+  assert.match(cobalt, /function cbResetViewState\(\)\{[\s\S]*?_acctOpen=new Set\(\)/, '다른 화면으로 옮기면 펼친 계좌를 접는다');
+}
+
 // ── 통합 일정: 기존 판정 함수에 날짜마다 묻는다 ──
 rows = [
   row({ i: { dca: true, dcaDay: 15, dcaAmt: 500000 }, title: '적립 ETF' }),

@@ -4,6 +4,8 @@
 // 자동이체는 _autoTransferOccursOn·_effectiveAutoTransferAmt 가 이미 정한 값을 모아 보여 줄 뿐이다.
 // cobalt.js 의 CB_VIEWS 가 이 파일의 렌더 함수를 참조하므로 cobalt.js 보다 먼저 로드한다.
 let _acctOwner='전체';
+// 계좌별 보기에서 펼친 계좌(키 = 소유주·증권사·계좌). 화면을 옮기면 접는다(cbResetViewState).
+let _acctOpen=new Set(), _acctKeys=[];
 let _calOwner='전체', _calYm=null;
 // 달력에서 고른 날(1~31, 없으면 null). 고르면 오른쪽 목록이 그 날 일정만 보인다. 다시 누르거나 달·소유주·화면이 바뀌면 해제.
 let _calDay=null;
@@ -46,6 +48,16 @@ function acctGroups(ownerF){
   });
   return {total,groups,kinds};
 }
+function acctToggle(idx){
+  const key=_acctKeys[idx]; if(key==null) return;
+  if(_acctOpen.has(key)) _acctOpen.delete(key); else _acctOpen.add(key);
+  cbRenderAccounts(); cbRestoreFilterFocus('cb-acct2','data-acct-idx',String(idx));
+}
+function acctToggleAll(){
+  const allOpen=_acctKeys.length>0&&_acctKeys.every(k=>_acctOpen.has(k));
+  _acctOpen=allOpen?new Set():new Set(_acctKeys);
+  cbRenderAccounts(); cbRestoreFilterFocus('cb-acct2','data-acct-all','1');
+}
 function acctOwner(o){ _acctOwner=o; cbRenderAccounts(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
 function cbRenderAccounts(){
   const el=document.getElementById('cb-acct2'); if(!el) return;
@@ -61,39 +73,45 @@ function cbRenderAccounts(){
       <span class="acct-kind-sub">${k.accounts?`${k.share.toFixed(1)}% · 계좌 ${k.accounts}개 · ${k.holdings}종목`:'해당 계좌 없음'}</span>
       <span class="acct-kind-note">${ACCT_KIND_NOTE[k.kind]}</span>
     </div>`).join('');
-  // 비중 막대 길이는 가장 큰 계좌 대비(숫자는 그대로 투자자산 대비 비중) — 홈 보유 표와 같은 모양
-  const maxShare=Math.max(0,...data.groups.map(g=>g.share||0));
-  const body=data.groups.map(g=>{
-    const info=getAccountDivTaxInfo(g.acc);
-    return `<details class="acct-group">
-      <summary class="acct-row">
-        <span class="acct-name">${cbOwnerTag(g.owner)}<span>${cbEsc(g.broker)} · ${cbEsc(g.acc)}</span><em class="acct-kind-chip">${g.kind}</em>${g.stale?`<em class="acct-stale-chip">시세 미조회 ${g.stale}</em>`:''}</span>
-        <span class="cb-num">${cbDisp(g.value)}</span>
-        <span class="cb-num acct-share"><span class="home-weight-bar" aria-hidden="true"><i style="width:${maxShare>0?Math.max(2,g.share/maxShare*100).toFixed(1):0}%;background:var(--acc)"></i></span>${g.share.toFixed(1)}%</span>
-        <span class="cb-num" style="${cbGainStyle(g.gain,g.gainPct==null)}">${g.gainPct==null?'—':cbSignDisp(g.gain)+' · '+cbPct(g.gainPct)}</span>
-        <span class="cb-num">${g.dividend>0?cbDisp(g.dividend):'—'}</span>
-        <span class="cb-num">${g.rows.length}</span>
-      </summary>
-      <div class="acct-holdings">
-        <div class="acct-tax-line">배당 과세: ${cbEsc(info.label||g.kind)}</div>
-        ${g.rows.map(r=>`<div class="acct-holding">
-          <span class="acct-asset">${cbFlagCell(r, 24, 14)}<b>${cbEsc(r.title)}</b>${r.subTitle?` <small>${cbEsc(r.subTitle)}</small>`:''}</span>
-          <span class="cb-num">${cbDisp(r.val)}</span>
-          <span class="cb-num">${data.total>0?(r.val/data.total*100).toFixed(1)+'%':'—'}</span>
-          <span class="cb-num" style="${cbGainStyle(r.gain,r.gainPct==null)}">${r.gainPct==null?'—':cbSignDisp(r.gain)+' · '+cbPct(r.gainPct)}</span>
-          <span class="cb-num">${cbDivIncomeKRW(r.i)>0?cbDisp(cbDivIncomeKRW(r.i)):'—'}</span>
-          <span></span>
-        </div>`).join('')}
-      </div>
-    </details>`;
-  }).join('');
+  // 소유주 → 증권사 → 계좌 → (펼치면) 종목 트리 — 리밸런싱 '계좌 배치 진단'과 같은 부품(finTreeHtml)이다.
+  // 값은 acctGroups 가 이미 구한 것을 그대로 넘기고, 위 단계 소계는 finAccountTree 가 더할 뿐이다(새 계산 없음).
+  const treeRows=data.groups.map(g=>({key:g.key,owner:g.owner,broker:g.broker,acc:g.acc,kind:g.kind,
+    type:getAccountDivTaxInfo(g.acc).type,value:g.value,dividend:g.dividend,share:g.share,gain:g.gain,cost:g.cost,
+    holdings:g.rows.length,stale:g.stale,rows:g.rows,tone:'ok'}));
+  const tree=finAccountTree(treeRows);
+  _acctKeys=[]; tree.forEach(o=>o.brokers.forEach(b=>b.accounts.forEach(a=>_acctKeys.push(a.key))));
+  const pct=v=>v.toFixed(1)+'%';
+  const bar=(share,cls)=>`<span class="fin-tree-bar${cls?' '+cls:''}"><i style="width:${Math.max(0,Math.min(100,share)).toFixed(2)}%"></i></span>`;
+  const gainCell=(gain,cost,unknown)=>{
+    const p=cost>0?gain/cost:null;
+    return unknown||p==null?'<span class="cb-num" style="color:var(--lab)">—</span>'
+      :`<span class="cb-num" style="${cbGainStyle(gain,false)}">${cbSignDisp(gain)} · ${cbPct(p)}</span>`;
+  };
+  const allOpen=_acctKeys.length>0&&_acctKeys.every(k=>_acctOpen.has(k));
+  const treeHtml=finTreeHtml(tree,data.total,{
+    cls:'is-acct',
+    head:['<span>평가액</span>','<span>비중</span>','<span>평가손익</span>','<span><span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span></span>','<span>종목</span>'],
+    cells:(n,level)=>{
+      if(level==='holding'){
+        const unknown=n.i.grp==='현금'||n.i.costUnknown, d=cbDivIncomeKRW(n.i);
+        return [`<span class="cb-num">${cbDisp(n.val)}</span>`,
+          `<span class="fin-tree-share">${bar(data.total>0?n.val/data.total*100:0)}<span class="cb-num">${pct(data.total>0?n.val/data.total*100:0)}</span></span>`,
+          gainCell(n.gain,n.cost,unknown),`<span class="cb-num">${d>0?cbDisp(d):'—'}</span>`,'<span></span>'];
+      }
+      return [`<span class="cb-num">${cbDisp(n.value)}</span>`,
+        level==='owner'?`<span class="fin-tree-share">${bar(n.share,'is-owner')}<b class="cb-num">${pct(n.share)}</b></span>`:`<span class="fin-tree-share">${bar(n.share)}<span class="cb-num">${pct(n.share)}</span></span>`,
+        gainCell(n.gain,n.cost,false),`<span class="cb-num">${n.dividend>0?cbDisp(n.dividend):'—'}</span>`,`<span class="cb-num">${n.holdings}</span>`];
+    },
+    accountAttrs:(a,idx)=>` role="button" tabindex="0" data-acct-idx="${idx}" aria-expanded="${_acctOpen.has(a.key)}" onclick="acctToggle(${idx})"`,
+    accountName:a=>`<b>${cbEsc(a.acc)}</b>${a.kind==='증여계좌'?'<em class="acct-kind-chip">증여계좌</em>':''}${a.stale?`<em class="acct-stale-chip">시세 미조회 ${a.stale}</em>`:''}<span class="fin-tree-caret" aria-hidden="true">${_acctOpen.has(a.key)?'▾':'▸'}</span>`,
+    children:a=>_acctOpen.has(a.key)?a.rows:[],
+    holdingName:h=>`<span class="acct-asset" title="${cbEsc([h.title,h.subTitle].filter(Boolean).join(' · '))}">${cbFlagCell(h,24,14)}<b>${cbEsc(h.title)}</b>${h.subTitle?` <small>${cbEsc(h.subTitle)}</small>`:''}</span>`,
+    legend:'<span class="fin-acct-note">증여계좌는 과세가 일반 계좌와 같아 일반 색입니다 · 계좌 줄을 누르면 보유 종목이 펼쳐집니다</span>',
+  });
   el.innerHTML=`<div class="acct-kind-grid">${kindCards}</div>
     <div class="cb-panel acct-table-panel">
-      <div class="cb-panel-title">계좌별 내역 <span style="color:var(--dim)">· ${data.groups.length}개 계좌 · 줄을 누르면 보유 종목이 펼쳐집니다</span></div>
-      <div class="acct-table-wrap"><div class="acct-table">
-        <div class="acct-row acct-head"><span>소유주 · 증권사 / 계좌</span><span>평가액</span><span>비중</span><span>평가손익</span><span><span data-tip="현재 보유 수량 × 최근 1년 주당 배당. 세전 금액이며 확정 지급액이 아닙니다.">연 배당(세전 추정)</span></span><span>종목</span></div>
-        ${body}
-      </div></div>
+      <div class="acct-tree-head"><span class="cb-panel-title">계좌별 내역 <span style="color:var(--dim)">· ${data.groups.length}개 계좌</span></span><button type="button" class="cb-btn" data-acct-all="1" onclick="acctToggleAll()">${allOpen?'모두 접기':'모두 펼치기'}</button></div>
+      ${treeHtml}
       <p class="acct-foot">비중은 ${ownerF?cbEsc(ownerF):'가족 전체'} 투자자산(주식·가상화폐·금·현금) 대비입니다. 현금과 취득가 미상 종목은 평가손익에서 뺍니다. ISA 납입 한도·만기일과 연금 납입 한도는 가입일·납입액 기록이 없어 표시하지 않습니다.</p>
     </div>`;
 }

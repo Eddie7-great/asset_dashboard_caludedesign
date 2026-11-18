@@ -258,6 +258,8 @@ function cbFlagSvg(r, h){
 function cbFlagCell(r, slot, h){
   return `<span style="width:${slot||30}px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${cbFlagSvg(r, h||16)}</span>`;
 }
+// 표의 '계좌' 칸 — 윗줄 증권사, 아랫줄 세제 유형 색 네모 + 계좌명. 보유 목록과 같은 구현(getHoldingsBrokerCellHtml)을 쓴다.
+function cbAccountCell(i){ return getHoldingsBrokerCellHtml(i||{}); }
 function cbAccountLabel(i){
   const broker = String((i&&i.broker)||'').trim();
   const account = String((i&&i.acc)||'').trim();
@@ -1644,36 +1646,31 @@ function cbRenderFam(){
           <input value="${cbEsc(_famQ)}" oninput="cbFamSearch(this.value)" placeholder="티커·종목명 검색…" style="background:transparent;border:none;color:var(--tx);font-family:var(--font-ui);font-size:var(--fs-cap);width:100%;outline:none" />
         </div>
       </div>
-      <div class="cb-tblwrap"><div style="min-width:826px">
-      <div class="cb-thead cb-family-head" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)">
-        <span style="width:62px;flex-shrink:0">소유주</span>
-        <span style="flex:1;min-width:0">종목</span>
-        <span style="width:76px;text-align:right;flex-shrink:0">수량</span>
-        <span style="width:90px;text-align:right;flex-shrink:0"><span data-tip="보유 수량 전체의 평균 매수 단가(가중평균)">평단가</span></span>
-        <span style="width:90px;text-align:right;flex-shrink:0">현재가</span>
-        <span style="width:100px;text-align:right;flex-shrink:0">평가액</span>
-        <span style="width:96px;text-align:right;flex-shrink:0">평가손익</span>
-        <span style="width:56px;text-align:right;flex-shrink:0">수익률</span>
+      <!-- 칸 폭은 .cb-family-head/.cb-family-row 격자(workspace-ui.css). 소유주 · 계좌 · 종목 순서는 보유 목록과 같다. -->
+      <div class="cb-tblwrap"><div class="cb-family-table">
+      <div class="cb-thead cb-family-head">
+        <span>소유주</span><span>계좌</span><span>종목</span>
+        <span class="r">수량</span>
+        <span class="r"><span data-tip="보유 수량 전체의 평균 매수 단가(가중평균)">평단가</span></span>
+        <span class="r">현재가</span><span class="r">평가액</span><span class="r">평가손익</span><span class="r">수익률</span>
       </div>
       ${held.map(r=>`
-        <div class="cb-hrow" style="display:flex;align-items:center;gap:10px;padding:7px 9px">
-          <span style="width:62px;flex-shrink:0">${cbOwnerTag(r.i.owner)}</span>
-          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px">
-            ${cbFlagCell(r, 30, 16)}
-            <div style="min-width:0">
-              <div class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([r.title,r.subTitle].filter(Boolean).join(' · '))}">
-                <span class="cb-asset-name" data-overflow-watch>${cbEsc(r.title)}</span>
-                ${r.subTitle?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(r.subTitle)}</span>`:''}
-              </div>
-              <div class="cb-tip-block" data-overflow-tip="${cbEsc([r.i.broker,r.i.acc].filter(Boolean).join(' · ')||'—')}"><span data-overflow-watch style="display:block;font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(r.i.broker||'—')}${r.i.acc?' · '+cbEsc(r.i.acc):''}</span></div>
+        <div class="cb-hrow cb-family-row">
+          <span>${cbOwnerTag(r.i.owner)}</span>
+          <span>${cbAccountCell(r.i)}</span>
+          <div class="cb-family-asset">
+            ${cbFlagCell(r, 26, 15)}
+            <div class="cb-asset-inline cb-tip-block" data-overflow-tip="${cbEsc([r.title,r.subTitle].filter(Boolean).join(' · '))}">
+              <span class="cb-asset-name" data-overflow-watch>${cbEsc(r.title)}</span>
+              ${r.subTitle?`<span class="cb-asset-ticker" data-overflow-watch>${cbEsc(r.subTitle)}</span>`:''}
             </div>
           </div>
-          <span class="cb-num" style="width:76px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'예수금':cbEsc(Number(r.i.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})+(r.i.grp==='가상화폐'?'개':r.i.unit||'주'))}</span>
-          <span class="cb-num" style="width:90px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(cbAvgNative(r.i),r.i.cur)}</span>
-          <span class="cb-num" style="width:90px;text-align:right;font-size:var(--fs-cap);flex-shrink:0">${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</span>
-          <span style="width:100px;text-align:right;font-size:var(--fs-body);font-weight:700;flex-shrink:0">${cbDisp(r.val)}</span>
-          <span style="width:96px;text-align:right;font-size:var(--fs-cap);font-weight:600;flex-shrink:0;${cbGainStyle(r.gain,r.i.grp==='현금'||r.i.costUnknown)}">${r.i.grp==='현금'||r.i.costUnknown?'—':cbSignDisp(r.gain)}</span>
-          <span style="width:56px;text-align:right;font-size:var(--fs-cap);font-weight:600;flex-shrink:0;${cbGainStyle(r.gainPct,r.gainPct==null)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'예수금':cbEsc(Number(r.i.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})+(r.i.grp==='가상화폐'?'개':r.i.unit||'주'))}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'—':cbFmtNative(cbAvgNative(r.i),r.i.cur)}</span>
+          <span class="cb-num r cap">${r.i.grp==='현금'?'—':cbFmtNative(r.i.curP,r.i.cur)}</span>
+          <span class="cb-num r b">${cbDisp(r.val)}</span>
+          <span class="cb-num r cap sb" style="${cbGainStyle(r.gain,r.i.grp==='현금'||r.i.costUnknown)}">${r.i.grp==='현금'||r.i.costUnknown?'—':cbSignDisp(r.gain)}</span>
+          <span class="cb-num r cap sb" style="${cbGainStyle(r.gainPct,r.gainPct==null)}">${r.gainPct==null?'—':cbPct(r.gainPct)}</span>
         </div>`).join('')}
       </div></div>
     </div>
@@ -3785,6 +3782,7 @@ function cbCountUp(id){
 // 같은 화면을 다시 그릴 때(시세 갱신·소유주 변경)는 유지된다.
 function cbResetViewState(){
   if (typeof _calDay!=='undefined') _calDay=null;
+  if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
 }
 switchView = function(id, btn){
   id=navResolve(id);

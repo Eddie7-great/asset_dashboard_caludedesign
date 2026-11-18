@@ -632,7 +632,8 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')
   assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(150px,2\.4fr\)/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
   assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>소유주<\/span><span>종목<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
-  assert.match(workspaceSource, /\.acct-row,\.acct-holding\{display:grid;grid-template-columns:[^}]*column-gap:20px/, '계좌별 내역은 계좌 줄과 종목 줄이 같은 칸 틀을 쓴다')
+  assert.match(workspaceSource, /\.fin-tree\.is-acct\{grid-template-columns:/, '계좌별 내역은 트리 한 격자 — 계좌 줄과 종목 줄이 같은 칸 틀(subgrid)을 쓴다')
+  assert.doesNotMatch(workspaceSource, /\.acct-row|\.acct-holding\{/, '예전 계좌별 표 규칙은 지웠다')
 }
 
 // 2026-11-16 2차 — 홈 평면 도넛, 가족 증여 결과 우선, 버튼·글꼴 한 벌
@@ -652,9 +653,9 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   const tables = cobaltSource + pagesSource
   assert.match(cobaltSource, /function cbOwnerTag\(owner, fallback\)\{[\s\S]*class="cb-owner-tag/, '소유주 점 + 이름은 한 함수가 그린다')
   assert.doesNotMatch(tables, /width:7px;height:7px;border-radius:50%;background:\$\{(cbOwnerColor|ownerOf)/, '소유주 점을 표마다 인라인으로 복사하지 않는다')
-  assert.ok((tables.match(/cbOwnerTag\(/g) || []).length >= 7, '홈·가족·배당·적립식·세금·계좌별 표가 같은 소유주 표시를 쓴다')
+  assert.ok((tables.match(/cbOwnerTag\(/g) || []).length >= 6, '홈·가족·배당·적립식·세금 표가 같은 소유주 표시를 쓴다(계좌별 보기는 2026-11-18 부터 트리의 소유주 줄)')
   assert.match(cobaltSource, /\+`<td>\$\{cbOwnerTag\(r\.i\.owner\)\}<\/td>`\s*\+`<td title=[^`]*<span class="home-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '홈 보유 표에도 소유주 점과 국기·자산 아이콘')
-  assert.match(pagesSource, /<span class="acct-asset">\$\{cbFlagCell\(r, 24, 14\)\}/, '계좌별 보기의 종목 줄에도 국기·자산 아이콘')
+  assert.match(pagesSource, /holdingName:h=>`<span class="acct-asset" title="[^"]*">\$\{cbFlagCell\(h,24,14\)\}/, '계좌별 보기의 종목 줄에도 국기·자산 아이콘')
   // 손익 색: 이익·손실만 색, 0·취득가 미상·현금은 회색
   const gainFn = new Function(cobaltSource.match(/function cbGainStyle\(v, unknown\)\{[\s\S]*?\n\}/)[0] + '; return cbGainStyle;')()
   assert.equal(gainFn(10), 'color:var(--up)')

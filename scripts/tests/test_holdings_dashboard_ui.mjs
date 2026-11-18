@@ -25,7 +25,7 @@ function extractFunction(source, name) {
   throw new Error(`${name} 함수의 닫는 괄호를 찾을 수 없음`)
 }
 
-const dcaContext = {}
+const dcaContext = { _taxRuleValue: (_path, fallback) => fallback }
 vm.createContext(dcaContext)
 // 통화 기호는 CURRENCY_META 단일 출처에서 온다 — 정의부를 그대로 가져온다.
 vm.runInContext(scriptSource.slice(scriptSource.indexOf('const CURRENCY_META'), scriptSource.indexOf('function curRateKnown(')), dcaContext)
@@ -34,6 +34,7 @@ for (const name of [
   'getDcaCellHtml',
   'getDcaAmountCellHtml',
   'getDcaMergedCellHtml',
+  'getAccountDivTaxInfo',
   'holdingsWeightHtml',
   'escHtml',
   'holdingsEsc',
@@ -77,7 +78,9 @@ assert.match(scriptSource, /const colspan=grpName==='현금' \? \(showOwner\?6:5
 {
   const broker = dcaContext.getHoldingsBrokerCellHtml({ broker: '미래에셋증권', acc: '연금저축' })
   assert.match(broker, /holdings-broker-cell/, '증권사 칸은 두 줄 격자')
-  assert.match(broker, /<span class="holdings-account" data-overflow-watch>연금저축<\/span>/, '아랫줄 계좌에는 / 구분자를 붙이지 않음')
+  assert.match(broker, /<span class="holdings-account cb-acct-name" data-overflow-watch><i class="fin-tree-kind pen" aria-hidden="true"><\/i>연금저축<\/span>/, '아랫줄 계좌에는 / 구분자 없이 세제 유형 색 네모(연금)')
+  assert.match(dcaContext.getHoldingsBrokerCellHtml({ broker: 'A', acc: '중개형 ISA' }), /fin-tree-kind isa/, 'ISA 계좌 색')
+  assert.match(dcaContext.getHoldingsBrokerCellHtml({ broker: 'A', acc: '일반' }), /fin-tree-kind gen/, '일반 계좌 색')
   assert.match(broker, /data-overflow-tip="미래에셋증권 \/ 연금저축"/, '말풍선은 증권사 / 계좌 한 줄')
 }
 assert.match(workspaceSource, /#view-holdings \.holdings-inline-cell\.holdings-asset-cell\{display:grid;/, '종목 칸은 이름·티커 두 줄 격자')

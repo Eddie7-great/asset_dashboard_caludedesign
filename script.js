@@ -2963,9 +2963,13 @@ function getHoldingsBrokerCellHtml(item){
   const broker = item.broker || '—';
   const account = item.acc || '—';
   // 윗줄 증권사, 아랫줄 계좌 — 한 줄에 '미래에셋증권 / 연금저축'을 이어 쓰면 둘 다 잘렸다.
-  return `<span class="holdings-inline-cell holdings-broker-cell cb-tip-block" data-overflow-tip="${holdingsEsc(broker+' / '+account)}">`
-    + `<span class="broker-txt" data-overflow-watch>${holdingsEsc(broker)}</span>`
-    + `<span class="holdings-account" data-overflow-watch>${holdingsEsc(account)}</span></span>`;
+  // 계좌 앞 색 네모는 세제 유형(일반·ISA·연금 = --acct-*)으로, 계좌별 보기·리밸런싱 트리와 같은 색이다.
+  // 이 함수가 '계좌 칸'의 단일 구현이다 — 구성원 비교 표도 cbAccountCell(cobalt.js)로 이것을 쓴다.
+  const type=typeof getAccountDivTaxInfo==='function'?getAccountDivTaxInfo(item.acc).type:'일반';
+  const kind=type==='ISA'?'isa':(type==='연금'?'pen':'gen');
+  return `<span class="holdings-inline-cell holdings-broker-cell cb-acct-cell cb-tip-block" data-overflow-tip="${holdingsEsc(broker+' / '+account)}">`
+    + `<span class="broker-txt cb-acct-broker" data-overflow-watch>${holdingsEsc(broker)}</span>`
+    + `<span class="holdings-account cb-acct-name" data-overflow-watch><i class="fin-tree-kind ${kind}" aria-hidden="true"></i>${holdingsEsc(account)}</span></span>`;
 }
 function getHoldingsAssetCellHtml(name,ticker,item,tradeIdx){
   const parts = [name,ticker].filter(Boolean);
