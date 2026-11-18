@@ -5,6 +5,8 @@
 // cobalt.js 의 CB_VIEWS 가 이 파일의 렌더 함수를 참조하므로 cobalt.js 보다 먼저 로드한다.
 let _acctOwner='전체';
 let _calOwner='전체', _calYm=null;
+// 달력에서 고른 날(1~31, 없으면 null). 고르면 오른쪽 목록이 그 날 일정만 보인다. 다시 누르거나 달·소유주·화면이 바뀌면 해제.
+let _calDay=null;
 
 // ───────────────────────── 계좌별 보기 ─────────────────────────
 const ACCT_KINDS=['일반','ISA','연금','증여계좌'];
@@ -138,11 +140,16 @@ function calEvents(year, month0, ownerF){
 }
 function calMove(delta){
   const ym=calYm(), d=new Date(ym.y,ym.m+delta,1);
-  _calYm={y:d.getFullYear(),m:d.getMonth()}; cbRenderCalendar();
+  _calYm={y:d.getFullYear(),m:d.getMonth()}; _calDay=null; cbRenderCalendar();
   cbRestoreFilterFocus('cb-cal2','data-cal-move',String(delta));
 }
-function calToday(){ _calYm=null; cbRenderCalendar(); cbRestoreFilterFocus('cb-cal2','data-cal-move','0'); }
-function calOwner(o){ _calOwner=o; cbRenderCalendar(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
+function calToday(){ _calYm=null; _calDay=null; cbRenderCalendar(); cbRestoreFilterFocus('cb-cal2','data-cal-move','0'); }
+function calOwner(o){ _calOwner=o; _calDay=null; cbRenderCalendar(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
+function calPickDay(day){
+  _calDay=_calDay===day?null:day;
+  cbRenderCalendar();
+  cbRestoreFilterFocus('cb-cal2','data-cal-day',String(day));
+}
 function cbRenderCalendar(){
   const el=document.getElementById('cb-cal2'); if(!el) return;
   const ym=calYm(), ownerF=finOwnerF(_calOwner), data=calEvents(ym.y,ym.m,ownerF);
@@ -154,7 +161,8 @@ function cbRenderCalendar(){
   for(let n=0;n<first;n++) cells+='<div class="cal-cell is-blank"></div>';
   for(let day=1;day<=data.last;day++){
     const list=data.days[day]||[], dow=(first+day-1)%7;
-    cells+=`<div class="cal-cell${isThisMonth&&today.getDate()===day?' is-today':''}${dow===0?' is-sun':dow===6?' is-sat':''}">
+    const picked=_calDay===day;
+    cells+=`<div class="cal-cell${isThisMonth&&today.getDate()===day?' is-today':''}${dow===0?' is-sun':dow===6?' is-sat':''}${picked?' is-picked':''}" role="button" tabindex="0" data-cal-day="${day}" aria-pressed="${picked}" aria-label="${ym.m+1}월 ${day}일 · 일정 ${list.length}건${picked?' · 선택됨, 다시 누르면 이 달 전체':''}" onclick="calPickDay(${day})">
       <span class="cal-day">${day}</span>
       ${list.slice(0,3).map(chip).join('')}${list.length>3?`<span class="cal-more">외 ${list.length-3}건</span>`:''}
     </div>`;
@@ -162,6 +170,9 @@ function cbRenderCalendar(){
   const all=[];
   Object.keys(data.days).map(Number).sort((a,b)=>a-b).forEach(day=>data.days[day].forEach(ev=>all.push({...ev,when:`${ym.m+1}월 ${day}일`})));
   data.undated.forEach(ev=>all.push({...ev,when:`${ym.m+1}월 중 · 지급일 미정`}));
+  // 고른 날이 이 달에 없으면(달을 넘겨 온 경우) 해제한다
+  if(_calDay!=null&&(_calDay<1||_calDay>data.last)) _calDay=null;
+  const shown=_calDay==null?all:(data.days[_calDay]||[]).map(ev=>({...ev,when:`${ym.m+1}월 ${_calDay}일`}));
   const row=ev=>`<div class="cal-list-row">
       <span class="cal-list-when">${ev.when}</span>
       <span class="cal-kind ${CAL_KINDS[ev.kind].cls}"><i></i>${CAL_KINDS[ev.kind].label}</span>
@@ -183,13 +194,13 @@ function cbRenderCalendar(){
     </div>
     <div class="cal-layout">
       <div class="cb-panel cal-grid-panel">
-        <div class="cal-grid" role="img" aria-label="${ym.y}년 ${ym.m+1}월 일정 달력. 일정 ${all.length}건은 옆 목록에서 읽을 수 있습니다.">
+        <div class="cal-grid" role="group" aria-label="${ym.y}년 ${ym.m+1}월 일정 달력. 날짜를 누르면 옆 목록에 그 날 일정만 보입니다.">
           ${['일','월','화','수','목','금','토'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}
         </div>
       </div>
       <div class="cb-panel cal-list-panel">
-        <div class="cb-panel-title">이 달의 일정 <span style="color:var(--dim)">· ${all.length}건</span></div>
-        ${all.length?`<div class="cal-list">${all.map(row).join('')}</div>`:`<div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다. 적립식 규칙·자동이체·배당 종목이 있으면 여기에 모입니다.</div>`}
+        <div class="cal-list-head"><span class="cb-panel-title">${_calDay==null?'이 달의 일정':`${ym.m+1}월 ${_calDay}일 일정`} <span style="color:var(--dim)">· ${shown.length}건</span></span>${_calDay!=null?`<button type="button" class="cb-btn cal-day-clear" data-cal-day="${_calDay}" onclick="calPickDay(${_calDay})">이 달 전체 보기 ×</button>`:''}</div>
+        ${shown.length?`<div class="cal-list">${shown.map(row).join('')}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:`<div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다. 적립식 규칙·자동이체·배당 종목이 있으면 여기에 모입니다.</div>`)}
       </div>
     </div>
     <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;

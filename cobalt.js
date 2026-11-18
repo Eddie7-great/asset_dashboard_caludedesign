@@ -3754,8 +3754,15 @@ function cbCountUp(id){
   };
   requestAnimationFrame(tick);
 }
+// 화면을 옮길 때만 지우는 화면 안 상태(표 정렬·달력에서 고른 날·펼친 계좌 등).
+// 같은 화면을 다시 그릴 때(시세 갱신·소유주 변경)는 유지된다.
+function cbResetViewState(){
+  if (typeof _calDay!=='undefined') _calDay=null;
+}
 switchView = function(id, btn){
   id=navResolve(id);
+  const _prevView=document.querySelector('.view-section.active')?.id?.replace('view-','');
+  if (_prevView && _prevView!==id) cbResetViewState();
   navPrepare(id);
   ['cb-perf-tip','cb-div-bar-tip','table-float-tip'].forEach(tipId=>{
     const tip=document.getElementById(tipId);

@@ -103,6 +103,18 @@ assert.equal(c.totals.div, 0, '지급월이 아니면 배당 없음');
 // 달 이동은 연도를 넘긴다
 vm.runInContext("cbRenderCalendar=()=>{};cbRestoreFilterFocus=()=>{};_calYm={y:2026,m:11};calMove(1);", ctx);
 assert.deepEqual(plain(vm.runInContext('_calYm', ctx)), { y: 2027, m: 0 });
+// 날짜 고르기: 누르면 그 날, 다시 누르면 해제. 달 이동·오늘·소유주 변경도 해제한다.
+vm.runInContext("calPickDay(15);", ctx);
+assert.equal(vm.runInContext('_calDay', ctx), 15, '날짜를 누르면 그 날만');
+vm.runInContext("calPickDay(15);", ctx);
+assert.equal(vm.runInContext('_calDay', ctx), null, '같은 날을 다시 누르면 이 달 전체');
+vm.runInContext("calPickDay(3);calMove(1);", ctx);
+assert.equal(vm.runInContext('_calDay', ctx), null, '달을 옮기면 해제');
+vm.runInContext("calPickDay(3);calOwner('아내');", ctx);
+assert.equal(vm.runInContext('_calDay', ctx), null, '소유주를 바꾸면 해제');
+assert.match(src, /role="button" tabindex="0" data-cal-day="\$\{day\}" aria-pressed="\$\{picked\}"/, '날짜 칸은 키보드로도 누를 수 있는 버튼');
+assert.match(src, /class="cal-grid" role="group"/, '눌리는 칸이 있으므로 달력 묶음은 그림(img)이 아니라 group');
+assert.match(cobalt, /function cbResetViewState\(\)\{[\s\S]*?_calDay=null/, '다른 화면으로 옮기면 고른 날을 해제');
 // 문구: 추정·예정임을 밝힌다, 세금 기한은 지어내지 않는다
 assert.match(src, /세전 추정 · 확정 지급액 아님/);
 assert.match(src, /실제 체결 아님/);
