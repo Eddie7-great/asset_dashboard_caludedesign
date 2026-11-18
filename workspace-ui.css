@@ -1017,3 +1017,22 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cal-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .cal-day-clear{font-size:var(--fs-cap)}
 
+/* 홈 평가손익 기여도 — 폭포형 막대. 줄마다 직전 누적 → 새 누적 구간을 칠한다(이익 --up, 손실 --dn, 합계 본문색).
+   세로 0 선이 모든 줄에서 같은 자리라 막대가 계단처럼 이어 보인다. 줄 전체가 말풍선(data-tip) 대상이다. */
+#cb-cdash .cb-wf{gap:3px}
+.cb-wf-row{padding:1px 2px 3px;min-width:0;border-radius:var(--r-sm)}
+.cb-wf-row[data-tip]{border-bottom:0;cursor:default}
+.cb-wf-row .cb-wf-track{margin-top:3px}
+.cb-wf-row:hover{background:var(--hover)}
+.cb-wf-row.is-total{margin-top:4px;padding-top:8px;border-top:1px solid var(--bd)}
+.cb-wf-row .cb-contrib-row-head{gap:6px}
+.cb-wf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--mut)}
+.cb-wf-row.is-total .cb-wf-name{color:var(--tx)}
+.cb-wf-owner{color:var(--dim);font-weight:500}
+.cb-wf-share{width:34px;text-align:right;color:var(--dim);font-size:var(--fs-cap);flex-shrink:0}
+.cb-wf-track{overflow:visible}
+.cb-wf-zero{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
+.cb-wf-bar{position:absolute;top:0;height:100%;border-radius:var(--r-sm);min-width:2px}
+.cb-wf-bar.gain{background:var(--up)}
+.cb-wf-bar.loss{background:var(--dn)}
+.cb-wf-bar.total{background:var(--mut)}
