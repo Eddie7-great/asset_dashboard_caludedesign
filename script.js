@@ -1673,6 +1673,29 @@ function _fixedCostDistributionHtml(included, y, m) {
   ).join('')}</div>`;
   return bar + legend;
 }
+// ── 적립식 매수 묶음(2026-11-18 4차, 사용자 결정: 별도 묶음) ──
+// 고정비 합계(월 고정비 카드·분포·수입 대비 비율)에는 넣지 않고 옆에 따로 보여 준다.
+// 대상·금액은 현금 안전판(finCashSafety 의 dca)과 같다: 켜 둔(i.dca) 적립식 규칙의 월 환산(cbDcaPerMonthKRW). 새 계산 없음.
+function _fixedCostDcaGroup(ownerF){
+  const mine=(pfolioData||[]).filter(i=>i&&(Number(i.dcaAmt)>0||(i.dcaMode==='qty'&&Number(i.dcaQty)>0))&&(!ownerF||ownerF==='전체'||i.owner===ownerF));
+  const perMonth=i=>typeof cbDcaPerMonthKRW==='function'?cbDcaPerMonthKRW(i):0;
+  const rows=mine.filter(i=>i.dca).map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
+    label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
+    .sort((a,b)=>b.monthly-a.monthly||String(a.name).localeCompare(String(b.name),'ko'));
+  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0),paused:mine.filter(i=>!i.dca).length};
+}
+function _fixedCostDcaHtml(group, savingCount){
+  const won=v=>`₩${Math.round(v).toLocaleString()}`;
+  const tag=o=>typeof cbOwnerTag==='function'?cbOwnerTag(o):`<span>${_cfEsc(o)}</span>`;
+  const list=group.rows.map(r=>`<div class="cf-fixed-dca-row">${tag(r.owner)}<span class="cf-fixed-dca-name" title="${_cfEsc(r.name)}">${_cfEsc(r.name)}</span><span class="cf-fixed-dca-rule">${_cfEsc(r.label)}</span><b>${won(r.monthly)}</b></div>`).join('');
+  const paused=group.paused?`<p class="cf-fixed-dca-sub">일시정지 ${group.paused}건은 빼고 셉니다.</p>`:'';
+  const dup=savingCount?`<p class="cf-fixed-dca-warn">고정비에 '저축/투자' 자동이체가 ${savingCount}건 있습니다. 증권계좌로 보내는 그 돈으로 적립식 매수를 한다면, 월 고정비 카드의 '+ 적립식' 합계에는 같은 돈이 두 번 들어갑니다.</p>`:'';
+  return `<div class="cf-fixed-dca-head"><div class="cb-label">적립식 매수 <small>고정비와 별도</small></div><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
+    <p class="cf-fixed-dca-sub">매수 규칙의 월 환산액입니다. 고정비 합계·분포·수입 대비 비율에는 넣지 않습니다.</p>
+    <div class="cf-fixed-dca-list">${list}</div>
+    <div class="cf-fixed-dca-total"><span>적립식 월 합계</span><b>${won(group.total)}</b></div>${paused}${dup}`;
+}
+
 function renderFixedCostView() {
   const body=document.getElementById('cf-fixed-table-body');
   if(!body) return;
@@ -1699,6 +1722,13 @@ function renderFixedCostView() {
   const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
   const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
   const distEl=document.getElementById('cf-fixed-dist');if(distEl)distEl.innerHTML=_fixedCostDistributionHtml(included,y,m);
+  // 적립식 매수 — 별도 묶음. 월 고정비 카드에는 '+ 적립식 = 합계' 한 줄만 덧붙인다(카드 값은 그대로 고정비)
+  const dcaGroup=_fixedCostDcaGroup(_cfOwner);
+  const savingCount=included.filter(at=>(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(at.cat)).length;
+  const dcaSum=document.getElementById('cf-fixed-dca-sum');
+  if(dcaSum){ dcaSum.hidden=!dcaGroup.rows.length; dcaSum.textContent=dcaGroup.rows.length?`+ 적립식 ₩${Math.round(dcaGroup.total).toLocaleString()} = ₩${Math.round(monthly+dcaGroup.total).toLocaleString()}`:''; }
+  const dcaEl=document.getElementById('cf-fixed-dca');
+  if(dcaEl){ dcaEl.hidden=!dcaGroup.rows.length&&!dcaGroup.paused; dcaEl.innerHTML=dcaEl.hidden?'':_fixedCostDcaHtml(dcaGroup,savingCount); }
 
   const rows=visible.slice().sort((a,b)=>{
     const ap=a.isFixedCost===true?0:(a.isFixedCost==null?1:2),bp=b.isFixedCost===true?0:(b.isFixedCost==null?1:2);
