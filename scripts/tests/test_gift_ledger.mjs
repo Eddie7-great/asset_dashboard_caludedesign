@@ -93,6 +93,10 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.equal(p2.fromLedger, true, '연결한 자동이체가 있으면 기록장 합계로 판정 입력');
   assert.equal(p2.amount, ctx.cbGiftLedgerSum(plain(ctx.cbGiftRecords('child')), 'child', '2026-11-10'));
   assert.equal(ctx.window._giftActual.records.length, 0, '자동 기록은 저장하지 않는다(연결을 끊으면 사라진다)');
+  vm.runInContext("autoTransferData[0].giftFrom='2025-11';", ctx);
+  assert.equal(plain(ctx.cbGiftTransferRecords('2026-01-10'))[0].date, '2025-11-05', '앱 등록 달(startMonth 2026-01)보다 앞선 시작 월을 고르면 그때부터 센다 — 실제 이체가 먼저 시작됐을 수 있다')
+  assert.match(cobalt, /aria-label="증여 시작 연도"[\s\S]*aria-label="증여 시작 월"/, '시작 월은 연도·월 선택 목록(월 달력 입력은 직접 입력·과거 이동이 어렵다)')
+  assert.doesNotMatch(cobalt, /cb-gift-link-from">부터<input type="month"/)
   assert.match(script, /giftKind:item\.giftKind==='child'\|\|item\.giftKind==='spouse'\?item\.giftKind:''/, '자동이체 저장값이 증여 연결을 지킨다');
   assert.match(cobalt, /r\.auto\?'<em class="cb-gift-auto-tag"/, '자동 기록은 삭제 버튼 대신 자동 표시');
 }

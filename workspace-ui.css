@@ -1091,7 +1091,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-gift-link{margin:10px 0;border:1px solid var(--bd);border-radius:var(--r-md);padding:8px 12px}
 .cb-gift-link>summary{cursor:pointer;font-size:var(--fs-body);font-weight:700}
 .cb-gift-link>summary>span{font-weight:500;font-size:var(--fs-cap);color:var(--lab)}
-.cb-gift-link-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 210px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bd);font-size:var(--fs-cap)}
+.cb-gift-link-row{display:grid;grid-template-columns:minmax(0,1fr) 140px 250px;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bd);font-size:var(--fs-cap)}
 .cb-gift-link-row:first-of-type{margin-top:8px}
 .cb-gift-link-row.is-on{background:var(--accSoft)}
 .cb-gift-link-name{display:flex;align-items:center;gap:8px;min-width:0}
