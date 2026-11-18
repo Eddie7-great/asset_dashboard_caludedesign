@@ -643,8 +643,11 @@ async function _fetchDivDataOnce(force=false) {
       const annualDps = Number(d.dps) || 0;
       const yld = Number(d.yld) || 0;
       const cycle = d.cycle || existing.cycle || '-';
-      const cycleN = CYCLE_COUNT[cycle] || 1;
       const months = (Array.isArray(d.months) && d.months.length) ? d.months : (existing.months || []);
+      // 1회 지급액 = 연간 ÷ 실제로 나눌 지급 횟수. 주기를 모르면(네이버처럼 연간 배당만 온 경우) 화면이 쓸 기본 지급월 수로
+      // 나눈다 — 1 로 나누고 기본 4개월에 배분하면 연간 배당이 4배로 잡힌다.
+      const payMonths = months.length ? months : (_defaultMonthsForCycle(cycle) || [2,5,8,11]);
+      const cycleN = cycle !== '-' && CYCLE_COUNT[cycle] ? CYCLE_COUNT[cycle] : payMonths.length;
       // 1회 지급 배당금 (eps) = 연간 DPS / cycle 횟수
       const epsPerPeriod = annualDps > 0 ? (annualDps / cycleN) : 0;
 
@@ -660,6 +663,8 @@ async function _fetchDivDataOnce(force=false) {
           cur: d.cur || existing.cur || 'USD',
           exDiv: existing.exDiv || '-',
           payDay: typeof d.payDay === 'number' ? d.payDay : (existing.payDay || null),
+          // 서버가 쓴 출처(pykrx·yahoo·naver). 네이버는 연간 배당만 주므로 화면이 지급월이 추정임을 밝힌다.
+          source: typeof d.source === 'string' ? d.source.slice(0, 16) : null,
         };
       }
     }

@@ -2237,7 +2237,7 @@ function cbRenderDiv(){
           <span class="cb-mobile-secondary r b" ${x.g==null?`data-tip="${cbEsc(x.growth.status==='insufficient'
             ? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`
             : '배당 원본 이력을 아직 확보하지 못했습니다.')}"`:''} style="${x.g!=null?cbUpDn(x.g):'color:var(--lab)'}">${x.g!=null?(x.g>=0?'+':'')+x.g.toFixed(1)+'%':'—'}</span>
-          <span class="cb-mobile-secondary r cap mut">${cbEsc(x.d.cycle||'—')}</span>
+          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')}</span>
           <span class="cb-mobile-secondary r cap mut cb-div-c-ex">${cbEsc(x.d.exDiv||'—')}</span>
         </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>

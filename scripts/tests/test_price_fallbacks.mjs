@@ -113,6 +113,69 @@ try {
   assert.match(search, /const KR_SHORT_CODE_RE = \/\^\[0-9\]\[0-9A-Z\]\{5\}\$\/;/)
   assert.doesNotMatch(search, /isKR = \/\^\\d\{6\}\$\//, '숫자 6자리만 보는 판별 제거')
   assert.equal((search.match(/KR_SHORT_CODE_RE\.test\(/g) || []).length, 3)
+
+  // ── 4) 국내 배당 세 번째 출처: 네이버 증권(2026-11-18) ─────────
+  //  pykrx·Yahoo 가 실패했거나 연간 배당 0 일 때만 부르고, 형식이 어긋나면 버린다(지어내지 않는다).
+  const nvStock = { stockEndType: 'stock', totalInfos: [{ code: 'lastClosePrice', value: '170,000' }, { code: 'dividendYieldRatio', value: '1.56%' }, { code: 'dividend', value: '2,630원' }] }
+  const nvEtf = { stockEndType: 'etf', totalInfos: [{ code: 'lastClosePrice', value: '24,555' }], etfKeyIndicator: { dividendYieldTtm: 1.03 } }
+  {
+    const mod = { exports: {} }
+    vm.runInContext(ts.transpileModule(priceSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
+      vm.createContext({ module: mod, exports: mod.exports, process, console: quiet, Buffer, AbortController, URL, setTimeout, clearTimeout, fetch: async () => { throw new Error('no') }, require(id) { return id === './_auth.js' ? authHelper : require(id) } }))
+    const parse = mod.exports.parseNaverDividend
+    const st = parse(nvStock)
+    assert.equal(st.dps, 2630, '주식: 주당배당금')
+    assert.equal(st.yld, 1.56, '주식: 배당수익률')
+    assert.equal(st.source, 'naver')
+    assert.equal(st.cycle, '', '주기는 비워 둔다(화면이 내장 배당표·기본값을 쓴다)')
+    const etf = parse(nvEtf)
+    assert.equal(etf.dps, Math.round(24555 * 1.03 / 100), 'ETF: 최근 1년 분배율 × 전일 종가')
+    assert.equal(parse({ stockEndType: 'etf', totalInfos: [], etfKeyIndicator: { dividendYieldTtm: 1 } }), null, 'ETF 종가가 없으면 버림')
+    assert.equal(parse({ stockEndType: 'stock', totalInfos: [{ code: 'lastClosePrice', value: '100' }] }), null, '배당 항목이 없으면 버림')
+    assert.equal(parse('oops'), null, '형식 오류는 버림')
+    assert.equal(parse({ stockEndType: 'stock', totalInfos: [{ code: 'dividend', value: '0원' }] }).dps, 0, '배당 0 도 확인된 값')
+  }
+  const divCall = async (fetchImpl, tickers) => { const r = recorder(); await compilePrice(fetchImpl)({ method: 'GET', headers: { cookie }, query: { type: 'dividend', tickers } }, r); return r }
+  const yahooDivBody = events => ({ ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: { currency: 'KRW', regularMarketPrice: 100000 }, events: { dividends: events } }] } }) })
+  // (a) pykrx·Yahoo 모두 배당 없음 → 네이버 값
+  let naverCalls = 0
+  res = await divCall(async url => {
+    const u = String(url)
+    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('/api/dashboard')) return { ok: false, status: 500, json: async () => ({}) }
+    if (u.includes('finance.yahoo.com')) return yahooDivBody({})
+    if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
+    throw new Error('unexpected ' + u)
+  }, '035420')
+  assert.equal(naverCalls, 1, '앞 두 출처가 배당 0 이면 네이버를 부른다')
+  assert.equal(res.body.result['035420'].dps, 2630)
+  assert.equal(res.body.result['035420'].source, 'naver')
+  assert.ok(Array.from(res.body.verifiedTickers).includes('035420'), '네이버로 확인한 종목은 verified')
+  // (b) Yahoo 가 배당을 주면 네이버를 부르지 않는다
+  naverCalls = 0
+  const now = Math.floor(Date.now() / 1000)
+  res = await divCall(async url => {
+    const u = String(url)
+    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('/api/dashboard')) return { ok: false, status: 500, json: async () => ({}) }
+    if (u.includes('finance.yahoo.com')) return yahooDivBody({ a: { date: now - 86400 * 30, amount: 500 }, b: { date: now - 86400 * 120, amount: 500 } })
+    if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
+    throw new Error('unexpected ' + u)
+  }, '035420')
+  assert.equal(naverCalls, 0, '앞 출처가 배당을 주면 네이버를 부르지 않는다')
+  assert.equal(res.body.result['035420'].source, 'yahoo')
+  // (c) 해외 종목은 네이버를 부르지 않는다
+  naverCalls = 0
+  res = await divCall(async url => {
+    const u = String(url)
+    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('finance.yahoo.com')) return yahooDivBody({})
+    if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
+    throw new Error('unexpected ' + u)
+  }, 'NVDA')
+  assert.equal(naverCalls, 0, '해외 종목은 네이버 대상이 아니다')
+  // 화면: 주기를 모르면 1회 지급액을 화면이 쓸 기본 지급월 수로 나눈다(연간 배당이 4배로 잡히지 않게)
+  assert.match(script, /const payMonths = months\.length \? months : \(_defaultMonthsForCycle\(cycle\) \|\| \[2,5,8,11\]\);\s*const cycleN = cycle !== '-' && CYCLE_COUNT\[cycle\] \? CYCLE_COUNT\[cycle\] : payMonths\.length;/)
 } finally {
   if (saved === undefined) delete process.env.SESSION_SECRET; else process.env.SESSION_SECRET = saved
 }
