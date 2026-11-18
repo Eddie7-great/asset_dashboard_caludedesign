@@ -73,7 +73,6 @@
 /* Compact overview: allocation, concentration, contribution and both rankings. */
 #cb-cdash .cb-dash-insight-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}
 #cb-cdash .cb-dash-insight-grid>.cb-panel{padding:12px!important;min-width:0}
-#cb-cdash .cb-mover-card>div:first-child{flex-wrap:wrap;gap:3px!important}
 #cb-tax2>.cb-tax-summary-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 #cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card{padding:10px;overflow-wrap:anywhere;font-size:var(--fs-micro)}
 #cb-tax2>.cb-tax-summary-grid>.cb-tax-summary-card>div:first-child{font-size:var(--fs-micro)!important;letter-spacing:0!important}
@@ -103,8 +102,6 @@
 #main-title-sub{order:10;flex-basis:100%}
 #cb-head-widgets,#owner-tabs-container,#bubble-owner-bar{margin-left:0!important}
 #cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1.2fr 1.2fr 1.2fr;align-items:stretch}
-.cb-home-movers{display:grid;grid-template-rows:1fr 1fr;gap:10px;min-width:0}
-.cb-home-movers>.cb-panel{height:auto!important;min-width:0}
 .cb-dash-sector-card .cb-hrow>div>span:first-child{white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere}
 .cb-dash-sector-note{overflow-wrap:anywhere}
 .home-holdings-layout{margin-top:12px}.home-table-column{padding:14px 16px;min-width:0}
@@ -340,7 +337,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:var(--fs-micro);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 .acct-stale-chip{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
 .acct-foot,.cal-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
-.cal-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.cal-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px}
 .cal-title{font-size:var(--fs-card);min-width:104px;text-align:center}
 .cal-sum-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
 .cal-sum-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 16px}
@@ -475,7 +472,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
 .cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
 /* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
-.sim-view-tabs{gap:4px;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.sim-view-tabs{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
 .sim-view-tabs>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
 .sim-view-tabs>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 /* 현금 흐름의 '월별 현금흐름 / 고정비 관리' 전환은 헤더의 세부 화면 링크와 같은 밑줄형 */
@@ -738,10 +735,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-home-allocation-row>b{text-align:right}
 .cb-home-allocation-row>em{font-style:normal;color:var(--dim);font-size:var(--fs-cap);text-align:right}
 /* 막대 색은 뜻이 있을 때만 — 섹터 집중도는 순서만 다른 같은 종류라 한 색이고 1위만 진하다. */
-.cb-sector-track{height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
-.cb-sector-track>i{display:block;height:100%;border-radius:var(--r-sm);background:var(--dim)}
-.cb-sector-track>i.is-top{background:var(--tx)}
-#cb-cdash .cb-contrib-list{justify-content:flex-start;gap:9px;flex:0 0 auto}
 #cb-cdash .cb-dash-insight-grid{grid-template-columns:1.1fr 1.1fr 1.1fr 1fr}
 @media(max-width:1100px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}}
@@ -765,11 +758,12 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 계좌 배치 진단(2026-11-16 2차) — 소유주 → 증권사 → 계좌로 가지 치는 트리. 위의 3층 막대는 폭이 평가액이다. */
 .fin-ice{border:1px solid var(--bd);border-radius:var(--r-md);overflow:hidden;margin:4px 0 0}
 .fin-ice>div{display:flex}
-.fin-ice-seg{min-width:0;height:34px;display:flex;align-items:center;padding:0 9px;border-right:2px solid var(--panelSolid);border-bottom:2px solid var(--panelSolid);white-space:nowrap;overflow:hidden;font-size:var(--fs-cap);color:var(--tx)}
-.fin-ice-seg[data-tip]{border-bottom:2px solid var(--panelSolid)}
-.fin-ice-seg.l1{font-weight:700;background:color-mix(in srgb,var(--own) 22%,var(--panelSolid));box-shadow:inset 0 3px 0 var(--own)}
+.fin-ice-seg{box-sizing:border-box;min-width:0;height:34px;display:flex;align-items:center;padding:0;border:0;box-shadow:inset -2px 0 0 var(--panelSolid),inset 0 -2px 0 var(--panelSolid);white-space:nowrap;overflow:hidden;font-size:var(--fs-cap);color:var(--tx)}
+.fin-ice-seg>span{display:block;min-width:0;padding:0 9px;overflow:hidden;text-overflow:ellipsis}
+.fin-ice-seg[data-tip]{border-bottom:0}
+.fin-ice-seg.l1{font-weight:700;background:color-mix(in srgb,var(--own) 22%,var(--panelSolid));box-shadow:inset 0 3px 0 var(--own),inset -2px 0 0 var(--panelSolid),inset 0 -2px 0 var(--panelSolid)}
 .fin-ice-seg.l2{background:var(--inner);color:var(--mut)}
-.fin-ice-seg.l3{color:var(--on-acc);font-weight:700;border-bottom:0}
+.fin-ice-seg.l3{color:var(--on-acc);font-weight:700;box-shadow:inset -2px 0 0 var(--panelSolid)}
 .fin-ice-seg.l3.gen{background:var(--acct-gen)}.fin-ice-seg.l3.isa{background:var(--acct-isa)}.fin-ice-seg.l3.pen{background:var(--acct-pen)}
 .fin-ice-seg.l3.is-warn,.fin-ice-hatch{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 5px,transparent 5px 10px)}
 .fin-acct-legend .fin-ice-hatch{background-color:var(--mut)}
@@ -994,25 +988,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cal-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .cal-day-clear{font-size:var(--fs-cap)}
 
-/* 홈 평가손익 기여도 — 폭포형 막대. 줄마다 직전 누적 → 새 누적 구간을 칠한다(이익 --up, 손실 --dn, 합계 본문색).
-   세로 0 선이 모든 줄에서 같은 자리라 막대가 계단처럼 이어 보인다. 줄 전체가 말풍선(data-tip) 대상이다. */
-#cb-cdash .cb-wf{gap:3px}
-.cb-wf-row{padding:1px 2px 3px;min-width:0;border-radius:var(--r-sm)}
-.cb-wf-row[data-tip]{border-bottom:0;cursor:default}
-.cb-wf-row .cb-wf-track{margin-top:3px}
-.cb-wf-row:hover{background:var(--hover)}
-.cb-wf-row.is-total{margin-top:4px;padding-top:8px;border-top:1px solid var(--bd)}
-.cb-wf-row .cb-contrib-row-head{gap:6px}
-.cb-wf-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--mut)}
-.cb-wf-row.is-total .cb-wf-name{color:var(--tx)}
-.cb-wf-owner{color:var(--dim);font-weight:500}
-.cb-wf-share{width:34px;text-align:right;color:var(--dim);font-size:var(--fs-cap);flex-shrink:0}
-.cb-wf-track{overflow:visible}
-.cb-wf-zero{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--bd2)}
-.cb-wf-bar{position:absolute;top:0;height:100%;border-radius:var(--r-sm);min-width:2px}
-.cb-wf-bar.gain{background:var(--up)}
-.cb-wf-bar.loss{background:var(--dn)}
-.cb-wf-bar.total{background:var(--mut)}
 /* 계좌별 보기 트리(.fin-tree.is-acct) — 리밸런싱 계좌 배치 진단과 같은 부품, 열만 다르다:
    이름 · 평가액 · 비중 · 평가손익 · 연 배당 · 종목 수. 계좌 줄을 누르면 종목 줄(lv3)이 펼쳐진다. */
 .fin-tree.is-acct{grid-template-columns:minmax(240px,max-content) minmax(116px,1fr) minmax(130px,1fr) minmax(172px,1.2fr) minmax(116px,1fr) minmax(44px,.4fr)}
@@ -1060,14 +1035,40 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-family-mix-legend{display:flex;flex-wrap:wrap;gap:5px 16px}
 }
 /* 표 정렬 머리글(2026-11-18, cbSortBtn) — 머리글 글자 그대로의 버튼 + 화살표. 켜진 칸만 강조색.
-   화살표는 글자 폭에 들어가지 않고 칸 사이 여백에 걸린다(절대 위치) — 좁은 칸(배당 '주당 배당(연)')의
-   머리글이 화살표만큼 넓어져 옆 칸을 침범하지 않게. 오른쪽 정렬 칸(.is-r)은 글자 앞(왼쪽), 그 밖은 뒤. */
+   화살표는 어느 칸이든 칼럼명 오른쪽이다(사용자 결정). 글자 폭에 들어가지 않고 칸 사이 여백에 걸린다(절대 위치)
+   — 좁은 칸(배당 '주당 배당(연)')의 머리글이 화살표만큼 넓어져 옆 칸을 침범하지 않게. */
 .cb-sort-btn{position:relative;display:inline;margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;letter-spacing:inherit;text-align:inherit;cursor:pointer;white-space:nowrap}
 .cb-sort-btn:hover,.cb-sort-btn.is-on{color:var(--acc)}
 .cb-sort-btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:var(--r-sm)}
 .cb-sort-ind{position:absolute;top:50%;left:calc(100% + 2px);transform:translateY(-50%);font-style:normal;font-size:var(--fs-cap);line-height:1;opacity:.4;pointer-events:none}
-.cb-sort-btn.is-r .cb-sort-ind{left:auto;right:calc(100% + 2px)}
 .cb-sort-btn.is-on .cb-sort-ind{opacity:1}
 /* 보유 목록의 왼쪽 정렬 머리글(소유주·계좌·종목)은 화살표를 칸 오른쪽 끝이 아니라 글자 바로 뒤에 둔다. */
 .pt-table th.sortable.text-left>.table-sort-btn{display:inline;width:auto}
 .pt-table th.sortable.text-left::after{position:static;display:inline-block;margin-left:2px;transform:scale(.7)}
+/* 홈 타일 지도(2026-11-18 2차, 평가손익 기여도·섹터 집중도) — cbTreemapLayout 이 기준 크기(W×H)에서 정한 칸을 % 좌표로
+   놓아 카드 크기에 따라 늘어난다. 칸 사이 틈은 패널색 안쪽 테두리(inset), 글자는 본문색(바탕은 토큰을 패널색과 섞은 색). */
+.cb-dash-contrib-card,.cb-mover-scatter-card{display:flex;flex-direction:column;min-width:0}
+.cb-tilemap{position:relative;flex:1 1 auto;min-height:240px;border-radius:var(--r-md);overflow:hidden}
+.cb-tilemap.is-sector{min-height:220px}
+.cb-tilemap-legend{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:var(--fs-cap);color:var(--lab);margin:0 0 6px}
+.cb-tilemap-legend>.up{color:var(--up)}.cb-tilemap-legend>.dn{color:var(--dn)}
+.cb-tilemap-legend b{font-size:var(--fs-cap)}
+.cb-tile{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;gap:1px;padding:5px 7px;overflow:hidden;box-shadow:inset 0 0 0 1.5px var(--panelSolid);border-radius:var(--r-sm);font-size:var(--fs-cap);line-height:1.3;color:var(--tx)}
+.cb-tile[data-tip]{border-bottom:0}
+.cb-tile>b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-tile>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut)}
+.cb-tile:hover{box-shadow:inset 0 0 0 1.5px var(--panelSolid),inset 0 0 0 3px var(--tx)}
+.cb-tile.is-sec{cursor:pointer}
+.cb-tile.is-open{box-shadow:inset 0 0 0 1.5px var(--panelSolid),inset 0 0 0 3px var(--acc)}
+.cb-sector-open{margin-top:8px;padding-top:6px;border-top:1px solid var(--bd)}
+.cb-sector-open-head{display:flex;align-items:center;gap:6px;padding:0 4px 4px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-sector-open-head>b{color:var(--tx)}
+.cb-sector-open-head>.cb-btn{margin-left:auto;height:26px;min-height:26px;padding:0 9px;font-size:var(--fs-cap)}
+/* 수익률 × 평가손익 점 그림 — 예전 수익률·손실률 TOP 5 두 카드 자리 */
+.cb-scatter-axis-note{margin:4px 0 2px;font-size:var(--fs-cap);color:var(--lab)}
+.cb-scatter-host{flex:1 1 auto;min-height:200px;min-width:0;overflow:hidden}
+.cb-scatter{display:block}
+.cb-scatter-dot{fill-opacity:.5;stroke:var(--panelSolid);stroke-width:1.5}
+.cb-scatter-dot:hover{fill-opacity:.9;stroke:var(--tx)}
+.cb-scatter-dot[data-tip]{border-bottom:0}
+

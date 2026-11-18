@@ -1073,21 +1073,10 @@
     .cb-dash-sector-card{display:flex;flex-direction:column}
     .cb-dash-sector-note{font-size:var(--fs-micro);color:var(--dim);margin-top:auto;padding-top:8px;line-height:1.5}
 
-    .cb-mover-card{padding:12px 10px;min-width:0}
-    .cb-mover-row{display:flex;align-items:center;gap:6px;padding:5px 1px;border-bottom:1px solid var(--bd);font-size:var(--fs-micro);min-width:0}
-    .cb-mover-row:last-child{border-bottom:none}
-    .cb-mover-owner{color:var(--dim);font-size:var(--fs-micro);font-weight:500}
     .cb-dash-contrib-card{padding:14px 13px;min-width:0;display:flex;flex-direction:column}
     .cb-contrib-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0 8px}
     .cb-contrib-summary>span{display:flex;flex-direction:column;gap:2px;padding:7px 8px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-micro);color:var(--dim);min-width:0}
     .cb-contrib-summary b{font-size:var(--fs-micro);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .cb-contrib-list{display:flex;flex-direction:column;justify-content:space-evenly;gap:7px;flex:1;min-height:0}
-    .cb-contrib-row{padding:4px 2px;min-width:0}
-    .cb-contrib-row-head{display:flex;align-items:center;gap:7px;font-size:var(--fs-micro);min-width:0}
-    .cb-contrib-row-head>b{font-size:var(--fs-micro)}
-    .cb-contrib-track{position:relative;height:var(--bar-h);margin-top:5px;border-radius:var(--r-md);background:var(--inner);overflow:hidden}
-    .cb-contrib-axis{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--bd2);z-index:2}
-    .cb-contrib-bar{position:absolute;top:0;height:100%;border-radius:var(--r-sm);opacity:.82}
     /* 한눈에 보기 — 읽기 전용 인포그래픽 요약 (큰 숫자 + 색 블록, 상호작용은 소유주/기간 버튼뿐) */
     /* 흰 글씨를 자산군 색 위에 올리면 대비가 1.6:1까지 떨어져 못 쓴다. 전경색은 테마 토큰으로
        두되, 자산군을 색으로 알아보던 단서는 퍼센트 앞 점으로 남긴다. */
@@ -1157,7 +1146,6 @@
       .cb-lt-detail{display:none}
       .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
 
-      .cb-mover-row{gap:4px;font-size:var(--fs-micro)}
       .cb-risk-insight-card{min-height:76px}
       /* 한눈에 보기: 히어로 지표 2열, 월별 막대는 값 라벨 없이 높이만으로 읽는다 */
       .fin-nw-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:3px 0 7px;overscroll-behavior-inline:contain}
