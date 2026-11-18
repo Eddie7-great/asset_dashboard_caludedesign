@@ -9,11 +9,19 @@ const html = read('index.html'), script = read('script.js'), ws = read('workspac
 
 assert.match(html, /<aside class="glass-panel menu-col" id="app-sidebar"/);
 assert.match(html, /<button id="side-collapse-btn" class="side-collapse-btn" type="button" onclick="toggleSideCollapsed\(\)" aria-controls="app-sidebar" aria-expanded="true"/);
+// 버튼은 사이드바 왼쪽 위 — 머리말이 아니라 <aside> 바로 앞에 두고 고정 위치로 띄운다(접혀도 같은 자리에서 다시 편다)
+assert.match(html, /<button id="side-collapse-btn"[^\n]*<\/button>\s*<aside class="glass-panel menu-col" id="app-sidebar"/, '버튼은 <aside> 바로 앞');
+assert.doesNotMatch(html.slice(html.indexOf('id="page-head"'), html.indexOf('id="page-head"') + 3000), /side-collapse-btn/, '머리말 안에 두지 않는다');
 const css = ws.slice(ws.indexOf('/* ===== 사이드바 접기/펴기'));
 assert.match(css, /\.side-collapse-btn\{display:none\}\s*@media\(min-width:769px\)\{/, '휴대폰은 기존 햄버거 서랍만');
 assert.match(css, /\.layout\{transition:grid-template-columns [^}]*var\(--ease-out\)/, '격자 폭을 애니메이션으로 줄인다');
-assert.match(css, /body\.side-collapsed \.layout\{grid-template-columns:0px 1fr;gap:0\}/);
-assert.match(css, /prefers-reduced-motion:reduce\)\{\.layout,\.menu-col,\.side-collapse-arrow\{transition:none!important\}/);
+assert.match(css, /body\.side-collapsed \.layout\{grid-template-columns:0px 1fr;gap:0;transition-timing-function:var\(--ease-in\)\}/, '접을 때는 가속 곡선');
+assert.match(css, /\.side-collapse-btn\{position:fixed;top:22px;left:25px;/, '사이드바 왼쪽 위 고정');
+// 빨려 들어가는 효과 — 버튼 중심을 기준점으로 작아지며 사라지고, 펼 때는 거꾸로
+assert.match(css, /\.menu-col\{min-width:0;overflow:hidden;transform-origin:25px 22px;transition:opacity [^}]*transform [^}]*var\(--ease-out\)/);
+assert.match(css, /body\.side-collapsed \.menu-col\{opacity:0;transform:scale\(\.06\);border-radius:50%;[^}]*pointer-events:none;transition-timing-function:var\(--ease-in\)\}/);
+assert.match(css, /body\.side-collapsed #page-head\{padding-left:64px!important\}/, '접힌 동안 제목이 버튼 밑으로 들어가지 않게');
+assert.match(css, /prefers-reduced-motion:reduce\)\{\.layout,\.menu-col,\.side-collapse-arrow,#page-head\{transition:none!important\}/);
 assert.match(css, /\.menu-col>\*\{box-sizing:border-box;width:188px;flex-shrink:0\}/, '여백·테두리까지 188px — content-box 면 환율 상자 오른쪽이 잘린다');
 
 // 동작: body 클래스·inert·aria·localStorage, 전환 뒤 차트 재배치 알림

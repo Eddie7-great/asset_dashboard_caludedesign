@@ -70,6 +70,13 @@ function _maskAmountText(value){
     const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
     return spacing + sign + '••••';
   });
+  // '원' 없이 만·억 단위로 줄여 쓴 금액(타일 '+1,755만', 그래프 눈금 '2,000만'·'3.6억'·'+250만')도 가린다.
+  // 단위 뒤에 한글이 이어지면(만기·억제 등) 금액이 아니므로 건드리지 않는다.
+  out = out.replace(/([+\-−]?\s*)\d[\d,]*(?:\.\d+)?(\s*(?:억|천만|백만|만))(?![가-힣])/g, (match, lead, unit) => {
+    const spacing = (lead.match(/^\s*/) || [''])[0];
+    const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
+    return spacing + sign + '••••' + unit.trim();
+  });
   return out;
 }
 function _maskAmountAttributes(el){
@@ -1979,7 +1986,7 @@ function applySideCollapsed(collapsed, persist){
   if(btn){ btn.setAttribute('aria-expanded',String(!on)); btn.setAttribute('aria-label',on?'사이드 메뉴 펴기':'사이드 메뉴 접기'); btn.title=on?'사이드 메뉴 펴기':'사이드 메뉴 접기'; }
   if(persist){ try{ localStorage.setItem('sideCollapsed',on?'1':'0'); }catch(e){} }
   clearTimeout(window._sideCollapseTimer);
-  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },320);
+  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },420);
 }
 function toggleSideCollapsed(){ applySideCollapsed(!document.body.classList.contains('side-collapsed'),true); }
 function toggleSidebar() {
