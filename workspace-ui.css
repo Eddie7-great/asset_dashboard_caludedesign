@@ -793,8 +793,10 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .fin-ice-seg.l3.is-warn,.fin-ice-hatch{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 5px,transparent 5px 10px)}
 .fin-acct-legend .fin-ice-hatch{background-color:var(--mut)}
 .fin-tree-wrap{overflow-x:auto;margin-top:14px}
-.fin-tree{min-width:900px}
-.fin-tree-row{display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(120px,.7fr) minmax(170px,.9fr) minmax(130px,.7fr) minmax(280px,2fr);column-gap:18px;align-items:center;min-height:38px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.fin-tree{min-width:900px;display:grid;grid-template-columns:minmax(200px,max-content) 124px 150px 124px minmax(320px,1fr);column-gap:18px}
+/* 줄마다 따로 격자를 만들면 max-content 이름 칸이 줄마다 달라 칸이 어긋난다 — 줄은 부모 격자를 그대로 쓴다(subgrid).
+   이름 칸은 가장 긴 이름만큼, 숫자 칸은 고정 폭, 남는 폭은 상태·진단 칸이 모두 받는다. */
+.fin-tree-row{display:grid;grid-column:1/-1;grid-template-columns:subgrid;align-items:center;min-height:38px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .fin-tree-row>span:nth-child(2),.fin-tree-row>span:nth-child(4){text-align:right}
 .fin-tree-row.head{min-height:32px;font-size:var(--fs-cap);color:var(--dim)}
 .fin-tree-row.head small{font-size:var(--fs-cap);color:var(--dim);margin-left:6px}
@@ -821,7 +823,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .fin-tree-diag{display:flex;align-items:center;gap:9px;min-width:0;padding:6px 0}
 .fin-tree-diag>span{font-size:var(--fs-cap);line-height:1.45;color:var(--mut);word-break:keep-all}
 @media(max-width:768px){
-  .fin-tree{min-width:0}
+  .fin-tree{min-width:0;display:block}
   .fin-tree-row{grid-template-columns:minmax(0,1fr) auto;row-gap:2px;padding:7px 0}
   .fin-tree-row.head{display:none}
   .fin-tree-row>span:nth-child(3),.fin-tree-row>span:nth-child(4){display:none}

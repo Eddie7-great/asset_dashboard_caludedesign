@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+### 화면 개선 8건: 기여도 폭포형·네이버 배당·정렬·계좌 트리·실현손익·달력 (2026-11-18)
+
+- **보유 목록 '종목' 머리글은 국기 칸부터 시작한다**(홈 보유 표와 같은 선). 예전 `th.holdings-asset-head{padding-left:39px}` 들여쓰기를 다시 넣지 않는다.
+- **계좌 배치 진단 트리(`.fin-tree`)는 한 격자이고 줄은 `grid-template-columns:subgrid` 다.** 이름 칸은 `max-content`(가장 긴 이름), 숫자 칸은 고정 폭, 남는 폭은 상태·진단 칸이 받는다. 줄마다 따로 격자를 두면 `max-content` 가 줄마다 달라 칸이 어긋난다. 휴대폰은 `.fin-tree{display:block}` 로 줄이 자기 격자를 쓴다.
+
 ### 가독성 점검: 금액 눈금·섹터 한글·트리맵 글자·현금 흐름 이름표 (2026-11-17 3차)
 
 - **금액 그래프의 눈금은 `cbAmtAxisLab`(부호 없음), 손익 그래프만 `cbTaxAxisLab`(`+250만`)이다.** 투자자산 추이(`finNwChartSvg`)·배당 월별(`cbDivAxisLab`)·증여 두 그래프·은퇴 계산(`retChartSvg`)이 손익용 함수를 빌려 써 `+3.6억`처럼 손익으로 읽혔다. 금액 그래프의 '가로 눈금선 + 왼쪽 라벨'은 `cbAmtGridSvg(values, Y, x1, x2, fmt)`·`cbAxisTicks(lo,hi,step)`(cobalt.js) 한 곳이 그린다. 세금 그래프(두 눈금)는 대상이 아니다.

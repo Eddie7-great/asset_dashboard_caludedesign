@@ -646,3 +646,8 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(scriptSource, /portfolioSortHeader\(grpName,'valKRW','평가액'\)\}\$\{portfolioSortHeader\(grpName,'profit','평가손익'\)\}/)
 }
 
+// 2026-11-18 화면 개선: 보유 목록 '종목' 머리글 들여쓰기 제거, 계좌 배치 진단 트리는 subgrid 한 격자
+assert.doesNotMatch(styleSource, /th\.holdings-asset-head\{padding-left:39px/, "보유 목록 '종목' 머리글은 국기 칸부터 시작(들여쓰기 없음)")
+assert.match(workspaceSource, /\.fin-tree\{min-width:900px;display:grid;grid-template-columns:minmax\(200px,max-content\) [^}]*minmax\(320px,1fr\)/, '계좌 배치 진단: 이름 칸은 가장 긴 이름만큼, 남는 폭은 진단 칸')
+assert.match(workspaceSource, /\.fin-tree-row\{display:grid;grid-column:1\/-1;grid-template-columns:subgrid;/, '트리 줄은 부모 격자를 공유(subgrid) — 칸이 줄마다 어긋나지 않게')
+
