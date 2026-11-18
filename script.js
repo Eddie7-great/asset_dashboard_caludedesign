@@ -842,6 +842,54 @@ function _normalizeCfRows(rows){
     return row;
   }).filter(Boolean);
 }
+// ── 대출 상환 일정(2026-11-18 4차) ──
+// 고정비의 '대출납입금' 자동이체에 상환 조건(at.loan = {method, principal, rate, months, start})을 붙이면
+// 매달 납입액을 이 일정에서 꺼낸다(_effectiveAutoTransferAmt 가 위임 — 금액의 단일 출처는 그대로 하나다).
+// 월 이자 = 직전 잔액 × 연 금리 ÷ 12(원 단위 반올림). 은행의 일할 계산과 몇 원~몇 천 원 다를 수 있는 추정값이고,
+// 금리가 바뀌면 바뀐 금리로 처음부터 다시 계산한다(변동금리의 과거 이력은 담지 않는다).
+const LOAN_METHOD_LABEL={annuity:'원리금균등',principal:'원금균등',bullet:'만기일시'};
+const _loanScheduleCache=new Map();
+function _loanMonthIndex(loan,y,m){ const [sy,sm]=String(loan&&loan.start||'').split('-').map(Number); return (y-sy)*12+(m-sm); }
+function _loanYm(start,i){ const [sy,sm]=String(start).split('-').map(Number); const t=sy*12+(sm-1)+i; return `${Math.floor(t/12)}-${String(t%12+1).padStart(2,'0')}`; }
+function loanSchedule(loan){
+  const P=Number(loan&&loan.principal), n=Math.round(Number(loan&&loan.months)), rate=Number(loan&&loan.rate);
+  if(!loan||!(P>0)||!(n>=1)||n>600||!(rate>=0)||!/^\d{4}-\d{2}$/.test(String(loan.start||''))) return [];
+  const method=LOAN_METHOD_LABEL[loan.method]?loan.method:'annuity';
+  const key=[method,P,rate,n,loan.start].join('|');
+  if(_loanScheduleCache.has(key)) return _loanScheduleCache.get(key);
+  const r=rate/100/12;
+  const fixed=Math.round(r>0?P*r/(1-Math.pow(1+r,-n)):P/n);   // 원리금균등: 매달 같은 납입액
+  const even=Math.round(P/n);                                   // 원금균등: 매달 같은 원금
+  const rows=[]; let bal=P;
+  for(let i=0;i<n;i++){
+    const interest=Math.round(bal*r), last=i===n-1;
+    let principal=last?bal:(method==='annuity'?fixed-interest:(method==='principal'?even:0));
+    principal=Math.max(0,Math.min(bal,principal));
+    bal-=principal;
+    rows.push({month:_loanYm(loan.start,i),payment:interest+principal,interest,principal,balance:bal});
+  }
+  if(_loanScheduleCache.size>200) _loanScheduleCache.clear();
+  _loanScheduleCache.set(key,rows);
+  return rows;
+}
+function loanPaymentFor(loan,y,m){ const i=_loanMonthIndex(loan,y,m); if(!(i>=0)) return 0; const row=loanSchedule(loan)[i]; return row?row.payment:0; }
+// 그 달 기준 상태 — 납입 전(before)·상환 중(active, 그 달 납입 뒤 잔액·남은 횟수)·상환 끝(done)
+function loanStatusFor(loan,y,m){
+  const rows=loanSchedule(loan); if(!rows.length) return null;
+  const i=_loanMonthIndex(loan,y,m), end=rows[rows.length-1].month;
+  if(i<0) return {phase:'before',row:null,remaining:rows.length,balance:Number(loan.principal),end};
+  if(i>=rows.length) return {phase:'done',row:null,remaining:0,balance:0,end};
+  return {phase:'active',row:rows[i],remaining:rows.length-i-1,balance:rows[i].balance,end};
+}
+function _normalizeLoanTerms(loan){
+  if(!loan||typeof loan!=='object'||Array.isArray(loan)) return null;
+  const principal=_safeStoredNumber(loan.principal,{min:0,max:1_000_000_000_000});
+  const rate=_safeStoredNumber(loan.rate,{min:0,max:30});
+  const months=Math.round(_safeStoredNumber(loan.months,{min:0,max:600}));
+  const start=_isStoredDateKey(loan.start,true)?String(loan.start):'';
+  if(!(principal>0)||!(months>=1)||!start) return null;
+  return {method:LOAN_METHOD_LABEL[loan.method]?loan.method:'annuity',principal,rate,months,start};
+}
 function _normalizeAutoTransfers(rows){
   if(!Array.isArray(rows))return [];
   const allowedCycles=new Set(['daily','weekly','monthly','month-end','month-start','quarterly','yearly']);
@@ -873,9 +921,12 @@ function _normalizeAutoTransfers(rows){
       // 증여 연결(2026-11-18 3차): 가족 계좌로 보내는 지출 자동이체를 증여로 집계한다. giftFrom(YYYY-MM)부터의 이체만 센다.
       giftKind:item.giftKind==='child'||item.giftKind==='spouse'?item.giftKind:'',
       giftFrom:_isStoredDateKey(item.giftFrom,true)?String(item.giftFrom).slice(0,7):'',
+      // 대출 상환 조건(2026-11-18 4차) — 있으면 매달 금액을 상환 일정이 정한다
+      loan:_normalizeLoanTerms(item.loan),
     };
     if(row.isFixedCost===undefined)delete row.isFixedCost;
     if(!row.giftKind){delete row.giftKind;delete row.giftFrom;}
+    if(!row.loan)delete row.loan;
     return row;
   }).filter(Boolean);
 }
@@ -1157,6 +1208,8 @@ function saveAutoTransfers(syncRemote=true){
 /** 월별 유효 자동이체 금액 – amountChanges 타임라인을 반영 */
 function _effectiveAutoTransferAmt(at, y, m) {
   if (!at) return 0;
+  // 대출 상환 조건이 있으면 그 달 납입액(원리금균등·원금균등·만기일시)이 금액이다
+  if (at.loan) return loanPaymentFor(at.loan, y, m);
   let amt = at.amt || 0;
   if (Array.isArray(at.amountChanges) && at.amountChanges.length) {
     // from 이 (y,m) 이하인 최신 변경분 적용
@@ -1328,6 +1381,7 @@ function editAutoTransferMonth(atId, y, m) {
 function editAutoTransferFromMonth(atId, y, m) {
   const at = autoTransferData.find(x => x.id === atId);
   if (!at) return;
+  if (at.loan) { alert('대출 상환 조건으로 금액을 계산하는 항목입니다. 현금 흐름 > 고정비 관리에서 ✎ 로 조건을 고치세요.'); return; }
   const curAmt = _effectiveAutoTransferAmt(at, y, m);
   const input = prompt(
     `${y}년 ${m}월부터 적용할 새로운 금액(원)을 입력하세요.\n현재 금액: ₩${curAmt.toLocaleString()}`,
@@ -1415,6 +1469,7 @@ function deleteAutoTransferFromMonth(atId, y, m) {
 function renderAutoTransfers() {
   const tbody = document.getElementById('at-table-body'); if (!tbody) return;
   if (!autoTransferData.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--t3)">등록된 자동이체가 없습니다.</td></tr>'; return; }
+  const _now = new Date();
   tbody.innerHTML = autoTransferData.map(at => {
     let cycleStr = CYCLE_LABEL[at.cycle]||at.cycle;
     if (at.cycle==='weekly') cycleStr += ' '+DOW_LABELS[at.dayOfWeek||1]+'요일';
@@ -1423,7 +1478,7 @@ function renderAutoTransfers() {
       <td class="text-left">${at.type==='수입'?'<span style="color:var(--up)">수입</span>':'<span style="color:var(--dn)">지출</span>'}</td>
       <td class="text-left">${_cfEsc(at.cat)}</td>
       <td class="text-left">${_cfEsc(at.desc)}</td>
-      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(at.amt).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(_effectiveAutoTransferAmt(at,_now.getFullYear(),_now.getMonth()+1)).toLocaleString()}</td>
       <td class="text-left">${_cfEsc(cycleStr)}</td>
       <td><button class="btn-action" type="button" aria-label="${_cfEsc(at.desc)} 자동이체 삭제" onclick="deleteAutoTransfer(${Number(at.id)||0})">✕</button></td>
     </tr>`;
@@ -1665,7 +1720,9 @@ function renderFixedCostView() {
       :isPending
       ?`<button class="btn-action" onclick="includeFixedCost(${safeId})" title="고정비로 포함">✓</button><button class="btn-action" onclick="editFixedCost(${safeId})" title="확인 후 수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`
       :`<button class="btn-action" onclick="editFixedCost(${safeId})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`;
-    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>`;
+    // 대출 상환 조건이 있으면 바로 아래 줄(항목 칸부터 끝까지)에 방식·금리·잔여·잔액 — 좁은 항목 칸에 넣으면 잘린다
+    const loanRow=at.loan?`<tr class="cf-fixed-loan-row"><td colspan="2"></td><td colspan="5" class="text-left"><small class="cf-fixed-loan-note">${_cfEsc(_loanStatusText(at.loan,y,m))}</small></td></tr>`:'';
+    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
   }).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>';
 }
 
@@ -1675,6 +1732,80 @@ function toggleFixedCostScheduleFields() {
   const dow=document.getElementById('cf-fixed-dow-group');
   if(day)day.style.display=cycle==='monthly'?'':'none';
   if(dow)dow.style.display=cycle==='weekly'?'':'none';
+}
+
+// ── 고정비 등록 폼의 대출 상환 조건(2026-11-18 4차) ──
+// 카테고리가 '대출납입금'이면 조건 칸이 보이고, 원금을 적으면 금액 칸은 이번 달 계산 납입액(읽기 전용)이 된다.
+// 첫 납입 월은 연도·월 선택 목록이다(오래된 대출은 브라우저 월 달력으로 과거 이동이 어렵다 — 증여 시작 월과 같은 이유).
+function _fixedLoanFillMonthPickers(ym){
+  const ySel=document.getElementById('cf-fixed-loan-y'), mSel=document.getElementById('cf-fixed-loan-m');
+  if(!ySel||!mSel) return;
+  const now=new Date(), [vy,vm]=String(ym||_cfMonthKey()).split('-').map(Number);
+  const years=[]; for(let yy=now.getFullYear()+2;yy>=now.getFullYear()-40;yy--) years.push(yy);
+  if(vy&&!years.includes(vy)) years.push(vy);
+  ySel.innerHTML=years.map(yy=>`<option value="${yy}"${yy===vy?' selected':''}>${yy}년</option>`).join('');
+  mSel.innerHTML=Array.from({length:12},(_,i)=>i+1).map(mm=>`<option value="${mm}"${mm===vm?' selected':''}>${mm}월</option>`).join('');
+}
+// 폼 값 → {loan|null, error}. 원금이 비어 있으면 대출 조건 없이(금액 칸 그대로) 저장한다.
+function _fixedLoanFromForm(){
+  if(document.getElementById('cf-fixed-cat')?.value!=='대출납입금') return {loan:null};
+  const raw=String(document.getElementById('cf-fixed-loan-principal')?.value||'').replace(/,/g,'').trim();
+  if(!raw) return {loan:null};
+  const principal=Number(raw);
+  const rate=Number(document.getElementById('cf-fixed-loan-rate')?.value);
+  const term=Number(document.getElementById('cf-fixed-loan-term')?.value);
+  const unit=Number(document.getElementById('cf-fixed-loan-term-unit')?.value)||12;
+  const months=Math.round(term*unit);
+  const yy=Number(document.getElementById('cf-fixed-loan-y')?.value), mm=Number(document.getElementById('cf-fixed-loan-m')?.value);
+  if(!(principal>0)) return {loan:null,error:'대출 원금을 숫자로 입력하세요.'};
+  if(!Number.isFinite(rate)||rate<0||rate>30||String(document.getElementById('cf-fixed-loan-rate')?.value||'').trim()==='') return {loan:null,error:'연 금리를 0~30% 사이로 입력하세요.'};
+  if(!(months>=1&&months<=600)) return {loan:null,error:'대출 기간을 1개월~50년 사이로 입력하세요.'};
+  if(!(yy>=1900&&mm>=1&&mm<=12)) return {loan:null,error:'첫 납입 월을 고르세요.'};
+  const method=document.getElementById('cf-fixed-loan-method')?.value;
+  return {loan:_normalizeLoanTerms({method,principal,rate,months,start:`${yy}-${String(mm).padStart(2,'0')}`})};
+}
+function _loanYmKo(ym){ const [yy,mm]=String(ym||'').split('-').map(Number); return yy&&mm?`${yy}년 ${mm}월`:''; }
+function _loanStatusText(loan,y,m){
+  const st=loanStatusFor(loan,y,m); if(!st) return '';
+  const head=`${LOAN_METHOD_LABEL[loan.method]||''} · 연 ${Number(loan.rate).toLocaleString(undefined,{maximumFractionDigits:2})}%`;
+  if(st.phase==='before') return `${head} · ${_loanYmKo(loan.start)} 납입 시작 · ${loan.months}개월`;
+  if(st.phase==='done') return `${head} · 상환 끝(${_loanYmKo(st.end)})`;
+  return `${head} · 잔여 ${st.remaining}개월 · 잔액 ₩${Math.round(st.balance).toLocaleString()}`;
+}
+function fixedCostLoanPreview(){
+  const out=document.getElementById('cf-fixed-loan-preview'), amt=document.getElementById('cf-fixed-amt');
+  const {loan,error}=_fixedLoanFromForm();
+  const usesLoan=!!loan;
+  if(amt){ amt.readOnly=usesLoan; amt.classList.toggle('is-computed',usesLoan); }
+  if(!out) return;
+  if(!loan){ out.textContent=error&&String(document.getElementById('cf-fixed-loan-principal')?.value||'').trim()?error:'원금을 비워 두면 금액 칸에 적은 값으로 매달 같은 금액을 기록합니다.'; return; }
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
+  const rows=loanSchedule(loan), st=loanStatusFor(loan,y,m);
+  const shown=st.phase==='active'?st.row:(st.phase==='before'?rows[0]:null);
+  if(amt) amt.value=shown?Math.round(shown.payment).toLocaleString():'0';
+  const label=st.phase==='active'?'이번 달 납입':(st.phase==='before'?'첫 달 납입':'상환 끝');
+  out.textContent=shown
+    ?`${label} ₩${shown.payment.toLocaleString()} (이자 ₩${shown.interest.toLocaleString()} · 원금 ₩${shown.principal.toLocaleString()}) · 만기 ${_loanYmKo(st.end)} · ${_loanStatusText(loan,y,m).split(' · ').slice(2).join(' · ')} — 월 이자 = 잔액 × 연 금리 ÷ 12 로 계산한 추정값입니다.`
+    :`${_loanYmKo(st.end)}에 상환이 끝난 대출입니다. 이후 달에는 기록하지 않습니다.`;
+}
+function toggleFixedCostLoanFields(){
+  const isLoan=document.getElementById('cf-fixed-cat')?.value==='대출납입금';
+  const box=document.getElementById('cf-fixed-loan'); if(box) box.hidden=!isLoan;
+  const ySel=document.getElementById('cf-fixed-loan-y'); if(isLoan&&ySel&&!ySel.options.length) _fixedLoanFillMonthPickers();
+  const cycle=document.getElementById('cf-fixed-cycle');
+  if(cycle){ if(isLoan) cycle.value='monthly'; cycle.disabled=isLoan; toggleFixedCostScheduleFields(); }
+  if(isLoan) fixedCostLoanPreview();
+  else { const amt=document.getElementById('cf-fixed-amt'); if(amt){ amt.readOnly=false; amt.classList.remove('is-computed'); } }
+}
+function _fixedLoanFillForm(loan){
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v;};
+  set('cf-fixed-loan-method',loan?loan.method:'annuity');
+  set('cf-fixed-loan-principal',loan?Math.round(loan.principal).toLocaleString():'');
+  set('cf-fixed-loan-rate',loan?String(loan.rate):'');
+  const byYears=loan&&loan.months%12===0;
+  set('cf-fixed-loan-term',loan?String(byYears?loan.months/12:loan.months):'');
+  set('cf-fixed-loan-term-unit',loan&&!byYears?'1':'12');
+  _fixedLoanFillMonthPickers(loan?loan.start:_cfMonthKey());
 }
 
 function resetFixedCostForm() {
@@ -1688,6 +1819,8 @@ function resetFixedCostForm() {
   const day=document.getElementById('cf-fixed-day');if(day)day.value='25';
   const start=document.getElementById('cf-fixed-start');if(start)start.value=_cfMonthKey();
   const owner=document.getElementById('cf-fixed-owner');if(owner)owner.value=_cfOwner==='전체'?'본인':_cfOwner;
+  _fixedLoanFillForm(null);
+  toggleFixedCostLoanFields();
   toggleFixedCostScheduleFields();
 }
 
@@ -1697,26 +1830,53 @@ function submitFixedCost() {
   const owner=document.getElementById('cf-fixed-owner')?.value;
   const cat=document.getElementById('cf-fixed-cat')?.value||'기타';
   const desc=document.getElementById('cf-fixed-desc')?.value.trim();
-  const amt=Number((document.getElementById('cf-fixed-amt')?.value||'').replace(/,/g,''));
-  const cycle=document.getElementById('cf-fixed-cycle')?.value||'monthly';
+  const {loan,error:loanError}=_fixedLoanFromForm();
+  if(loanError){alert(loanError);return;}
+  const now=new Date(), nowY=now.getFullYear(), nowM=now.getMonth()+1;
+  const loanRows=loan?loanSchedule(loan):[];
+  // 대출이면 금액은 상환 일정이 정한다(이번 달, 아직 시작 전이면 첫 달 납입액) — 다른 경로의 `!at.amt` 확인을 통과하도록 같이 적어 둔다
+  const amt=loan?(loanPaymentFor(loan,nowY,nowM)||(loanRows[0]?loanRows[0].payment:0)):Number((document.getElementById('cf-fixed-amt')?.value||'').replace(/,/g,''));
+  const cycle=loan?'monthly':(document.getElementById('cf-fixed-cycle')?.value||'monthly');
   const day=Math.max(1,Math.min(31,Number(document.getElementById('cf-fixed-day')?.value)||1));
   const dow=Number(document.getElementById('cf-fixed-dow')?.value)||0;
-  const start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
+  let start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
   if(!OWNERS.includes(owner)){alert('소유주를 선택하세요.');return;}
-  if(!desc||!amt||amt<0){alert('항목과 금액을 입력하세요.');return;}
+  if(!desc||(!loan&&(!amt||amt<0))){alert('항목과 금액을 입력하세요.');return;}
+  // 첫 납입이 앱 시작 월보다 늦으면 그 달부터 센다. 만기 뒤에는 기록하지 않는다.
+  const maturity=loanRows.length?loanRows[loanRows.length-1].month:'';
+  if(loan&&loan.start>start) start=loan.start;
   const existing=autoTransferData.find(at=>at.id===id);
   if(existing){
     const changeFrom=_cfMonthKey();
+    const oldMaturity=existing.loan?(loanSchedule(existing.loan).slice(-1)[0]||{}).month:'';
     Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true,businessDayRule:existing.businessDayRule||'next'});
-    if(start>changeFrom){
-      existing.amt=amt;
-      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
+    if(loan){
+      existing.loan=loan; existing.amt=amt; existing.endMonth=maturity;
+      // 이번 달부터 이미 기록된 이 자동이체의 현금 흐름 줄을 상환 일정 값으로 맞춘다(지난 달 기록은 그대로)
+      let cfChanged=false;
+      cfData.forEach(c=>{
+        if(c.atId!==id||!c.isAuto) return;
+        const k=String(c.date||'').slice(0,7); if(k<changeFrom) return;
+        const [cy,cm]=k.split('-').map(Number); const v=loanPaymentFor(loan,cy,cm);
+        if(c.amt!==v){ c.amt=v; cfChanged=true; }
+      });
+      if(cfChanged) saveCfData();
     }else{
-      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<changeFrom);
-      existing.amountChanges.push({from:changeFrom,amt});
+      // 대출 조건을 지우면 그 만기로 잡아 둔 종료 월도 푼다
+      if(existing.loan&&existing.endMonth===oldMaturity) existing.endMonth='';
+      delete existing.loan;
+      if(start>changeFrom){
+        existing.amt=amt;
+        existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
+      }else{
+        existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<changeFrom);
+        existing.amountChanges.push({from:changeFrom,amt});
+      }
     }
   }else{
-    autoTransferData.push({id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:'',lastApplied:'',isFixedCost:true,businessDayRule:'next'});
+    const row={id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:maturity,lastApplied:'',isFixedCost:true,businessDayRule:'next'};
+    if(loan) row.loan=loan;
+    autoTransferData.push(row);
   }
   saveAutoTransfers();
   resetFixedCostForm();
@@ -1737,6 +1897,9 @@ function editFixedCost(id) {
   document.getElementById('cf-fixed-day').value=at.dayOfMonth||1;
   document.getElementById('cf-fixed-dow').value=String(at.dayOfWeek||0);
   document.getElementById('cf-fixed-start').value=at.startMonth||_cfMonthKey();
+  // 대출 상환 조건이 있으면 채우고, 없으면 빈 칸 — 기존 대출납입금은 여기서 조건을 적어 다시 등록한다(같은 자동이체 id)
+  _fixedLoanFillForm(at.loan||null);
+  toggleFixedCostLoanFields();
   document.getElementById('cf-fixed-form-title').textContent='고정비 수정';
   document.getElementById('cf-fixed-submit').textContent='수정';
   document.getElementById('cf-fixed-cancel').style.display='';
@@ -4312,7 +4475,7 @@ function updateCfTrendChart() {
     const daysInMonth = new Date(y, m, 0).getDate();
     const ymKey = y+'-'+String(m).padStart(2,'0');
     autoTransferData.forEach(at=>{
-      if (!at.amt || !at.cycle) return;
+      if (!(at.amt || at.loan) || !at.cycle) return;
       if (_cfOwner!=='전체' && at.owner!==_cfOwner) return;
       const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
       // 등록 시작 월 이전이면 제외 (4월 등록 시 3월 이전엔 포함되지 않음)
@@ -4389,7 +4552,7 @@ function renderCashFlow() {
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();
   const ymKey=cfYear+'-'+String(cfMonth).padStart(2,'0');
   autoTransferData.forEach(at=>{
-    if(!at.amt||!at.cycle)return;
+    if(!(at.amt||at.loan)||!at.cycle)return;
     if(_cfOwner!=='전체'&&at.owner!==_cfOwner)return;
     const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
     const monthlyOccurrences=monthlyCycle?_autoTransferMonthlyOccurrences(at,cfYear,cfMonth):[];

@@ -2543,7 +2543,7 @@ function cbGiftTransferLinkHtml(kinds){
   const LABEL={child:'자녀 증여',spouse:'부부 증여'};
   const rows=list.slice().sort((a,b)=>(b.giftKind?1:0)-(a.giftKind?1:0)||String(a.desc||'').localeCompare(String(b.desc||''),'ko')).map(at=>`
     <div class="cb-gift-link-row${at.giftKind?' is-on':''}">
-      <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(at.amt||0)}</small></span>
+      <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(typeof _effectiveAutoTransferAmt==='function'?_effectiveAutoTransferAmt(at,new Date().getFullYear(),new Date().getMonth()+1):(at.amt||0))}</small></span>
       <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 연결" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
         <option value="">증여 아님</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
       ${at.giftKind?cbGiftFromPicker(at):'<span></span>'}

@@ -265,13 +265,23 @@
           <div class="cf-fixed-form">
             <input type="hidden" id="cf-fixed-edit-id" value="">
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-owner">소유주</label><select id="cf-fixed-owner" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
-            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input" onchange="toggleFixedCostLoanFields()"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
             <div class="form-group f-col cf-fixed-desc-field"><label class="form-label" for="cf-fixed-desc">항목</label><input id="cf-fixed-desc" class="form-input" type="text" placeholder="예: 월세, 보험료, 구독료"></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-amt">금액</label><input id="cf-fixed-amt" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="handleAmtInput(this)"></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-cycle">주기</label><select id="cf-fixed-cycle" class="form-input" onchange="toggleFixedCostScheduleFields()"><option value="monthly">매월</option><option value="month-end">매월말</option><option value="weekly">매주</option></select></div>
             <div class="form-group f-col" id="cf-fixed-day-group"><label class="form-label" for="cf-fixed-day">결제일</label><input id="cf-fixed-day" class="form-input" type="number" min="1" max="31" value="25"></div>
             <div class="form-group f-col" id="cf-fixed-dow-group" style="display:none"><label class="form-label" for="cf-fixed-dow">요일</label><select id="cf-fixed-dow" class="form-input"><option value="0">일</option><option value="1">월</option><option value="2">화</option><option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option></select></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-start">시작 월</label><input id="cf-fixed-start" class="form-input" type="month"></div>
+            <!-- 대출 상환 조건(2026-11-18 4차) — 카테고리가 '대출납입금'일 때만 보인다. 원금을 비워 두면 금액 칸 값 그대로 저장한다 -->
+            <fieldset id="cf-fixed-loan" class="cf-fixed-loan" hidden>
+              <legend class="cf-fixed-loan-legend">대출 상환 조건 <small>원금을 적으면 매달 납입액을 계산해 금액 칸에 넣습니다</small></legend>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-method">상환 방식</label><select id="cf-fixed-loan-method" class="form-input" onchange="fixedCostLoanPreview()"><option value="annuity">원리금균등상환</option><option value="principal">원금균등상환</option><option value="bullet">만기일시상환</option></select></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-principal">대출 원금</label><input id="cf-fixed-loan-principal" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="fixedCostLoanPreview()"></div>
+              <div class="form-group f-col cf-fixed-loan-rate"><label class="form-label" for="cf-fixed-loan-rate">연 금리(%)</label><input id="cf-fixed-loan-rate" class="form-input" type="number" min="0" max="30" step="0.01" placeholder="4.2" data-no-comma="1" oninput="fixedCostLoanPreview()"></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-term">대출 기간</label><div class="cf-fixed-loan-pair"><input id="cf-fixed-loan-term" class="form-input" type="number" min="1" max="600" step="1" placeholder="30" data-no-comma="1" oninput="fixedCostLoanPreview()"><select id="cf-fixed-loan-term-unit" class="form-input" aria-label="대출 기간 단위" onchange="fixedCostLoanPreview()"><option value="12">년</option><option value="1">개월</option></select></div></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-y">첫 납입 월</label><div class="cf-fixed-loan-pair"><select id="cf-fixed-loan-y" class="form-input" onchange="fixedCostLoanPreview()"></select><select id="cf-fixed-loan-m" class="form-input" aria-label="첫 납입 월(월)" onchange="fixedCostLoanPreview()"></select></div></div>
+              <p id="cf-fixed-loan-preview" class="cf-fixed-loan-preview" aria-live="polite"></p>
+            </fieldset>
             <button id="cf-fixed-submit" class="btn-submit" type="button" onclick="submitFixedCost()">등록</button>
           </div>
         </div>
