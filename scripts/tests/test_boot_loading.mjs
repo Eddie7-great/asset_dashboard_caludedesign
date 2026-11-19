@@ -24,7 +24,7 @@ assert.ok(html.indexOf('id="page-head"') < html.indexOf('id="boot-skeleton"') &&
 assert.match(script, /_dashboardInitStarted = true;\n  bootStart\(\);\n  initDashboard\(\);/, '첫 시작에만 뼈대를 띄운다');
 const init = script.match(/function initDashboard\(\)\{[\s\S]*?\n\}\n/)[0];
 assert.match(init, /Promise\.all\(\[\n\s*loadAssetsFromKV\(\)\.then\(r=>\{bootStep\('assets'\);if\(!r\?\.ok\)bootReveal\(\);return r;\}\),\n\s*loadExtDataFromKV\(\)\.then\(r=>\{bootStep\('ext'\);return r;\}\),\n\s*loadKoreanStocksDB\(\)\]\)/, '병렬 로드는 그대로, 끝날 때 단계만 표시');
-assert.match(init, /if\(assetsResult\?\.ok\) await refreshMarketPrices\(\);\n\s*bootStep\('prices'\); bootReveal\(\);/, '시세 반영 뒤 홈을 보인다');
+assert.match(init, /try\{ if\(assetsResult\?\.ok\) await refreshMarketPrices\(\); \}\n\s*finally\{ bootStep\('prices'\); bootReveal\(\); \}/, '시세 반영 뒤(예외여도) 홈을 보인다');
 assert.match(init, /refreshPyData\(\{includeDividends:[^)]*\}\)\n\s*\.finally\(\(\)=>bootStep\('market'\)\)/, '배당·환율은 뒤에서 이어 마지막 단계');
 assert.ok(init.indexOf("switchView('dashboard'") < init.indexOf('bootStep('), '홈을 먼저 열고 그 위를 뼈대가 덮는다');
 assert.match(script, /if \(res\.status === 401\) \{\n\s*bootFinish\(\);/, '세션 만료면 뼈대를 남기지 않는다');

@@ -5752,8 +5752,9 @@ function initDashboard(){
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
-    if(assetsResult?.ok) await refreshMarketPrices();
-    bootStep('prices'); bootReveal();   // 시세까지 반영되면 홈을 보인다
+    // 시세까지 반영되면 홈을 보인다 — 시세 조회가 예외로 끝나도(뒤 단계는 예전처럼 멈춘다) 뼈대는 바로 걷는다.
+    try{ if(assetsResult?.ok) await refreshMarketPrices(); }
+    finally{ bootStep('prices'); bootReveal(); }
     // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
     refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok})
       .finally(()=>bootStep('market')).catch(e=>console.warn('[refreshPyData]',e));
@@ -5897,7 +5898,7 @@ function setBubbleOwnerX(owner, btn) {
   try { if (typeof changeOwner === 'function' && currentOwner !== owner) { changeOwner(owner, null); } } catch(e){}
   // 타이틀 즉시 업데이트 (소유주별 포트폴리오 비중 차트)
   const mt = document.getElementById('main-title');
-  if (mt) mt.textContent = '자산 관리';
+  if (mt) mt.textContent = (typeof navGroup==='function'&&navGroup('bubble')?.title)||'투자 분석';   // 구성(비중 지도)은 투자 분석 메뉴(2026-11-19)
   renderBubbleChart('weight');
 }
 

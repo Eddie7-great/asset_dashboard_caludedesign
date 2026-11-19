@@ -120,4 +120,7 @@ assert.match(hh, /shown\.length<total\?`<button type="button" class="home-holdin
 assert.match(cobalt, /function cbDashAllHoldings\(\)\{ switchView\('holdings'\); \}/);
 assert.match(ws, /\.home-holdings-more\{[^}]*color:var\(--acc\)/, '새 버튼에는 글자색을 준다');
 
+assert.doesNotMatch(script, /mt\.textContent = '자산 관리';/, '구성(비중 지도)에서 소유주를 골라도 제목은 투자 분석');
+assert.match(script, /mt\.textContent = \(typeof navGroup==='function'&&navGroup\('bubble'\)\?\.title\)\|\|'투자 분석';/);
+
 console.log('test_view_modes: ok');
