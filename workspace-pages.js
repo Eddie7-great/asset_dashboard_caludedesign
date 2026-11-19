@@ -120,7 +120,9 @@ function cbRenderAccounts(){
     holdingName:h=>`<span class="acct-asset" title="${cbEsc([h.title,h.subTitle].filter(Boolean).join(' · '))}">${cbFlagCell(h,24,14)}<b>${cbEsc(h.title)}</b>${h.subTitle?` <small>${cbEsc(h.subTitle)}</small>`:''}</span>`,
     legend:'<span class="fin-acct-note">증여계좌는 과세가 일반 계좌와 같아 일반 색입니다 · 계좌 줄을 누르면 보유 종목이 펼쳐집니다</span>',
   });
-  el.innerHTML=`<div class="acct-kind-grid">${kindCards}</div>
+  // 위 두 줄(사용자 결정, 2026-11-19): 보유 목록과 같은 숫자 카드(같은 함수가 같은 값으로 만든다 — 새 계산 없음) + 계좌 종류 카드.
+  const holdingsKpis=typeof renderPortfolio==='function'?(renderPortfolio(_acctOwner,{kpisOnly:true})||''):'';
+  el.innerHTML=`${holdingsKpis}<div class="acct-kind-grid">${kindCards}</div>
     <div class="cb-panel acct-table-panel">
       <div class="acct-tree-head"><span class="cb-panel-title">계좌별 내역 <span style="color:var(--dim)">· ${data.groups.length}개 계좌</span></span><button type="button" class="cb-btn" data-acct-all="1" onclick="acctToggleAll()">${allOpen?'모두 접기':'모두 펼치기'}</button></div>
       ${treeHtml}

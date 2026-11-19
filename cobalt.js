@@ -1400,9 +1400,14 @@ function cbHoldingSortGetters(){
     gain:r=>unknown(r)?null:r.gain, pct:r=>r.gainPct==null?null:r.gainPct,
   };
 }
+// 홈 보유 표는 검색어가 없으면 지금 정렬의 처음 10줄만 보이고 '전체 N종목 보기'로 보유 목록에 간다(2026-11-19 통폐합 시안).
+// 검색하면 맞는 것 전부. 선택은 보이는 줄 안에서만 하고, 비중 분모(nw)·막대 기준(maxVal)·숫자 카드는 그대로다.
+const HOME_HOLDINGS_LIMIT=10;
 function cbHomeHoldings(rows){
   rows=cbSortRows('home',rows,cbHoldingSortGetters());
-  const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
+  const total=rows.length, searching=!!(_cdashQ||'').trim();
+  const shown=searching?rows:rows.slice(0,HOME_HOLDINGS_LIMIT);
+  const sel=shown.find(r=>r.key===_cdashSel)||shown[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
   const maxVal=Math.max(0,...rows.map(r=>r.val||0));
@@ -1425,13 +1430,17 @@ function cbHomeHoldings(rows){
     +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small data-tip="같은 소유주의 같은 종목은 계좌를 합쳐 한 줄로 보입니다.">${rows.length}개</small></h3>`
     +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
     +`<div class="home-table-wrap"><table><thead><tr>${[['owner','소유주','text'],['name','종목','text'],['qty','수량'],['cost','매입금액'],['val','평가액'],['share','비중'],['gain','평가손익'],['pct','수익률']].map(([k,l,t])=>`<th aria-sort="${cbAriaSort('home',k)}">${cbSortBtn('home',k,l,t)}</th>`).join('')}<th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
-    +`<tbody>${rows.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
+    +`<tbody>${shown.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div>`
+    +(shown.length<total?`<button type="button" class="home-holdings-more" onclick="cbDashAllHoldings()">전체 ${total}종목 보기 ›</button>`:'')
+    +`</section>`
     +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
   const inp=document.querySelector('#cb-cdash .cb-dash-table-toolbar input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
 function cbDashPick(key){ _cdashSel=key; cbRenderDash(); }
+// 홈 → 보유 목록(종목별). 홈에서 고른 소유주는 navPrepare 가 이어 준다.
+function cbDashAllHoldings(){ switchView('holdings'); }
 // 홈 점 그림을 자리(.cb-scatter-host)의 실제 폭·높이로 그린다. 카드가 격자 높이로 늘어나므로 그 높이를 채운다.
 let _cdashScatterRows = [], _cdashScatterTimer = null;
 if(typeof window!=='undefined'&&typeof window.addEventListener==='function') window.addEventListener('resize',()=>{ clearTimeout(_cdashScatterTimer); _cdashScatterTimer=setTimeout(cbFillScatter,150); });

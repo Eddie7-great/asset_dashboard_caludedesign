@@ -1157,6 +1157,9 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .view-mode-bar{display:flex;flex-shrink:0;align-items:flex-end;margin-top:2px;padding-right:8px}
 .view-mode-bar[hidden]{display:none}
 @media(max-width:768px){.view-mode-bar{margin:6px 12px 10px;padding-right:0;overflow-x:auto}.view-mode-bar>button.cb-btn{flex:0 0 auto}}
+/* 홈 보유 표 10줄 + 전체 보기(보유 목록으로) */
+.home-holdings-more{display:block;margin:8px 0 0 auto;padding:4px 2px;border:0;background:none;color:var(--acc);font:600 var(--fs-cap)/1.4 var(--font-ui);cursor:pointer}
+.home-holdings-more:hover{text-decoration:underline}
 /* 일정(cal2)도 현금 흐름 탭 줄을 쓴다 — 현금 흐름과 같은 자리(소유주 버튼 앞)에 오게 한다 */
 .content-area:has(#view-cal2.active) #cf-header-tabs{order:-1}
 

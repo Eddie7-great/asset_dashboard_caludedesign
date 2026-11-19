@@ -100,4 +100,24 @@ assert.match(ws, /\.view-mode-bar\{display:flex;flex-shrink:0;/);
 assert.match(ws, /\.view-mode-bar\[hidden\]\{display:none\}/);
 assert.match(ws, /\.content-area:has\(#view-cal2\.active\) #cf-header-tabs\{order:-1\}/, '일정에서도 탭이 소유주 버튼 앞');
 
+// ── 계좌별 보기 위 숫자 카드 = 보유 목록 숫자 카드(같은 함수, 새 계산 없음) ──
+const rp = script.match(/function renderPortfolio\(owner, opts\) \{[\s\S]*?\n\}\n/)[0];
+assert.match(rp, /const kpisOnly=!!\(opts&&opts\.kpisOnly\);/);
+assert.match(rp, /if\(!kpisOnly&&_holdingsBrokerFilter!=='전체'&&!_stockSeen\.has\(_holdingsBrokerFilter\)\)_holdingsBrokerFilter='전체';/, '숫자 카드만 받을 때는 계좌 필터 상태를 건드리지 않는다');
+assert.match(rp, /grpName==='주식'&&brokerF!=='전체'/, '숫자 카드만 받을 때는 계좌 필터를 \'전체\'로 본다');
+const early = rp.indexOf('if(kpisOnly) return kpis;');
+assert.ok(early > 0 && early < rp.indexOf('cbAssetMobile(kpis)') && early < rp.indexOf("getElementById('portfolio-tables')"), 'DOM·휴대폰 머리 보관 전에 돌아간다');
+const pages = read('workspace-pages.js');
+assert.match(pages, /const holdingsKpis=typeof renderPortfolio==='function'\?\(renderPortfolio\(_acctOwner,\{kpisOnly:true\}\)\|\|''\):'';\n\s*el\.innerHTML=`\$\{holdingsKpis\}<div class="acct-kind-grid">/, '숫자 카드 줄 → 계좌 종류 카드 줄(두 줄)');
+
+// ── 홈 보유 표: 검색어가 없으면 처음 10줄 + 전체 보기(보유 목록으로, 소유주는 navPrepare 가 잇는다) ──
+const cobalt = read('cobalt.js');
+const hh = cobalt.match(/const HOME_HOLDINGS_LIMIT=10;\nfunction cbHomeHoldings\(rows\)\{[\s\S]*?\n\}\n/)[0];
+assert.match(hh, /const shown=searching\?rows:rows\.slice\(0,HOME_HOLDINGS_LIMIT\);\n\s*const sel=shown\.find\(r=>r\.key===_cdashSel\)\|\|shown\[0\]\|\|null;/, '선택은 보이는 줄 안에서만');
+assert.match(hh, /const maxVal=Math\.max\(0,\.\.\.rows\.map/, '막대 기준은 숨긴 줄까지 포함한 전체');
+assert.match(hh, /<tbody>\$\{shown\.map\(row\)/);
+assert.match(hh, /shown\.length<total\?`<button type="button" class="home-holdings-more" onclick="cbDashAllHoldings\(\)">전체 \$\{total\}종목 보기 ›<\/button>`/);
+assert.match(cobalt, /function cbDashAllHoldings\(\)\{ switchView\('holdings'\); \}/);
+assert.match(ws, /\.home-holdings-more\{[^}]*color:var\(--acc\)/, '새 버튼에는 글자색을 준다');
+
 console.log('test_view_modes: ok');

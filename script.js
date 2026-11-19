@@ -3410,7 +3410,10 @@ function holdingsToggleStale(on){
   _holdingsStaleOnly=!!on; renderPortfolio(currentOwner);
   document.getElementById('holdings-stale-only')?.focus();
 }
-function renderPortfolio(owner) {
+// opts.kpisOnly: 숫자 카드 HTML 만 돌려준다(계좌별 보기가 같은 카드를 쓴다, 2026-11-19). DOM·상태를 건드리기 전에 돌아가고 계좌 필터는 '전체'로 본다.
+function renderPortfolio(owner, opts) {
+  const kpisOnly=!!(opts&&opts.kpisOnly);
+  const brokerF=kpisOnly?'전체':_holdingsBrokerFilter;
   const items=getFilteredAssets(owner);
   const groups={'주식':[],'가상화폐':[],'금':[],'현금':[]};
   items.forEach(i=>{if(groups[i.grp])groups[i.grp].push(i);});
@@ -3422,7 +3425,7 @@ function renderPortfolio(owner) {
     if(!_stockSeen.has(key)){_stockSeen.add(key);stockCombos.push({broker:i.broker||'',acc:i.acc||'',key});}
   });
   stockCombos.sort((a,b)=>{const br=a.broker.localeCompare(b.broker);return br!==0?br:a.acc.localeCompare(b.acc);});
-  if(_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
+  if(!kpisOnly&&_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
   const brokerFilterHtml=`<label class="holdings-broker-filter-inline">`
     +`<span>계좌</span>`
     +`<select id="holdings-broker-filter" class="form-input" onchange="applyHoldingsBrokerFilter()">`
@@ -3444,7 +3447,7 @@ function renderPortfolio(owner) {
     let grpItems=groups[grpName];
     // 주식 그룹만 선택된 증권사·계좌 조합으로 필터링
     // 휴대폰에는 계좌 필터가 없으므로 PC 에서 고른 필터가 휴대폰 숫자 카드를 몰래 줄이지 않게 '전체'로 본다
-    if(grpName==='주식'&&_holdingsBrokerFilter!=='전체'&&!_mobileHoldings){
+    if(grpName==='주식'&&brokerF!=='전체'&&_holdingsBrokerFilter!=='전체'&&!_mobileHoldings){
       const _si=_holdingsBrokerFilter.indexOf(_BROKER_ACC_SEP);
       const fb=_holdingsBrokerFilter.slice(0,_si),fa=_holdingsBrokerFilter.slice(_si+_BROKER_ACC_SEP.length);
       grpItems=grpItems.filter(i=>(i.broker||'')===fb&&(i.acc||'')===fa);
@@ -3606,6 +3609,7 @@ function renderPortfolio(owner) {
     +`<div class="holdings-kpi"><span>평가손익</span><b class="${profitAll>0?'c-up':profitAll<0?'c-dn':''}">${profitAll<0?'-':profitAll>0?'+':''}${money(profitAll)}</b><small>${investNonCash>0?(profitAll>=0?'+':'')+(profitAll/investNonCash*100).toFixed(2)+'% · 매입금액 대비':'매입금액 없음'}</small></div>`
     +`<div class="holdings-kpi${staleCount?' is-warn':''}"><span>시세 미조회</span><b>${staleCount}개</b><small>${staleCount?'직전 값으로 계산 중':'모두 수신'}</small></div>`
     +`</div>`;
+  if(kpisOnly) return kpis;
   const tabs=`<div class="holdings-tabs" role="tablist" aria-label="자산군">`
     +HOLDINGS_TABS.map(g=>`<button type="button" role="tab" class="holdings-tab" id="holdings-tab-${g}" data-grp="${g}" aria-controls="holdings-panel-${g}" aria-selected="${g===_holdingsTab}" tabindex="${g===_holdingsTab?0:-1}" onclick="setHoldingsTab('${g}')">${g}<span>${grpStats[g]?.count||0}</span></button>`).join('')
     +`</div>`;
