@@ -5445,10 +5445,73 @@ async function authFetch(url, options = {}) {
   options.cache = options.cache || 'no-store';
   const res = await fetch(url, options);
   if (res.status === 401) {
+    bootFinish();   // 로딩 중 세션이 끊기면 뼈대를 남기지 않는다
     _setAuthenticatedUi(false);
     document.getElementById('login-pw')?.focus();
   }
   return res;
+}
+
+// ── 로그인 뒤 첫 로딩(2026-11-19, 시안 B) ── 홈 모양 뼈대 + 맨 위 얇은 진행 줄.
+// 단계는 실제로 기다리는 일 그대로다(initDashboard 의 호출 순서·병렬은 바꾸지 않고 끝날 때 표시만 한다).
+// 시세 반영이 끝나면 뼈대를 걷어 홈을 보이고, 배당·환율(파이썬 함수, 느림)은 얇은 줄만 남긴 채 뒤에서 잇는다(최대 BOOT_TAIL_MS).
+// 자산 로드 실패·다른 메뉴로 이동·세션 만료(401)는 즉시 걷고, BOOT_SAFETY_MS 뒤에는 무조건 걷는다.
+const BOOT_STEPS=[['auth','로그인 확인'],['assets','보유 자산 불러오는 중'],['ext','재무 기록 불러오는 중'],['prices','시세 반영 중'],['market','배당·환율 확인 중']];
+const BOOT_SAFETY_MS=25000, BOOT_TAIL_MS=8000;
+let _boot=null;
+function _bootReduced(){ return typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function bootStart(){
+  const sk=document.getElementById('boot-skeleton'); if(!sk) return;
+  _boot={done:new Set(['auth']),revealed:false,safety:0,tail:0};
+  document.body.classList.add('is-booting');
+  sk.hidden=false;
+  const bar=document.getElementById('boot-bar'); if(bar) bar.hidden=false;
+  _bootPaint();
+  _boot.safety=setTimeout(bootFinish,BOOT_SAFETY_MS);
+}
+function _bootPaint(){
+  if(!_boot) return;
+  const n=_boot.done.size,total=BOOT_STEPS.length;
+  const next=BOOT_STEPS.find(([k])=>!_boot.done.has(k));
+  const fill=document.querySelector('#boot-bar>span'); if(fill) fill.style.transform=`scaleX(${Math.max(.08,n/total)})`;
+  const steps=document.getElementById('boot-steps');
+  if(steps) steps.innerHTML=BOOT_STEPS.map(([k,l])=>`<i class="${_boot.done.has(k)?'is-done':(next&&next[0]===k?'is-now':'')}" title="${l}"></i>`).join('')
+    +`<b>${next?next[1]:'준비 완료'} · ${n}/${total}</b>`;
+  const st=document.getElementById('boot-status'); if(st) st.textContent=next?`${next[1]} (${n}/${total})`:'불러오기 완료';
+}
+function bootStep(key){
+  if(!_boot||_boot.done.has(key)) return;
+  _boot.done.add(key); _bootPaint();
+  if(BOOT_STEPS.every(([k])=>_boot.done.has(k))) bootFinish();
+}
+// 뼈대만 걷는다(진행 줄은 남는다). 걷는 순간 지금 화면의 등장 움직임·숫자 올리기를 돌린다 — 뼈대 뒤에서 이미 돌았다면 안 보였다.
+function bootReveal(){
+  if(!_boot||_boot.revealed) return;
+  _boot.revealed=true;
+  document.body.classList.remove('is-booting');
+  const sk=document.getElementById('boot-skeleton');
+  if(sk){
+    if(_bootReduced()) sk.hidden=true;
+    else{ sk.classList.add('is-leaving'); setTimeout(()=>{sk.hidden=true;sk.classList.remove('is-leaving');},240); }
+  }
+  const id=document.querySelector('.view-section.active')?.id?.replace('view-','');
+  if(id&&typeof cbMarkEntering==='function') cbMarkEntering(id);
+  if(id&&typeof cbCountUp==='function') cbCountUp(id);
+  if(typeof _fitActiveCharts==='function') requestAnimationFrame(()=>_fitActiveCharts());
+  _boot.tail=setTimeout(bootFinish,BOOT_TAIL_MS);
+}
+function bootFinish(){
+  if(!_boot) return;
+  bootReveal();
+  clearTimeout(_boot.safety); clearTimeout(_boot.tail);
+  const fill=document.querySelector('#boot-bar>span'); if(fill) fill.style.transform='scaleX(1)';
+  const st=document.getElementById('boot-status'); if(st) st.textContent='불러오기 완료';
+  _boot=null;
+  const bar=document.getElementById('boot-bar');
+  if(bar){
+    if(_bootReduced()) bar.hidden=true;
+    else{ bar.classList.add('is-done'); setTimeout(()=>{bar.hidden=true;bar.classList.remove('is-done');},400); }
+  }
 }
 
 let _dashboardInitStarted = false;
@@ -5457,6 +5520,7 @@ function _startDashboardAfterAuth(){
   if(window.innerWidth>768) applySideCollapsed(_sideCollapsedSaved(),false);
   if (_dashboardInitStarted) return;
   _dashboardInitStarted = true;
+  bootStart();
   initDashboard();
   setTimeout(_fitActiveCharts, 800);
   setTimeout(_fitActiveCharts, 2500);
@@ -5671,15 +5735,21 @@ function initDashboard(){
   // 초기 로드: KV에서 자산 로드 후 EOD 시세 1회 반영
   (async () => {
     // KRX 종목 DB(data/stocks.json)와 자산을 병렬 로드
-    const [assetsResult,extResult]=await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
+    // 로딩 화면 단계 표시(bootStep)는 각 약속이 끝날 때 붙인다 — 호출 순서·병렬은 그대로. 자산을 못 불러오면 오류 안내가 보이게 바로 걷는다.
+    const [assetsResult,extResult]=await Promise.all([
+      loadAssetsFromKV().then(r=>{bootStep('assets');if(!r?.ok)bootReveal();return r;}),
+      loadExtDataFromKV().then(r=>{bootStep('ext');return r;}),
+      loadKoreanStocksDB()]);
     // 로컬 기본값을 원격 데이터 위에 저장하지 않도록, 확장 KV 로드 성공 뒤에만 자동이체를 실체화한다.
     if(assetsResult?.ok&&extResult?.ok) applyAutoTransfers();
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
     if(assetsResult?.ok) await refreshMarketPrices();
+    bootStep('prices'); bootReveal();   // 시세까지 반영되면 홈을 보인다
     // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
-    refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok});
+    refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok})
+      .finally(()=>bootStep('market')).catch(e=>console.warn('[refreshPyData]',e));
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
     if(assetsResult?.ok) fetchBenchmarkData();

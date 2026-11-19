@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+### 로그인 뒤 로딩 화면 B (2026-11-19)
+
+- **로그인 직후에는 홈 모양 뼈대(`#boot-skeleton`: 머리줄·숫자 카드 5개·큰 카드 4개)와 맨 위 얇은 진행 줄(`#boot-bar`)을 띄운다 — `bootStart`·`bootStep(key)`·`bootReveal`·`bootFinish`(script.js `_startDashboardAfterAuth` 위).** 단계(`BOOT_STEPS`)는 로그인 확인 → 보유 자산 → 재무 기록 → 시세 반영 → 배당·환율이고, `initDashboard` 의 **기존 호출 순서·병렬을 그대로 둔 채** 각 약속이 끝날 때 `bootStep` 만 붙인다. 시세 반영이 끝나면 뼈대를 걷어 홈을 보이고(배당·환율은 파이썬 함수라 느려서 진행 줄만 최대 `BOOT_TAIL_MS` 8초 남긴다), 자산 로드 실패면 바로, 로딩 중 홈이 아닌 화면으로 가면(`switchView` 래퍼, 처음 여는 `cdash` 는 제외) 뼈대만, 세션 만료(`authFetch` 401)·`BOOT_SAFETY_MS` 25초면 모두 걷는다. 첫 시작(`_dashboardInitStarted`)에만 돈다.
+  뼈대는 `.content-area` 위에 절대 위치로 덮고 그동안 화면은 `body.is-booting … .view-section{visibility:hidden}` 으로만 숨긴다 — `display:none` 이면 점 그림·차트가 폭 0 으로 그려진다. 걷는 순간 지금 화면에 `cbMarkEntering`·`cbCountUp` 을 다시 건다(뼈대 뒤에서 돈 움직임은 안 보였다). 진행 상황은 뼈대 밖의 `#boot-status`(`role="status"`, sr-only)가 알린다. CSS 는 workspace-ui.css 맨 끝 블록(토큰 색만, 움직임 줄이기에서 반짝임·전환 없음, 휴대폰 카드 2열·큰 카드 1열). `test_boot_loading.mjs` 가 지킨다.
+
 ### 금액 가리기 만·억·사이드바 접기 버튼·대출 상환 조건·적립식 묶음 (2026-11-18 4차)
 
 - **금액 가리기는 '원' 없이 만·억으로 줄인 금액도 가린다**(`_maskAmountText` 의 마지막 규칙: `+1,755만`·`2,000만`·`3.6억` → `+••••만`). 기여도 타일 금액·점 그림 세로 눈금·세금/증여 그래프 눈금이 `cbTaxAxisLab`/`cbAmtAxisLab` 로 '원' 없이 찍혀 가려지지 않았다. 단위 뒤에 한글이 이어지면(만기·억제) 금액이 아니므로 그대로 둔다. 비율(%)은 대상이 아니다.

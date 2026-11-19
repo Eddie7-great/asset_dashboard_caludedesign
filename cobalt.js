@@ -4020,6 +4020,8 @@ function cbResetViewState(){
 }
 switchView = function(id, btn){
   id=navResolve(id);
+  // 로딩 중 다른 화면으로 가면 뼈대만 걷는다(진행 줄은 남는다). initDashboard 가 처음 여는 홈(cdash)은 제외.
+  if (id!=='cdash' && typeof bootReveal==='function') bootReveal();
   const _prevView=document.querySelector('.view-section.active')?.id?.replace('view-','');
   if (_prevView && _prevView!==id) cbResetViewState();
   navPrepare(id);

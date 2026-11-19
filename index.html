@@ -126,6 +126,17 @@
       </div>
     </div>
 
+    <!-- 로그인 뒤 첫 로딩(2026-11-19, 시안 B) — 홈 모양 뼈대 + 맨 위 얇은 진행 줄. bootStart/bootStep/bootReveal/bootFinish 가 다룬다.
+         뼈대는 화면 위에 덮을 뿐이고 그동안 실제 화면은 자리를 지킨 채(visibility) 그려진다 — 걷을 때 다시 그리지 않는다. -->
+    <div id="boot-bar" class="boot-bar" aria-hidden="true" hidden><span></span></div>
+    <p id="boot-status" class="sr-only" role="status" aria-live="polite"></p>
+    <div id="boot-skeleton" class="boot-skeleton" aria-hidden="true" hidden>
+      <div class="boot-sk-top"><span class="boot-blk boot-sk-line"></span><span class="boot-steps" id="boot-steps"></span></div>
+      <div class="boot-sk-kpis"><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span></div>
+      <div class="boot-sk-cards"><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span></div>
+      <div class="boot-blk boot-sk-table"></div>
+    </div>
+
     <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>

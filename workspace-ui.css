@@ -1150,3 +1150,33 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
 #cf-fixed-dca-sum[hidden]{display:none}
 @media(max-width:768px){.cf-fixed-side{overflow:visible}}
+
+/* ===== 로그인 뒤 첫 로딩(2026-11-19, 시안 B) — 홈 모양 뼈대 + 맨 위 얇은 진행 줄(script.js bootStart…bootFinish) =====
+   뼈대는 화면 위에 덮고, 그동안 실제 화면은 visibility 로만 숨겨 자리를 지킨 채 그려진다(걷을 때 크기를 다시 재지 않게).
+   토큰 색만 쓰고, 움직임 줄이기에서는 반짝임·전환을 끈다. */
+.boot-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:3000;pointer-events:none;background:color-mix(in srgb,var(--acc) 16%,transparent);transition:opacity 400ms var(--ease-out)}
+.boot-bar[hidden]{display:none}
+.boot-bar>span{display:block;height:100%;background:var(--acc);transform-origin:left center;transform:scaleX(.08);transition:transform var(--dur) var(--ease-out)}
+.boot-bar.is-done{opacity:0}
+body.is-booting .content-area>.view-section{visibility:hidden}
+.boot-skeleton{position:absolute;left:0;right:0;top:var(--workspace-head-height,64px);bottom:0;z-index:20;display:flex;flex-direction:column;gap:12px;padding:16px 22px;overflow:hidden;transition:opacity var(--dur) var(--ease-out)}
+.boot-skeleton[hidden]{display:none}
+.boot-skeleton.is-leaving{opacity:0}
+.boot-sk-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px}
+.boot-sk-line{width:min(320px,40%);height:14px}
+.boot-steps{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.boot-steps>i{width:8px;height:8px;border-radius:50%;background:var(--bd2)}
+.boot-steps>i.is-done{background:var(--acc)}
+.boot-steps>i.is-now{background:color-mix(in srgb,var(--acc) 45%,var(--bd2))}
+.boot-steps>b{margin-left:4px;font-weight:500}
+.boot-sk-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.boot-sk-kpis>.boot-blk{height:96px}
+.boot-sk-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.boot-sk-cards>.boot-blk{height:300px}
+.boot-sk-table{flex:1;min-height:160px}
+.boot-blk{display:block;border:1px solid var(--bd);border-radius:var(--r-lg);background:linear-gradient(90deg,var(--panelSolid) 0%,color-mix(in srgb,var(--bd2) 45%,var(--panelSolid)) 50%,var(--panelSolid) 100%);background-size:200% 100%;animation:bootShimmer 1.4s linear infinite}
+.boot-sk-line.boot-blk{border:0;border-radius:var(--r-sm);background-color:var(--bd)}
+@keyframes bootShimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+@media(max-width:1180px){.boot-sk-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.boot-skeleton{padding:12px}.boot-sk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.boot-sk-cards{grid-template-columns:1fr}.boot-sk-cards>.boot-blk:nth-child(n+2){display:none}.boot-steps>b{display:none}}
+@media(prefers-reduced-motion:reduce){.boot-blk{animation:none!important;background:var(--panelSolid)}.boot-bar,.boot-bar>span,.boot-skeleton{transition:none!important}}
