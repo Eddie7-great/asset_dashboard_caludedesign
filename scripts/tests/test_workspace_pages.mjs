@@ -9,8 +9,9 @@ const src = read('workspace-pages.js'), nav = read('navigation.js'), html = read
 
 // 연결: 상위 메뉴는 8개(2026-11-11 결산 리포트 추가). 이 파일은 cobalt.js 보다 먼저 로드된다.
 assert.equal((nav.match(/\{menu:'/g) || []).length, 8, '상위 메뉴 8개');
-assert.match(nav, /\['holdings','보유 목록'\],\['acct2','계좌별 보기'\]/);
-assert.match(nav, /\['dca2','적립식 매수'\],\['cal2','일정'\],\['sim2','투자 시뮬레이터'\]/);
+// 페이지 통폐합(2026-11-19): 계좌별 보기는 보유 목록의 보기 전환, 일정은 현금 흐름 탭이다(세부 메뉴에서 빠지고 NAV_HOST 로 속한다).
+assert.match(nav, /holdings:\[\['holdings','종목별'\],\['acct2','계좌별'\],\['fam2','구성원별'\]\]/);
+assert.match(nav, /const NAV_HOST = \{acct2:'holdings', fam2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'\};/);
 assert.match(cobalt, /acct2:cbRenderAccounts, cal2:cbRenderCalendar[,}]/);
 assert.ok(html.indexOf('workspace-pages.js') > html.indexOf('etf-explorer.js') && html.indexOf('workspace-pages.js') < html.indexOf('cobalt.js?'), 'cobalt.js 앞에 로드');
 assert.match(html, /<div id="view-acct2" class="view-section"><div class="cb-scroll" id="cb-acct2">/);

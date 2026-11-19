@@ -148,7 +148,7 @@
 #page-head #owner-tabs-container,#page-head #cf-owner-bar,#page-head #cb-head-widgets,#page-head #bubble-owner-bar{margin-left:0!important;padding-left:0}
 #page-head:not(:has(#page-sections:not([hidden]))):not(:has(#cf-header-tabs:not([hidden]))) #cb-head-widgets{margin-left:auto!important}
 #cf-header-tabs{display:none;margin:0 0 0 auto;padding:0;gap:5px;border:0;background:transparent}
-.content-area:has(#view-cashflow.active) #cf-header-tabs{display:flex}
+.content-area:has(#view-cashflow.active) #cf-header-tabs,.content-area:has(#view-cal2.active) #cf-header-tabs{display:flex}
 #cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:var(--r-md);font:600 var(--fs-cap)/1.4 var(--font-ui);white-space:nowrap}
 .home-holdings-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}.home-table-column{min-width:0}
 .home-table-wrap{max-height:clamp(360px,56vh,620px);overscroll-behavior:contain}.home-table-column thead th{position:sticky;top:0;z-index:2;background:var(--panelSolid);box-shadow:0 1px 0 var(--bd)}
@@ -438,7 +438,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #add-modal.active .modal-content{animation:cbFade var(--dur) var(--ease-out) both}
 @media(min-width:1101px){#add-modal.active .modal-content{animation:cbSlideIn var(--dur) var(--ease-out) both}}
 /* 상호작용 — 색·바탕·밑줄은 같은 짧은 시간·곡선으로, 누르면 살짝 눌린다 */
-:is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+:is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.view-mode-bar>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
 :is(button.cb-dash-kpi,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.login-btn):active:not(:disabled){transform:scale(.98)}
 /* 움직임 줄이기 — 전역 규칙은 시간만 줄이고 지연(stagger)은 남겨 그 사이 카드가 숨어 있으므로, 여기서는 아예 끈다 */
 @media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-error{animation:none!important}#login-overlay{transition:none}}
@@ -471,9 +471,9 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
 .cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
 /* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
-.sim-view-tabs{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
-.sim-view-tabs>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
-.sim-view-tabs>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+.sim-view-tabs,.view-mode-bar{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.sim-view-tabs>button.cb-btn,.view-mode-bar>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
+.sim-view-tabs>button.cb-btn[aria-pressed=true],.view-mode-bar>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 /* 현금 흐름의 '월별 현금흐름 / 고정비 관리' 전환은 헤더의 세부 화면 링크와 같은 밑줄형 */
 .cf-section-tabs{background:transparent;border:0;padding:0;gap:4px}
 #cf-header-tabs.cf-section-tabs .cf-section-tab{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 var(--font-ui);box-shadow:none}
@@ -1150,6 +1150,15 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
 #cf-fixed-dca-sum[hidden]{display:none}
 @media(max-width:768px){.cf-fixed-side{overflow:visible}}
+
+/* ===== 페이지 통폐합(2026-11-19) — 보기 전환 줄(#view-mode-bar, navigation.js navModeBar) =====
+   한 세부 메뉴 안의 보기(종목별·계좌별·구성원별 / 비중 지도·ETF 속 종목 / 월간·연간)는 머리줄 바로 아래 오른쪽 밑줄형 줄로 오간다.
+   모양은 시뮬레이터 세 탭(.sim-view-tabs)과 같은 규칙을 공유하고(공통 블록), 여기서는 자리만 준다 — 스크롤 영역 밖이라 긴 표를 내려도 보인다. */
+.view-mode-bar{display:flex;flex-shrink:0;align-items:flex-end;margin-top:2px;padding-right:8px}
+.view-mode-bar[hidden]{display:none}
+@media(max-width:768px){.view-mode-bar{margin:6px 12px 10px;padding-right:0;overflow-x:auto}.view-mode-bar>button.cb-btn{flex:0 0 auto}}
+/* 일정(cal2)도 현금 흐름 탭 줄을 쓴다 — 현금 흐름과 같은 자리(소유주 버튼 앞)에 오게 한다 */
+.content-area:has(#view-cal2.active) #cf-header-tabs{order:-1}
 
 /* ===== 로그인 뒤 첫 로딩(2026-11-19, 시안 B) — 홈 모양 뼈대 + 맨 위 얇은 진행 줄(script.js bootStart…bootFinish) =====
    뼈대는 화면 위에 덮고, 그동안 실제 화면은 visibility 로만 숨겨 자리를 지킨 채 그려진다(걷을 때 크기를 다시 재지 않게).

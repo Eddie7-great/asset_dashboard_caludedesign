@@ -2250,7 +2250,10 @@ function switchView(viewId, btn) {
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
   // 이 함수가 직접 그리는 화면은 holdings·cashflow·bubble 뿐이다(나머지는 cobalt.js 가 감싸 처리).
-  if (viewId==='holdings') {
+  // 같은 세부 메뉴 안 이동(종목별↔계좌별, 일정→월별 등)은 navPrepare 가 이어 준 소유주를 지킨다 — 표식은 한 번 쓰고 지운다.
+  const keepOwner = typeof _navKeepOwner!=='undefined' && _navKeepOwner;
+  if (typeof _navKeepOwner!=='undefined') _navKeepOwner=false;
+  if (viewId==='holdings' && !keepOwner) {
     document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>b.classList.remove('active'));
     const allBtn=document.querySelector('#owner-tabs-container .owner-btn');
     if(allBtn)allBtn.classList.add('active');
@@ -2275,12 +2278,12 @@ function switchView(viewId, btn) {
   const bubbleBar = document.getElementById('bubble-owner-bar');
   if (bubbleBar) bubbleBar.style.display = (viewId==='bubble') ? 'flex' : 'none';
   if (viewId==='cashflow') {
-    _cfOwner='전체';
+    if(!keepOwner) _cfOwner='전체';
     _cfSection='monthly';
     document.querySelectorAll('#cf-owner-bar .owner-btn').forEach(b=>b.classList.remove('active'));
-    const allCfBtn=document.getElementById('cf-owner-전체');
+    const allCfBtn=document.getElementById('cf-owner-'+_cfOwner)||document.getElementById('cf-owner-전체');
     if(allCfBtn)allCfBtn.classList.add('active');
-    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value='본인';
+    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value=_cfOwner!=='전체'?_cfOwner:'본인';
     resetFixedCostForm();
     switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }

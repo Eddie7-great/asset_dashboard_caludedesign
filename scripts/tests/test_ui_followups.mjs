@@ -742,5 +742,5 @@ assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-al
   assert.ok(Math.abs(l2[0] + l2[1] - l1[0]) < 1e-6 && Math.abs(l3[0] + l3[1] + l3[2] - l1[0]) < 1e-6, '본인의 증권사·계좌 칸 합 = 본인 칸 폭 — 경계가 같은 자리')
   assert.match(workspaceSource, /\.fin-ice-seg\{box-sizing:border-box;min-width:0;height:34px;display:flex;align-items:center;padding:0;border:0;box-shadow:/, '칸에 padding·테두리를 두지 않는다(층마다 고정 여백이 몫을 깎아 경계가 어긋났다)')
   assert.match(workspaceSource, /\.cal-toolbar\{display:flex;align-items:center;justify-content:flex-end;/, '일정의 연월·이번 달 버튼은 오른쪽 정렬')
-  assert.match(workspaceSource, /\.sim-view-tabs\{gap:4px;justify-content:flex-end;/, '투자 시뮬레이터 세 탭은 오른쪽 정렬')
+  assert.match(workspaceSource, /\.sim-view-tabs(?:,\.view-mode-bar)?\{gap:4px;justify-content:flex-end;/, '투자 시뮬레이터 세 탭은 오른쪽 정렬')
 }

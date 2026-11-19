@@ -9,9 +9,10 @@ const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
 const pages = read('workspace-pages.js'), nav = read('navigation.js'), cobalt = read('cobalt.js');
 const html = read('index.html'), ws = read('workspace-ui.css'), script = read('script.js');
 
-// ── 배선: 8번째 상위 메뉴, 탭 두 개, 같은 소유주 범위 ──
-assert.match(nav, /\{menu:'report2',title:'결산 리포트',views:\[\['report2','월간'\],\['reporty','연간'\]\]\}/);
-assert.match(nav, /\['perf2','성과'\],\['risk2','리스크'\]\]\}/, '투자 분석에서는 뺐다');
+// ── 배선: 8번째 상위 메뉴, 월간·연간 두 화면(2026-11-19 통폐합 뒤 세부 메뉴 '결산' 하나 + 보기 전환 줄), 같은 소유주 범위 ──
+assert.match(nav, /\{menu:'report2',title:'결산 리포트',views:\[\['report2','결산'\]\]\}/);
+assert.match(nav, /report2:\[\['report2','월간'\],\['reporty','연간'\]\]/, '월간·연간은 보기 전환 줄로 오간다');
+assert.match(nav, /\['perf2','성과'\],\['risk2','리스크'\],\['bubble','구성'\]\]\}/, '투자 분석에는 결산이 없다');
 assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)return _reportOwner;/);
 assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)_reportOwner=owner;/);
 assert.match(html, /id="menu-report2" onclick="switchView\('report2',this\)">[\s\S]*?결산 리포트<\/button>/);

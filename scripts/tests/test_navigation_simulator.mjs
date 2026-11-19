@@ -19,12 +19,19 @@ assert.equal(ctx.navResolve('snap'),'cdash');assert.equal(ctx.navResolve('dashbo
 assert.equal(ctx.navResolve('risk2'),'risk2');assert.equal(ctx.navGroup('unknown'),undefined);
 let previous='holdings';ctx.document={querySelector:()=>({id:'view-'+previous})};
 ctx.currentOwner='아내';ctx._famKey='all';ctx._finPlanOwner='본인';ctx._cbDcaOwner='전체';
-ctx.navPrepare('fam2');assert.equal(ctx._famKey,'아내');
-previous='fam2';ctx.currentOwner='전체';ctx.navPrepare('bubble');assert.equal(ctx.currentOwner,'아내');
+ctx._holdingsQ='삼성';ctx._famQ='';ctx._bubbleOwner='전체';ctx._etfOwner='전체';ctx._cfOwner='전체';ctx._calOwner='전체';ctx._acctOwner='전체';
+ctx.navPrepare('fam2');assert.equal(ctx._famKey,'아내');assert.equal(ctx._famQ,'삼성','보유 목록 검색어를 구성원별로 잇는다');
+// 페이지 통폐합(2026-11-19): 구성(bubble)은 투자 분석으로 옮겨 자산 관리와 다른 메뉴다 — 소유주를 잇지 않는다.
+previous='fam2';ctx.currentOwner='전체';ctx.navPrepare('bubble');assert.equal(ctx.currentOwner,'전체');
+previous='etf2';ctx._etfOwner='아내';ctx.navPrepare('bubble');
+assert.equal(ctx.currentOwner,'아내');assert.equal(ctx._bubbleOwner,'아내');assert.equal(vm.runInContext('_navKeepOwner',ctx),true,'레거시 화면이 소유주를 되돌리지 않게 표식');
+previous='cal2';ctx._calOwner='자녀1';vm.runInContext('_navKeepOwner=false',ctx);ctx.navPrepare('cashflow');
+assert.equal(ctx._cfOwner,'자녀1','일정 → 현금 흐름은 소유주를 잇는다');assert.equal(vm.runInContext('_navKeepOwner',ctx),true);
+previous='cashflow';ctx._cfOwner='아내';ctx.navPrepare('cal2');assert.equal(ctx._calOwner,'아내');
 previous='plan2';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'본인');
 previous='dca2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',ctx),'본인');
 // All former top-level destinations remain reachable in the corresponding family.
-for(const id of ['holdings','fam2','bubble','perf2','risk2','plan2','dca2','tax2','gift2','report2','reporty'])assert.ok(ctx.navGroup(id));
+for(const id of ['holdings','acct2','fam2','bubble','etf2','perf2','risk2','plan2','dca2','cal2','tax2','gift2','report2','reporty'])assert.ok(ctx.navGroup(id));
 assert.ok(read('script.js').includes("typeof navResolve==='function'?navResolve(requestedView):requestedView"),'legacy snapshot hash must resolve before first history record');
 assert.doesNotMatch(sim,/\b(?:setKV|saveAssetsToKV|saveExtDataToKV|localStorage|fetch)\s*[.(]/,'scenarios cannot persist or transmit');
 assert.match(sim,/id="sim-monthly" type="text" inputmode="decimal" value="\$\{simAmtText\(s\.monthly\)\}"/,'금액 칸은 입력 중 쉼표가 들어가는 글자 칸');
