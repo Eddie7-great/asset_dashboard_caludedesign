@@ -41,7 +41,7 @@ ctx.document.activeElement = el
 ctx.handleDecimalInput(el)
 assert.equal(el.value, '123,465')
 assert.equal(el.caret, 6, '커서는 쉼표를 건너 같은 숫자 뒤')
-assert.match(script, /if \(isDecimal\) \{[\s\S]*?el\.addEventListener\('input', \(\) => handleDecimalInput\(el\)\);/, '소수 칸도 입력 중 쉼표')
+assert.match(script, /\? handleDecimalInput\(el\) : handleAmtInput\(el\)/, '소수 칸도 입력 중 쉼표')
 assert.doesNotMatch(script, /el\.addEventListener\('focus', \(\) => \{ el\.value = String\(el\.value\|\|''\)\.replace\(\/,\/g,''\); \}\);/, '포커스 때 쉼표를 떼지 않는다')
 assert.match(index, /id="trade-pl"[^>]*data-neg="1"/, '실현손익 칸은 음수 허용')
 
@@ -88,3 +88,14 @@ assert.equal(state.get(masked).ticks[0].color, '#4a5878', '가리기를 풀 때 
 assert.match(style, /#cf-fixed-dist\{display:flex;flex-direction:column;gap:16px\}/)
 
 console.log('test_input_polish: ok')
+
+// 입력 중 쉼표 누락(2026-11-20) — 예전 화이트리스트 applyCommaFormatting(포커스 때 쉼표 제거·벗어날 때만 쉼표)이
+// 현금 흐름 금액·자산 수량/단가·적립 금액 칸에 먼저 commaApplied 를 찍어 입력 중 쉼표가 건너뛰어졌다.
+assert.doesNotMatch(script, /applyCommaFormatting/, '벗어날 때만 쉼표를 넣던 옛 처리는 없앴다')
+assert.match(script, /el\.addEventListener\('input', \(\) => \(el\.getAttribute\('inputmode'\) === 'decimal' \? handleDecimalInput\(el\) : handleAmtInput\(el\)\)\);/, '모드는 이벤트 때 읽는다')
+assert.match(index, /id="add-qty" placeholder="0" inputmode="decimal"/, '소수 수량(모으기)')
+assert.match(index, /id="add-avgp" placeholder="0" inputmode="decimal">/, '달러 단가 소수')
+assert.match(index, /id="cf-amt"[^>]*inputmode="numeric"|inputmode="numeric"[^>]*id="cf-amt"/)
+assert.match(index, /id="at-amt"[^>]*inputmode="numeric"/)
+assert.match(script, /input\.setAttribute\('inputmode','decimal'\);/, '보유 목록 인라인 수정 칸도 입력 중 쉼표')
+console.log('ok - 입력 중 쉼표: 화이트리스트 제거·소수 칸')

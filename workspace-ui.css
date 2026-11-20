@@ -441,7 +441,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 :is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.view-mode-bar>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
 :is(button.cb-dash-kpi,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.login-btn):active:not(:disabled){transform:scale(.98)}
 /* 움직임 줄이기 — 전역 규칙은 시간만 줄이고 지연(stagger)은 남겨 그 사이 카드가 숨어 있으므로, 여기서는 아예 끈다 */
-@media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-error{animation:none!important}#login-overlay{transition:none}}
+@media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-card *,.login-error{animation:none!important}#login-overlay{transition:none}}
 
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로

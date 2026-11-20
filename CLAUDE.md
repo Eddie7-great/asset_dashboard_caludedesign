@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+### 로그인 화면 마크 그리기 · 입력 중 쉼표 누락 (2026-11-20 2차)
+
+- **로그인 화면 등장은 시안 1 '마크 그리기'다(사용자 결정).** 카드 페이드(`cbLoginFade` 200ms) → 로고 막대 셋이 차례로 자람(`cbLoginGrow`, 아래 기준 `scaleY`, 지연 150/290/430ms) → 제목·안내·입력칸·버튼이 30ms 간격으로 올라옴(`cbLoginRise`, 지연 720~810ms). 로딩 스플래시(시안 D)와 같은 그림이라 로그인 → 로딩이 한 흐름이다. **자식 애니메이션의 fill 은 `backwards`** — `both` 면 끝난 뒤에도 transform 을 쥐고 있어 버튼 눌림(`:active` scale)이 막힌다. 움직임 줄이기는 `.login-card *` 까지 끈다. `test_motion.mjs` 가 지킨다.
+- **숫자 칸의 쉼표는 입력하는 동안 들어간다 — 전역 `initGlobalCommaInputs`(+ MutationObserver) 하나가 맡는다.** 예전 `initDashboard` 의 화이트리스트(`applyCommaFormatting`: 포커스 때 쉼표 제거 · 벗어날 때만 쉼표)가 현금 흐름 금액·자산 수량/단가/현금·적립 금액 칸에 먼저 `commaApplied` 를 찍어, 그 칸들만 '다 치고 바깥을 눌러야' 쉼표가 들어갔다 — 그 함수와 화이트리스트, 평균단가 전용 `handleAvgPriceInput` 은 지웠다. 리스너는 **이벤트 때의 `inputmode`** 로 정수(`handleAmtInput`)·소수(`handleDecimalInput`)를 고른다(평균단가는 창을 열 때 decimal 로 바뀐다). 소수가 오는 칸(`add-qty` 모으기 소수 수량·`add-avgp` 달러 단가·보유 목록 인라인 수정 칸)은 `inputmode="decimal"` 이다 — `numeric` 이면 입력 중 처리가 소수점을 지운다. 읽는 쪽은 모두 쉼표를 뗀다. 새 칸에 blur 전용 포매터를 다시 만들지 않는다. `test_input_polish.mjs` 가 지킨다.
+
 ### 실현손익 입력 줄 한 줄 · 보유 반영 선택 창 (2026-11-20)
 
 - **'보유 반영'은 글자 길이만큼의 버튼(`#cb-tax-hold-btn`, '보유 반영 안 함' / '삼성전자 10주', 폭 고정 없음·상한 260px 말줄임)과 선택 창(`#tax-hold-modal`)이다(사용자 결정).** 예전 `<select id="cb-tax-hold">` 는 가장 긴 종목명만큼 넓어져 입력 줄이 두 줄이 됐다. 창은 입력 줄에서 고른 소유주·시장(국내 = 원화 종목, 해외 = 그 밖)의 보유 주식만(`cbTaxHoldCandidates`), 검색·전량·수량(보유 초과 거부)을 받고, 고른 값은 메모리 `_cbTaxHold={idx,key,qty}` 뿐이다. 소유주·시장을 바꿔 맞지 않게 되면 지우고(`cbTaxHoldRecheck`, 다시 그릴 때는 `cbTaxHoldValidFor`), 기록·수정 시작·수정 취소·다른 화면으로 이동(`cbResetViewState`) 때 비운다 — 남아 있으면 나중의 다른 매도 기록이 그 종목 수량까지 줄인다. `cbTaxAdd` 는 이 값을 읽고 저장 직전에 행 열쇠(`cbTaxHoldKey`)를 다시 확인한다 — 계산은 그대로 `tradeApplyPlan(...,{skipPl:true})`·소유주 불일치 거부.

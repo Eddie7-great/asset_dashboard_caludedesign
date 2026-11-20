@@ -1981,43 +1981,6 @@ function toggleExcludedFixedCosts() {
 // =============================================
 // 숫자 입력 콤마 포매팅 (text 타입 입력 전용)
 // =============================================
-function applyCommaFormatting(inputEl) {
-  if (!inputEl || inputEl.dataset.commaApplied) return;
-  // type=number 입력에는 콤마 포매팅 적용 불가 → text로 변환
-  if (inputEl.type === 'number') inputEl.type = 'text';
-  inputEl.dataset.commaApplied = '1';
-  inputEl.setAttribute('inputmode', 'numeric');
-
-  inputEl.addEventListener('focus', function() {
-    // 포커스 시 콤마 제거
-    this.value = this.value.replace(/,/g, '');
-  });
-  inputEl.addEventListener('blur', function() {
-    const raw = this.value.replace(/[^0-9.]/g, '');
-    const num = parseFloat(raw);
-    if (!isNaN(num) && num !== 0) {
-      // data-decimal="1" 인 경우 소수점 최대 8자리 유지
-      if (this.dataset.decimal === '1') {
-        this.value = parseFloat(num.toFixed(8)).toLocaleString(undefined, {maximumFractionDigits: 8});
-      } else {
-        this.value = Math.round(num).toLocaleString();
-      }
-    }
-    else if (raw === '' || raw === '0') this.value = '';
-  });
-  inputEl.addEventListener('keydown', function(e) {
-    // 허용 키: 숫자, 백스페이스, 삭제, 방향키, 탭, 홈/엔드
-    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter'];
-    if (!allowed.includes(e.key) && !/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-    }
-  });
-  inputEl.addEventListener('input', function() {
-    // 숫자와 소수점만 허용, 콤마 제거 후 즉시 재포매팅하지 않음 (입력 중 방해 안 함)
-    const raw = this.value.replace(/[^0-9.]/g, '');
-    if (this.value !== raw) this.value = raw;
-  });
-}
 
 // =============================================
 // UI 상태
@@ -3387,6 +3350,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   const originalValue=item[field]; // 원래 값 저장 (ESC 복원용)
   const input=document.createElement('input');
   input.type='text';
+  input.setAttribute('inputmode','decimal');   // 입력 중 쉼표(전역 처리가 붙는다) — 저장은 쉼표를 뗀다
   input.className='editable-input';
   input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:var(--fs-cap);border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
   if(item.grp==='현금'&&field==='qty') input.style.width='110px';
@@ -4801,14 +4765,9 @@ function initGlobalCommaInputs(root) {
     if (el.dataset.noComma === '1') return;
     if (el.type === 'number') el.type = 'text';
     el.dataset.commaApplied = '1';
-    const isDecimal = el.getAttribute('inputmode') === 'decimal';
-    if (isDecimal) {
-      // 소수: 입력하는 동안 정수부에만 쉼표를 넣고 커서 위치는 지킨다(예전에는 칸을 벗어날 때만 넣었다)
-      el.addEventListener('input', () => handleDecimalInput(el));
-    } else {
-      // 정수: 실시간 콤마
-      el.addEventListener('input', () => handleAmtInput(el));
-    }
+    // 입력하는 동안 쉼표를 넣는다 — 소수(decimal)는 정수부에만 쉼표·커서 위치 보존, 정수(numeric)는 실시간 쉼표.
+    // 모드는 이벤트 때 읽는다(평균단가처럼 창을 열 때 decimal 로 바뀌는 칸이 있다).
+    el.addEventListener('input', () => (el.getAttribute('inputmode') === 'decimal' ? handleDecimalInput(el) : handleAmtInput(el)));
   });
 }
 
@@ -4852,20 +4811,6 @@ function handleCashAmtInput(el) {
 }
 
 // 평균단가 입력: 해외주식(USD)은 소수점 허용, 국내주식(KRW)은 정수 + 실시간 콤마
-function handleAvgPriceInput(el) {
-  const curSel = document.getElementById('add-currency-stock');
-  const cur = curSel ? curSel.value : 'KRW';
-  if (cur === 'USD') {
-    let raw = el.value.replace(/,/g,'').replace(/[^0-9.]/g, '');
-    const firstDot = raw.indexOf('.');
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, '');
-    }
-    if (el.value !== raw) el.value = raw;
-  } else {
-    handleAmtInput(el);
-  }
-}
 
 // 평균단가 blur 시 소수점 유지 여부를 현재 화폐에 맞춰 동기화
 function updateAvgpDecimalMode() {
@@ -5764,10 +5709,7 @@ function initDashboard(){
   // 테마 복원 — 3테마 (default/light/dark), 저장값 없으면 기본
   setTheme(_savedTheme());
 
-  // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
-  ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
-    const el=document.getElementById(id);if(el)applyCommaFormatting(el);
-  });
+  // (예전 화이트리스트 — 포커스 때 쉼표 제거·벗어날 때만 쉼표 — 는 없앴다. 그 칸들이 아래 입력 중 쉼표를 건너뛰게 만들었다.)
   // 2-1. 대시보드 전체 자동 쉼표 — inputmode=numeric/decimal 모든 input에 실시간 콤마 삽입
   try { initGlobalCommaInputs(); } catch(e){}
 
