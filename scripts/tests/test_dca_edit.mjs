@@ -32,14 +32,15 @@ assert.equal(base.dcaFractionalUs({ grp: '주식', cur: 'USD', qty: 3 }), false)
 assert.equal(base.dcaFractionalUs({ grp: '주식', cur: 'KRW', qty: 3.5 }), false);
 assert.equal(base.dcaFractionalUs({ grp: '가상화폐', cur: 'USD', qty: 0.1 }), false);
 
-// ── 보유 목록 칸: 중단도 보이고, 인덱스를 주면 칸 전체가 설정 창 버튼 ──
+// ── 보유 목록 칸: 중단한 규칙은 드러내지 않고 '—'(2026-11-20 8차, 사용자 결정), 인덱스를 주면 칸 전체가 설정 창 버튼 ──
 const paused = base.getDcaMergedCellHtml({ ...rule, dca: false });
-assert.match(paused, /<span class="dca-cycle is-paused">중단 · 매일<\/span><span class="dca-amount is-paused">₩10,000<\/span>/);
+assert.equal(paused, base.getDcaMergedCellHtml({ ...rule, dca: false, dcaAmt: 0 }), "중단은 설정 없음과 같은 '—'");
+assert.doesNotMatch(paused, /중단|is-paused|₩10,000/, '중단 규칙의 주기·금액을 칸에 적지 않는다');
 assert.match(base.getDcaMergedCellHtml({ ...rule, dca: true, dcaAmt: 0 }), /<span class="dca-amount is-missing">금액 미입력<\/span>/);
 assert.equal((base.getDcaMergedCellHtml({ ...rule, dca: false, dcaAmt: 0 }).match(/—/g) || []).length, 1, '규칙이 없으면 지금처럼 —(사용자 결정)');
 assert.doesNotMatch(paused, /<button/, '인덱스가 없으면(휴대폰 등) 버튼이 아니다');
 const btn = base.getDcaMergedCellHtml({ ...rule, dca: false }, 7);
-assert.match(btn, /^<button type="button" class="dca-cell-btn" onclick="cbDcaEdit\(7\)" title="중단 · 매일 · ₩10,000 — 눌러서 적립식 설정" aria-label="Tesla 적립식 설정 · 중단">/);
+assert.match(btn, /^<button type="button" class="dca-cell-btn" onclick="cbDcaEdit\(7\)" title="적립식 꺼짐 — 눌러서 적립식 설정" aria-label="Tesla 적립식 설정 · 꺼짐">/, '눌러서 설정 창을 열면 저장된 규칙이 채워져 켜기만 하면 재개된다');
 assert.match(base.getDcaMergedCellHtml({ ...rule, dca: false, dcaAmt: 0 }, 2), /aria-label="Tesla 적립식 설정 · 설정 없음">/, '규칙이 없어도 눌러서 만들 수 있다');
 assert.doesNotMatch(base.getDcaMergedCellHtml({ grp: '현금', dca: false }, 3), /<button/, '현금은 적립식 대상이 아니다');
 assert.equal((script.match(/<td class="dca-cell">\$\{getDcaMergedCellHtml\(i,_mobileHoldings\?null:pIdx\)\}<\/td>/g) || []).length, 3, '주식·가상화폐·금 표가 모두 인덱스를 넘긴다(휴대폰 제외)');
@@ -139,11 +140,12 @@ function makeCtx({ items, mobile = false, ready = true, save = async () => ({ ok
   assert.ok(!t3.els['dca-modal'].classList.contains('active'), '휴대폰은 조회 전용');
 }
 
-// ── 적립식 매수 화면: 같은 집합(dcaState) · 같은 창 · 빈 목록 안내 ──
+// ── 적립식 매수 화면: 조회 전용(2026-11-20 8차) — 켜 둔 규칙만(같은 dcaState), 수정은 보유 목록 칸의 설정 창 ──
 const dcaPage = grab(cobalt, 'cbRenderDca');
-assert.match(dcaPage, /\.filter\(x=>dcaState\(x\.i\)!=='none'\)/, '보유 목록 칸과 같은 집합');
-assert.match(dcaPage, /<button type="button" class="dca-rule-edit" onclick="cbDcaEdit\(\$\{x\.idx\}\)"/, '줄마다 같은 설정 창');
-assert.match(dcaPage, /보유 목록의 적립식 칸을 눌러 규칙을 추가하세요/);
+assert.match(dcaPage, /\.filter\(x=>\{ const st=dcaState\(x\.i\); return st==='on'\|\|st==='incomplete'; \}\)/, '켜 둔 규칙만 — 중단한 규칙은 빠진다(보유 목록 칸도 —)');
+assert.doesNotMatch(dcaPage, /cbDcaEdit\(|dca-rule-edit/, '이 화면에서는 고치지 않는다');
+assert.match(dcaPage, /진행 중인 적립식 규칙이 없습니다\. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 등록하거나 다시 켜세요\./);
+assert.match(dcaPage, /진행 중 규칙<\/div><div class="cb-dca-summary-value">\$\{active\.length\}<span>개<\/span><\/div>\$\{incomplete\?`<div class="cb-dca-summary-sub">금액 미입력 \$\{incomplete\}개는 빼고 셉니다<\/div>`:''\}/);
 assert.doesNotMatch(dcaPage, /위에서 보유 종목을 선택해/, '없는 기능을 가리키는 옛 안내를 지웠다');
 assert.match(grab(script, '_fixedCostDcaGroup'), /dcaState\(i\)==='on'/, '고정비 묶음도 같은 상태 함수');
 assert.match(dcaPage, /const active = items\.filter\(x=>dcaState\(x\.i\)==='on'\);/, '금액 미입력은 활성 규칙·일정·합계에서 뺀다');
@@ -163,7 +165,7 @@ assert.match(html, /id="dca-edit-amt" class="form-input" placeholder="[^"]*" inp
 assert.match(script, /if \(typeof cbDcaEditClose === 'function'\) cbDcaEditClose\(\);/, 'Esc 로 닫는다');
 assert.match(cobalt, /_cbModalDownOutside=\(id==='dca-modal'\|\|id==='tax-hold-modal'\)\?id:null;/, '바깥을 누르면 닫는다(안에서 끌고 나온 경우 제외)');
 assert.match(ws, /\.dca-cell-btn\{[^}]*color:var\(--tx\)/, '새 버튼은 글자색을 준다');
-assert.match(ws, /\.dca-rule-edit\{[^}]*color:var\(--tx\)/);
+assert.doesNotMatch(ws, /\.dca-rule-edit|\.dca-rule-actions|\.cb-dca-row\.is-paused/, '관리 칸 CSS 는 지웠다');
 // 기존 수정 창은 꺼진 규칙의 금액·주기를 그대로 채운다 — 수량만 고쳐 저장해도 중단 규칙이 지워지지 않는다
 const editItemSrc = script.slice(script.indexOf("document.getElementById('add-dca').checked=!!item.dca;"), script.indexOf("document.getElementById('add-dca').checked=!!item.dca;") + 200);
 assert.match(editItemSrc, /\n\s*document\.getElementById\('add-dca-cycle'\)\.value=item\.dcaCycle\|\|'매월';\n\s*document\.getElementById\('add-dca-amt'\)\.value=item\.dcaAmt\|\|0;/);

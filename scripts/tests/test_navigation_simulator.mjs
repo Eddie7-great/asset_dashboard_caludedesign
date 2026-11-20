@@ -66,24 +66,24 @@ for(let i=0;i<300;i++){
     assert.ok(Math.abs(out.rows.reduce((s,x)=>s+x.afterPct,0)-100)<1e-8);
   }
 }
-// DCA 일시정지 토글: 원장·재무계획이 모두 로드돼야 저장하고, 실패하면 되돌린 뒤 사용자에게 알린다.
-// (규칙 등록·수정은 종목 편집 모달과 적립식 설정 창 cbDcaEdit 이 맡는다 — 예전 인라인 편집기는 제거됐다.)
+// 적립식 매수 화면은 조회 전용(2026-11-20 8차, 사용자 결정) — 관리 칸(수정·켜기/끄기 토글)과 cbDcaToggle 은 없다.
+// 등록·수정·켜기/끄기는 보유 목록의 적립식 칸이 여는 설정 창(cbDcaEdit)이 맡고, 저장 가드(cbDcaCanSave·_dcaBusy)는 그 창이 쓴다.
 {
   const cobaltSrc=read('cobalt.js');
+  assert.doesNotMatch(cobaltSrc,/cbDcaToggle|dca-rule-edit|dca-rule-actions/,'적립식 화면의 토글·수정 버튼은 없앴다');
+  const render=cobaltSrc.match(/function cbRenderDca\(\)\{[\s\S]*?\n\}\n/)[0];
+  assert.doesNotMatch(render,/<span>관리<\/span>|cbDcaEdit\(/,'관리 칼럼이 없다');
+  assert.match(render,/const st=dcaState\(x\.i\); return st==='on'\|\|st==='incomplete';/,'켜 둔 규칙만 — 중단한 규칙은 빠진다');
+  assert.match(render,/onclick="switchView\('holdings'\)">보유 목록에서 수정 ›<\/button>/,'수정은 보유 목록으로 안내');
+  assert.match(cobaltSrc,/let _dcaBusy=false;\nfunction cbDcaCanSave\(\)\{/,'저장 가드는 남긴다(설정 창이 쓴다)');
+  assert.match(cobaltSrc,/async function cbDcaEditSave\(\)\{[\s\S]*?_dcaBusy[\s\S]*?cbDcaCanSave\(\)/,'설정 창 저장이 같은 가드를 쓴다');
   const start=cobaltSrc.indexOf('let _dcaBusy=false;');
-  const end=cobaltSrc.indexOf('\n}\n',cobaltSrc.indexOf('async function cbDcaToggle('))+3;
-  assert.ok(start>-1&&end>start,'DCA 토글 블록을 찾지 못함');
-  const items=[{owner:'본인',grp:'주식',tkr:'AAPL',acc:'일반',qty:9,avgP:170,curP:190,dca:true,dcaAmt:250000}];
-  let saved=0,success=true;const errors=[];
-  const dca=vm.createContext({pfolioData:items,isMobileLayout:()=>false,window:{_kvLoadState:{assets:'ready',ext:'ready'}},showSaveError:m=>errors.push(m),cbRenderDca:()=>{},saveAssetsToKV:async()=>{saved++;return{ok:success};}});
+  const end=cobaltSrc.indexOf('\n}\n',cobaltSrc.indexOf('function cbDcaCanSave('))+3;
+  const errors=[];
+  const dca=vm.createContext({window:{_kvLoadState:{assets:'ready',ext:'ready'}},showSaveError:m=>errors.push(m)});
   vm.runInContext(cobaltSrc.slice(start,end),dca);
-  await dca.cbDcaToggle(0);
-  assert.equal(saved,1);assert.equal(items[0].dca,false,'토글은 dca 플래그만 바꾼다');
-  assert.equal(items[0].dcaAmt,250000);assert.equal(items[0].qty,9);assert.equal(items[0].avgP,170);
-  success=false;await dca.cbDcaToggle(0);
-  assert.equal(items[0].dca,false,'저장 실패 시 되돌린다');
-  assert.equal(errors.length,1,'저장 실패를 사용자에게 알린다');
-  success=true;dca.window._kvLoadState.ext='loading';await dca.cbDcaToggle(0);
-  assert.equal(saved,2,'두 원격 원장이 모두 로드돼야 저장한다');assert.equal(items[0].dca,false);
+  assert.equal(dca.cbDcaCanSave(),true);
+  dca.window._kvLoadState.ext='loading';
+  assert.equal(dca.cbDcaCanSave(),false,'두 원격 원장이 모두 로드돼야 저장한다');assert.equal(errors.length,1);
 }
-console.log('PASS: consolidated navigation, scenario conservation/validation, guarded DCA pause toggle');
+console.log('PASS: consolidated navigation, scenario conservation/validation, read-only DCA page');

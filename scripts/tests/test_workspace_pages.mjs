@@ -48,6 +48,14 @@ assert.equal(ctx.acctKind('연금저축'), '연금');
 assert.equal(ctx.acctKind('IRP'), '연금');
 assert.equal(ctx.acctKind('증여계좌'), '증여계좌', "이름에 '증여'가 있으면 증여계좌");
 assert.equal(ctx.acctKind(''), '일반');
+// 자녀1 의 일반 계좌는 증여받은 돈으로 운용한다(2026-11-20 8차, 사용자 설명) — 화면 구분만, ISA·연금은 세제 구분 그대로
+assert.equal(ctx.acctKind('메리츠 일반', '자녀1'), '증여계좌');
+assert.equal(ctx.acctKind('토스 주식', '자녀1'), '증여계좌');
+assert.equal(ctx.acctKind('중개형 ISA', '자녀1'), 'ISA');
+assert.equal(ctx.acctKind('연금저축', '자녀1'), '연금');
+assert.equal(ctx.acctKind('일반', '본인'), '일반');
+assert.equal(ctx.ACCT_GIFT_OWNER ?? vm.runInContext('ACCT_GIFT_OWNER', ctx), '자녀1');
+assert.match(src, /kind:acctKind\(r\.i\.acc,owner\)/, '묶음은 소유주와 함께 판정');
 
 // ── 계좌별 묶음: 합계 보존, 현금·취득가 미상은 손익에서 제외, 소유주 필터 ──
 rows = [
@@ -76,6 +84,25 @@ assert.deepEqual(plain(d.kinds.map(k => [k.kind, k.value, k.accounts])), [['일�
 d = ctx.acctGroups('아내');
 assert.equal(d.total, 2500);
 assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자자산');
+
+// ── 자녀1 증여 계좌 ↔ 증여 이체 누계(cbGiftRecords('child') 그대로 — 기록장 + 증여로 연결한 자동이체) ──
+{
+  rows = [
+    row({ i: { owner: '자녀1', broker: '메리츠', acc: '일반' }, val: 3000, cost: 2600, gain: 400 }),
+    row({ i: { owner: '자녀1', broker: '토스', acc: '주식' }, val: 2000, cost: 1900, gain: 100 }),
+    row({ i: { owner: '본인', acc: '증여 받은 돈' }, val: 900 }),
+  ];
+  let gifts = [{ kind: 'child', amt: 1500 }, { kind: 'child', amt: 2500, auto: true }];
+  ctx.cbGiftRecords = kind => gifts.filter(r => !kind || r.kind === kind);
+  d = ctx.acctGroups(null);
+  assert.deepEqual(plain(d.kinds.map(k => [k.kind, k.value, k.accounts])), [['일반', 0, 0], ['ISA', 0, 0], ['연금', 0, 0], ['증여계좌', 5900, 3]], "자녀1 의 메리츠·토스 + 이름에 '증여'");
+  assert.deepEqual(plain(ctx.acctGiftCompare(d.groups, null)), { value: 5000, gifted: 4000, diff: 1000, count: 2, accounts: 2 }, '비교는 자녀1 증여계좌만(다른 소유주의 증여 이름 계좌 제외)');
+  assert.deepEqual(plain(ctx.acctGiftCompare(ctx.acctGroups('자녀1').groups, '자녀1')).value, 5000);
+  assert.equal(ctx.acctGiftCompare(ctx.acctGroups('본인').groups, '본인'), null, '자녀1 이 범위에 없으면 그리지 않는다');
+  gifts = [];
+  assert.equal(ctx.acctGiftCompare(d.groups, null).count, 0, '기록이 없으면 count 0 — 연결 안내를 그린다');
+  delete ctx.cbGiftRecords;
+}
 
 // ── 계좌별 보기 트리(2026-11-18): 리밸런싱과 같은 부품(finTreeHtml), 계좌 줄을 누르면 종목이 펼쳐진다 ──
 {
@@ -125,6 +152,21 @@ assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자�
   vm.runInContext("_cbTableSort={acct:{key:'value',dir:-1}};cbRenderAccounts();", ctx);
   h = els['cb-acct2'].innerHTML;
   assert.ok(h.indexOf('<b>아내</b>') < h.indexOf('<b>본인</b>'), '내림차순이면 큰 소유주(아내 2500)가 먼저');
+  // 증여계좌 카드: 자녀1 증여 이체 누계와 평가액·차이, 기록이 없으면 가족 증여로 가는 안내
+  vm.runInContext("_cbTableSort={};", ctx);
+  rows = [row({ i: { owner: '자녀1', broker: '메리츠', acc: '일반' }, title: '자녀 ETF', val: 3000, cost: 2600, gain: 400 })];
+  ctx.cbGiftRecords = () => [{ kind: 'child', amt: 2500 }];
+  vm.runInContext("_acctOwner='전체';cbRenderAccounts();", ctx);
+  h = els['cb-acct2'].innerHTML;
+  assert.match(h, /<span class="acct-gift-line"><span>자녀1 증여 이체 누계 <b class="cb-num">₩2,500<\/b><\/span>/);
+  assert.match(h, /평가액 ₩3,000 · <span data-tip="차이 = 자녀1 증여계좌 평가액 − 증여 이체 누계\.[^"]*증여세 신고가액\(유기정기금 평가액\)과 다릅니다\.">차이<\/span> <b class="cb-num" style="color:var\(--up\)">\+500<\/b>/);
+  assert.match(h, /<em class="acct-kind-chip">증여계좌<\/em>/, '트리 계좌 줄에도 증여계좌 표식');
+  ctx.cbGiftRecords = () => [];
+  vm.runInContext("cbRenderAccounts();", ctx);
+  assert.match(els['cb-acct2'].innerHTML, /<span class="acct-gift-line is-empty"><span>증여 이체 기록이 없습니다\.<\/span><button type="button" class="acct-gift-link" onclick="switchView\('gift2'\)">/);
+  vm.runInContext("_acctOwner='아내';cbRenderAccounts();_acctOwner='전체';", ctx);
+  assert.doesNotMatch(els['cb-acct2'].innerHTML, /acct-gift-line/, '자녀1 이 범위 밖이면 비교 줄이 없다');
+  delete ctx.cbGiftRecords;
 }
 
 // ── 통합 일정: 기존 판정 함수에 날짜마다 묻는다 ──
@@ -150,6 +192,27 @@ assert.deepEqual(plain(c.totals), { div: 0, dca: 100000, out: 0, in: 700000 }, '
 c = ctx.calEvents(2026, 1, null);
 assert.equal(c.last, 28);
 assert.equal(c.totals.div, 0, '지급월이 아니면 배당 없음');
+
+// 4번째 카드 — 이 달 예정 순현금(2026-11-20 8차): 위 합계를 더하고 뺄 뿐, 손익 색 없이, 수입이 없거나 저축 이체와 적립이 겹치면 밝힌다
+assert.equal(ctx.calNetCash({ totals: { div: 180000, dca: 600000, out: 320000, in: 700000 } }), -40000);
+{
+  const els = { 'cb-cal2': { innerHTML: '' } };
+  Object.assign(ctx, { document: { getElementById: id => els[id] || null }, FIN_SAVING_CATS: ['저축/투자'] });
+  vm.runInContext("_calOwner='전체';_calDay=null;_calYm={y:2026,m:10};cbRenderCalendar();", ctx);
+  let h = els['cb-cal2'].innerHTML;
+  assert.match(h, /<div class="cb-panel cal-sum-card cal-net-card"><span class="cal-kind"><span data-tip="[^"]*일정 기준 추정이며 현금 흐름 화면의 실제 순현금흐름과 다릅니다\.">이 달 예정 순현금<\/span><\/span><b class="cb-num">-40000<\/b><small>배당 \+ 수입 − 지출 − 적립 매수<\/small><\/div>/, '손익 색(style) 없이 부호만');
+  assert.doesNotMatch(h, /cal-kind in"><i><\/i>자동이체 수입<\/span><b>/, "예전 '자동이체 수입' 카드는 없다");
+  assert.match(h, /cal-chip in/, '수입 자동이체는 달력·목록에 그대로 남는다');
+  vm.runInContext("autoTransferData=[{owner:'본인',type:'지출',cat:'저축/투자',desc:'자녀 증여',amt:500000,dayOfMonth:10}];cbRenderCalendar();", ctx);
+  h = els['cb-cal2'].innerHTML;
+  assert.match(h, /<small class="cal-net-note">수입 자동이체가 없어 수입은 0원입니다\.<\/small>/);
+  assert.match(h, /<small class="cal-net-note">'저축\/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다\.<\/small>/);
+  vm.runInContext("autoTransferData=[{owner:'본인',type:'지출',desc:'관리비',amt:320000,dayOfMonth:25},{owner:'아내',type:'수입',desc:'월세',amt:700000,dayOfMonth:5}];", ctx);
+}
+assert.match(ws, /\.cal-list\{display:flex;flex-direction:column;margin-top:8px;flex:1 1 auto;min-height:160px;contain:size;position:relative;overflow-y:auto\}/, '목록은 달력 바닥까지 채우고 안에서 스크롤(목록 길이가 줄 높이를 늘리지 않게 contain:size)');
+assert.match(ws, /\.cal-list-panel\{display:flex;flex-direction:column\}/);
+assert.match(ws, /@media\(max-width:1100px\)\{[^\n]*\.cal-list\{contain:none;max-height:520px\}\}/, '한 단으로 쌓이면 예전 상한');
+assert.doesNotMatch(ws, /\.cal-list\{[^}]*max-height:520px;overflow-y:auto\}/);
 
 // 달 이동은 연도를 넘긴다
 vm.runInContext("cbRenderCalendar=()=>{};cbRestoreFilterFocus=()=>{};_calYm={y:2026,m:11};calMove(1);", ctx);
