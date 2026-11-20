@@ -24,7 +24,7 @@ const pfolioData = [
 const ctx = vm.createContext({ pfolioData, cbRate: (c) => (c === 'USD' ? 1400 : 1), _cfEsc: (v) => String(v),
   cbOwnerTag: (o) => `<i>${o}</i>`, window: { _balanceSheet: { cashTargetMonths: 6 } } });
 for (const n of ['cbDcaPerMonthKRW', 'cbDcaDayLabel', 'cbDcaRuleLabel']) vm.runInContext(grab(cobalt, n), ctx);
-for (const n of ['_fixedCostDcaGroup', '_fixedCostDcaHtml']) vm.runInContext(grab(script, n), ctx);
+for (const n of ['dcaHasRule', 'dcaState', '_fixedCostDcaGroup', '_fixedCostDcaHtml']) vm.runInContext(grab(script, n), ctx);
 
 const all = ctx._fixedCostDcaGroup('전체');
 assert.deepEqual(all.rows.map((r) => r.name), ['엔비디아', 'QQQ', 'TIME'], '켜 둔 규칙만, 월 환산 큰 순');

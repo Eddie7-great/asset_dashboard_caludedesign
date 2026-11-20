@@ -3809,7 +3809,7 @@ function cbRenderDca(){
   const el = document.getElementById('cb-dca2'); if(!el) return;
   const ownerF = (_cbDcaOwner && _cbDcaOwner!=='전체') ? _cbDcaOwner : null;
   const items = (pfolioData||[]).map((i,idx)=>({i,idx}))
-    .filter(x=>(x.i.dcaAmt>0)||(x.i.dcaMode==='qty'&&x.i.dcaQty>0))
+    .filter(x=>dcaState(x.i)!=='none')   // 보유 목록 적립식 칸과 같은 집합(켜짐·중단·금액 미입력)
     .filter(x=>!ownerF || x.i.owner===ownerF);
   // 내역 정렬: 소유주 → 계좌 → 국기(상장국) → 종목명 오름차순
   items.forEach(x=>{ x.r = cbRow(x.i, x.idx); });
@@ -3875,7 +3875,7 @@ function cbRenderDca(){
         acct:x=>x.i.broker||null, monthly:x=>cbDcaPerMonthKRW(x.i),
       }).map(x=>{
         const r=x.r;
-        const amtLabel = x.i.dcaMode==='qty'
+        const amtLabel = !dcaHasRule(x.i) ? '<span class="dca-amount is-missing">금액 미입력</span>' : x.i.dcaMode==='qty'
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
           : cbFmtNative(x.i.dcaAmt||0, x.i.dcaCur||'KRW');
         return `
@@ -3896,9 +3896,10 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
           <span class="dca-rule-actions" style="display:flex;justify-content:flex-end">
+            <button type="button" class="dca-rule-edit" onclick="cbDcaEdit(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 적립식 설정">수정</button>
             <span role="button" tabindex="0" onclick="cbDcaToggle(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 규칙 ${x.i.dca?'일시 중지':'활성화'}" aria-pressed="${!!x.i.dca}" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
           </span>
-        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 위에서 보유 종목을 선택해 규칙을 추가하세요.</div>'}
+        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 추가하세요.</div>'}
     </div>
     <div class="cb-panel cb-dca-allocation-card">
       <div class="cb-insight-title">월 환산 매수 배분 TOP 5</div>
@@ -3940,6 +3941,131 @@ async function cbDcaToggle(idx){
   // 편집기가 사라진 뒤로는 실패가 화면에 전혀 나타나지 않았다.
   if(!result?.ok){item.dca=before;showSaveError('⚠️ 저장하지 못해 적립식 규칙 상태를 되돌렸습니다.');}
   cbRenderDca();
+}
+// ── 적립식 설정 창(2026-11-20, 사용자 결정: 작은 설정 창) ── 보유 목록의 적립식 칸과 이 화면의 줄이 같은 창을 연다.
+// 바꾸는 것은 적립식 필드뿐이고(수량·평균단가·분할 기준일은 그대로), 저장은 기존 경로(saveAssetsToKV, CAS)다.
+// 두 원격 로드가 ready 일 때만 저장하고(cbDcaCanSave), 휴대폰은 조회 전용이다.
+const DCA_EDIT_FIELDS=['dca','dcaCycle','dcaAmt','dcaCur','dcaMode','dcaQty','dcaDays','dcaDay'];
+let _dcaEdit=null;
+// 창을 연 뒤 목록이 다시 그려지거나 행이 지워져도 같은 종목인지 확인하는 열쇠(인덱스만 믿지 않는다)
+function cbDcaEditKey(i){ return [i.owner||'',i.grp||'',i.tkr||'',i.broker||'',i.acc||'',i.name||''].join('|'); }
+// 창을 채울 값 — 저장된 규칙 그대로. 규칙이 없으면 주기는 모으기(소수점 미국 주식) 종목이면 '매일', 아니면 '매월'.
+function cbDcaEditDefaults(i){
+  const rule=dcaHasRule(i), mode=i.dcaMode==='qty'?'qty':'amount';
+  const days=Array.isArray(i.dcaDays)&&i.dcaDays.length?i.dcaDays.map(Number):[1];
+  return {
+    on: rule ? !!i.dca : true,
+    cycle: (rule||i.dca) ? (['매일','매주','매월'].includes(i.dcaCycle)?i.dcaCycle:'매월') : (dcaFractionalUs(i)?'매일':'매월'),
+    mode, amt: Number(i.dcaAmt)>0?Number(i.dcaAmt):'', cur: i.dcaCur==='USD'?'USD':'KRW',
+    qty: Number(i.dcaQty)>0?Number(i.dcaQty):'', days, day: Math.max(1,Math.min(31,Math.round(Number(i.dcaDay)||1))),
+  };
+}
+// 입력값 → 저장할 적립식 필드(순수 함수). 켜려면 금액(또는 수량)이 있어야 하고, 매주는 요일이 하나 이상이어야 한다.
+// 꺼 둔 채 저장하면 규칙만 보관된다(중단 상태 — 나중에 켜기만 하면 재개).
+function cbDcaEditPlan(form){
+  const num=v=>Number(String(v==null?'':v).replace(/,/g,'').trim());
+  const on=!!form.on, cycle=['매일','매주','매월'].includes(form.cycle)?form.cycle:'매월', mode=form.mode==='qty'?'qty':'amount';
+  const amt=num(form.amt)||0, qty=num(form.qty)||0;
+  if(!Number.isFinite(amt)||!Number.isFinite(qty)||amt<0||qty<0) return {ok:false,error:'금액·수량은 0 이상의 숫자로 입력하세요.'};
+  const days=[...new Set((form.days||[]).map(Number).filter(d=>Number.isInteger(d)&&d>=0&&d<=6))].sort((a,b)=>a-b);
+  if(on&&mode==='amount'&&!(amt>0)) return {ok:false,error:'매수를 켜려면 1회 매수 금액을 입력하세요.'};
+  if(on&&mode==='qty'&&!(qty>0)) return {ok:false,error:'매수를 켜려면 1회 매수 수량을 입력하세요.'};
+  if(cycle==='매주'&&!days.length) return {ok:false,error:'매주 매수는 요일을 하나 이상 고르세요.'};
+  return {ok:true,patch:{dca:on,dcaCycle:cycle,dcaMode:mode,dcaAmt:Math.round(amt),dcaCur:form.cur==='USD'?'USD':'KRW',dcaQty:qty,
+    dcaDays:cycle==='매주'?days:[],dcaDay:Math.max(1,Math.min(31,Math.round(Number(form.day)||1)))}};
+}
+function cbDcaEdit(idx){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const item=(pfolioData||[])[idx]; if(!item||item.grp==='현금') return;
+  if(typeof closeAddModal==='function') closeAddModal();
+  if(typeof closeTradeModal==='function') closeTradeModal();
+  const d=cbDcaEditDefaults(item), $=id=>document.getElementById(id);
+  _dcaEdit={idx,key:cbDcaEditKey(item),mode:d.mode};
+  const unit=item.unit||(item.grp==='가상화폐'?'개':'주');
+  $('dca-edit-title').textContent=`${item.name||item.tkr||'종목'} 적립식 설정`;
+  $('dca-edit-now').innerHTML=`<span>${cbEsc(item.owner||'')} · ${cbEsc(item.broker||'')} / ${cbEsc(item.acc||'')}</span>`
+    +`<span>보유 <b>${(Number(item.qty)||0).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</b> · 지금 <b>${DCA_STATE_LABEL[dcaState(item)]}</b></span>`;
+  const daySel=$('dca-edit-day');
+  if(daySel&&!daySel.options.length) daySel.innerHTML=Array.from({length:31},(_,k)=>`<option value="${k+1}">${k+1}일</option>`).join('');
+  $('dca-edit-on').checked=d.on;
+  $('dca-edit-cycle').value=d.cycle;
+  daySel.value=String(d.day);
+  document.querySelectorAll('.dca-edit-dow').forEach(c=>{c.checked=d.days.includes(Number(c.value));});
+  $('dca-edit-amt').value=d.amt===''?'':Number(d.amt).toLocaleString();
+  $('dca-edit-cur').value=d.cur;
+  $('dca-edit-qty').value=d.qty===''?'':String(d.qty);
+  $('dca-edit-qty-label').textContent=`1회 매수 수량 (${unit})`;
+  const err=$('dca-edit-error'); err.textContent=''; err.hidden=true;
+  cbDcaEditMode(d.mode); cbDcaEditSync();
+  const modal=$('dca-modal');
+  window._dcaEditReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  modal.classList.add('active'); modal.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>$('dca-edit-on')?.focus());
+}
+function cbDcaEditSync(){
+  const cycle=document.getElementById('dca-edit-cycle')?.value, on=document.getElementById('dca-edit-on')?.checked;
+  const day=document.getElementById('dca-edit-day-wrap'), dows=document.getElementById('dca-edit-dows'), st=document.getElementById('dca-edit-state');
+  if(day) day.hidden=cycle!=='매월';
+  if(dows) dows.hidden=cycle!=='매주';
+  if(st) st.textContent=on?'저장하면 적립식 일정·합계에 들어갑니다':'끈 채 저장하면 규칙만 보관됩니다(중단)';
+}
+function cbDcaEditMode(mode){
+  mode=mode==='qty'?'qty':'amount';
+  if(_dcaEdit) _dcaEdit.mode=mode;
+  document.getElementById('dca-edit-mode-amount')?.setAttribute('aria-pressed',String(mode==='amount'));
+  document.getElementById('dca-edit-mode-qty')?.setAttribute('aria-pressed',String(mode==='qty'));
+  const a=document.getElementById('dca-edit-amt-wrap'), q=document.getElementById('dca-edit-qty-wrap');
+  if(a) a.hidden=mode!=='amount';
+  if(q) q.hidden=mode!=='qty';
+}
+function cbDcaEditClose(){
+  const modal=document.getElementById('dca-modal');
+  if(!modal?.classList.contains('active')) return;
+  modal.classList.remove('active'); modal.setAttribute('aria-hidden','true');
+  _dcaEdit=null;
+  const back=window._dcaEditReturnFocus; window._dcaEditReturnFocus=null;
+  if(back&&document.contains(back)) back.focus();
+}
+async function cbDcaEditSave(){
+  if(!_dcaEdit||_dcaBusy) return;
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const $=id=>document.getElementById(id), err=$('dca-edit-error');
+  const fail=m=>{err.textContent=m; err.hidden=!m;};
+  const item=(pfolioData||[])[_dcaEdit.idx];
+  if(!item||cbDcaEditKey(item)!==_dcaEdit.key){ fail('목록이 바뀌어 이 종목을 찾지 못했습니다. 창을 닫고 다시 열어 주세요.'); return; }
+  const plan=cbDcaEditPlan({on:$('dca-edit-on').checked,cycle:$('dca-edit-cycle').value,mode:_dcaEdit.mode,amt:$('dca-edit-amt').value,
+    cur:$('dca-edit-cur').value,qty:$('dca-edit-qty').value,day:$('dca-edit-day').value,
+    days:Array.from(document.querySelectorAll('.dca-edit-dow:checked')).map(c=>c.value)});
+  if(!plan.ok){ fail(plan.error); return; }
+  if(!cbDcaCanSave()) return;
+  const before={}; DCA_EDIT_FIELDS.forEach(k=>{ before[k]=Array.isArray(item[k])?item[k].slice():item[k]; });
+  Object.assign(item,plan.patch); _dcaBusy=true;
+  let result;
+  try{ result=await saveAssetsToKV(); }catch(e){ result={ok:false}; }
+  _dcaBusy=false;
+  if(!result?.ok){
+    // 저장 경로가 마지막 정상 상태로 되돌리면 이 객체는 목록에서 빠진다. 충돌(409)처럼 그대로 남은 경우만 직접 되돌린다.
+    if((pfolioData||[]).includes(item)) DCA_EDIT_FIELDS.forEach(k=>{ item[k]=before[k]; });
+    fail('저장하지 못했습니다 — 적립식 설정을 되돌렸습니다.');
+    cbDcaEditRefresh();
+    return;
+  }
+  cbDcaEditClose();
+  cbDcaEditRefresh();
+}
+// 보유 목록(레거시 화면)은 저장 래퍼의 cbRerender 가 다시 그리지 않으므로 여기서 그린다.
+function cbDcaEditRefresh(){
+  if(document.getElementById('view-holdings')?.classList.contains('active')&&typeof renderPortfolio==='function') renderPortfolio(currentOwner);
+}
+// 창 바깥(어두운 바탕)을 누르면 닫는다 — 안에서 누른 채 끌고 나온 경우는 닫지 않는다(매수·매도 창과 같은 방식).
+let _cbModalDownOutside=null;
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('pointerdown',e=>{ const id=e.target&&e.target.id; _cbModalDownOutside=(id==='dca-modal'||id==='tax-hold-modal')?id:null; },true);
+  document.addEventListener('click',e=>{
+    const id=e.target&&e.target.id;
+    if(id&&id===_cbModalDownOutside){ if(id==='dca-modal') cbDcaEditClose(); else if(typeof cbTaxHoldClose==='function') cbTaxHoldClose(); }
+    _cbModalDownOutside=null;
+  });
 }
 // ───────────────────────── 라우팅 통합 ─────────────────────────
 function cbRerender(){

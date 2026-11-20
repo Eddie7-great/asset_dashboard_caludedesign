@@ -1677,12 +1677,12 @@ function _fixedCostDistributionHtml(included, y, m) {
 // 고정비 합계(월 고정비 카드·분포·수입 대비 비율)에는 넣지 않고 옆에 따로 보여 준다.
 // 대상·금액은 현금 안전판(finCashSafety 의 dca)과 같다: 켜 둔(i.dca) 적립식 규칙의 월 환산(cbDcaPerMonthKRW). 새 계산 없음.
 function _fixedCostDcaGroup(ownerF){
-  const mine=(pfolioData||[]).filter(i=>i&&(Number(i.dcaAmt)>0||(i.dcaMode==='qty'&&Number(i.dcaQty)>0))&&(!ownerF||ownerF==='전체'||i.owner===ownerF));
+  const mine=(pfolioData||[]).filter(i=>i&&dcaHasRule(i)&&(!ownerF||ownerF==='전체'||i.owner===ownerF));
   const perMonth=i=>typeof cbDcaPerMonthKRW==='function'?cbDcaPerMonthKRW(i):0;
-  const rows=mine.filter(i=>i.dca).map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
+  const rows=mine.filter(i=>dcaState(i)==='on').map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
     label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
     .sort((a,b)=>b.monthly-a.monthly||String(a.name).localeCompare(String(b.name),'ko'));
-  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0),paused:mine.filter(i=>!i.dca).length};
+  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0),paused:mine.filter(i=>dcaState(i)==='paused').length};
 }
 function _fixedCostDcaHtml(group, savingCount){
   const won=v=>`₩${Math.round(v).toLocaleString()}`;
@@ -2961,6 +2961,23 @@ function _isDcaHoliday(dateObj, market) {
   return false;
 }
 
+// ── 적립식 상태 한 벌(2026-11-20) ── 보유 목록 적립식 칸·적립식 매수 화면·고정비 묶음이 이 함수로 같은 집합을 그린다.
+// 규칙 = 회당 금액(또는 수량)이 있는 것. 켜짐(dca) × 규칙 유무 네 조합:
+//   on(켜짐+규칙) · paused(꺼짐+규칙 — 다시 켜면 그대로 재개) · incomplete(켜짐+금액 0 — 일정·합계는 0) · none(꺼짐+규칙 없음).
+// 예전에는 보유 목록이 dca 만, 적립식 화면이 금액만 봐서 중단한 규칙이 한쪽에만 보였다.
+function dcaHasRule(i){ return !!i&&(Number(i.dcaAmt)>0||(i.dcaMode==='qty'&&Number(i.dcaQty)>0)); }
+function dcaState(i){
+  if(!i) return 'none';
+  const rule=dcaHasRule(i);
+  if(i.dca) return rule?'on':'incomplete';
+  return rule?'paused':'none';
+}
+// 소수점 수량의 미국 주식은 모두 '모으기'(매일 소수점 매수)로 산 종목이다(사용자 설명). 규칙이 없을 때 설정 창의 기본 주기만 '매일'로 둔다.
+function dcaFractionalUs(i){
+  const q=Number(i&&i.qty)||0;
+  return !!i&&i.grp==='주식'&&i.cur==='USD'&&q>0&&Math.abs(q-Math.round(q))>1e-9;
+}
+
 // DCA 주기 레이블 (holdings 표시용)
 function getDcaCycleLabel(item) {
   if (item.dcaCycle === '매일') return '매일';
@@ -2979,22 +2996,34 @@ function getDcaCellHtml(item){
   return `<span class="dca-cycle">${getDcaCycleLabel(item)}</span>`;
 }
 
-// 자산 내역 표의 회당 DCA 금액/수량 칼럼.
-function getDcaAmountCellHtml(item){
-  if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
+// 회당 금액(또는 수량) 글자 — 켜짐·중단 두 상태가 같은 글자를 쓴다.
+function getDcaAmountText(item){
   const isQty = item.dcaMode === 'qty';
   const sym = curSymbol(item.dcaCur || 'KRW');  // 통화 기호는 CURRENCY_META 단일 출처
   const unit = item.grp === '가상화폐' ? '개' : '주';
-  const amt = isQty
+  return isQty
     ? (Number(item.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4}) + unit
     : sym + (Number(item.dcaAmt)||0).toLocaleString();
-  return `<span class="dca-amount">${amt}</span>`;
+}
+// 자산 내역 표의 회당 DCA 금액/수량 칼럼.
+function getDcaAmountCellHtml(item){
+  if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
+  return `<span class="dca-amount">${getDcaAmountText(item)}</span>`;
 }
 // 보유 목록의 '적립식' 한 칸 — 윗줄 주기, 아랫줄 회당 금액. 예전에는 'DCA 주기'·'회당 금액' 두 칸이었는데
 // 대부분 '—' 인 두 칸이 표 폭의 13%를 차지해 종목명이 'TIGER 미…'로 잘렸다.
-function getDcaMergedCellHtml(item){
-  if (!item || !item.dca) return getDcaCellHtml(item);
-  return getDcaCellHtml(item) + getDcaAmountCellHtml(item);
+// 상태는 dcaState 한 벌이다 — 중단한 규칙도 '중단 · 주기 / 금액'으로 보여 적립식 매수 화면과 같은 종목이 같은 상태로 보인다.
+// pIdx 를 주면(넓은 화면 표) 칸 전체가 적립식 설정 창(cbDcaEdit) 버튼이다. 현금은 적립식 대상이 아니다.
+const DCA_STATE_LABEL={on:'진행 중',paused:'중단',incomplete:'금액 미입력',none:'설정 없음'};
+function getDcaMergedCellHtml(item, pIdx){
+  const st=dcaState(item);
+  let inner;
+  if (st==='on') inner=getDcaCellHtml(item) + getDcaAmountCellHtml(item);
+  else if (st==='paused') inner=`<span class="dca-cycle is-paused">중단 · ${getDcaCycleLabel(item)}</span><span class="dca-amount is-paused">${getDcaAmountText(item)}</span>`;
+  else if (st==='incomplete') inner=`<span class="dca-cycle">${getDcaCycleLabel(item)}</span><span class="dca-amount is-missing">금액 미입력</span>`;
+  else inner=getDcaCellHtml(item);
+  if (pIdx==null || !item || item.grp==='현금') return inner;
+  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${DCA_STATE_LABEL[st]}">${inner}</button>`;
 }
 // 평가액 칸 아랫줄의 비중 막대 — 막대 길이는 표에서 가장 큰 평가액 대비(홈 보유 표와 같은 방식),
 // 숫자는 위 '평가액' 숫자 카드 합계 대비 비중이다. 새 계산 없이 각 행의 평가액만 쓴다.
@@ -3508,7 +3537,7 @@ function renderPortfolio(owner, opts) {
           // [7] 수익금에 (₩)
           const fProfit=i.costUnknown?'<span class="cost-unknown-note">산정 제외</span>':(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
           const fProfitPct=i.costUnknown?'<span class="cost-unknown-note">—</span>':sign+profitPct.toFixed(2)+'%';
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -3528,7 +3557,7 @@ function renderPortfolio(owner, opts) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -3549,7 +3578,7 @@ function renderPortfolio(owner, opts) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.avgP*rate,curP:i.curP*rate,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.avgP*rate,curP:i.curP*rate,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
         // 검색·시세 미조회 필터는 행만 숨긴다(합계는 위에서 이미 더했다). 현금은 이 시점에 _priceStale 이 정해진다.
         if(!holdingsRowMatches(i)) rowsHtml=rowsHtml.slice(0,_rowStart);
@@ -5633,6 +5662,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeAddModal();
     closeTradeModal();
+    if (typeof cbDcaEditClose === 'function') cbDcaEditClose();
+    if (typeof cbTaxHoldClose === 'function') cbTaxHoldClose();
     if (typeof closeREModal === 'function') closeREModal();
     if (typeof closeLiabModal === 'function') closeLiabModal();
     closeCfDetails();

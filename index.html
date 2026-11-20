@@ -377,6 +377,32 @@
     <button type="button" class="btn-submit" style="width:100%" onclick="submitTrade()">등록</button>
   </div>
 </div>
+<!-- 적립식 설정(2026-11-20) — 보유 목록의 적립식 칸과 적립식 매수 화면의 줄이 같은 창을 연다.
+     주문을 넣지 않고 적립식 일정·합계에만 반영한다. 바뀌는 것은 적립식 필드뿐이다(수량·평균단가는 그대로). -->
+<div class="modal-overlay" id="dca-modal" aria-hidden="true">
+  <div class="modal-content f-col dca-modal" role="dialog" aria-modal="true" aria-labelledby="dca-edit-title" tabindex="-1">
+    <div class="modal-header f-between"><h3 style="margin:0" id="dca-edit-title">적립식 설정</h3><button type="button" class="modal-close" onclick="cbDcaEditClose()" aria-label="적립식 설정 창 닫기">×</button></div>
+    <div class="trade-now" id="dca-edit-now"></div>
+    <label class="dca-edit-switch"><input type="checkbox" id="dca-edit-on" role="switch" onchange="cbDcaEditSync()"><span>매수 진행 중</span><small id="dca-edit-state"></small></label>
+    <div class="form-row">
+      <div class="form-group f-col"><label class="form-label" for="dca-edit-cycle">주기</label><select id="dca-edit-cycle" class="form-input" onchange="cbDcaEditSync()"><option value="매일">매일(매 영업일)</option><option value="매주">매주</option><option value="매월">매월</option></select></div>
+      <div class="form-group f-col" id="dca-edit-day-wrap"><label class="form-label" for="dca-edit-day">매수일</label><select id="dca-edit-day" class="form-input"></select></div>
+    </div>
+    <fieldset class="dca-edit-dows" id="dca-edit-dows" hidden>
+      <legend class="form-label">요일 (여러 개 고를 수 있음)</legend>
+      <label><input type="checkbox" class="dca-edit-dow" value="1">월</label><label><input type="checkbox" class="dca-edit-dow" value="2">화</label><label><input type="checkbox" class="dca-edit-dow" value="3">수</label><label><input type="checkbox" class="dca-edit-dow" value="4">목</label><label><input type="checkbox" class="dca-edit-dow" value="5">금</label><label><input type="checkbox" class="dca-edit-dow" value="6">토</label><label><input type="checkbox" class="dca-edit-dow" value="0">일</label>
+    </fieldset>
+    <div class="trade-side" role="group" aria-label="매수 방식">
+      <button type="button" id="dca-edit-mode-amount" aria-pressed="true" onclick="cbDcaEditMode('amount')">금액으로</button>
+      <button type="button" id="dca-edit-mode-qty" aria-pressed="false" onclick="cbDcaEditMode('qty')">수량으로</button>
+    </div>
+    <div class="form-group f-col" id="dca-edit-amt-wrap"><label class="form-label" for="dca-edit-amt">1회 매수 금액</label><div class="dca-edit-amt-row"><input type="text" id="dca-edit-amt" class="form-input" placeholder="예: 10,000" inputmode="numeric"><select id="dca-edit-cur" class="form-input" aria-label="매수 통화"><option value="KRW">₩ KRW</option><option value="USD">$ USD</option></select></div></div>
+    <div class="form-group f-col" id="dca-edit-qty-wrap" hidden><label class="form-label" for="dca-edit-qty" id="dca-edit-qty-label">1회 매수 수량</label><input type="text" id="dca-edit-qty" class="form-input" placeholder="0" inputmode="decimal"></div>
+    <p class="trade-note">실제 주문은 증권사 앱에서 켜고 끕니다.<br>여기 설정은 적립식 일정·합계에만 쓰입니다.</p>
+    <p class="trade-error" id="dca-edit-error" role="alert" hidden></p>
+    <button type="button" class="btn-submit" style="width:100%" onclick="cbDcaEditSave()">저장</button>
+  </div>
+</div>
 <div class="modal-overlay" id="add-modal">
   <div class="modal-content f-col" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="asset-modal-description" tabindex="-1" style="max-width:500px;position:relative;overflow:visible;">
     <p id="asset-modal-description" class="sr-only">소유주, 자산 종류, 금융기관, 수량과 가격 정보를 입력합니다.</p>
