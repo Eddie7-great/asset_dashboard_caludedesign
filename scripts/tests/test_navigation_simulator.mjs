@@ -67,7 +67,7 @@ for(let i=0;i<300;i++){
   }
 }
 // DCA 일시정지 토글: 원장·재무계획이 모두 로드돼야 저장하고, 실패하면 되돌린 뒤 사용자에게 알린다.
-// (규칙 등록·수정은 종목 편집 모달이 맡는다 — 예전 인라인 편집기는 제거됐다.)
+// (규칙 등록·수정은 종목 편집 모달과 적립식 설정 창 cbDcaEdit 이 맡는다 — 예전 인라인 편집기는 제거됐다.)
 {
   const cobaltSrc=read('cobalt.js');
   const start=cobaltSrc.indexOf('let _dcaBusy=false;');

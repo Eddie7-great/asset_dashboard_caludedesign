@@ -39,7 +39,7 @@ assert.match(base.getDcaMergedCellHtml({ ...rule, dca: true, dcaAmt: 0 }), /<spa
 assert.equal((base.getDcaMergedCellHtml({ ...rule, dca: false, dcaAmt: 0 }).match(/—/g) || []).length, 1, '규칙이 없으면 지금처럼 —(사용자 결정)');
 assert.doesNotMatch(paused, /<button/, '인덱스가 없으면(휴대폰 등) 버튼이 아니다');
 const btn = base.getDcaMergedCellHtml({ ...rule, dca: false }, 7);
-assert.match(btn, /^<button type="button" class="dca-cell-btn" onclick="cbDcaEdit\(7\)" title="눌러서 적립식 설정" aria-label="Tesla 적립식 설정 · 중단">/);
+assert.match(btn, /^<button type="button" class="dca-cell-btn" onclick="cbDcaEdit\(7\)" title="중단 · 매일 · ₩10,000 — 눌러서 적립식 설정" aria-label="Tesla 적립식 설정 · 중단">/);
 assert.match(base.getDcaMergedCellHtml({ ...rule, dca: false, dcaAmt: 0 }, 2), /aria-label="Tesla 적립식 설정 · 설정 없음">/, '규칙이 없어도 눌러서 만들 수 있다');
 assert.doesNotMatch(base.getDcaMergedCellHtml({ grp: '현금', dca: false }, 3), /<button/, '현금은 적립식 대상이 아니다');
 assert.equal((script.match(/<td class="dca-cell">\$\{getDcaMergedCellHtml\(i,_mobileHoldings\?null:pIdx\)\}<\/td>/g) || []).length, 3, '주식·가상화폐·금 표가 모두 인덱스를 넘긴다(휴대폰 제외)');
@@ -146,6 +146,15 @@ assert.match(dcaPage, /<button type="button" class="dca-rule-edit" onclick="cbDc
 assert.match(dcaPage, /보유 목록의 적립식 칸을 눌러 규칙을 추가하세요/);
 assert.doesNotMatch(dcaPage, /위에서 보유 종목을 선택해/, '없는 기능을 가리키는 옛 안내를 지웠다');
 assert.match(grab(script, '_fixedCostDcaGroup'), /dcaState\(i\)==='on'/, '고정비 묶음도 같은 상태 함수');
+assert.match(dcaPage, /const active = items\.filter\(x=>dcaState\(x\.i\)==='on'\);/, '금액 미입력은 활성 규칙·일정·합계에서 뺀다');
+{ // 금액 미입력 규칙은 일정이 없다(일정 탭·10일 목록이 0원 매수를 띄우지 않게)
+  const sc = vm.createContext({ cbDcaIsHoliday: () => false, cbDcaDateKey: d => d.toISOString().slice(0, 10) });
+  for (const n of ['dcaHasRule']) vm.runInContext(grab(script, n), sc);
+  vm.runInContext(grab(cobalt, 'cbDcaScheduledOn'), sc);
+  const day = new Date(2026, 10, 20, 12);
+  assert.equal(sc.cbDcaScheduledOn({ dca: true, dcaCycle: '매일', dcaAmt: 1000 }, day), true);
+  assert.equal(sc.cbDcaScheduledOn({ dca: true, dcaCycle: '매일', dcaAmt: 0 }, day), false);
+}
 
 // ── 마크업·닫기 ──
 for (const id of ['dca-edit-on', 'dca-edit-cycle', 'dca-edit-day', 'dca-edit-dows', 'dca-edit-amt', 'dca-edit-cur', 'dca-edit-qty', 'dca-edit-error']) assert.match(html, new RegExp(`id="${id}"`));

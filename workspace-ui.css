@@ -1114,8 +1114,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .tax-hold-qty-row>input{flex:1 1 auto;min-width:0}
 .tax-hold-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 /* 입력 줄은 한 줄이다(2026-11-20) — 값만으로 뜻이 보이는 칸(월·시장·계좌·소유주·메모)은 이름을 화면 낭독용으로만 두고(sr-only),
-   1440px 이상은 제목 · 입력 줄 · 도구가 한 줄(11-18 결정), 그보다 좁으면 제목·도구가 윗줄, 입력 줄이 통째로 아랫줄이다. 입력 줄 자체는 줄바꿈하지 않는다. */
-@media(min-width:769px){
+   1440px 이상은 제목 · 입력 줄 · 도구가 한 줄(11-18 결정), 그보다 좁으면 제목·도구가 윗줄, 입력 줄이 통째로 아랫줄이다. 1280px 이상에서 입력 줄 자체는 줄바꿈하지 않는다. */
+@media(min-width:1280px){   /* 더 좁으면 긴 '보유 반영' 이름과 함께 기록 버튼이 잘린다(측정: 900·1024·1150px) — 그때는 입력 줄 안에서 줄바꿈 */
   .cb-tax-hist-top .cb-tax-entry-form{flex-wrap:nowrap}
   .cb-tax-hist-top .cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 120px;min-width:90px}
 }
@@ -1182,9 +1182,13 @@ button,input,select,textarea{font-family:var(--font-ui)}
 
 /* ===== 적립식 설정 창·적립식 칸 상태(2026-11-20) — 보유 목록 적립식 칸과 적립식 매수 화면의 '수정'이 같은 창(#dca-modal)을 연다 =====
    칸은 dcaState 한 벌로 그린다: 진행 중(주기/금액) · 중단(흐린 '중단 · 주기'/금액) · 금액 미입력 · 없음('—'). */
-.dca-cell-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:32px;padding:2px 4px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.dca-cell-btn{display:flex;flex-direction:column;align-items:flex-end;gap:2px;width:100%;min-width:0;min-height:32px;padding:2px 4px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--tx);font:inherit;text-align:right;cursor:pointer}
+/* 칸은 예전처럼 오른쪽 정렬·말줄임(두 줄) — 버튼 안에서도 같은 규칙 */
+#view-holdings .pt-table td.dca-cell .dca-cell-btn>span{display:block;max-width:100%;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#view-holdings .pt-table td.dca-cell .dca-cell-btn>.dca-amount{color:var(--mut)}
+#view-holdings .pt-table td.dca-cell .is-paused{color:var(--lab);font-weight:500}
+#view-holdings .pt-table td.dca-cell .is-missing{color:var(--warn)}
 .dca-cell-btn:hover{background:var(--inner)}
-#view-holdings .dca-cycle.is-paused,#view-holdings .dca-amount.is-paused{color:var(--lab);font-weight:500}
 .dca-amount.is-missing{color:var(--warn);font-size:var(--fs-cap);font-weight:600}
 .dca-modal{width:440px;max-width:92vw;gap:12px}
 .dca-modal .form-row{margin-bottom:0;flex-wrap:nowrap}

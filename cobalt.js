@@ -3327,6 +3327,8 @@ function cbRenderTax(){
   // 기록 폼의 소유주 기본값 = 현재 선택된 소유주 탭 ('전체' 탭이면 첫 소유주)
   const draftOwner = (OWNERS.indexOf(_cbTaxDraft.owner)>=0) ? _cbTaxDraft.owner
     : (_cbTaxOwner!=='전체' ? _cbTaxOwner : OWNERS[0]);
+  // 다시 그릴 때(소유주 탭·연도·월 필터) 고른 보유 반영이 지금 입력 줄의 소유주·시장과 맞지 않으면 지운다 — 다른 매도 기록에 따라붙지 않게.
+  if (_cbTaxHold && !cbTaxHoldValidFor(draftOwner, _cbTaxDraft.k||'domestic')) _cbTaxHold=null;
   // 소유주 탭·조회 연도는 메인 제목 라인(글로벌 헤더) 우측으로
   cbSetHead(
     '계좌(일반·연금저축·ISA)별 실현손익과 예상 세액 · 매도 확정 손익 기준',
@@ -3585,12 +3587,16 @@ function cbTaxHoldPaint(){
   b.innerHTML=cbTaxHoldLabel();
   b.classList.toggle('is-set',!!_cbTaxHold);
 }
+// 고른 보유 반영이 이 소유주·시장의 보유 주식으로 아직 그대로 있는가(같은 행 열쇠까지).
+function cbTaxHoldValidFor(owner, kind){
+  const item=_cbTaxHold&&pfolioData[_cbTaxHold.idx];
+  return !!item&&cbTaxHoldKey(item)===_cbTaxHold.key&&cbTaxHoldCandidates(owner,kind).some(x=>x.i===item);
+}
 // 소유주·시장을 바꿔 고른 종목이 더는 맞지 않으면 선택을 지운다.
 function cbTaxHoldRecheck(){
   if(!_cbTaxHold) return;
-  const item=pfolioData[_cbTaxHold.idx];
   const owner=document.getElementById('cb-tax-owner')?.value, kind=document.getElementById('cb-tax-k')?.value||'domestic';
-  if(!item||cbTaxHoldKey(item)!==_cbTaxHold.key||!cbTaxHoldCandidates(owner,kind).some(x=>x.i===item)){ _cbTaxHold=null; cbTaxHoldPaint(); }
+  if(!cbTaxHoldValidFor(owner,kind)){ _cbTaxHold=null; cbTaxHoldPaint(); }
 }
 function cbTaxHoldOpen(){
   if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
@@ -3761,7 +3767,7 @@ function cbTaxDel(id){
 }
 
 // ───────────────────────── 페이지: DCA 자동매수 ─────────────────────────
-// 조회 전용 페이지 — 규칙 등록/수정은 "자산 내역"(script.js 자산 추가·수정 모달)에서만 한다.
+// 규칙 등록·수정은 적립식 설정 창(cbDcaEdit — 이 화면 줄의 '수정'과 보유 목록 적립식 칸이 같은 창)과 종목 편집 모달이 맡는다.
 function cbDcaPerMonthKRW(i){
   const amtKrw = (i.dcaMode==='qty')
     ? (i.dcaQty||0)*(i.curP||0)*cbRate(i.cur)
@@ -3813,6 +3819,7 @@ function cbDcaIsHoliday(i,date){
 }
 function cbDcaScheduledOn(i,date){
   if (!i || !i.dca) return false;
+  if (typeof dcaHasRule==='function' && !dcaHasRule(i)) return false;   // 금액 미입력 규칙은 일정이 없다(일정 탭·10일 목록 공통)
   const cycle=i.dcaCycle||'매월';
   if (cycle==='매일') return !cbDcaIsHoliday(i,date);
   if (cycle==='매주'){
@@ -3913,7 +3920,7 @@ function cbRenderDca(){
     || String(a.i.broker||'').localeCompare(String(b.i.broker||''), 'ko')
     || cbCtryLabel(a.r).localeCompare(cbCtryLabel(b.r), 'ko')
     || String(a.r.title||'').localeCompare(String(b.r.title||''), 'ko'));
-  const active = items.filter(x=>x.i.dca);
+  const active = items.filter(x=>dcaState(x.i)==='on');   // 금액 미입력(incomplete)은 활성·일정·합계에서 뺀다(0원 매수가 일정에 뜨지 않게)
   const monthly = active.reduce((s,x)=>s+cbDcaPerMonthKRW(x.i),0);
   const daily = monthly / 21.7; // 월평균 영업일 기준 일평균
   items.forEach(x=>{
@@ -4017,7 +4024,7 @@ function cbRenderDca(){
     </div>`;
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
-// 적립식 규칙 등록·수정은 종목 편집 모달이 맡고, 이 화면은 일정 확인과 일시정지 토글만 한다.
+// 이 화면의 켜기/끄기 토글 — dca 플래그만 바꾼다. 규칙 수정은 아래 적립식 설정 창(cbDcaEdit)이 맡는다.
 // 자산 원장과 재무계획을 둘 다 불러온 뒤에만 저장한다(빈 기본값으로 덮어쓰지 않도록).
 let _dcaBusy=false;
 function cbDcaCanSave(){
@@ -4242,6 +4249,7 @@ function cbCountUp(id){
 // 화면을 옮길 때만 지우는 화면 안 상태(표 정렬·달력에서 고른 날·펼친 계좌 등).
 // 같은 화면을 다시 그릴 때(시세 갱신·소유주 변경)는 유지된다.
 function cbResetViewState(){
+  if (typeof _cbTaxHold!=='undefined') _cbTaxHold=null;   // 실현손익 '보유 반영' 선택 — 다른 화면에 갔다 오면 다시 고른다
   if (typeof _calDay!=='undefined') _calDay=null;
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
   _cdashShowAll=false;   // 홈 보유 표 펼침

@@ -3023,7 +3023,9 @@ function getDcaMergedCellHtml(item, pIdx){
   else if (st==='incomplete') inner=`<span class="dca-cycle">${getDcaCycleLabel(item)}</span><span class="dca-amount is-missing">금액 미입력</span>`;
   else inner=getDcaCellHtml(item);
   if (pIdx==null || !item || item.grp==='현금') return inner;
-  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${DCA_STATE_LABEL[st]}">${inner}</button>`;
+  // 칸이 좁아 긴 요일 목록은 말줄임되므로 전체 규칙을 말풍선(title)에 적는다.
+  const full=st==='none'?'적립식 설정 없음':[DCA_STATE_LABEL[st],getDcaCycleLabel(item),st==='incomplete'?'금액 미입력':getDcaAmountText(item)].join(' · ');
+  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="${holdingsEsc(full)} — 눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${DCA_STATE_LABEL[st]}">${inner}</button>`;
 }
 // 평가액 칸 아랫줄의 비중 막대 — 막대 길이는 표에서 가장 큰 평가액 대비(홈 보유 표와 같은 방식),
 // 숫자는 위 '평가액' 숫자 카드 합계 대비 비중이다. 새 계산 없이 각 행의 평가액만 쓴다.
