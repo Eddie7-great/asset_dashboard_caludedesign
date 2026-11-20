@@ -1,19 +1,34 @@
 // Menu families use existing view IDs so saved links and browser history stay valid.
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
-  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록'],['acct2','계좌별 보기'],['etf2','ETF 탐색'],['fam2','구성원 비교'],['bubble','비중 분석']]},
-  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크']]},
+  {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
+  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
-  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['cal2','일정'],['sim2','투자 시뮬레이터']]},
+  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
   {menu:'tax2',title:'세금·증여',views:[['tax2','실현손익·세금'],['gift2','가족 증여']]},
-  {menu:'report2',title:'결산 리포트',views:[['report2','월간'],['reporty','연간']]},
+  {menu:'report2',title:'결산 리포트',views:[['report2','결산']]},
 ];
+// 페이지 통폐합(2026-11-19): 세부 메뉴에 따로 없는 화면이 속한 세부 메뉴. 화면 id·#view= 주소는 그대로라 옛 링크도 열린다.
+const NAV_HOST = {acct2:'holdings', fam2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
+// 한 세부 메뉴 안의 보기 전환(같은 보유·같은 결산을 묶음만 바꿔 본다) — 머리줄 아래 오른쪽 밑줄형 줄(#view-mode-bar).
+// 현금 흐름의 월별·고정비·일정은 머리줄의 #cf-header-tabs 가 맡는다.
+const NAV_MODES = {
+  holdings:[['holdings','종목별'],['acct2','계좌별'],['fam2','구성원별']],
+  bubble:[['bubble','비중 지도'],['etf2','ETF 속 종목']],
+  report2:[['report2','월간'],['reporty','연간']],
+};
+let _navModeLast={}, _navKeepOwner=false, _navAssetQ='';
 function navResolve(id){ return id==='snap'||id==='dashboard'||id==='balance2'?'cdash':id; }
-function navGroup(id){ return APP_NAV.find(g=>g.views.some(v=>v[0]===navResolve(id))); }
+function navHost(id){ id=navResolve(id); return NAV_HOST[id]||id; }
+function navGroup(id){ const host=navHost(id); return APP_NAV.find(g=>g.views.some(v=>v[0]===host)); }
+// 세부 메뉴를 누르면 그 메뉴에서 마지막으로 본 보기로 간다(메모리에만, 처음엔 첫 보기).
+function navModeTarget(view){ const last=_navModeLast[view]; return last&&NAV_HOST[last]===view?last:view; }
 function navOwner(id){
   if(id==='etf2')return _etfOwner;
-  if(id==='holdings'||id==='bubble')return currentOwner||'전체';
+  if(id==='holdings')return currentOwner||'전체';
+  if(id==='bubble')return _bubbleOwner||currentOwner||'전체';
+  if(id==='cashflow')return _cfOwner;
   if(id==='fam2')return _famKey==='all'?'전체':_famKey;
   if(id==='cdash')return _cdashOwner;
   if(id==='plan2'||id==='rebal2')return _finPlanOwner;
@@ -30,7 +45,10 @@ function navPrepare(id){
   // Keep an owner's scope when moving between related tabs or following a home action.
   if(from&&to&&(from===to||previous==='cdash')){
     const owner=navOwner(previous); if(!owner)return;
-    if(id==='holdings'||id==='bubble')currentOwner=owner;
+    // 레거시 화면(보유 목록·현금 흐름)은 들어올 때 소유주를 '전체'로 되돌린다 — 이어 준 소유주는 한 번 지키게 표식을 남긴다.
+    if(id==='holdings'||id==='bubble'){currentOwner=owner;_navKeepOwner=true;}
+    if(id==='bubble')_bubbleOwner=owner;
+    if(id==='cashflow'){_cfOwner=owner;_navKeepOwner=true;}
     if(id==='fam2')_famKey=owner==='전체'?'all':owner;
     if(id==='etf2')_etfOwner=owner;
     if(id==='plan2'||id==='rebal2')_finPlanOwner=owner;
@@ -41,10 +59,15 @@ function navPrepare(id){
     if(id==='report2'||id==='reporty')_reportOwner=owner;
     if(id==='divm')_cbDivOwner=owner;
     if(id==='risk2')_cbRiskOwner=owner;
+    // 보유 목록 ↔ 구성원별은 같은 보유를 보는 두 보기라 검색어도 잇는다(계좌별을 거쳐 가도 마지막 검색어를 지킨다).
+    if(previous==='holdings')_navAssetQ=_holdingsQ;
+    if(previous==='fam2')_navAssetQ=_famQ;
+    if(from.menu==='holdings'&&id==='holdings')_holdingsQ=_navAssetQ;
+    if(from.menu==='holdings'&&id==='fam2')_famQ=_navAssetQ;
   }
 }
 function navSync(id){
-  const group=navGroup(id),bar=document.getElementById('page-sections');
+  const group=navGroup(id),host=navHost(id),bar=document.getElementById('page-sections');
   document.querySelectorAll('.menu-btn,.footer-status-btn').forEach(b=>{
     const active=b.id==='menu-'+(group?.menu||id);
     b.classList.toggle('active',active);
@@ -57,11 +80,44 @@ function navSync(id){
     const active=b.textContent.trim()===currentOwner;
     b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));
   });
+  navModeBar(id);
+  navCfTabs(id);
   if(!bar)return;
   bar.hidden=!group||group.views.length<2;
   bar.setAttribute('aria-label',(group?.title||'화면')+' 세부 메뉴');
   bar.innerHTML=group&&group.views.length>1?group.views.map(([view,label])=>
-    `<a href="#view=${view}"${view===id?' aria-current="page"':''} onclick="if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();switchView('${view}');">${label}</a>`).join(''):'';
+    `<a href="#view=${view}"${view===host?' aria-current="page"':''} onclick="if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();switchView(navModeTarget('${view}'));">${label}</a>`).join(''):'';
+}
+// 보기 전환 줄 — 머리줄 아래(스크롤 영역 밖) 오른쪽, 시뮬레이터 세 탭과 같은 밑줄형. 보기가 둘 이상인 세부 메뉴에서만 보인다.
+function navModeBar(id){
+  const el=document.getElementById('view-mode-bar'); if(!el) return;
+  const host=navHost(id),modes=NAV_MODES[host];
+  el.hidden=!modes;
+  el.setAttribute('aria-label',(modes?(navGroup(id)?.views.find(v=>v[0]===host)?.[1]||''):'')+' 보기 전환');
+  el.innerHTML=modes?modes.map(([view,label])=>
+    `<button type="button" class="cb-btn" data-view-mode="${view}" aria-pressed="${view===id}" onclick="navMode('${view}')">${label}</button>`).join(''):'';
+  if(modes)_navModeLast[host]=id;
+}
+function navMode(view){
+  const cur=document.querySelector('.view-section.active')?.id.replace('view-','');
+  if(cur===view) return;
+  switchView(view);
+  if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('view-mode-bar','data-view-mode',view);
+}
+// 현금 흐름 머리줄 탭(월별 | 고정비 | 일정) — 일정(cal2)은 다른 화면이지만 같은 탭 줄에서 오간다.
+// 현금 흐름 안의 두 구역 강조는 switchCashFlowSection 이 그대로 맡고, 여기서는 일정 화면일 때만 일정 탭을 켠다.
+function navCfTabs(id){
+  if(id!=='cal2') return;
+  document.querySelectorAll('#cf-header-tabs .cf-section-tab').forEach(b=>{
+    const sel=b.id==='cf-section-tab-cal';
+    b.classList.toggle('active',sel);b.setAttribute('aria-selected',String(sel));
+  });
+}
+// 월별·고정비 버튼: 일정 화면에서 누르면 현금 흐름을 먼저 연 뒤 구역을 바꾼다(현금 흐름 진입이 구역을 월별로 되돌리므로 그 뒤에).
+function cfSectionTab(section){
+  if(section==='cal'){ if(document.querySelector('.view-section.active')?.id!=='view-cal2') switchView('cal2'); return; }
+  if(document.querySelector('.view-section.active')?.id!=='view-cashflow') switchView('cashflow');
+  switchCashFlowSection(section,document.getElementById('cf-section-tab-'+section));
 }
 let _assetQ='',_assetMobileHead='';
 // 휴대폰 보유 목록: renderPortfolio 가 계산한 숫자 카드(head) → 자산군 탭 → 조회 전용 카드 목록.

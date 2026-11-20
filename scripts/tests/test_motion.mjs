@@ -26,7 +26,7 @@ for (const m of block.matchAll(/([^{}]+)\{[^}]*animation:cb(Rise|Grow)/g)) {
   assert.ok(sels.split(/,(?![^(]*\))/).every(x => x.includes('.is-entering')), `들어갈 때만 움직여야 한다: ${sels}`);
 }
 assert.match(block, /@media\(min-width:1101px\)\{#add-modal\.active \.modal-content\{animation:cbSlideIn/, '넓은 화면 수정 패널은 오른쪽에서 슬라이드');
-assert.match(block, /@media\(prefers-reduced-motion:reduce\)\{\.is-entering \*,#add-modal\.active \.modal-content,\.login-card,\.login-error\{animation:none!important\}/, '움직임 줄이기에서는 지연까지 끈다');
+assert.match(block, /@media\(prefers-reduced-motion:reduce\)\{\.is-entering \*,#add-modal\.active \.modal-content,\.login-card,\.login-card \*,\.login-error\{animation:none!important\}/, '움직임 줄이기에서는 지연까지 끈다');
 assert.match(style, /@media \(prefers-reduced-motion:reduce\)\{[\s\S]*?animation-duration:\.01ms!important/, '전역 줄이기 규칙 유지');
 
 // switchView 래퍼가 is-entering 을 붙이고 700ms 뒤 뗀다 — 코발트·레거시 두 경로 모두
@@ -60,6 +60,11 @@ lctx.loginToggleReveal(false); assert.equal(pw.type, 'password'); assert.equal(a
 lctx.loginCapsCheck({ getModifierState: k => k === 'CapsLock' }); assert.equal(caps.hidden, false);
 lctx.loginCapsCheck({ getModifierState: () => false }); assert.equal(caps.hidden, true);
 
+// 로그인 화면 등장(2026-11-20, 시안 1 마크 그리기): 막대 셋이 차례로 자라고 글자·입력칸·버튼이 순서대로 — 자식은 backwards 로(버튼 눌림 보존)
+assert.match(style, /\.login-mark rect \{ transform-box: fill-box; transform-origin: 50% 100%; animation: cbLoginGrow 460ms var\(--ease-out\) backwards; \}/);
+const dl = ['rect:nth-child\\(1\\) \\{ animation-delay: (\\d+)ms', 'rect:nth-child\\(2\\) \\{ animation-delay: (\\d+)ms', 'rect:nth-child\\(3\\) \\{ animation-delay: (\\d+)ms', 'login-title \\{ animation-delay: (\\d+)ms', 'login-btn \\{ animation-delay: (\\d+)ms'].map(r => Number(style.match(new RegExp(r))[1]));
+assert.ok(dl.every((v, i) => i === 0 || v > dl[i - 1]), '막대 → 글자 순서');
+assert.doesNotMatch(style, /\.login-btn[^{]*\{[^}]*animation:[^}]*\bboth\b/, '버튼 등장은 끝난 뒤 transform 을 쥐지 않는다');
 console.log('ok - motion');
 
 // 숫자 카운트업(2026-11-10): 기호·부호·단위는 그대로 두고 숫자만 0 → 최종값. 들어갈 때만, 금액 가리기·움직임 줄이기에서는 돌지 않는다.

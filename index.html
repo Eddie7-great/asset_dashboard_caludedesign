@@ -34,7 +34,22 @@
   </form>
 </div>
 
+<!-- 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 로고 막대가 차례로 자라고 단계 점이 하나씩 켜진다. 로그인 화면 아래에 깔려 있다가
+     로그인 화면이 흐려지면 바로 이어 보이고, 배당·환율까지 끝나면(시세 뒤 최대 8초) 걷힌다 — bootStart/bootStep/bootReveal/bootFinish.
+     덮는 동안 본문은 inert 라서 진행 알림 줄은 본문 밖(여기)에 둔다. -->
+<p id="boot-status" class="sr-only" role="status" aria-live="polite"></p>
+<div id="boot-splash" class="boot-splash" aria-hidden="true">
+  <div class="boot-splash-inner">
+    <span class="boot-mark"><svg viewBox="0 0 24 24" focusable="false"><rect class="boot-bar1" x="4" y="13" width="4" height="7" rx="1.2"/><rect class="boot-bar2" x="10" y="9" width="4" height="11" rx="1.2"/><rect class="boot-bar3" x="16" y="4" width="4" height="16" rx="1.2"/><rect class="boot-base" x="3" y="21" width="18" height=".6" rx=".3"/></svg></span>
+    <p class="boot-title">가족 자산 관리</p>
+    <ol class="boot-dots" id="boot-dots"><li></li><li></li><li></li><li></li><li></li></ol>
+    <p class="boot-step" id="boot-step">로그인 확인 …</p>
+  </div>
+</div>
+
 <div class="layout" inert aria-hidden="true">
+  <!-- 사이드 메뉴 접기 버튼 — 사이드바 왼쪽 위(고정 위치). 접혀도 같은 자리에 남아 다시 펼 수 있다. -->
+  <button id="side-collapse-btn" class="side-collapse-btn" type="button" onclick="toggleSideCollapsed()" aria-controls="app-sidebar" aria-expanded="true" aria-label="사이드 메뉴 접기" title="사이드 메뉴 접기"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M8 4v12"/><path class="side-collapse-arrow" d="M13.5 8 11.5 10l2 2"/></svg></button>
   <aside class="glass-panel menu-col" id="app-sidebar" aria-label="가족 자산 관리 사이드바">
     <!-- 환율/금 사이드바: USD/KRW → USD/JPY → JPY100/KRW → GOLD -->
     <div class="side-rates">
@@ -86,7 +101,6 @@
   <main class="content-area f-col">
     <div class="f-between" id="page-head" style="padding:11px 22px;border-bottom:1px solid var(--border-dark);flex-shrink:0;gap:10px;">
       <button id="sidebar-toggle" class="hamburger-btn" onclick="toggleSidebar()" aria-label="메뉴 열기" aria-expanded="false">☰</button>
-      <button id="side-collapse-btn" class="side-collapse-btn" type="button" onclick="toggleSideCollapsed()" aria-controls="app-sidebar" aria-expanded="true" aria-label="사이드 메뉴 접기" title="사이드 메뉴 접기"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M8 4v12"/><path class="side-collapse-arrow" d="M13.5 8 11.5 10l2 2"/></svg></button>
       <div class="page-heading-line">
       <h2 class="page-title" id="main-title" style="margin:0;">가족 자산 관리</h2>
       <!-- 모바일은 폭이 없어 소제목을 접어 둔다. 면책·기준 설명이 통째로 사라지지 않도록 토글로 편다. -->
@@ -98,8 +112,10 @@
       <nav id="page-sections" class="page-sections" aria-label="세부 메뉴" hidden></nav>
       <div id="cb-head-widgets" style="display:none;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap"></div>
       <div id="cf-header-tabs" class="cf-section-tabs" role="tablist" aria-label="현금 흐름 화면 선택">
-        <button id="cf-section-tab-monthly" class="cf-section-tab active" type="button" role="tab" aria-selected="true" aria-controls="cf-monthly-section" onclick="switchCashFlowSection('monthly',this)">월별 현금흐름</button>
-        <button id="cf-section-tab-fixed" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cf-fixed-section" onclick="switchCashFlowSection('fixed',this)">고정비 관리 <span id="cf-fixed-pending-badge" class="cf-fixed-pending-badge" style="display:none"></span></button>
+        <button id="cf-section-tab-monthly" class="cf-section-tab active" type="button" role="tab" aria-selected="true" aria-controls="cf-monthly-section" onclick="cfSectionTab('monthly')">월별 현금흐름</button>
+        <button id="cf-section-tab-fixed" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cf-fixed-section" onclick="cfSectionTab('fixed')">고정비 관리 <span id="cf-fixed-pending-badge" class="cf-fixed-pending-badge" style="display:none"></span></button>
+        <!-- 일정(cal2)은 다른 화면이지만 자동이체·적립식·배당 날짜라 현금 흐름 탭 줄에서 오간다(2026-11-19 통폐합) -->
+        <button id="cf-section-tab-cal" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cb-cal2" onclick="cfSectionTab('cal')">일정</button>
       </div>
       <div id="cf-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
         <button class="owner-btn active" id="cf-owner-전체" onclick="setCfOwner('전체',this)">전체</button>
@@ -125,6 +141,8 @@
       </div>
     </div>
 
+    <!-- 보기 전환 줄(2026-11-19 통폐합) — 한 세부 메뉴 안의 보기(종목별·계좌별·구성원별 등). 머리줄 바로 아래 오른쪽, 스크롤 영역 밖이라 늘 보인다. navModeBar 가 채운다 -->
+    <nav id="view-mode-bar" class="view-mode-bar" aria-label="보기 전환" hidden></nav>
     <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
@@ -201,7 +219,7 @@
               </div>
               <div class="form-group f-col cf-entry-desc"><label class="form-label">내용</label><input type="text" id="cf-desc" class="form-input" placeholder="상세 내역 입력"></div>
               <div class="form-group f-col cf-entry-amount"><label class="form-label">금액</label><input type="text" id="cf-amt" class="form-input" placeholder="0" inputmode="numeric" oninput="handleAmtInput(this)">
-                <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" oninput="handleAmtInput(this)">
+                <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" inputmode="numeric">
               </div>
               <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
               <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()" style="margin-top:auto">저장</button>
@@ -253,7 +271,7 @@
       </div>
       <div id="cf-fixed-section" class="cf-fixed-section" style="display:none" role="tabpanel" aria-labelledby="cf-section-tab-fixed">
         <div class="cf-fixed-summary-grid">
-          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">월 고정비</div><div id="cf-fixed-monthly" class="cf-fixed-summary-value">₩0</div><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계</div></div>
+          <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">월 고정비</div><div id="cf-fixed-monthly" class="cf-fixed-summary-value">₩0</div><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계</div><div id="cf-fixed-dca-sum" class="cf-fixed-summary-note" hidden></div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">연간 환산액</div><div id="cf-fixed-annual" class="cf-fixed-summary-value">₩0</div><div class="cf-fixed-summary-note">월 환산액 × 12개월</div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">수입 대비 고정비율</div><div id="cf-fixed-ratio" class="cf-fixed-summary-value">-</div><div id="cf-fixed-ratio-note" class="cf-fixed-summary-note">이번 달 수입 기준</div></div>
           <div class="glass-panel cf-fixed-summary-card"><div class="cf-fixed-summary-label">다음 결제 예정</div><div id="cf-fixed-next" class="cf-fixed-summary-value cf-fixed-summary-next">-</div><div id="cf-fixed-next-note" class="cf-fixed-summary-note">예정된 결제가 없습니다</div></div>
@@ -264,13 +282,23 @@
           <div class="cf-fixed-form">
             <input type="hidden" id="cf-fixed-edit-id" value="">
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-owner">소유주</label><select id="cf-fixed-owner" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
-            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input" onchange="toggleFixedCostLoanFields()"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
             <div class="form-group f-col cf-fixed-desc-field"><label class="form-label" for="cf-fixed-desc">항목</label><input id="cf-fixed-desc" class="form-input" type="text" placeholder="예: 월세, 보험료, 구독료"></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-amt">금액</label><input id="cf-fixed-amt" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="handleAmtInput(this)"></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-cycle">주기</label><select id="cf-fixed-cycle" class="form-input" onchange="toggleFixedCostScheduleFields()"><option value="monthly">매월</option><option value="month-end">매월말</option><option value="weekly">매주</option></select></div>
             <div class="form-group f-col" id="cf-fixed-day-group"><label class="form-label" for="cf-fixed-day">결제일</label><input id="cf-fixed-day" class="form-input" type="number" min="1" max="31" value="25"></div>
             <div class="form-group f-col" id="cf-fixed-dow-group" style="display:none"><label class="form-label" for="cf-fixed-dow">요일</label><select id="cf-fixed-dow" class="form-input"><option value="0">일</option><option value="1">월</option><option value="2">화</option><option value="3">수</option><option value="4">목</option><option value="5">금</option><option value="6">토</option></select></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-start">시작 월</label><input id="cf-fixed-start" class="form-input" type="month"></div>
+            <!-- 대출 상환 조건(2026-11-18 4차) — 카테고리가 '대출납입금'일 때만 보인다. 원금을 비워 두면 금액 칸 값 그대로 저장한다 -->
+            <fieldset id="cf-fixed-loan" class="cf-fixed-loan" hidden>
+              <legend class="cf-fixed-loan-legend">대출 상환 조건 <small>원금을 적으면 매달 납입액을 계산해 금액 칸에 넣습니다</small></legend>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-method">상환 방식</label><select id="cf-fixed-loan-method" class="form-input" onchange="fixedCostLoanPreview()"><option value="annuity">원리금균등상환</option><option value="principal">원금균등상환</option><option value="bullet">만기일시상환</option></select></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-principal">대출 원금</label><input id="cf-fixed-loan-principal" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="fixedCostLoanPreview()"></div>
+              <div class="form-group f-col cf-fixed-loan-rate"><label class="form-label" for="cf-fixed-loan-rate">연 금리(%)</label><input id="cf-fixed-loan-rate" class="form-input" type="number" min="0" max="30" step="0.01" placeholder="4.2" data-no-comma="1" oninput="fixedCostLoanPreview()"></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-term">대출 기간</label><div class="cf-fixed-loan-pair"><input id="cf-fixed-loan-term" class="form-input" type="number" min="1" max="600" step="1" placeholder="30" data-no-comma="1" oninput="fixedCostLoanPreview()"><select id="cf-fixed-loan-term-unit" class="form-input" aria-label="대출 기간 단위" onchange="fixedCostLoanPreview()"><option value="12">년</option><option value="1">개월</option></select></div></div>
+              <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-y">첫 납입 월</label><div class="cf-fixed-loan-pair"><select id="cf-fixed-loan-y" class="form-input" onchange="fixedCostLoanPreview()"></select><select id="cf-fixed-loan-m" class="form-input" aria-label="첫 납입 월(월)" onchange="fixedCostLoanPreview()"></select></div></div>
+              <p id="cf-fixed-loan-preview" class="cf-fixed-loan-preview" aria-live="polite"></p>
+            </fieldset>
             <button id="cf-fixed-submit" class="btn-submit" type="button" onclick="submitFixedCost()">등록</button>
           </div>
         </div>
@@ -289,9 +317,13 @@
               </table>
             </div>
           </div>
-          <div class="glass-panel cf-fixed-dist-panel">
-            <div class="cb-label">카테고리별 고정비 분포</div>
-            <div id="cf-fixed-dist"></div>
+          <div class="cf-fixed-side">
+            <div class="glass-panel cf-fixed-dist-panel">
+              <div class="cb-label">카테고리별 고정비 분포</div>
+              <div id="cf-fixed-dist"></div>
+            </div>
+            <!-- 적립식 매수(2026-11-18 4차) — 고정비 합계에 넣지 않는 별도 묶음. 조회 전용, 수정은 보유 목록 -->
+            <div class="glass-panel cf-fixed-dca-panel" id="cf-fixed-dca" hidden></div>
           </div>
         </div>
       </div>
@@ -345,6 +377,46 @@
     <div class="trade-preview" id="trade-preview" role="status" aria-live="polite"></div>
     <p class="trade-error" id="trade-error" role="alert" hidden></p>
     <button type="button" class="btn-submit" style="width:100%" onclick="submitTrade()">등록</button>
+  </div>
+</div>
+<!-- 적립식 설정(2026-11-20) — 보유 목록의 적립식 칸과 적립식 매수 화면의 줄이 같은 창을 연다.
+     주문을 넣지 않고 적립식 일정·합계에만 반영한다. 바뀌는 것은 적립식 필드뿐이다(수량·평균단가는 그대로). -->
+<div class="modal-overlay" id="dca-modal" aria-hidden="true">
+  <div class="modal-content f-col dca-modal" role="dialog" aria-modal="true" aria-labelledby="dca-edit-title" tabindex="-1">
+    <div class="modal-header f-between"><h3 style="margin:0" id="dca-edit-title">적립식 설정</h3><button type="button" class="modal-close" onclick="cbDcaEditClose()" aria-label="적립식 설정 창 닫기">×</button></div>
+    <div class="trade-now" id="dca-edit-now"></div>
+    <label class="dca-edit-switch"><input type="checkbox" id="dca-edit-on" role="switch" onchange="cbDcaEditSync()"><span>매수 진행 중</span><small id="dca-edit-state"></small></label>
+    <div class="form-row">
+      <div class="form-group f-col"><label class="form-label" for="dca-edit-cycle">주기</label><select id="dca-edit-cycle" class="form-input" onchange="cbDcaEditSync()"><option value="매일">매일(매 영업일)</option><option value="매주">매주</option><option value="매월">매월</option></select></div>
+      <div class="form-group f-col" id="dca-edit-day-wrap"><label class="form-label" for="dca-edit-day">매수일</label><select id="dca-edit-day" class="form-input"></select></div>
+    </div>
+    <fieldset class="dca-edit-dows" id="dca-edit-dows" hidden>
+      <legend class="form-label">요일 (여러 개 고를 수 있음)</legend>
+      <label><input type="checkbox" class="dca-edit-dow" value="1">월</label><label><input type="checkbox" class="dca-edit-dow" value="2">화</label><label><input type="checkbox" class="dca-edit-dow" value="3">수</label><label><input type="checkbox" class="dca-edit-dow" value="4">목</label><label><input type="checkbox" class="dca-edit-dow" value="5">금</label><label><input type="checkbox" class="dca-edit-dow" value="6">토</label><label><input type="checkbox" class="dca-edit-dow" value="0">일</label>
+    </fieldset>
+    <div class="trade-side" role="group" aria-label="매수 방식">
+      <button type="button" id="dca-edit-mode-amount" aria-pressed="true" onclick="cbDcaEditMode('amount')">금액으로</button>
+      <button type="button" id="dca-edit-mode-qty" aria-pressed="false" onclick="cbDcaEditMode('qty')">수량으로</button>
+    </div>
+    <div class="form-group f-col" id="dca-edit-amt-wrap"><label class="form-label" for="dca-edit-amt">1회 매수 금액</label><div class="dca-edit-amt-row"><input type="text" id="dca-edit-amt" class="form-input" placeholder="예: 10,000" inputmode="numeric"><select id="dca-edit-cur" class="form-input" aria-label="매수 통화"><option value="KRW">₩ KRW</option><option value="USD">$ USD</option></select></div></div>
+    <div class="form-group f-col" id="dca-edit-qty-wrap" hidden><label class="form-label" for="dca-edit-qty" id="dca-edit-qty-label">1회 매수 수량</label><input type="text" id="dca-edit-qty" class="form-input" placeholder="0" inputmode="decimal"></div>
+    <p class="trade-note">실제 주문은 증권사 앱에서 켜고 끕니다.<br>여기 설정은 적립식 일정·합계에만 쓰입니다.</p>
+    <p class="trade-error" id="dca-edit-error" role="alert" hidden></p>
+    <button type="button" class="btn-submit" style="width:100%" onclick="cbDcaEditSave()">저장</button>
+  </div>
+</div>
+<!-- 보유 반영 선택(2026-11-20) — 실현손익 입력 줄의 '보유 반영' 버튼이 연다. 입력 줄에서 고른 소유주·시장의 보유 주식만 보이고,
+     고른 종목·수량은 실현손익을 기록할 때 같은 매도 계산으로 보유 수량을 줄이는 데 쓰인다. -->
+<div class="modal-overlay" id="tax-hold-modal" aria-hidden="true">
+  <div class="modal-content f-col tax-hold-modal" role="dialog" aria-modal="true" aria-labelledby="tax-hold-title" aria-describedby="tax-hold-sub" tabindex="-1">
+    <div class="modal-header f-between"><h3 style="margin:0" id="tax-hold-title">보유 반영 — 매도한 종목</h3><button type="button" class="modal-close" onclick="cbTaxHoldClose()" aria-label="보유 반영 창 닫기">×</button></div>
+    <p class="trade-note" id="tax-hold-sub" style="margin:0"></p>
+    <label class="sr-only" for="tax-hold-q">종목 검색</label>
+    <input type="search" id="tax-hold-q" class="form-input" placeholder="종목명·티커·계좌 검색" oninput="cbTaxHoldList()">
+    <div class="tax-hold-list" id="tax-hold-list" role="radiogroup" aria-label="보유 종목"></div>
+    <div class="form-group f-col"><label class="form-label" for="tax-hold-qty">매도 수량 (보유에서 줄일 수량)</label><div class="tax-hold-qty-row"><input type="text" id="tax-hold-qty" class="form-input" placeholder="0" inputmode="decimal" oninput="cbTaxHoldError('')"><button type="button" class="dca-rule-edit" onclick="cbTaxHoldAll()">전량</button></div></div>
+    <p class="trade-error" id="tax-hold-error" role="alert" hidden></p>
+    <div class="tax-hold-actions"><button type="button" class="btn-submit" onclick="cbTaxHoldClear()">보유 반영 안 함</button><button type="button" class="btn-submit" onclick="cbTaxHoldApply()">적용</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="add-modal">
@@ -435,12 +507,12 @@
         <label class="form-label" id="label-qty" for="add-qty">수량</label>
         <!-- [5] 주식=주 고정, 코인=개 고정, 금만 단위 선택 -->
         <div style="display:flex;gap:5px">
-          <input type="text" class="form-input" id="add-qty" placeholder="0" inputmode="numeric" style="flex:1">
+          <input type="text" class="form-input" id="add-qty" placeholder="0" inputmode="decimal" style="flex:1">
           <div id="unit-fixed" style="display:flex;align-items:center;padding:0 12px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:8px;font-weight:600;color:var(--t2);white-space:nowrap;flex-shrink:0">주</div>
           <select id="add-unit" class="form-input" style="flex:0.7;padding:0 4px;display:none;"><option value="g">g</option><option value="돈">돈</option><option value="kg">kg</option></select>
         </div>
       </div>
-      <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="numeric" oninput="handleAvgPriceInput(this)"></div>
+      <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="decimal"></div>
     </div>
     <div id="wrap-cost-unknown" style="display:none;margin:-1px 0 10px;padding:9px 11px;border:1px solid var(--border-light);border-radius:9px;background:var(--inner-bg)">
       <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);font-weight:700;color:var(--t2);cursor:pointer">

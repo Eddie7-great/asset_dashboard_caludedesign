@@ -46,7 +46,7 @@ assert.match(style, /:root \{[^}]*--gshadow:none;/, '카드 그림자 없음');
 assert.match(style, /\.glass-panel\.menu-col\{background:var\(--side-bg\)/, '사이드바는 --side-* 토큰으로만 칠한다');
 
 // 세그먼트·전환 탭은 선택 항목을 강조색 바탕으로 칠하지 않는다 — 시뮬레이터 종류 탭은 밑줄형
-assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\]\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
+assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\](?:,\.view-mode-bar>button\.cb-btn\[aria-pressed=true\])?\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
 
 // --on-acc 는 강조색 바탕 위 글자색이다(다크의 밝은 강조색 위에 흰 글자는 읽히지 않는다).
 // 시작 버튼(＋추가·＋수입·＋새 목표 추가)은 2026-11-16 부터 파랑 채움이 아니라 일반 버튼과 같은 중립 톤이다.

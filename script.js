@@ -70,6 +70,13 @@ function _maskAmountText(value){
     const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
     return spacing + sign + '••••';
   });
+  // '원' 없이 만·억 단위로 줄여 쓴 금액(타일 '+1,755만', 그래프 눈금 '2,000만'·'3.6억'·'+250만')도 가린다.
+  // 단위 뒤에 한글이 이어지면(만기·억제 등) 금액이 아니므로 건드리지 않는다.
+  out = out.replace(/([+\-−]?\s*)\d[\d,]*(?:\.\d+)?(\s*(?:억|천만|백만|만))(?![가-힣])/g, (match, lead, unit) => {
+    const spacing = (lead.match(/^\s*/) || [''])[0];
+    const sign = /[-−]/.test(lead) ? '−' : (/\+/.test(lead) ? '+' : '');
+    return spacing + sign + '••••' + unit.trim();
+  });
   return out;
 }
 function _maskAmountAttributes(el){
@@ -828,8 +835,60 @@ function _normalizeCfRows(rows){
     const divKey=_boundedStoredText(item.divKey,220);
     if(divKey)row.divKey=divKey;
     if(item.dateStatus==='pending')row.dateStatus='pending';
+    // 증여 연동(2026-11-18 4차): 기록장 수기 기록에서 만든 줄(giftRecId), 증여 연결 자동이체의 지난 달을 채운 줄(giftBackfill)
+    const giftRecId=_boundedStoredText(item.giftRecId,60);
+    if(giftRecId)row.giftRecId=giftRecId;
+    if(item.giftBackfill===true)row.giftBackfill=true;
     return row;
   }).filter(Boolean);
+}
+// ── 대출 상환 일정(2026-11-18 4차) ──
+// 고정비의 '대출납입금' 자동이체에 상환 조건(at.loan = {method, principal, rate, months, start})을 붙이면
+// 매달 납입액을 이 일정에서 꺼낸다(_effectiveAutoTransferAmt 가 위임 — 금액의 단일 출처는 그대로 하나다).
+// 월 이자 = 직전 잔액 × 연 금리 ÷ 12(원 단위 반올림). 은행의 일할 계산과 몇 원~몇 천 원 다를 수 있는 추정값이고,
+// 금리가 바뀌면 바뀐 금리로 처음부터 다시 계산한다(변동금리의 과거 이력은 담지 않는다).
+const LOAN_METHOD_LABEL={annuity:'원리금균등',principal:'원금균등',bullet:'만기일시'};
+const _loanScheduleCache=new Map();
+function _loanMonthIndex(loan,y,m){ const [sy,sm]=String(loan&&loan.start||'').split('-').map(Number); return (y-sy)*12+(m-sm); }
+function _loanYm(start,i){ const [sy,sm]=String(start).split('-').map(Number); const t=sy*12+(sm-1)+i; return `${Math.floor(t/12)}-${String(t%12+1).padStart(2,'0')}`; }
+function loanSchedule(loan){
+  const P=Number(loan&&loan.principal), n=Math.round(Number(loan&&loan.months)), rate=Number(loan&&loan.rate);
+  if(!loan||!(P>0)||!(n>=1)||n>600||!(rate>=0)||!/^\d{4}-\d{2}$/.test(String(loan.start||''))) return [];
+  const method=LOAN_METHOD_LABEL[loan.method]?loan.method:'annuity';
+  const key=[method,P,rate,n,loan.start].join('|');
+  if(_loanScheduleCache.has(key)) return _loanScheduleCache.get(key);
+  const r=rate/100/12;
+  const fixed=Math.round(r>0?P*r/(1-Math.pow(1+r,-n)):P/n);   // 원리금균등: 매달 같은 납입액
+  const even=Math.round(P/n);                                   // 원금균등: 매달 같은 원금
+  const rows=[]; let bal=P;
+  for(let i=0;i<n;i++){
+    const interest=Math.round(bal*r), last=i===n-1;
+    let principal=last?bal:(method==='annuity'?fixed-interest:(method==='principal'?even:0));
+    principal=Math.max(0,Math.min(bal,principal));
+    bal-=principal;
+    rows.push({month:_loanYm(loan.start,i),payment:interest+principal,interest,principal,balance:bal});
+  }
+  if(_loanScheduleCache.size>200) _loanScheduleCache.clear();
+  _loanScheduleCache.set(key,rows);
+  return rows;
+}
+function loanPaymentFor(loan,y,m){ const i=_loanMonthIndex(loan,y,m); if(!(i>=0)) return 0; const row=loanSchedule(loan)[i]; return row?row.payment:0; }
+// 그 달 기준 상태 — 납입 전(before)·상환 중(active, 그 달 납입 뒤 잔액·남은 횟수)·상환 끝(done)
+function loanStatusFor(loan,y,m){
+  const rows=loanSchedule(loan); if(!rows.length) return null;
+  const i=_loanMonthIndex(loan,y,m), end=rows[rows.length-1].month;
+  if(i<0) return {phase:'before',row:null,remaining:rows.length,balance:Number(loan.principal),end};
+  if(i>=rows.length) return {phase:'done',row:null,remaining:0,balance:0,end};
+  return {phase:'active',row:rows[i],remaining:rows.length-i-1,balance:rows[i].balance,end};
+}
+function _normalizeLoanTerms(loan){
+  if(!loan||typeof loan!=='object'||Array.isArray(loan)) return null;
+  const principal=_safeStoredNumber(loan.principal,{min:0,max:1_000_000_000_000});
+  const rate=_safeStoredNumber(loan.rate,{min:0,max:30});
+  const months=Math.round(_safeStoredNumber(loan.months,{min:0,max:600}));
+  const start=_isStoredDateKey(loan.start,true)?String(loan.start):'';
+  if(!(principal>0)||!(months>=1)||!start) return null;
+  return {method:LOAN_METHOD_LABEL[loan.method]?loan.method:'annuity',principal,rate,months,start};
 }
 function _normalizeAutoTransfers(rows){
   if(!Array.isArray(rows))return [];
@@ -862,9 +921,12 @@ function _normalizeAutoTransfers(rows){
       // 증여 연결(2026-11-18 3차): 가족 계좌로 보내는 지출 자동이체를 증여로 집계한다. giftFrom(YYYY-MM)부터의 이체만 센다.
       giftKind:item.giftKind==='child'||item.giftKind==='spouse'?item.giftKind:'',
       giftFrom:_isStoredDateKey(item.giftFrom,true)?String(item.giftFrom).slice(0,7):'',
+      // 대출 상환 조건(2026-11-18 4차) — 있으면 매달 금액을 상환 일정이 정한다
+      loan:_normalizeLoanTerms(item.loan),
     };
     if(row.isFixedCost===undefined)delete row.isFixedCost;
     if(!row.giftKind){delete row.giftKind;delete row.giftFrom;}
+    if(!row.loan)delete row.loan;
     return row;
   }).filter(Boolean);
 }
@@ -1146,6 +1208,8 @@ function saveAutoTransfers(syncRemote=true){
 /** 월별 유효 자동이체 금액 – amountChanges 타임라인을 반영 */
 function _effectiveAutoTransferAmt(at, y, m) {
   if (!at) return 0;
+  // 대출 상환 조건이 있으면 그 달 납입액(원리금균등·원금균등·만기일시)이 금액이다
+  if (at.loan) return loanPaymentFor(at.loan, y, m);
   let amt = at.amt || 0;
   if (Array.isArray(at.amountChanges) && at.amountChanges.length) {
     // from 이 (y,m) 이하인 최신 변경분 적용
@@ -1317,6 +1381,7 @@ function editAutoTransferMonth(atId, y, m) {
 function editAutoTransferFromMonth(atId, y, m) {
   const at = autoTransferData.find(x => x.id === atId);
   if (!at) return;
+  if (at.loan) { alert('대출 상환 조건으로 금액을 계산하는 항목입니다. 현금 흐름 > 고정비 관리에서 ✎ 로 조건을 고치세요.'); return; }
   const curAmt = _effectiveAutoTransferAmt(at, y, m);
   const input = prompt(
     `${y}년 ${m}월부터 적용할 새로운 금액(원)을 입력하세요.\n현재 금액: ₩${curAmt.toLocaleString()}`,
@@ -1404,6 +1469,7 @@ function deleteAutoTransferFromMonth(atId, y, m) {
 function renderAutoTransfers() {
   const tbody = document.getElementById('at-table-body'); if (!tbody) return;
   if (!autoTransferData.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--t3)">등록된 자동이체가 없습니다.</td></tr>'; return; }
+  const _now = new Date();
   tbody.innerHTML = autoTransferData.map(at => {
     let cycleStr = CYCLE_LABEL[at.cycle]||at.cycle;
     if (at.cycle==='weekly') cycleStr += ' '+DOW_LABELS[at.dayOfWeek||1]+'요일';
@@ -1412,7 +1478,7 @@ function renderAutoTransfers() {
       <td class="text-left">${at.type==='수입'?'<span style="color:var(--up)">수입</span>':'<span style="color:var(--dn)">지출</span>'}</td>
       <td class="text-left">${_cfEsc(at.cat)}</td>
       <td class="text-left">${_cfEsc(at.desc)}</td>
-      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(at.amt).toLocaleString()}</td>
+      <td style="text-align:right;font-family:var(--font-num)">₩${Math.round(_effectiveAutoTransferAmt(at,_now.getFullYear(),_now.getMonth()+1)).toLocaleString()}</td>
       <td class="text-left">${_cfEsc(cycleStr)}</td>
       <td><button class="btn-action" type="button" aria-label="${_cfEsc(at.desc)} 자동이체 삭제" onclick="deleteAutoTransfer(${Number(at.id)||0})">✕</button></td>
     </tr>`;
@@ -1607,6 +1673,29 @@ function _fixedCostDistributionHtml(included, y, m) {
   ).join('')}</div>`;
   return bar + legend;
 }
+// ── 적립식 매수 묶음(2026-11-18 4차, 사용자 결정: 별도 묶음) ──
+// 고정비 합계(월 고정비 카드·분포·수입 대비 비율)에는 넣지 않고 옆에 따로 보여 준다.
+// 대상·금액은 현금 안전판(finCashSafety 의 dca)과 같다: 켜 둔(i.dca) 적립식 규칙의 월 환산(cbDcaPerMonthKRW). 새 계산 없음.
+function _fixedCostDcaGroup(ownerF){
+  const mine=(pfolioData||[]).filter(i=>i&&dcaHasRule(i)&&(!ownerF||ownerF==='전체'||i.owner===ownerF));
+  const perMonth=i=>typeof cbDcaPerMonthKRW==='function'?cbDcaPerMonthKRW(i):0;
+  const rows=mine.filter(i=>dcaState(i)==='on').map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
+    label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
+    .sort((a,b)=>b.monthly-a.monthly||String(a.name).localeCompare(String(b.name),'ko'));
+  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0),paused:mine.filter(i=>dcaState(i)==='paused').length};
+}
+function _fixedCostDcaHtml(group, savingCount){
+  const won=v=>`₩${Math.round(v).toLocaleString()}`;
+  const tag=o=>typeof cbOwnerTag==='function'?cbOwnerTag(o):`<span>${_cfEsc(o)}</span>`;
+  const list=group.rows.map(r=>`<div class="cf-fixed-dca-row">${tag(r.owner)}<span class="cf-fixed-dca-name" title="${_cfEsc(r.name)}">${_cfEsc(r.name)}</span><span class="cf-fixed-dca-rule">${_cfEsc(r.label)}</span><b>${won(r.monthly)}</b></div>`).join('');
+  const paused=group.paused?`<p class="cf-fixed-dca-sub">일시정지 ${group.paused}건은 빼고 셉니다.</p>`:'';
+  const dup=savingCount?`<p class="cf-fixed-dca-warn">고정비에 '저축/투자' 자동이체가 ${savingCount}건 있습니다. 증권계좌로 보내는 그 돈으로 적립식 매수를 한다면, 월 고정비 카드의 '+ 적립식' 합계에는 같은 돈이 두 번 들어갑니다.</p>`:'';
+  return `<div class="cf-fixed-dca-head"><div class="cb-label">적립식 매수 <small>고정비와 별도</small></div><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
+    <p class="cf-fixed-dca-sub">매수 규칙의 월 환산액입니다. 고정비 합계·분포·수입 대비 비율에는 넣지 않습니다.</p>
+    <div class="cf-fixed-dca-list">${list}</div>
+    <div class="cf-fixed-dca-total"><span>적립식 월 합계</span><b>${won(group.total)}</b></div>${paused}${dup}`;
+}
+
 function renderFixedCostView() {
   const body=document.getElementById('cf-fixed-table-body');
   if(!body) return;
@@ -1633,6 +1722,13 @@ function renderFixedCostView() {
   const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
   const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
   const distEl=document.getElementById('cf-fixed-dist');if(distEl)distEl.innerHTML=_fixedCostDistributionHtml(included,y,m);
+  // 적립식 매수 — 별도 묶음. 월 고정비 카드에는 '+ 적립식 = 합계' 한 줄만 덧붙인다(카드 값은 그대로 고정비)
+  const dcaGroup=_fixedCostDcaGroup(_cfOwner);
+  const savingCount=included.filter(at=>(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(at.cat)).length;
+  const dcaSum=document.getElementById('cf-fixed-dca-sum');
+  if(dcaSum){ dcaSum.hidden=!dcaGroup.rows.length; dcaSum.textContent=dcaGroup.rows.length?`+ 적립식 ₩${Math.round(dcaGroup.total).toLocaleString()} = ₩${Math.round(monthly+dcaGroup.total).toLocaleString()}`:''; }
+  const dcaEl=document.getElementById('cf-fixed-dca');
+  if(dcaEl){ dcaEl.hidden=!dcaGroup.rows.length&&!dcaGroup.paused; dcaEl.innerHTML=dcaEl.hidden?'':_fixedCostDcaHtml(dcaGroup,savingCount); }
 
   const rows=visible.slice().sort((a,b)=>{
     const ap=a.isFixedCost===true?0:(a.isFixedCost==null?1:2),bp=b.isFixedCost===true?0:(b.isFixedCost==null?1:2);
@@ -1654,7 +1750,9 @@ function renderFixedCostView() {
       :isPending
       ?`<button class="btn-action" onclick="includeFixedCost(${safeId})" title="고정비로 포함">✓</button><button class="btn-action" onclick="editFixedCost(${safeId})" title="확인 후 수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`
       :`<button class="btn-action" onclick="editFixedCost(${safeId})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`;
-    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>`;
+    // 대출 상환 조건이 있으면 바로 아래 줄(항목 칸부터 끝까지)에 방식·금리·잔여·잔액 — 좁은 항목 칸에 넣으면 잘린다
+    const loanRow=at.loan?`<tr class="cf-fixed-loan-row"><td colspan="2"></td><td colspan="5" class="text-left"><small class="cf-fixed-loan-note">${_cfEsc(_loanStatusText(at.loan,y,m))}</small></td></tr>`:'';
+    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
   }).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>';
 }
 
@@ -1664,6 +1762,80 @@ function toggleFixedCostScheduleFields() {
   const dow=document.getElementById('cf-fixed-dow-group');
   if(day)day.style.display=cycle==='monthly'?'':'none';
   if(dow)dow.style.display=cycle==='weekly'?'':'none';
+}
+
+// ── 고정비 등록 폼의 대출 상환 조건(2026-11-18 4차) ──
+// 카테고리가 '대출납입금'이면 조건 칸이 보이고, 원금을 적으면 금액 칸은 이번 달 계산 납입액(읽기 전용)이 된다.
+// 첫 납입 월은 연도·월 선택 목록이다(오래된 대출은 브라우저 월 달력으로 과거 이동이 어렵다 — 증여 시작 월과 같은 이유).
+function _fixedLoanFillMonthPickers(ym){
+  const ySel=document.getElementById('cf-fixed-loan-y'), mSel=document.getElementById('cf-fixed-loan-m');
+  if(!ySel||!mSel) return;
+  const now=new Date(), [vy,vm]=String(ym||_cfMonthKey()).split('-').map(Number);
+  const years=[]; for(let yy=now.getFullYear()+2;yy>=now.getFullYear()-40;yy--) years.push(yy);
+  if(vy&&!years.includes(vy)) years.push(vy);
+  ySel.innerHTML=years.map(yy=>`<option value="${yy}"${yy===vy?' selected':''}>${yy}년</option>`).join('');
+  mSel.innerHTML=Array.from({length:12},(_,i)=>i+1).map(mm=>`<option value="${mm}"${mm===vm?' selected':''}>${mm}월</option>`).join('');
+}
+// 폼 값 → {loan|null, error}. 원금이 비어 있으면 대출 조건 없이(금액 칸 그대로) 저장한다.
+function _fixedLoanFromForm(){
+  if(document.getElementById('cf-fixed-cat')?.value!=='대출납입금') return {loan:null};
+  const raw=String(document.getElementById('cf-fixed-loan-principal')?.value||'').replace(/,/g,'').trim();
+  if(!raw) return {loan:null};
+  const principal=Number(raw);
+  const rate=Number(document.getElementById('cf-fixed-loan-rate')?.value);
+  const term=Number(document.getElementById('cf-fixed-loan-term')?.value);
+  const unit=Number(document.getElementById('cf-fixed-loan-term-unit')?.value)||12;
+  const months=Math.round(term*unit);
+  const yy=Number(document.getElementById('cf-fixed-loan-y')?.value), mm=Number(document.getElementById('cf-fixed-loan-m')?.value);
+  if(!(principal>0)) return {loan:null,error:'대출 원금을 숫자로 입력하세요.'};
+  if(!Number.isFinite(rate)||rate<0||rate>30||String(document.getElementById('cf-fixed-loan-rate')?.value||'').trim()==='') return {loan:null,error:'연 금리를 0~30% 사이로 입력하세요.'};
+  if(!(months>=1&&months<=600)) return {loan:null,error:'대출 기간을 1개월~50년 사이로 입력하세요.'};
+  if(!(yy>=1900&&mm>=1&&mm<=12)) return {loan:null,error:'첫 납입 월을 고르세요.'};
+  const method=document.getElementById('cf-fixed-loan-method')?.value;
+  return {loan:_normalizeLoanTerms({method,principal,rate,months,start:`${yy}-${String(mm).padStart(2,'0')}`})};
+}
+function _loanYmKo(ym){ const [yy,mm]=String(ym||'').split('-').map(Number); return yy&&mm?`${yy}년 ${mm}월`:''; }
+function _loanStatusText(loan,y,m){
+  const st=loanStatusFor(loan,y,m); if(!st) return '';
+  const head=`${LOAN_METHOD_LABEL[loan.method]||''} · 연 ${Number(loan.rate).toLocaleString(undefined,{maximumFractionDigits:2})}%`;
+  if(st.phase==='before') return `${head} · ${_loanYmKo(loan.start)} 납입 시작 · ${loan.months}개월`;
+  if(st.phase==='done') return `${head} · 상환 끝(${_loanYmKo(st.end)})`;
+  return `${head} · 잔여 ${st.remaining}개월 · 잔액 ₩${Math.round(st.balance).toLocaleString()}`;
+}
+function fixedCostLoanPreview(){
+  const out=document.getElementById('cf-fixed-loan-preview'), amt=document.getElementById('cf-fixed-amt');
+  const {loan,error}=_fixedLoanFromForm();
+  const usesLoan=!!loan;
+  if(amt){ amt.readOnly=usesLoan; amt.classList.toggle('is-computed',usesLoan); }
+  if(!out) return;
+  if(!loan){ out.textContent=error&&String(document.getElementById('cf-fixed-loan-principal')?.value||'').trim()?error:'원금을 비워 두면 금액 칸에 적은 값으로 매달 같은 금액을 기록합니다.'; return; }
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
+  const rows=loanSchedule(loan), st=loanStatusFor(loan,y,m);
+  const shown=st.phase==='active'?st.row:(st.phase==='before'?rows[0]:null);
+  if(amt) amt.value=shown?Math.round(shown.payment).toLocaleString():'0';
+  const label=st.phase==='active'?'이번 달 납입':(st.phase==='before'?'첫 달 납입':'상환 끝');
+  out.textContent=shown
+    ?`${label} ₩${shown.payment.toLocaleString()} (이자 ₩${shown.interest.toLocaleString()} · 원금 ₩${shown.principal.toLocaleString()}) · 만기 ${_loanYmKo(st.end)} · ${_loanStatusText(loan,y,m).split(' · ').slice(2).join(' · ')} — 월 이자 = 잔액 × 연 금리 ÷ 12 로 계산한 추정값입니다.`
+    :`${_loanYmKo(st.end)}에 상환이 끝난 대출입니다. 이후 달에는 기록하지 않습니다.`;
+}
+function toggleFixedCostLoanFields(){
+  const isLoan=document.getElementById('cf-fixed-cat')?.value==='대출납입금';
+  const box=document.getElementById('cf-fixed-loan'); if(box) box.hidden=!isLoan;
+  const ySel=document.getElementById('cf-fixed-loan-y'); if(isLoan&&ySel&&!ySel.options.length) _fixedLoanFillMonthPickers();
+  const cycle=document.getElementById('cf-fixed-cycle');
+  if(cycle){ if(isLoan) cycle.value='monthly'; cycle.disabled=isLoan; toggleFixedCostScheduleFields(); }
+  if(isLoan) fixedCostLoanPreview();
+  else { const amt=document.getElementById('cf-fixed-amt'); if(amt){ amt.readOnly=false; amt.classList.remove('is-computed'); } }
+}
+function _fixedLoanFillForm(loan){
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v;};
+  set('cf-fixed-loan-method',loan?loan.method:'annuity');
+  set('cf-fixed-loan-principal',loan?Math.round(loan.principal).toLocaleString():'');
+  set('cf-fixed-loan-rate',loan?String(loan.rate):'');
+  const byYears=loan&&loan.months%12===0;
+  set('cf-fixed-loan-term',loan?String(byYears?loan.months/12:loan.months):'');
+  set('cf-fixed-loan-term-unit',loan&&!byYears?'1':'12');
+  _fixedLoanFillMonthPickers(loan?loan.start:_cfMonthKey());
 }
 
 function resetFixedCostForm() {
@@ -1677,6 +1849,8 @@ function resetFixedCostForm() {
   const day=document.getElementById('cf-fixed-day');if(day)day.value='25';
   const start=document.getElementById('cf-fixed-start');if(start)start.value=_cfMonthKey();
   const owner=document.getElementById('cf-fixed-owner');if(owner)owner.value=_cfOwner==='전체'?'본인':_cfOwner;
+  _fixedLoanFillForm(null);
+  toggleFixedCostLoanFields();
   toggleFixedCostScheduleFields();
 }
 
@@ -1686,26 +1860,53 @@ function submitFixedCost() {
   const owner=document.getElementById('cf-fixed-owner')?.value;
   const cat=document.getElementById('cf-fixed-cat')?.value||'기타';
   const desc=document.getElementById('cf-fixed-desc')?.value.trim();
-  const amt=Number((document.getElementById('cf-fixed-amt')?.value||'').replace(/,/g,''));
-  const cycle=document.getElementById('cf-fixed-cycle')?.value||'monthly';
+  const {loan,error:loanError}=_fixedLoanFromForm();
+  if(loanError){alert(loanError);return;}
+  const now=new Date(), nowY=now.getFullYear(), nowM=now.getMonth()+1;
+  const loanRows=loan?loanSchedule(loan):[];
+  // 대출이면 금액은 상환 일정이 정한다(이번 달, 아직 시작 전이면 첫 달 납입액) — 다른 경로의 `!at.amt` 확인을 통과하도록 같이 적어 둔다
+  const amt=loan?(loanPaymentFor(loan,nowY,nowM)||(loanRows[0]?loanRows[0].payment:0)):Number((document.getElementById('cf-fixed-amt')?.value||'').replace(/,/g,''));
+  const cycle=loan?'monthly':(document.getElementById('cf-fixed-cycle')?.value||'monthly');
   const day=Math.max(1,Math.min(31,Number(document.getElementById('cf-fixed-day')?.value)||1));
   const dow=Number(document.getElementById('cf-fixed-dow')?.value)||0;
-  const start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
+  let start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
   if(!OWNERS.includes(owner)){alert('소유주를 선택하세요.');return;}
-  if(!desc||!amt||amt<0){alert('항목과 금액을 입력하세요.');return;}
+  if(!desc||(!loan&&(!amt||amt<0))){alert('항목과 금액을 입력하세요.');return;}
+  // 첫 납입이 앱 시작 월보다 늦으면 그 달부터 센다. 만기 뒤에는 기록하지 않는다.
+  const maturity=loanRows.length?loanRows[loanRows.length-1].month:'';
+  if(loan&&loan.start>start) start=loan.start;
   const existing=autoTransferData.find(at=>at.id===id);
   if(existing){
     const changeFrom=_cfMonthKey();
+    const oldMaturity=existing.loan?(loanSchedule(existing.loan).slice(-1)[0]||{}).month:'';
     Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true,businessDayRule:existing.businessDayRule||'next'});
-    if(start>changeFrom){
-      existing.amt=amt;
-      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
+    if(loan){
+      existing.loan=loan; existing.amt=amt; existing.endMonth=maturity;
+      // 이번 달부터 이미 기록된 이 자동이체의 현금 흐름 줄을 상환 일정 값으로 맞춘다(지난 달 기록은 그대로)
+      let cfChanged=false;
+      cfData.forEach(c=>{
+        if(c.atId!==id||!c.isAuto) return;
+        const k=String(c.date||'').slice(0,7); if(k<changeFrom) return;
+        const [cy,cm]=k.split('-').map(Number); const v=loanPaymentFor(loan,cy,cm);
+        if(c.amt!==v){ c.amt=v; cfChanged=true; }
+      });
+      if(cfChanged) saveCfData();
     }else{
-      existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<changeFrom);
-      existing.amountChanges.push({from:changeFrom,amt});
+      // 대출 조건을 지우면 그 만기로 잡아 둔 종료 월도 푼다
+      if(existing.loan&&existing.endMonth===oldMaturity) existing.endMonth='';
+      delete existing.loan;
+      if(start>changeFrom){
+        existing.amt=amt;
+        existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<start);
+      }else{
+        existing.amountChanges=(existing.amountChanges||[]).filter(ch=>ch.from<changeFrom);
+        existing.amountChanges.push({from:changeFrom,amt});
+      }
     }
   }else{
-    autoTransferData.push({id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:'',lastApplied:'',isFixedCost:true,businessDayRule:'next'});
+    const row={id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:maturity,lastApplied:'',isFixedCost:true,businessDayRule:'next'};
+    if(loan) row.loan=loan;
+    autoTransferData.push(row);
   }
   saveAutoTransfers();
   resetFixedCostForm();
@@ -1726,6 +1927,9 @@ function editFixedCost(id) {
   document.getElementById('cf-fixed-day').value=at.dayOfMonth||1;
   document.getElementById('cf-fixed-dow').value=String(at.dayOfWeek||0);
   document.getElementById('cf-fixed-start').value=at.startMonth||_cfMonthKey();
+  // 대출 상환 조건이 있으면 채우고, 없으면 빈 칸 — 기존 대출납입금은 여기서 조건을 적어 다시 등록한다(같은 자동이체 id)
+  _fixedLoanFillForm(at.loan||null);
+  toggleFixedCostLoanFields();
   document.getElementById('cf-fixed-form-title').textContent='고정비 수정';
   document.getElementById('cf-fixed-submit').textContent='수정';
   document.getElementById('cf-fixed-cancel').style.display='';
@@ -1777,43 +1981,6 @@ function toggleExcludedFixedCosts() {
 // =============================================
 // 숫자 입력 콤마 포매팅 (text 타입 입력 전용)
 // =============================================
-function applyCommaFormatting(inputEl) {
-  if (!inputEl || inputEl.dataset.commaApplied) return;
-  // type=number 입력에는 콤마 포매팅 적용 불가 → text로 변환
-  if (inputEl.type === 'number') inputEl.type = 'text';
-  inputEl.dataset.commaApplied = '1';
-  inputEl.setAttribute('inputmode', 'numeric');
-
-  inputEl.addEventListener('focus', function() {
-    // 포커스 시 콤마 제거
-    this.value = this.value.replace(/,/g, '');
-  });
-  inputEl.addEventListener('blur', function() {
-    const raw = this.value.replace(/[^0-9.]/g, '');
-    const num = parseFloat(raw);
-    if (!isNaN(num) && num !== 0) {
-      // data-decimal="1" 인 경우 소수점 최대 8자리 유지
-      if (this.dataset.decimal === '1') {
-        this.value = parseFloat(num.toFixed(8)).toLocaleString(undefined, {maximumFractionDigits: 8});
-      } else {
-        this.value = Math.round(num).toLocaleString();
-      }
-    }
-    else if (raw === '' || raw === '0') this.value = '';
-  });
-  inputEl.addEventListener('keydown', function(e) {
-    // 허용 키: 숫자, 백스페이스, 삭제, 방향키, 탭, 홈/엔드
-    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter'];
-    if (!allowed.includes(e.key) && !/^[0-9.]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-    }
-  });
-  inputEl.addEventListener('input', function() {
-    // 숫자와 소수점만 허용, 콤마 제거 후 즉시 재포매팅하지 않음 (입력 중 방해 안 함)
-    const raw = this.value.replace(/[^0-9.]/g, '');
-    if (this.value !== raw) this.value = raw;
-  });
-}
 
 // =============================================
 // UI 상태
@@ -1975,7 +2142,7 @@ function applySideCollapsed(collapsed, persist){
   if(btn){ btn.setAttribute('aria-expanded',String(!on)); btn.setAttribute('aria-label',on?'사이드 메뉴 펴기':'사이드 메뉴 접기'); btn.title=on?'사이드 메뉴 펴기':'사이드 메뉴 접기'; }
   if(persist){ try{ localStorage.setItem('sideCollapsed',on?'1':'0'); }catch(e){} }
   clearTimeout(window._sideCollapseTimer);
-  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },320);
+  window._sideCollapseTimer=setTimeout(()=>{ try{ window.dispatchEvent(new Event('resize')); if(typeof _fitActiveCharts==='function')_fitActiveCharts(); }catch(e){} },420);
 }
 function toggleSideCollapsed(){ applySideCollapsed(!document.body.classList.contains('side-collapsed'),true); }
 function toggleSidebar() {
@@ -2046,7 +2213,10 @@ function switchView(viewId, btn) {
   if (isMobileLayout()) closeSidebar();
   // 좌측 탭 전환 시 소유주 버튼을 '전체'로 초기화 — 제목 계산보다 먼저 수행해야 제목과 버튼 상태가 일치
   // 이 함수가 직접 그리는 화면은 holdings·cashflow·bubble 뿐이다(나머지는 cobalt.js 가 감싸 처리).
-  if (viewId==='holdings') {
+  // 같은 세부 메뉴 안 이동(종목별↔계좌별, 일정→월별 등)은 navPrepare 가 이어 준 소유주를 지킨다 — 표식은 한 번 쓰고 지운다.
+  const keepOwner = typeof _navKeepOwner!=='undefined' && _navKeepOwner;
+  if (typeof _navKeepOwner!=='undefined') _navKeepOwner=false;
+  if (viewId==='holdings' && !keepOwner) {
     document.querySelectorAll('#owner-tabs-container .owner-btn').forEach(b=>b.classList.remove('active'));
     const allBtn=document.querySelector('#owner-tabs-container .owner-btn');
     if(allBtn)allBtn.classList.add('active');
@@ -2071,12 +2241,12 @@ function switchView(viewId, btn) {
   const bubbleBar = document.getElementById('bubble-owner-bar');
   if (bubbleBar) bubbleBar.style.display = (viewId==='bubble') ? 'flex' : 'none';
   if (viewId==='cashflow') {
-    _cfOwner='전체';
+    if(!keepOwner) _cfOwner='전체';
     _cfSection='monthly';
     document.querySelectorAll('#cf-owner-bar .owner-btn').forEach(b=>b.classList.remove('active'));
-    const allCfBtn=document.getElementById('cf-owner-전체');
+    const allCfBtn=document.getElementById('cf-owner-'+_cfOwner)||document.getElementById('cf-owner-전체');
     if(allCfBtn)allCfBtn.classList.add('active');
-    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value='본인';
+    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value=_cfOwner!=='전체'?_cfOwner:'본인';
     resetFixedCostForm();
     switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }
@@ -2754,6 +2924,23 @@ function _isDcaHoliday(dateObj, market) {
   return false;
 }
 
+// ── 적립식 상태 한 벌(2026-11-20) ── 보유 목록 적립식 칸·적립식 매수 화면·고정비 묶음이 이 함수로 같은 집합을 그린다.
+// 규칙 = 회당 금액(또는 수량)이 있는 것. 켜짐(dca) × 규칙 유무 네 조합:
+//   on(켜짐+규칙) · paused(꺼짐+규칙 — 다시 켜면 그대로 재개) · incomplete(켜짐+금액 0 — 일정·합계는 0) · none(꺼짐+규칙 없음).
+// 예전에는 보유 목록이 dca 만, 적립식 화면이 금액만 봐서 중단한 규칙이 한쪽에만 보였다.
+function dcaHasRule(i){ return !!i&&(Number(i.dcaAmt)>0||(i.dcaMode==='qty'&&Number(i.dcaQty)>0)); }
+function dcaState(i){
+  if(!i) return 'none';
+  const rule=dcaHasRule(i);
+  if(i.dca) return rule?'on':'incomplete';
+  return rule?'paused':'none';
+}
+// 소수점 수량의 미국 주식은 모두 '모으기'(매일 소수점 매수)로 산 종목이다(사용자 설명). 규칙이 없을 때 설정 창의 기본 주기만 '매일'로 둔다.
+function dcaFractionalUs(i){
+  const q=Number(i&&i.qty)||0;
+  return !!i&&i.grp==='주식'&&i.cur==='USD'&&q>0&&Math.abs(q-Math.round(q))>1e-9;
+}
+
 // DCA 주기 레이블 (holdings 표시용)
 function getDcaCycleLabel(item) {
   if (item.dcaCycle === '매일') return '매일';
@@ -2772,22 +2959,36 @@ function getDcaCellHtml(item){
   return `<span class="dca-cycle">${getDcaCycleLabel(item)}</span>`;
 }
 
-// 자산 내역 표의 회당 DCA 금액/수량 칼럼.
-function getDcaAmountCellHtml(item){
-  if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
+// 회당 금액(또는 수량) 글자 — 켜짐·중단 두 상태가 같은 글자를 쓴다.
+function getDcaAmountText(item){
   const isQty = item.dcaMode === 'qty';
   const sym = curSymbol(item.dcaCur || 'KRW');  // 통화 기호는 CURRENCY_META 단일 출처
   const unit = item.grp === '가상화폐' ? '개' : '주';
-  const amt = isQty
+  return isQty
     ? (Number(item.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4}) + unit
     : sym + (Number(item.dcaAmt)||0).toLocaleString();
-  return `<span class="dca-amount">${amt}</span>`;
+}
+// 자산 내역 표의 회당 DCA 금액/수량 칼럼.
+function getDcaAmountCellHtml(item){
+  if (!item || !item.dca) return '<span style="color:var(--t3)">—</span>';
+  return `<span class="dca-amount">${getDcaAmountText(item)}</span>`;
 }
 // 보유 목록의 '적립식' 한 칸 — 윗줄 주기, 아랫줄 회당 금액. 예전에는 'DCA 주기'·'회당 금액' 두 칸이었는데
 // 대부분 '—' 인 두 칸이 표 폭의 13%를 차지해 종목명이 'TIGER 미…'로 잘렸다.
-function getDcaMergedCellHtml(item){
-  if (!item || !item.dca) return getDcaCellHtml(item);
-  return getDcaCellHtml(item) + getDcaAmountCellHtml(item);
+// 상태는 dcaState 한 벌이다 — 중단한 규칙도 '중단 · 주기 / 금액'으로 보여 적립식 매수 화면과 같은 종목이 같은 상태로 보인다.
+// pIdx 를 주면(넓은 화면 표) 칸 전체가 적립식 설정 창(cbDcaEdit) 버튼이다. 현금은 적립식 대상이 아니다.
+const DCA_STATE_LABEL={on:'진행 중',paused:'중단',incomplete:'금액 미입력',none:'설정 없음'};
+function getDcaMergedCellHtml(item, pIdx){
+  const st=dcaState(item);
+  let inner;
+  if (st==='on') inner=getDcaCellHtml(item) + getDcaAmountCellHtml(item);
+  else if (st==='paused') inner=`<span class="dca-cycle is-paused">중단 · ${getDcaCycleLabel(item)}</span><span class="dca-amount is-paused">${getDcaAmountText(item)}</span>`;
+  else if (st==='incomplete') inner=`<span class="dca-cycle">${getDcaCycleLabel(item)}</span><span class="dca-amount is-missing">금액 미입력</span>`;
+  else inner=getDcaCellHtml(item);
+  if (pIdx==null || !item || item.grp==='현금') return inner;
+  // 칸이 좁아 긴 요일 목록은 말줄임되므로 전체 규칙을 말풍선(title)에 적는다.
+  const full=st==='none'?'적립식 설정 없음':[DCA_STATE_LABEL[st],getDcaCycleLabel(item),st==='incomplete'?'금액 미입력':getDcaAmountText(item)].join(' · ');
+  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="${holdingsEsc(full)} — 눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${DCA_STATE_LABEL[st]}">${inner}</button>`;
 }
 // 평가액 칸 아랫줄의 비중 막대 — 막대 길이는 표에서 가장 큰 평가액 대비(홈 보유 표와 같은 방식),
 // 숫자는 위 '평가액' 숫자 카드 합계 대비 비중이다. 새 계산 없이 각 행의 평가액만 쓴다.
@@ -3149,6 +3350,7 @@ function makeEditable(el,owner,tkr,field,isCash=false,itemIdx=-1) {
   const originalValue=item[field]; // 원래 값 저장 (ESC 복원용)
   const input=document.createElement('input');
   input.type='text';
+  input.setAttribute('inputmode','decimal');   // 입력 중 쉼표(전역 처리가 붙는다) — 저장은 쉼표를 뗀다
   input.className='editable-input';
   input.style.cssText='width:'+(isCash?'110px':'80px')+';min-width:60px;max-width:120px;padding:3px 5px;font-size:var(--fs-cap);border:1px solid var(--acc);border-radius:4px;background:var(--modal-bg);color:var(--t1);font-family:var(--font-num);display:inline-block;box-sizing:border-box';
   if(item.grp==='현금'&&field==='qty') input.style.width='110px';
@@ -3203,7 +3405,10 @@ function holdingsToggleStale(on){
   _holdingsStaleOnly=!!on; renderPortfolio(currentOwner);
   document.getElementById('holdings-stale-only')?.focus();
 }
-function renderPortfolio(owner) {
+// opts.kpisOnly: 숫자 카드 HTML 만 돌려준다(계좌별 보기가 같은 카드를 쓴다, 2026-11-19). DOM·상태를 건드리기 전에 돌아가고 계좌 필터는 '전체'로 본다.
+function renderPortfolio(owner, opts) {
+  const kpisOnly=!!(opts&&opts.kpisOnly);
+  const brokerF=kpisOnly?'전체':_holdingsBrokerFilter;
   const items=getFilteredAssets(owner);
   const groups={'주식':[],'가상화폐':[],'금':[],'현금':[]};
   items.forEach(i=>{if(groups[i.grp])groups[i.grp].push(i);});
@@ -3215,7 +3420,7 @@ function renderPortfolio(owner) {
     if(!_stockSeen.has(key)){_stockSeen.add(key);stockCombos.push({broker:i.broker||'',acc:i.acc||'',key});}
   });
   stockCombos.sort((a,b)=>{const br=a.broker.localeCompare(b.broker);return br!==0?br:a.acc.localeCompare(b.acc);});
-  if(_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
+  if(!kpisOnly&&_holdingsBrokerFilter!=='전체'&&!_stockSeen.has(_holdingsBrokerFilter))_holdingsBrokerFilter='전체';
   const brokerFilterHtml=`<label class="holdings-broker-filter-inline">`
     +`<span>계좌</span>`
     +`<select id="holdings-broker-filter" class="form-input" onchange="applyHoldingsBrokerFilter()">`
@@ -3237,7 +3442,7 @@ function renderPortfolio(owner) {
     let grpItems=groups[grpName];
     // 주식 그룹만 선택된 증권사·계좌 조합으로 필터링
     // 휴대폰에는 계좌 필터가 없으므로 PC 에서 고른 필터가 휴대폰 숫자 카드를 몰래 줄이지 않게 '전체'로 본다
-    if(grpName==='주식'&&_holdingsBrokerFilter!=='전체'&&!_mobileHoldings){
+    if(grpName==='주식'&&brokerF!=='전체'&&_holdingsBrokerFilter!=='전체'&&!_mobileHoldings){
       const _si=_holdingsBrokerFilter.indexOf(_BROKER_ACC_SEP);
       const fb=_holdingsBrokerFilter.slice(0,_si),fa=_holdingsBrokerFilter.slice(_si+_BROKER_ACC_SEP.length);
       grpItems=grpItems.filter(i=>(i.broker||'')===fb&&(i.acc||'')===fa);
@@ -3298,7 +3503,7 @@ function renderPortfolio(owner) {
           // [7] 수익금에 (₩)
           const fProfit=i.costUnknown?'<span class="cost-unknown-note">산정 제외</span>':(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
           const fProfitPct=i.costUnknown?'<span class="cost-unknown-note">—</span>':sign+profitPct.toFixed(2)+'%';
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.costUnknown?null:avgPKRW,curP:curPKRW,valKRW:current,profit:i.costUnknown?null:profit,profitPct:i.costUnknown?null:profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,'',i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${fProfitPct}</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
@@ -3318,7 +3523,7 @@ function renderPortfolio(owner) {
           const fCurP='₩'+curPKRW.toLocaleString();
           const fAmt=fmtMoney(current);
           const fProfit=(profit<0?'-':'+')+' ₩'+Math.round(Math.abs(profit)).toLocaleString();
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:avgPKRW,curP:curPKRW,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,i.tkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
 
         } else {
           // 주식 (국내/해외)
@@ -3339,7 +3544,7 @@ function renderPortfolio(owner) {
           const tkrStripped=normTkr(i.tkr);
           const isKR=/^[0-9A-Z]{6}$/.test(tkrStripped)&&i.cur==='KRW';
           const dispTkr=isKR?tkrStripped+(i.market==='KOSDAQ'?'.KQ':'.KS'):i.tkr;
-          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.avgP*rate,curP:i.curP*rate,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
+          rowsHtml+=`<tr ${portfolioSortData({...portfolioSortKeys(i),qty:i.qty,avgP:i.avgP*rate,curP:i.curP*rate,valKRW:current,profit,profitPct})}>${ownerTag}<td class="text-left holdings-tooltip-cell">${brokerCell}</td><td class="text-left holdings-tooltip-cell">${getHoldingsAssetCellHtml(i.name,dispTkr,i,pIdx)}</td><td class="dca-cell">${getDcaMergedCellHtml(i,_mobileHoldings?null:pIdx)}</td><td>${fQty}</td><td>${fAvg}</td><td>${fCurP}</td><td class="holdings-val-cell">${fAmt}<!--w:${current}:${_wCls(i)}--></td><td class="${cCls}">${fProfit}</td><td class="${cCls}">${sign+profitPct.toFixed(2)}%</td><td class="mgmt-cell">${mgmtBtns}</td></tr>`;
         }
         // 검색·시세 미조회 필터는 행만 숨긴다(합계는 위에서 이미 더했다). 현금은 이 시점에 _priceStale 이 정해진다.
         if(!holdingsRowMatches(i)) rowsHtml=rowsHtml.slice(0,_rowStart);
@@ -3399,6 +3604,7 @@ function renderPortfolio(owner) {
     +`<div class="holdings-kpi"><span>평가손익</span><b class="${profitAll>0?'c-up':profitAll<0?'c-dn':''}">${profitAll<0?'-':profitAll>0?'+':''}${money(profitAll)}</b><small>${investNonCash>0?(profitAll>=0?'+':'')+(profitAll/investNonCash*100).toFixed(2)+'% · 매입금액 대비':'매입금액 없음'}</small></div>`
     +`<div class="holdings-kpi${staleCount?' is-warn':''}"><span>시세 미조회</span><b>${staleCount}개</b><small>${staleCount?'직전 값으로 계산 중':'모두 수신'}</small></div>`
     +`</div>`;
+  if(kpisOnly) return kpis;
   const tabs=`<div class="holdings-tabs" role="tablist" aria-label="자산군">`
     +HOLDINGS_TABS.map(g=>`<button type="button" role="tab" class="holdings-tab" id="holdings-tab-${g}" data-grp="${g}" aria-controls="holdings-panel-${g}" aria-selected="${g===_holdingsTab}" tabindex="${g===_holdingsTab?0:-1}" onclick="setHoldingsTab('${g}')">${g}<span>${grpStats[g]?.count||0}</span></button>`).join('')
     +`</div>`;
@@ -4301,7 +4507,7 @@ function updateCfTrendChart() {
     const daysInMonth = new Date(y, m, 0).getDate();
     const ymKey = y+'-'+String(m).padStart(2,'0');
     autoTransferData.forEach(at=>{
-      if (!at.amt || !at.cycle) return;
+      if (!(at.amt || at.loan) || !at.cycle) return;
       if (_cfOwner!=='전체' && at.owner!==_cfOwner) return;
       const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
       // 등록 시작 월 이전이면 제외 (4월 등록 시 3월 이전엔 포함되지 않음)
@@ -4378,7 +4584,7 @@ function renderCashFlow() {
   const daysInMonth=new Date(cfYear,cfMonth,0).getDate();
   const ymKey=cfYear+'-'+String(cfMonth).padStart(2,'0');
   autoTransferData.forEach(at=>{
-    if(!at.amt||!at.cycle)return;
+    if(!(at.amt||at.loan)||!at.cycle)return;
     if(_cfOwner!=='전체'&&at.owner!==_cfOwner)return;
     const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
     const monthlyOccurrences=monthlyCycle?_autoTransferMonthlyOccurrences(at,cfYear,cfMonth):[];
@@ -4559,14 +4765,9 @@ function initGlobalCommaInputs(root) {
     if (el.dataset.noComma === '1') return;
     if (el.type === 'number') el.type = 'text';
     el.dataset.commaApplied = '1';
-    const isDecimal = el.getAttribute('inputmode') === 'decimal';
-    if (isDecimal) {
-      // 소수: 입력하는 동안 정수부에만 쉼표를 넣고 커서 위치는 지킨다(예전에는 칸을 벗어날 때만 넣었다)
-      el.addEventListener('input', () => handleDecimalInput(el));
-    } else {
-      // 정수: 실시간 콤마
-      el.addEventListener('input', () => handleAmtInput(el));
-    }
+    // 입력하는 동안 쉼표를 넣는다 — 소수(decimal)는 정수부에만 쉼표·커서 위치 보존, 정수(numeric)는 실시간 쉼표.
+    // 모드는 이벤트 때 읽는다(평균단가처럼 창을 열 때 decimal 로 바뀌는 칸이 있다).
+    el.addEventListener('input', () => (el.getAttribute('inputmode') === 'decimal' ? handleDecimalInput(el) : handleAmtInput(el)));
   });
 }
 
@@ -4610,20 +4811,6 @@ function handleCashAmtInput(el) {
 }
 
 // 평균단가 입력: 해외주식(USD)은 소수점 허용, 국내주식(KRW)은 정수 + 실시간 콤마
-function handleAvgPriceInput(el) {
-  const curSel = document.getElementById('add-currency-stock');
-  const cur = curSel ? curSel.value : 'KRW';
-  if (cur === 'USD') {
-    let raw = el.value.replace(/,/g,'').replace(/[^0-9.]/g, '');
-    const firstDot = raw.indexOf('.');
-    if (firstDot !== -1) {
-      raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, '');
-    }
-    if (el.value !== raw) el.value = raw;
-  } else {
-    handleAmtInput(el);
-  }
-}
 
 // 평균단가 blur 시 소수점 유지 여부를 현재 화폐에 맞춰 동기화
 function updateAvgpDecimalMode() {
@@ -5241,10 +5428,77 @@ async function authFetch(url, options = {}) {
   options.cache = options.cache || 'no-store';
   const res = await fetch(url, options);
   if (res.status === 401) {
+    bootFinish();   // 로딩 중 세션이 끊기면 뼈대를 남기지 않는다
     _setAuthenticatedUi(false);
     document.getElementById('login-pw')?.focus();
   }
   return res;
+}
+
+// ── 로그인 뒤 첫 로딩(2026-11-20, 시안 D — 사용자 결정) ── 화면 전체를 덮는 스플래시: 로고 막대가 진행에 따라 차례로 자라고
+// 단계 점 5개가 하나씩 켜진다(직전 세션 시안 원본 renderD 를 그대로 옮겼다. 지금 점의 고리만 느리게 숨 쉰다 — 단계 사이에 멈춰 보이지 않게).
+// 단계는 실제로 기다리는 일 그대로다(initDashboard 의 호출 순서·병렬은 바꾸지 않고 끝날 때 표시만 한다).
+// 걷는 때(사용자 결정): 배당·환율까지 끝나면. 시세 반영 뒤 BOOT_TAIL_MS(8초)가 지나면 배당·환율을 기다리지 않고 걷는다.
+// 자산 로드 실패는 바로(오류 안내가 보이게), 다른 화면으로 이동·세션 만료(401)·BOOT_SAFETY_MS(25초)도 걷는다.
+const BOOT_STEPS=[['auth','로그인 확인'],['assets','보유 자산 불러오는 중'],['ext','재무 기록 불러오는 중'],['prices','시세 반영 중'],['market','배당·환율 확인 중']];
+const BOOT_SAFETY_MS=25000, BOOT_TAIL_MS=8000;
+let _boot=null;
+function _bootReduced(){ return typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches; }
+// 로고 막대 세 개의 높이(0~1) — 진행률 p 에 따라 첫 막대부터 차례로 자란다(시안과 같은 식).
+function bootGrowth(p){ return [0,1,2].map(k=>Math.max(0,Math.min(1,(p-k*.28)/.36))); }
+function bootStart(){
+  const sp=document.getElementById('boot-splash'); if(!sp) return;
+  _boot={done:new Set(['auth']),revealed:false,safety:0,tail:0};
+  sp.hidden=false; sp.classList.remove('is-leaving');
+  document.querySelector('.layout')?.setAttribute('inert','');   // 덮는 동안 가려진 메뉴에 포커스가 가지 않게
+  _bootPaint();
+  _boot.safety=setTimeout(bootFinish,BOOT_SAFETY_MS);
+}
+function _bootPaint(){
+  if(!_boot) return;
+  const n=_boot.done.size,total=BOOT_STEPS.length;
+  const next=BOOT_STEPS.find(([k])=>!_boot.done.has(k));
+  const sp=document.getElementById('boot-splash');
+  if(sp) bootGrowth(n/total).forEach((g,k)=>sp.style.setProperty('--g'+(k+1),g.toFixed(3)));
+  document.querySelectorAll('#boot-dots>li').forEach((li,k)=>{
+    const key=BOOT_STEPS[k]&&BOOT_STEPS[k][0];
+    li.className=_boot.done.has(key)?'is-done':(next&&next[0]===key?'is-now':'');
+  });
+  const step=document.getElementById('boot-step'); if(step) step.textContent=next?next[1]+' …':'준비 완료';
+  const st=document.getElementById('boot-status'); if(st) st.textContent=next?`${next[1]} (${n}/${total})`:'불러오기 완료';
+}
+function bootStep(key){
+  if(!_boot||_boot.done.has(key)) return;
+  _boot.done.add(key); _bootPaint();
+  if(BOOT_STEPS.every(([k])=>_boot.done.has(k))) setTimeout(bootFinish,_bootReduced()?0:320);   // 마지막 막대가 다 자라는 걸 보고 걷는다
+}
+// 시세 반영 뒤 — 배당·환율을 최대 BOOT_TAIL_MS 만 기다린다.
+function bootWaitTail(){
+  if(!_boot||_boot.tail) return;
+  _boot.tail=setTimeout(bootFinish,BOOT_TAIL_MS);
+}
+// 스플래시를 걷는다. 걷는 순간 지금 화면의 등장 움직임·숫자 올리기를 돌린다 — 덮여 있는 동안 돈 움직임은 안 보였다.
+function bootReveal(){
+  if(!_boot||_boot.revealed) return;
+  _boot.revealed=true;
+  const loginShown=document.getElementById('login-overlay')?.style.display==='flex';
+  if(!loginShown) document.querySelector('.layout')?.removeAttribute('inert');   // 로그인 화면이 다시 떠 있으면 잠금 유지
+  const sp=document.getElementById('boot-splash');
+  if(sp){
+    if(_bootReduced()) sp.hidden=true;
+    else{ sp.classList.add('is-leaving'); setTimeout(()=>{sp.hidden=true;sp.classList.remove('is-leaving');},240); }
+  }
+  const id=document.querySelector('.view-section.active')?.id?.replace('view-','');
+  if(id&&typeof cbMarkEntering==='function') cbMarkEntering(id);
+  if(id&&typeof cbCountUp==='function') cbCountUp(id);
+  if(typeof _fitActiveCharts==='function') requestAnimationFrame(()=>_fitActiveCharts());
+}
+function bootFinish(){
+  if(!_boot) return;
+  bootReveal();
+  clearTimeout(_boot.safety); clearTimeout(_boot.tail);
+  const st=document.getElementById('boot-status'); if(st) st.textContent='불러오기 완료';
+  _boot=null;
 }
 
 let _dashboardInitStarted = false;
@@ -5253,6 +5507,7 @@ function _startDashboardAfterAuth(){
   if(window.innerWidth>768) applySideCollapsed(_sideCollapsedSaved(),false);
   if (_dashboardInitStarted) return;
   _dashboardInitStarted = true;
+  bootStart();
   initDashboard();
   setTimeout(_fitActiveCharts, 800);
   setTimeout(_fitActiveCharts, 2500);
@@ -5358,6 +5613,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeAddModal();
     closeTradeModal();
+    if (typeof cbDcaEditClose === 'function') cbDcaEditClose();
+    if (typeof cbTaxHoldClose === 'function') cbTaxHoldClose();
     if (typeof closeREModal === 'function') closeREModal();
     if (typeof closeLiabModal === 'function') closeLiabModal();
     closeCfDetails();
@@ -5452,10 +5709,7 @@ function initDashboard(){
   // 테마 복원 — 3테마 (default/light/dark), 저장값 없으면 기본
   setTheme(_savedTheme());
 
-  // 2. 숫자 입력 콤마 포매팅 적용 (모든 금액 입력란 — 기존 화이트리스트)
-  ['goal-target','goal-monthly','cf-amt','add-qty','add-avgp','add-cash-amt','add-dca-amt','at-amt'].forEach(id=>{
-    const el=document.getElementById(id);if(el)applyCommaFormatting(el);
-  });
+  // (예전 화이트리스트 — 포커스 때 쉼표 제거·벗어날 때만 쉼표 — 는 없앴다. 그 칸들이 아래 입력 중 쉼표를 건너뛰게 만들었다.)
   // 2-1. 대시보드 전체 자동 쉼표 — inputmode=numeric/decimal 모든 input에 실시간 콤마 삽입
   try { initGlobalCommaInputs(); } catch(e){}
 
@@ -5467,15 +5721,22 @@ function initDashboard(){
   // 초기 로드: KV에서 자산 로드 후 EOD 시세 1회 반영
   (async () => {
     // KRX 종목 DB(data/stocks.json)와 자산을 병렬 로드
-    const [assetsResult,extResult]=await Promise.all([loadAssetsFromKV(), loadExtDataFromKV(), loadKoreanStocksDB()]);
+    // 로딩 화면 단계 표시(bootStep)는 각 약속이 끝날 때 붙인다 — 호출 순서·병렬은 그대로. 자산을 못 불러오면 오류 안내가 보이게 바로 걷는다.
+    const [assetsResult,extResult]=await Promise.all([
+      loadAssetsFromKV().then(r=>{bootStep('assets');if(!r?.ok)bootReveal();return r;}),
+      loadExtDataFromKV().then(r=>{bootStep('ext');return r;}),
+      loadKoreanStocksDB()]);
     // 로컬 기본값을 원격 데이터 위에 저장하지 않도록, 확장 KV 로드 성공 뒤에만 자동이체를 실체화한다.
     if(assetsResult?.ok&&extResult?.ok) applyAutoTransfers();
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
-    if(assetsResult?.ok) await refreshMarketPrices();
+    // 시세 반영 뒤에는 배당·환율을 최대 8초 기다렸다 걷는다(사용자 결정) — 시세 조회가 예외로 끝나도(뒤 단계는 예전처럼 멈춘다) 그 시계는 돈다.
+    try{ if(assetsResult?.ok) await refreshMarketPrices(); }
+    finally{ bootStep('prices'); bootWaitTail(); }
     // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
-    refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok});
+    refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok})
+      .finally(()=>bootStep('market')).catch(e=>console.warn('[refreshPyData]',e));
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
     if(assetsResult?.ok) fetchBenchmarkData();
@@ -5616,7 +5877,7 @@ function setBubbleOwnerX(owner, btn) {
   try { if (typeof changeOwner === 'function' && currentOwner !== owner) { changeOwner(owner, null); } } catch(e){}
   // 타이틀 즉시 업데이트 (소유주별 포트폴리오 비중 차트)
   const mt = document.getElementById('main-title');
-  if (mt) mt.textContent = '자산 관리';
+  if (mt) mt.textContent = (typeof navGroup==='function'&&navGroup('bubble')?.title)||'투자 분석';   // 구성(비중 지도)은 투자 분석 메뉴(2026-11-19)
   renderBubbleChart('weight');
 }
 

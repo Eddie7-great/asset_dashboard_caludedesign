@@ -148,7 +148,7 @@
 #page-head #owner-tabs-container,#page-head #cf-owner-bar,#page-head #cb-head-widgets,#page-head #bubble-owner-bar{margin-left:0!important;padding-left:0}
 #page-head:not(:has(#page-sections:not([hidden]))):not(:has(#cf-header-tabs:not([hidden]))) #cb-head-widgets{margin-left:auto!important}
 #cf-header-tabs{display:none;margin:0 0 0 auto;padding:0;gap:5px;border:0;background:transparent}
-.content-area:has(#view-cashflow.active) #cf-header-tabs{display:flex}
+.content-area:has(#view-cashflow.active) #cf-header-tabs,.content-area:has(#view-cal2.active) #cf-header-tabs{display:flex}
 #cf-header-tabs button{min-height:32px;padding:6px 11px;border:1px solid var(--bd2);border-radius:var(--r-md);font:600 var(--fs-cap)/1.4 var(--font-ui);white-space:nowrap}
 .home-holdings-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}.home-table-column{min-width:0}
 .home-table-wrap{max-height:clamp(360px,56vh,620px);overscroll-behavior:contain}.home-table-column thead th{position:sticky;top:0;z-index:2;background:var(--panelSolid);box-shadow:0 1px 0 var(--bd)}
@@ -438,10 +438,10 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #add-modal.active .modal-content{animation:cbFade var(--dur) var(--ease-out) both}
 @media(min-width:1101px){#add-modal.active .modal-content{animation:cbSlideIn var(--dur) var(--ease-out) both}}
 /* 상호작용 — 색·바탕·밑줄은 같은 짧은 시간·곡선으로, 누르면 살짝 눌린다 */
-:is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+:is(.cb-dash-kpi,.holdings-tab,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,#page-sections a,.owner-btn,.sim-view-tabs>button,.view-mode-bar>button,.cf-section-tab,.side-seg-btn,.menu-btn){transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
 :is(button.cb-dash-kpi,.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.login-btn):active:not(:disabled){transform:scale(.98)}
 /* 움직임 줄이기 — 전역 규칙은 시간만 줄이고 지연(stagger)은 남겨 그 사이 카드가 숨어 있으므로, 여기서는 아예 끈다 */
-@media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-error{animation:none!important}#login-overlay{transition:none}}
+@media(prefers-reduced-motion:reduce){.is-entering *,#add-modal.active .modal-content,.login-card,.login-card *,.login-error{animation:none!important}#login-overlay{transition:none}}
 
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
@@ -471,9 +471,9 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
 .cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
 /* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
-.sim-view-tabs{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
-.sim-view-tabs>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
-.sim-view-tabs>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
+.sim-view-tabs,.view-mode-bar{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.sim-view-tabs>button.cb-btn,.view-mode-bar>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
+.sim-view-tabs>button.cb-btn[aria-pressed=true],.view-mode-bar>button.cb-btn[aria-pressed=true]{background:transparent;color:var(--t1);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 /* 현금 흐름의 '월별 현금흐름 / 고정비 관리' 전환은 헤더의 세부 화면 링크와 같은 밑줄형 */
 .cf-section-tabs{background:transparent;border:0;padding:0;gap:4px}
 #cf-header-tabs.cf-section-tabs .cf-section-tab{min-height:36px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--mut);font:600 var(--fs-body)/1.4 var(--font-ui);box-shadow:none}
@@ -586,24 +586,34 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 }
 @media(prefers-reduced-motion:reduce){.rep-scroll{scroll-behavior:auto}.rep-dots button,.rep-dots button span{transition:none}}
 
-/* ===== 사이드바 접기/펴기(2026-11-11) — 넓은 화면만. 휴대폰은 기존 햄버거 서랍 그대로 =====
-   격자 첫 칸 폭(210px ↔ 0)과 간격을 함께 줄여 본문이 자연스럽게 넓어진다. 사이드바 안쪽은 폭을 고정해
-   줄어드는 동안 글자가 줄바꿈되며 찌그러지지 않고 잘려 나간다. 움직임 토큰만 쓴다. */
+/* ===== 사이드바 접기/펴기(2026-11-11, 2026-11-18 4차에 버튼 위치·효과 변경) — 넓은 화면만. 휴대폰은 기존 햄버거 서랍 그대로 =====
+   버튼은 사이드바 왼쪽 위에 고정(position:fixed)이라 접혀도 같은 자리에 남는다. 접을 때 사이드바는 그 버튼 쪽으로
+   작아지며 빨려 들어가고(transform-origin = 버튼 중심, 가속 곡선), 펼 때는 버튼에서 거꾸로 펼쳐진다(감속 곡선).
+   격자 첫 칸 폭(210px ↔ 0)과 간격을 함께 줄여 본문이 자연스럽게 넓어진다. 움직임 토큰만 쓴다. */
 .side-collapse-btn{display:none}
 @media(min-width:769px){
-  .side-collapse-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;padding:0;border:1px solid var(--bd);border-radius:var(--r-md);background:transparent;color:var(--mut);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
-  .side-collapse-btn:hover{background:var(--hover-bg);color:var(--tx)}
+  .side-collapse-btn{position:fixed;top:22px;left:25px;z-index:30;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:1px solid var(--side-line);border-radius:var(--r-md);background:transparent;color:var(--side-mut);cursor:pointer;transition:background-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out),border-color var(--dur) var(--ease-out)}
+  .side-collapse-btn:hover{background:var(--side-inner);color:var(--side-tx)}
+  body.side-collapsed .side-collapse-btn{border-color:var(--bd);background:var(--panel);color:var(--mut)}
+  body.side-collapsed .side-collapse-btn:hover{background:var(--hover-bg);color:var(--tx)}
   .side-collapse-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .side-collapse-arrow{transform-box:fill-box;transform-origin:center;transition:transform var(--dur) var(--ease-out)}
   body.side-collapsed .side-collapse-arrow{transform:rotate(180deg)}
-  .layout{transition:grid-template-columns calc(var(--dur)*1.25) var(--ease-out),gap calc(var(--dur)*1.25) var(--ease-out)}
-  .menu-col{min-width:0;overflow:hidden;transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out),padding var(--dur) var(--ease-out),border-width var(--dur) var(--ease-out)}
+  /* 사이드바 위쪽에 버튼 자리를 비운다 */
+  .menu-col{padding-top:52px}
+  .layout{transition:grid-template-columns calc(var(--dur)*1.6) var(--ease-out),gap calc(var(--dur)*1.6) var(--ease-out)}
+  /* 펼칠 때(기본 상태로 돌아갈 때) — 감속 곡선 */
+  .menu-col{min-width:0;overflow:hidden;transform-origin:25px 22px;transition:opacity calc(var(--dur)*1.6) var(--ease-out),transform calc(var(--dur)*1.6) var(--ease-out),border-radius calc(var(--dur)*1.6) var(--ease-out),padding calc(var(--dur)*1.6) var(--ease-out),border-width calc(var(--dur)*1.6) var(--ease-out)}
   /* 여백·테두리를 포함해 188px — content-box 로 두면 환율 상자(안쪽 여백+테두리 26px)가 사이드바 밖으로 나가 오른쪽 값이 잘린다 */
   .menu-col>*{box-sizing:border-box;width:188px;flex-shrink:0}
-  body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0}
-  body.side-collapsed .menu-col{opacity:0;transform:translateX(-18px);padding-left:0;padding-right:0;border-width:0;pointer-events:none}
+  body.side-collapsed .layout{grid-template-columns:0px 1fr;gap:0;transition-timing-function:var(--ease-in)}
+  /* 접을 때 — 버튼 쪽으로 빨려 들어간다(가속 곡선) */
+  body.side-collapsed .menu-col{opacity:0;transform:scale(.06);border-radius:50%;padding-left:0;padding-right:0;border-width:0;pointer-events:none;transition-timing-function:var(--ease-in)}
+  /* 접힌 동안 제목이 버튼 밑으로 들어가지 않게 */
+  #page-head{transition:padding-left calc(var(--dur)*1.6) var(--ease-out)}
+  body.side-collapsed #page-head{padding-left:64px!important}
 }
-@media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.layout,.menu-col,.side-collapse-arrow,#page-head{transition:none!important}}
 /* 배당 상단 카드(2026-11-11) — 보조 문구('산출 n/m', '상위 3종목 합계')는 값 아래가 아니라 제목 줄 오른쪽 끝.
    넓은 화면에서 TOP 3 카드는 내용 폭(종목명 + 금액)에 맞추고 숫자 카드들이 남는 폭을 나눠 갖는다 —
    TOP 3 가 남는 폭을 다 쓰면 종목명(왼쪽 끝)과 금액(오른쪽 끝)이 멀어져 한 줄로 읽히지 않는다.
@@ -627,7 +637,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 :is(.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.fin-form-actions button.primary):hover{background:var(--hover-bg);border-color:var(--mut)}
 /* 적립식 규칙 표 — 인라인 flex(종목 칸이 남는 폭을 전부 가져감) 대신 격자. 남는 폭을 모든 칸이 나눠 가져
    '종목'과 '회당 금액'이 멀어지지 않는다. 머리줄 '종목'은 국기 왼쪽 끝과 같은 선에서 시작한다. */
-.cb-dca-head,.cb-dca-row{display:grid;grid-template-columns:62px minmax(150px,2.4fr) minmax(84px,.8fr) minmax(84px,.8fr) minmax(84px,.7fr) minmax(124px,1fr) minmax(76px,.7fr) minmax(88px,.8fr) minmax(98px,.8fr) 46px;column-gap:6px;align-items:center;min-width:942px;box-sizing:border-box;padding:9px 8px;border-bottom:1px solid var(--bd)}
+.cb-dca-head,.cb-dca-row{display:grid;grid-template-columns:62px minmax(150px,2.4fr) minmax(84px,.8fr) minmax(84px,.8fr) minmax(84px,.7fr) minmax(124px,1fr) minmax(76px,.7fr) minmax(88px,.8fr) minmax(98px,.8fr) 92px;column-gap:6px;align-items:center;min-width:988px;box-sizing:border-box;padding:9px 8px;border-bottom:1px solid var(--bd)}
 .cb-dca-head{font-size:var(--fs-cap);color:var(--dim);padding:7px 8px}
 .cb-dca-row{font-size:var(--fs-body)}
 .cb-dca-row.is-paused{opacity:.45}
@@ -1081,9 +1091,38 @@ button,input,select,textarea{font-family:var(--font-ui)}
    표 밖으로 나가 가로 스크롤바가 생긴다(계좌별 보기 '종목', 구성원 비교 '수익률', ETF 구성종목 '변화'). 값 칸도 같이 비워 끝선을 맞춘다. */
 .fin-tree.is-acct>.fin-tree-row>:last-child,.cb-family-head>:last-child,.cb-family-row>:last-child,.etf-table-head>:last-child,.etf-table-row>:last-child{padding-right:14px}
 /* 실현손익 ↔ 보유 연동(2026-11-18 3차): 세금 화면 입력 줄의 '보유 반영', 매도 창의 '이미 기록함' */
-.cb-tax-hold-field{display:flex;align-items:center;gap:6px}
-.cb-tax-hold-field select{max-width:220px}
-.cb-tax-hold-field input{width:90px}
+/* 보유 반영 — 글자 길이만큼의 버튼(폭 고정 없음, 아주 긴 이름만 상한에서 말줄임)과 종목 선택 창(2026-11-20) */
+.cb-tax-hold-btn{display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;max-width:260px;min-width:0;height:30px;padding:0 10px;border:1px dashed var(--bd2);border-radius:var(--r-md);background:transparent;color:var(--mut);font:500 var(--fs-cap) var(--font-ui);white-space:nowrap;cursor:pointer}
+.cb-tax-hold-btn>span{flex:none;color:var(--lab)}
+.cb-tax-hold-btn>b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;color:var(--mut)}
+.cb-tax-hold-btn:hover{border-color:var(--acc)}
+.cb-tax-hold-btn.is-set{border-style:solid;background:var(--inner)}
+.cb-tax-hold-btn.is-set>b{color:var(--tx);font-weight:700}
+.tax-hold-modal{width:480px;max-width:92vw;gap:10px}
+.tax-hold-modal .form-input{width:100%;box-sizing:border-box;height:36px}
+.tax-hold-list{display:flex;flex-direction:column;max-height:300px;overflow:auto;border:1px solid var(--bd);border-radius:var(--r-md)}
+.tax-hold-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);color:var(--tx);cursor:pointer}
+.tax-hold-row:last-child{border-bottom:0}
+.tax-hold-row:hover,.tax-hold-row.is-picked{background:var(--inner)}
+.tax-hold-row input{accent-color:var(--acc);margin:0}
+.tax-hold-name{display:flex;flex-direction:column;min-width:0}
+.tax-hold-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.tax-hold-name small{font-size:var(--fs-cap);color:var(--lab);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tax-hold-qty{font-size:var(--fs-cap);color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tax-hold-empty{margin:0;padding:16px;text-align:center;font-size:var(--fs-cap);color:var(--lab)}
+.tax-hold-qty-row{display:flex;gap:6px;align-items:center}
+.tax-hold-qty-row>input{flex:1 1 auto;min-width:0}
+.tax-hold-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 입력 줄은 한 줄이다(2026-11-20) — 값만으로 뜻이 보이는 칸(월·시장·계좌·소유주·메모)은 이름을 화면 낭독용으로만 두고(sr-only),
+   1440px 이상은 제목 · 입력 줄 · 도구가 한 줄(11-18 결정), 그보다 좁으면 제목·도구가 윗줄, 입력 줄이 통째로 아랫줄이다. 1280px 이상에서 입력 줄 자체는 줄바꿈하지 않는다. */
+@media(min-width:1280px){   /* 더 좁으면 긴 '보유 반영' 이름과 함께 기록 버튼이 잘린다(측정: 900·1024·1150px) — 그때는 입력 줄 안에서 줄바꿈 */
+  .cb-tax-hist-top .cb-tax-entry-form{flex-wrap:nowrap}
+  .cb-tax-hist-top .cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 120px;min-width:90px}
+}
+@media(min-width:769px) and (max-width:1439px){
+  .cb-tax-hist-top>.cb-tax-hist-tools{order:1;margin-left:auto}
+  .cb-tax-hist-top>.cb-tax-entry-form{order:2;flex-basis:100%}
+}
 .trade-skip{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:var(--fs-cap);color:var(--tx);cursor:pointer}
 .trade-pl-match{color:var(--warn)}
 
@@ -1103,4 +1142,109 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 좁은 카드의 줄바꿈(2026-11-18 3차): 제목 줄은 한 줄, 세금 카드 보조 문구는 다음 줄 한 덩어리 */
 .cb-dca-table-toolbar .cb-panel-title,.acct-tree-head .cb-panel-title,.cb-dash-table-toolbar h3{white-space:nowrap}
 .cb-tax-card-sub{display:block;margin-top:2px;color:var(--dim);font-weight:500;letter-spacing:0}
+/* 고정비 등록 폼의 대출 상환 조건(2026-11-18 4차) — 카테고리 '대출납입금'일 때만 보이고 폼 격자 한 줄을 다 쓴다 */
+.cf-fixed-loan{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px;align-items:end;min-width:0;margin:0;padding:12px 14px;border:1px dashed var(--bd2);border-radius:var(--r-md);background:var(--inner)}
+.cf-fixed-loan[hidden]{display:none}
+.cf-fixed-loan-legend{padding:0 6px;font-size:var(--fs-cap);font-weight:700;color:var(--tx)}
+.cf-fixed-loan-legend small{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--mut)}
+.cf-fixed-loan .form-group{width:150px}
+.cf-fixed-loan .cf-fixed-loan-rate{width:96px}
+.cf-fixed-loan-pair{display:flex;gap:6px}
+.cf-fixed-loan-pair>.form-input{min-width:0}
+.cf-fixed-loan-pair>input{width:64px;flex:0 0 64px}
+.cf-fixed-loan-pair>select{flex:1 1 auto}
+.cf-fixed-loan .form-group:has(#cf-fixed-loan-y){width:190px}
+.cf-fixed-loan-preview{flex-basis:100%;margin:0;font-size:var(--fs-cap);line-height:1.5;color:var(--mut)}
+#cf-fixed-amt.is-computed{background:var(--inner);color:var(--tx);cursor:default}
+.cf-fixed-loan-note{font-size:var(--fs-cap);color:var(--mut);font-variant-numeric:tabular-nums}
+#cf-fixed-table tr.has-loan>td{border-bottom:0;padding-bottom:2px}
+#cf-fixed-table tr.cf-fixed-loan-row>td{padding-top:0}
+/* 고정비 관리의 적립식 매수 묶음(2026-11-18 4차) — 분포 카드 아래, 고정비와 별도 */
+/* 두 카드는 제 높이 그대로 쌓고, 넘치면 오른쪽 열 전체가 스크롤한다 — 한 카드를 줄이면 분포 범례가 잘린다 */
+.cf-fixed-side{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;overflow-y:auto}
+.cf-fixed-side>.glass-panel{flex:0 0 auto;overflow:visible}
+.cf-fixed-dca-panel{padding:14px;display:flex;flex-direction:column;gap:8px}
+.cf-fixed-dca-panel[hidden]{display:none}
+.cf-fixed-dca-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cf-fixed-dca-head .cb-label small{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--mut)}
+.cf-fixed-dca-link{padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:var(--fs-cap);cursor:pointer;white-space:nowrap}
+.cf-fixed-dca-link:hover{text-decoration:underline}
+.cf-fixed-dca-sub{margin:0;font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
+.cf-fixed-dca-list{display:flex;flex-direction:column}
+.cf-fixed-dca-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cf-fixed-dca-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.cf-fixed-dca-rule{font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.cf-fixed-dca-row b,.cf-fixed-dca-total b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.cf-fixed-dca-total{display:flex;justify-content:space-between;gap:8px;padding-top:2px;font-size:var(--fs-body);color:var(--tx)}
+.cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
+#cf-fixed-dca-sum[hidden]{display:none}
+@media(max-width:768px){.cf-fixed-side{overflow:visible}}
 
+/* ===== 적립식 설정 창·적립식 칸 상태(2026-11-20) — 보유 목록 적립식 칸과 적립식 매수 화면의 '수정'이 같은 창(#dca-modal)을 연다 =====
+   칸은 dcaState 한 벌로 그린다: 진행 중(주기/금액) · 중단(흐린 '중단 · 주기'/금액) · 금액 미입력 · 없음('—'). */
+.dca-cell-btn{display:flex;flex-direction:column;align-items:flex-end;gap:2px;width:100%;min-width:0;min-height:32px;padding:2px 4px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--tx);font:inherit;text-align:right;cursor:pointer}
+/* 칸은 예전처럼 오른쪽 정렬·말줄임(두 줄) — 버튼 안에서도 같은 규칙 */
+#view-holdings .pt-table td.dca-cell .dca-cell-btn>span{display:block;max-width:100%;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#view-holdings .pt-table td.dca-cell .dca-cell-btn>.dca-amount{color:var(--mut)}
+#view-holdings .pt-table td.dca-cell .is-paused{color:var(--lab);font-weight:500}
+#view-holdings .pt-table td.dca-cell .is-missing{color:var(--warn)}
+.dca-cell-btn:hover{background:var(--inner)}
+.dca-amount.is-missing{color:var(--warn);font-size:var(--fs-cap);font-weight:600}
+.dca-modal{width:440px;max-width:92vw;gap:12px}
+.dca-modal .form-row{margin-bottom:0;flex-wrap:nowrap}
+.dca-modal .form-row>.form-group{flex:1;min-width:0}
+.dca-modal .form-input{width:100%;box-sizing:border-box;height:36px}
+.dca-edit-switch{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-body);font-weight:700;color:var(--tx);cursor:pointer}
+.dca-edit-switch input{width:16px;height:16px;margin:0;accent-color:var(--acc)}
+.dca-edit-switch small{margin-left:auto;font-size:var(--fs-cap);font-weight:500;color:var(--lab);text-align:right}
+.dca-edit-dows{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0;padding:0;border:0}
+.dca-edit-dows legend{float:left;width:100%;margin-bottom:4px;padding:0}
+.dca-edit-dows label{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-body);color:var(--tx);cursor:pointer}
+.dca-edit-dows input{accent-color:var(--acc)}
+.dca-modal [hidden]{display:none!important}
+.dca-edit-amt-row{display:flex;gap:6px}
+.dca-edit-amt-row>input{flex:1 1 auto;min-width:0}
+.dca-edit-amt-row>select{flex:0 0 96px;width:96px}
+.dca-rule-actions{align-items:center;gap:8px}
+.dca-rule-edit{min-height:28px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);font:700 var(--fs-cap) var(--font-ui);cursor:pointer;white-space:nowrap}
+.dca-rule-edit:hover{border-color:var(--acc);color:var(--acc)}
+@media(max-width:768px){.dca-rule-edit{display:none}}
+
+/* ===== 페이지 통폐합(2026-11-19) — 보기 전환 줄(#view-mode-bar, navigation.js navModeBar) =====
+   한 세부 메뉴 안의 보기(종목별·계좌별·구성원별 / 비중 지도·ETF 속 종목 / 월간·연간)는 머리줄 바로 아래 오른쪽 밑줄형 줄로 오간다.
+   모양은 시뮬레이터 세 탭(.sim-view-tabs)과 같은 규칙을 공유하고(공통 블록), 여기서는 자리만 준다 — 스크롤 영역 밖이라 긴 표를 내려도 보인다. */
+.view-mode-bar{display:flex;flex-shrink:0;align-items:flex-end;margin-top:2px;padding-right:8px}
+.view-mode-bar[hidden]{display:none}
+@media(max-width:768px){.view-mode-bar{margin:6px 12px 10px;padding-right:0;overflow-x:auto}.view-mode-bar>button.cb-btn{flex:0 0 auto}}
+/* 홈 보유 표 10줄 + 전체 보기(보유 목록으로) */
+.home-holdings-more{display:block;margin:8px 0 0 auto;padding:4px 2px;border:0;background:none;color:var(--acc);font:600 var(--fs-cap)/1.4 var(--font-ui);cursor:pointer}
+.home-holdings-more:hover{text-decoration:underline}
+/* 펼친 동안 표는 안쪽 스크롤 없이 아래로 늘어난다(화면 스크롤로 본다) */
+.home-table-wrap.is-expanded{max-height:none}
+/* 일정(cal2)도 현금 흐름 탭 줄을 쓴다 — 현금 흐름과 같은 자리(소유주 버튼 앞)에 오게 한다 */
+.content-area:has(#view-cal2.active) #cf-header-tabs{order:-1}
+
+/* ===== 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 5개가 하나씩 켜진다 =====
+   바탕은 로그인 화면과 같아 로그인 화면이 흐려지면 그대로 이어진다. 막대 높이는 bootGrowth 가 --g1~3(0~1)으로 준다.
+   토큰 색만 쓰고(마지막 막대 색은 로그인 표식과 같은 규칙), 움직임 줄이기에서는 막대가 바로 서고 고리도 멈춘다. */
+.boot-splash{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:var(--bg2,var(--bg1));transition:opacity var(--dur) var(--ease-out)}
+.boot-splash[hidden]{display:none}
+.boot-splash.is-leaving{opacity:0}
+.boot-splash-inner{display:flex;flex-direction:column;align-items:center;transform:translateY(-5%)}
+.boot-mark{display:flex;align-items:center;justify-content:center;width:120px;height:120px;border-radius:calc(var(--r-lg)*2);background:var(--kpi-hi-bg)}
+.boot-mark svg{width:72px;height:72px;overflow:visible}
+.boot-mark rect{fill:var(--kpi-hi-tx)}
+.boot-mark rect.boot-base{fill:color-mix(in srgb,var(--kpi-hi-tx) 35%,transparent)}
+.boot-mark rect[class^="boot-bar"]{transform-box:fill-box;transform-origin:50% 100%;transition:transform calc(var(--dur)*2) var(--ease-out)}
+.boot-mark rect.boot-bar1{transform:scaleY(var(--g1,0))}
+.boot-mark rect.boot-bar2{transform:scaleY(var(--g2,0))}
+.boot-mark rect.boot-bar3{transform:scaleY(var(--g3,0))}
+.boot-title{margin:20px 0 0;font:800 var(--fs-title)/1.3 var(--font-ui);letter-spacing:-.02em;color:var(--tx)}
+.boot-dots{display:flex;gap:12px;margin:26px 0 0;padding:0;list-style:none}
+.boot-dots>li{width:10px;height:10px;border-radius:50%;background:var(--bd2);transition:background-color var(--dur) var(--ease-out)}
+.boot-dots>li.is-done{background:var(--acc)}
+.boot-dots>li.is-now{background:var(--acc);box-shadow:0 0 0 5px var(--acc-soft);animation:bootRing 1.6s ease-in-out infinite}
+@keyframes bootRing{0%,100%{box-shadow:0 0 0 3px var(--acc-soft)}50%{box-shadow:0 0 0 7px var(--acc-soft)}}
+.boot-step{min-height:20px;margin:16px 0 0;font-size:var(--fs-body);color:var(--mut)}
+@media(max-width:768px){.boot-mark{width:96px;height:96px}.boot-mark svg{width:58px;height:58px}.boot-title{font-size:var(--fs-card)}}
+@media(prefers-reduced-motion:reduce){.boot-splash,.boot-mark rect,.boot-dots>li{transition:none!important}.boot-dots>li.is-now{animation:none!important}}

@@ -401,6 +401,13 @@ vm.createContext(privacyContext)
 vm.runInContext(extractFunction(scriptSource, '_maskAmountText'), privacyContext)
 assert.equal(privacyContext._maskAmountText('평가액 +₩12,345,678원'), '평가액 +₩••••', '원화 금액 마스킹')
 assert.equal(privacyContext._maskAmountText('배당 $123.45 · 환산 ¥9,876'), '배당 $•••• · 환산 ¥••••', '외화 금액 마스킹')
+// 2026-11-18 4차: 만·억 단위 줄임 금액(타일·그래프 눈금)도 가린다, 만기 같은 낱말은 그대로
+assert.equal(privacyContext._maskAmountText('+1,755만'), '+••••만', '기여도 타일 줄임 금액')
+assert.equal(privacyContext._maskAmountText('2,000만'), '••••만', '점 그림 세로 눈금')
+assert.equal(privacyContext._maskAmountText('−500만'), '−••••만')
+assert.equal(privacyContext._maskAmountText('3.6억'), '••••억', '증여 그래프 눈금')
+assert.equal(privacyContext._maskAmountText('ISA 3년 만기 · 12개월'), 'ISA 3년 만기 · 12개월', '만기 같은 낱말은 금액이 아니다')
+assert.equal(privacyContext._maskAmountText('+50%'), '+50%', '비율은 그대로')
 
 const taxTreatmentContext = { CB_TAX_ACCTS:['일반','연금저축','ISA'], OWNERS:['본인','아내','자녀1','아버지'], _taxRuleValue:(_path,fallback)=>fallback }
 vm.createContext(taxTreatmentContext)
@@ -592,7 +599,7 @@ assert.match(workspaceSource, /\.cb-tax-entry-form\{display:flex;flex-wrap:wrap;
 assert.match(workspaceSource, /\.cb-tax-entry-form>label\{display:flex;flex-direction:row;align-items:center/, '라벨을 드롭다운 왼쪽에 둔다')
 assert.match(workspaceSource, /\.cb-tax-entry-form #cb-tax-pl\{width:120px\}/, '실현손익 입력란 고정 폭')
 assert.match(workspaceSource, /\.cb-tax-entry-form>label\.cb-tax-memo-field\{flex:1 1 140px;max-width:340px\}/, '메모 입력은 남는 폭만 쓰고 상한을 둔다')
-assert.match(cobaltSource, /<label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="[^"]*" placeholder="메모" \/><\/label>/, '메모 폭은 인라인이 아니라 CSS 클래스로 준다')
+assert.match(cobaltSource, /<label class="cb-tax-memo-field"><span class="sr-only">메모<\/span><input id="cb-tax-memo" class="cb-input" value="[^"]*" placeholder="메모" \/><\/label>/, '메모 폭은 인라인이 아니라 CSS 클래스로 준다')
 assert.doesNotMatch(workspaceSource, /cb-tax-entry-form\{grid-template-columns:65px/, '고정 그리드 템플릿은 flex 로 대체했다')
 assert.match(styleSource, /\.cb-gift-field\{max-width:216px\}/, '증여 페이지 입력 라벨 폭 상한')
 assert.match(styleSource, /@media \(max-width: 768px\) \{[\s\S]*\.cb-gift-field\{max-width:none\}/, '모바일에서는 증여 입력 라벨 폭 상한 해제')
@@ -735,5 +742,5 @@ assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-al
   assert.ok(Math.abs(l2[0] + l2[1] - l1[0]) < 1e-6 && Math.abs(l3[0] + l3[1] + l3[2] - l1[0]) < 1e-6, '본인의 증권사·계좌 칸 합 = 본인 칸 폭 — 경계가 같은 자리')
   assert.match(workspaceSource, /\.fin-ice-seg\{box-sizing:border-box;min-width:0;height:34px;display:flex;align-items:center;padding:0;border:0;box-shadow:/, '칸에 padding·테두리를 두지 않는다(층마다 고정 여백이 몫을 깎아 경계가 어긋났다)')
   assert.match(workspaceSource, /\.cal-toolbar\{display:flex;align-items:center;justify-content:flex-end;/, '일정의 연월·이번 달 버튼은 오른쪽 정렬')
-  assert.match(workspaceSource, /\.sim-view-tabs\{gap:4px;justify-content:flex-end;/, '투자 시뮬레이터 세 탭은 오른쪽 정렬')
+  assert.match(workspaceSource, /\.sim-view-tabs(?:,\.view-mode-bar)?\{gap:4px;justify-content:flex-end;/, '투자 시뮬레이터 세 탭은 오른쪽 정렬')
 }

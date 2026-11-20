@@ -102,7 +102,9 @@ vm.createContext(normalizeContext)
 for (const name of [
   '_boundedStoredText', '_safeStoredNumber', '_safeStoredId', '_isStoredDateKey',
   '_safeStoredToken', '_normalizeStoredOwner', '_normalizeCfRows', '_normalizeAutoTransfers', '_normalizeMonthlyPLRows', '_normalizeGiftActual',
+  '_normalizeLoanTerms',
 ]) vm.runInContext(extractFunction(scriptSource, name), normalizeContext)
+vm.runInContext(extractConst(scriptSource, 'LOAN_METHOD_LABEL').replace(/^const /, 'var '), normalizeContext)
 
 const storedPayload = `<img src=x onerror="alert('stored')">\u0000`.repeat(20)
 const [cashFlow] = normalizeContext._normalizeCfRows([{

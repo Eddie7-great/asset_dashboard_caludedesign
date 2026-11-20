@@ -573,9 +573,23 @@
       border: 1px solid var(--bd);
       border-radius:var(--r-lg);
       box-shadow: none;
-      animation: cbLoginRise calc(var(--dur) * 1.5) var(--ease-out) both;
+      animation: cbLoginFade 200ms var(--ease-out) both;
     }
-    @keyframes cbLoginRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    /* 등장(2026-11-20 사용자 결정 — 시안 1 '마크 그리기'): 카드가 흐려졌다 나타나고, 로고 막대 셋이 차례로 자란 뒤
+       제목 · 안내 · 입력칸 · 버튼이 30ms 간격으로 올라온다. 로딩 스플래시(시안 D)와 같은 그림이라 로그인 → 로딩이 한 흐름이다.
+       자식은 fill 을 backwards 로 둔다 — both 면 끝난 뒤에도 transform 을 쥐고 있어 버튼의 눌림(:active scale)이 막힌다. */
+    @keyframes cbLoginFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes cbLoginGrow { from { transform: scaleY(0); } to { transform: none; } }
+    @keyframes cbLoginRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .login-mark rect { transform-box: fill-box; transform-origin: 50% 100%; animation: cbLoginGrow 460ms var(--ease-out) backwards; }
+    .login-mark rect:nth-child(1) { animation-delay: 150ms; }
+    .login-mark rect:nth-child(2) { animation-delay: 290ms; }
+    .login-mark rect:nth-child(3) { animation-delay: 430ms; }
+    .login-title, .login-sub, .login-input-wrap, .login-btn { animation: cbLoginRise calc(var(--dur) * 1.35) var(--ease-out) backwards; }
+    .login-title { animation-delay: 720ms; }
+    .login-sub { animation-delay: 750ms; }
+    .login-input-wrap { animation-delay: 780ms; }
+    .login-btn { animation-delay: 810ms; }
     .login-mark {
       width: 40px;
       height: 40px;
@@ -587,7 +601,7 @@
       background: var(--kpi-hi-bg);
     }
     .login-mark svg { fill: var(--kpi-hi-tx); }
-    .login-mark rect:last-child { fill: #5b9bff; }
+    .login-mark rect:last-child, .boot-mark rect.boot-bar3 { fill: #5b9bff; }   /* 로딩 스플래시(시안 D)의 같은 표식도 */
     .login-title {
       margin: 0 0 6px;
       font-size: var(--fs-title);

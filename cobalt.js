@@ -1400,9 +1400,17 @@ function cbHoldingSortGetters(){
     gain:r=>unknown(r)?null:r.gain, pct:r=>r.gainPct==null?null:r.gainPct,
   };
 }
+// 홈 보유 표는 검색어가 없으면 지금 정렬의 처음 10줄만 보이고, '전체 N종목 보기'를 누르면 그 자리에서 아래로 펼친다
+// (2026-11-20 사용자 결정 — 화면을 옮기지 않는다. 펼친 상태 _cdashShowAll 은 다른 화면으로 가면 cbResetViewState 가 접는다).
+// 검색하면 맞는 것 전부. 선택은 보이는 줄 안에서만 하고, 비중 분모(nw)·막대 기준(maxVal)·숫자 카드는 그대로다.
+const HOME_HOLDINGS_LIMIT=10;
+let _cdashShowAll=false;
 function cbHomeHoldings(rows){
   rows=cbSortRows('home',rows,cbHoldingSortGetters());
-  const sel=rows.find(r=>r.key===_cdashSel)||rows[0]||null;
+  const total=rows.length, searching=!!(_cdashQ||'').trim();
+  const shown=searching||_cdashShowAll?rows:rows.slice(0,HOME_HOLDINGS_LIMIT);
+  const canToggle=!searching&&total>HOME_HOLDINGS_LIMIT;
+  const sel=shown.find(r=>r.key===_cdashSel)||shown[0]||null;
   _cdashSel=sel?.key||null;
   const nw=cbAllRows().filter(r=>_cdashOwner==='전체'||r.i.owner===_cdashOwner).reduce((sum,r)=>sum+r.val,0);
   const maxVal=Math.max(0,...rows.map(r=>r.val||0));
@@ -1424,14 +1432,22 @@ function cbHomeHoldings(rows){
   return `<div class="home-holdings-layout">`
     +`<section class="cb-panel home-table-column"><div class="cb-dash-table-toolbar"><h3>보유 종목 <small data-tip="같은 소유주의 같은 종목은 계좌를 합쳐 한 줄로 보입니다.">${rows.length}개</small></h3>`
     +`<input type="search" aria-label="홈 보유 종목 검색" placeholder="종목명·티커·소유주 검색" value="${cbEsc(_cdashQ||'')}" oninput="cbDashSearch(this.value)"></div>`
-    +`<div class="home-table-wrap"><table><thead><tr>${[['owner','소유주','text'],['name','종목','text'],['qty','수량'],['cost','매입금액'],['val','평가액'],['share','비중'],['gain','평가손익'],['pct','수익률']].map(([k,l,t])=>`<th aria-sort="${cbAriaSort('home',k)}">${cbSortBtn('home',k,l,t)}</th>`).join('')}<th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
-    +`<tbody>${rows.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div></section>`
+    +`<div class="home-table-wrap${_cdashShowAll&&canToggle?' is-expanded':''}" id="home-holdings-wrap"><table><thead><tr>${[['owner','소유주','text'],['name','종목','text'],['qty','수량'],['cost','매입금액'],['val','평가액'],['share','비중'],['gain','평가손익'],['pct','수익률']].map(([k,l,t])=>`<th aria-sort="${cbAriaSort('home',k)}">${cbSortBtn('home',k,l,t)}</th>`).join('')}<th><span class="sr-only">시세 상태</span><span aria-hidden="true">시세</span></th></tr></thead>`
+    +`<tbody>${shown.map(row).join('')||'<tr><td colspan="9">검색 결과가 없습니다.</td></tr>'}</tbody></table></div>`
+    +(canToggle?`<button type="button" class="home-holdings-more" aria-expanded="${_cdashShowAll}" aria-controls="home-holdings-wrap" onclick="cbDashToggleAll()">${_cdashShowAll?`처음 ${HOME_HOLDINGS_LIMIT}종목만 보기 ▴`:`전체 ${total}종목 보기 ▾`}</button>`:'')
+    +`</section>`
     +`<aside class="cb-panel home-stock-summary" aria-label="선택 종목 요약">${cbHomeSummary(sel,nw)}</aside></div>`;
 }
 function cbDashSearch(v){ _cdashQ=v; cbRenderDash();
   // 검색 입력 포커스 유지
   const inp=document.querySelector('#cb-cdash .cb-dash-table-toolbar input'); if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
 function cbDashPick(key){ _cdashSel=key; cbRenderDash(); }
+// 홈 보유 표 펼치기/접기 — 다시 그린 뒤 같은 버튼으로 포커스를 돌려준다.
+function cbDashToggleAll(){
+  _cdashShowAll=!_cdashShowAll; cbRenderDash();
+  const run=()=>document.querySelector('#cb-cdash .home-holdings-more')?.focus();
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(run); else run();
+}
 // 홈 점 그림을 자리(.cb-scatter-host)의 실제 폭·높이로 그린다. 카드가 격자 높이로 늘어나므로 그 높이를 채운다.
 let _cdashScatterRows = [], _cdashScatterTimer = null;
 if(typeof window!=='undefined'&&typeof window.addEventListener==='function') window.addEventListener('resize',()=>{ clearTimeout(_cdashScatterTimer); _cdashScatterTimer=setTimeout(cbFillScatter,150); });
@@ -2473,6 +2489,49 @@ function cbGiftTransferRecords(asOf){
   });
   return out;
 }
+// 증여 기록 → 현금 흐름 연동(2026-11-18 4차). 기록장에 잡힌 증여가 현금 흐름에도 지출로 있어야 한다.
+//  1) 증여로 연결한 자동이체: 기록장 자동 기록(cbGiftTransferRecords)과 같은 이체일에 그 자동이체의 현금 흐름 줄이 없으면
+//     자동이체 줄과 같은 모양으로 채운다(giftBackfill). 사용자가 지운 달(cfDeletedKeys 'auto:id:YYYY-MM')은 다시 넣지 않는다.
+//     연결을 끊거나 시작 월을 늦추면 그 범위 밖의 채운 줄은 지운다 — 원래 현금 흐름이 만든 줄(giftBackfill 없음)은 건드리지 않는다.
+//  2) 손으로 적은 기록: 기록마다 지출 한 줄(giftRecId, 본인 → 가족 계좌라 자산 이동 '저축/투자'), 기록을 지우면 그 줄도 지운다.
+// 바뀐 것이 있으면 true — 저장은 부르는 쪽(cbGiftSave → saveExtDataToKV, cfData 포함)이 한다.
+function cbGiftSyncCashflow(){
+  if(typeof cfData==='undefined'||!Array.isArray(cfData)) return false;
+  const today=finLocalDateKey(new Date()), before=cfData.length;
+  const deleted=new Set(typeof cfDeletedKeys!=='undefined'&&Array.isArray(cfDeletedKeys)?cfDeletedKeys:[]);
+  const ats=typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[];
+  const auto=cbGiftTransferRecords(today);
+  const wantKey=new Set(auto.map(r=>`${r.atId}|${r.date}`));
+  let changed=false;
+  // 범위 밖이 된 채운 줄 지우기
+  for(let k=cfData.length-1;k>=0;k--){
+    const c=cfData[k];
+    if(c&&c.giftBackfill===true&&!wantKey.has(`${c.atId}|${c.date}`)){ cfData.splice(k,1); changed=true; }
+  }
+  auto.forEach(r=>{
+    const at=ats.find(x=>String(x.id)===String(r.atId)); if(!at) return;
+    const ym=r.date.slice(0,7), monthly=['monthly','month-end','month-start'].includes(at.cycle);
+    if(cfData.some(c=>c&&String(c.atId)===String(at.id)&&(c.date===r.date||(monthly&&String(c.date||'').slice(0,7)===ym)))) return;
+    if(deleted.has(`auto:${at.id}:${ym}`)) return;
+    cfData.push({date:r.date,type:'지출',cat:at.cat||'기타',desc:'[자동] '+(at.desc||''),amt:r.amt,owner:at.owner||'미지정',isAuto:true,atId:at.id,scheduleMonth:ym,
+      cycleLabel:typeof _getCycleLabel==='function'?_getCycleLabel(at):'',giftBackfill:true});
+    changed=true;
+  });
+  const stored=Array.isArray(cbGiftCfg().records)?cbGiftCfg().records:[];
+  const ids=new Set(stored.map(r=>String(r.id)));
+  for(let k=cfData.length-1;k>=0;k--){
+    const c=cfData[k];
+    if(c&&c.giftRecId&&!ids.has(String(c.giftRecId))){ cfData.splice(k,1); changed=true; }
+  }
+  const LABEL={child:'자녀',spouse:'배우자'};
+  stored.forEach(r=>{
+    if(!r||!r.id||cfData.some(c=>c&&String(c.giftRecId)===String(r.id))) return;
+    cfData.push({date:r.date,type:'지출',cat:'저축/투자',desc:`[증여] ${LABEL[r.kind]||''}${r.memo?' · '+r.memo:''}`.slice(0,240),amt:Number(r.amt)||0,owner:'본인',giftRecId:String(r.id)});
+    changed=true;
+  });
+  if(changed&&typeof saveCfData==='function') saveCfData();
+  return changed||cfData.length!==before;
+}
 // 증여 화면에서 지출 자동이체를 증여로 연결·해제한다(원본은 현금 흐름의 자동이체 그대로, 표식만 붙인다).
 function cbGiftLinkTransfer(atId, field, value){
   if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
@@ -2482,6 +2541,7 @@ function cbGiftLinkTransfer(atId, field, value){
     else { delete at.giftKind; delete at.giftFrom; }
   } else if(field==='from'&&/^\d{4}-\d{2}$/.test(value||'')) at.giftFrom=value;
   if(typeof saveAutoTransfers==='function') saveAutoTransfers(false);
+  cbGiftSyncCashflow();
   cbGiftSave();
 }
 // 증여로 셀 시작 월 — 연도·월 두 선택 목록(브라우저 월 달력은 직접 입력이 안 되고 과거로 넘기기 어렵다). 최근 10년까지.
@@ -2499,7 +2559,7 @@ function cbGiftTransferLinkHtml(kinds){
   const LABEL={child:'자녀 증여',spouse:'부부 증여'};
   const rows=list.slice().sort((a,b)=>(b.giftKind?1:0)-(a.giftKind?1:0)||String(a.desc||'').localeCompare(String(b.desc||''),'ko')).map(at=>`
     <div class="cb-gift-link-row${at.giftKind?' is-on':''}">
-      <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(at.amt||0)}</small></span>
+      <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(typeof _effectiveAutoTransferAmt==='function'?_effectiveAutoTransferAmt(at,new Date().getFullYear(),new Date().getMonth()+1):(at.amt||0))}</small></span>
       <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 연결" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
         <option value="">증여 아님</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
       ${at.giftKind?cbGiftFromPicker(at):'<span></span>'}
@@ -2530,6 +2590,7 @@ function cbGiftAddRecord(){
   const cfg=cbGiftCfg(); if(!Array.isArray(cfg.records)) cfg.records=[];
   if(cfg.records.length>=500) return fail('기록은 500건까지 저장할 수 있습니다.');
   cfg.records.push({id:finNewId(),kind,date,amt,memo:val('cb-gift-rec-memo').trim().slice(0,120)});
+  cbGiftSyncCashflow();
   cbGiftSave();
 }
 function cbGiftDelRecord(id){
@@ -2537,7 +2598,7 @@ function cbGiftDelRecord(id){
   const cfg=cbGiftCfg(), list=Array.isArray(cfg.records)?cfg.records:[];
   const i=list.findIndex(r=>r&&String(r.id)===String(id)); if(i<0) return;
   if(typeof confirm==='function'&&!confirm('이 증여 기록을 삭제할까요?')) return;
-  list.splice(i,1); cbGiftSave();
+  list.splice(i,1); cbGiftSyncCashflow(); cbGiftSave();
 }
 function cbGiftLedgerHtml(scope){
   const kinds=[scope.child?'child':null,scope.spouse?'spouse':null].filter(Boolean);
@@ -2751,6 +2812,9 @@ function cbGiftSpouseChartSvg(w,h){
 // ── 렌더 ────────────────────────────────────────────────────
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
+  // 이미 연결해 둔 자동이체·적어 둔 기록이 현금 흐름에 빠져 있으면 채운다(재무 기록을 불러온 뒤에만, 바뀐 것이 있을 때만 저장).
+  if(window._kvLoadState?.ext==='ready'&&!(typeof isMobileLayout==='function'&&isMobileLayout())&&cbGiftSyncCashflow())
+    Promise.resolve(saveExtDataToKV()).catch(e=>console.error('[gift cashflow sync]',e));
   const years = cbGiftYears(), rate = cbGiftRate();
   const child = cbGiftChildPlan(), spouse = cbGiftSpousePlan();
   const childPvT  = child.reduce((s,g)=>s+g.pv,0);
@@ -3263,6 +3327,8 @@ function cbRenderTax(){
   // 기록 폼의 소유주 기본값 = 현재 선택된 소유주 탭 ('전체' 탭이면 첫 소유주)
   const draftOwner = (OWNERS.indexOf(_cbTaxDraft.owner)>=0) ? _cbTaxDraft.owner
     : (_cbTaxOwner!=='전체' ? _cbTaxOwner : OWNERS[0]);
+  // 다시 그릴 때(소유주 탭·연도·월 필터) 고른 보유 반영이 지금 입력 줄의 소유주·시장과 맞지 않으면 지운다 — 다른 매도 기록에 따라붙지 않게.
+  if (_cbTaxHold && !cbTaxHoldValidFor(draftOwner, _cbTaxDraft.k||'domestic')) _cbTaxHold=null;
   // 소유주 탭·조회 연도는 메인 제목 라인(글로벌 헤더) 우측으로
   cbSetHead(
     '계좌(일반·연금저축·ISA)별 실현손익과 예상 세액 · 매도 확정 손익 기준',
@@ -3347,13 +3413,13 @@ function cbRenderTax(){
         <div class="cb-tax-hist-top">
           <div class="cb-panel-title"><span data-tip="매도로 확정된 손익을 귀속 월별로 적습니다. 세금 계산은 이 기록을 씁니다.">실현손익 기록</span></div>
           <div class="cb-tax-entry-form">
-          <label>귀속 월<select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
-          <label>시장<select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
-          <label>계좌<select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
-          <label>소유주<select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
-          <label>실현손익(원)<input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" /></label>
-          <label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
-          ${_cbTaxEditId==null?`<label class="cb-tax-hold-field"><span data-tip="고르면 저장할 때 그 종목의 보유 수량을 함께 줄입니다(보유 목록의 매도와 같은 계산 — 평균단가는 그대로, 전량이면 삭제 확인). 실현손익은 이 줄 하나만 남습니다.">보유 반영</span><select id="cb-tax-hold" class="cb-input"><option value="">안 함</option>${(pfolioData||[]).map((i,idx)=>({i,idx})).filter(x=>x.i&&x.i.grp==='주식'&&(Number(x.i.qty)||0)>0).map(x=>`<option value="${x.idx}">${cbEsc(x.i.owner||'')} · ${cbEsc(x.i.name||x.i.tkr||'')} (${Number(x.i.qty).toLocaleString(undefined,{maximumFractionDigits:4})}${cbEsc(x.i.unit||'주')})</option>`).join('')}</select><input id="cb-tax-hold-qty" class="cb-input" placeholder="매도 수량" inputmode="decimal" aria-label="보유에서 줄일 수량" /></label>`:''}
+          <label><span class="sr-only">귀속 월</span><select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
+          <label><span class="sr-only">시장</span><select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
+          <label><span class="sr-only">계좌</span><select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
+          <label><span class="sr-only">소유주</span><select id="cb-tax-owner" class="cb-input" onchange="cbTaxHoldRecheck()">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
+          <label><span class="sr-only">실현손익(원)</span><input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익(원)" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" /></label>
+          <label class="cb-tax-memo-field"><span class="sr-only">메모</span><input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
+          ${_cbTaxEditId==null?`<button type="button" class="cb-tax-hold-btn${_cbTaxHold?' is-set':''}" id="cb-tax-hold-btn" aria-haspopup="dialog" onclick="cbTaxHoldOpen()" data-tip="고르면 저장할 때 그 종목의 보유 수량을 함께 줄입니다(보유 목록의 매도와 같은 계산 — 평균단가는 그대로, 전량이면 삭제 확인). 실현손익은 이 줄 하나만 남습니다.">${cbTaxHoldLabel()}</button>`:''}
           <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:var(--fs-cap)">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:var(--fs-cap);color:var(--mut)">취소</button>':''}
           </div>
@@ -3436,6 +3502,7 @@ function cbTaxMonthPick(m){
 // 구분(국내/해외) 변경 → 해외주식은 일반 계좌만 노출 (해외 상장 주식은 ISA·연금저축에서 직접 매매 불가)
 function cbTaxKindChange(v){
   _cbTaxDraft.k = v;
+  cbTaxHoldRecheck();
   _cbTaxDraft.pl = document.getElementById('cb-tax-pl')?.value || '';
   _cbTaxDraft.memo = document.getElementById('cb-tax-memo')?.value || '';
   _cbTaxDraft.m = document.getElementById('cb-tax-m')?.value || _cbTaxDraft.m;
@@ -3460,12 +3527,12 @@ function cbTaxAdd(){
   const pl = parseFloat(raw);
   if (raw==='' || isNaN(pl)) { alert('실현손익 금액을 입력하세요.'); return; }
   // 보유 반영(선택): 같은 매도 계산(tradeApplyPlan, 실현손익 줄은 만들지 않음)으로 보유 수량을 먼저 확인한다 — 틀리면 아무것도 저장하지 않는다.
-  const holdIdx = _cbTaxEditId==null ? (document.getElementById('cb-tax-hold')?.value||'') : '';
+  // 종목·수량은 '보유 반영' 선택 창이 고른 _cbTaxHold 다. 고른 뒤 목록이 바뀌었으면(열쇠 불일치) 저장하지 않는다.
   let hold=null;
-  if (holdIdx!==''){
-    const item=pfolioData[Number(holdIdx)];
-    const qty=Number(String(document.getElementById('cb-tax-hold-qty')?.value||'').replace(/,/g,''));
-    if(!item){ alert('보유 종목을 찾지 못했습니다. 화면을 새로 고친 뒤 다시 시도하세요.'); return; }
+  if (_cbTaxEditId==null && _cbTaxHold){
+    const item=pfolioData[_cbTaxHold.idx];
+    const qty=Number(_cbTaxHold.qty);
+    if(!item||cbTaxHoldKey(item)!==_cbTaxHold.key){ _cbTaxHold=null; cbTaxHoldPaint(); alert('보유 반영 종목을 찾지 못했습니다. 보유 반영을 다시 골라 주세요.'); return; }
     if(window._kvLoadState?.assets!=='ready'||window._kvLoadState?.ext!=='ready'){ alert('데이터를 아직 불러오지 못해 보유 수량을 바꿀 수 없습니다.'); return; }
     if(item.owner!==owner){ alert('보유 반영 종목의 소유주와 실현손익의 소유주가 다릅니다.'); return; }
     const plan=tradeApplyPlan(item,{side:'sell',qty,date:finLocalDateKey(new Date()),today:finLocalDateKey(new Date()),skipPl:true});
@@ -3477,7 +3544,7 @@ function cbTaxAdd(){
   const year = (_cbTaxYear && /^\d{4}$/.test(_cbTaxYear)) ? _cbTaxYear : String(new Date().getFullYear());
   const ruleSetId=typeof assetTaxRulesFor==='function'?(assetTaxRulesFor(year)?.id||''):'';
   const entry = { id:_cbTaxEditId!=null?_cbTaxEditId:Date.now(), month:`${year}-${String(m).padStart(2,'0')}`, amt:pl, memo, owner, category:k, account:acc, ruleSetId };
-  if (hold && !entry.memo) entry.memo = `${hold.item.name||hold.item.tkr||'종목'} ${Number(String(document.getElementById('cb-tax-hold-qty')?.value||'').replace(/,/g,'')).toLocaleString(undefined,{maximumFractionDigits:8})}${hold.item.unit||'주'} 매도`.slice(0,240);
+  if (hold && !entry.memo) entry.memo = `${hold.item.name||hold.item.tkr||'종목'} ${Number(_cbTaxHold.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${hold.item.unit||'주'} 매도`.slice(0,240);
   if (_cbTaxEditId!=null){
     const idx=monthlyPLData.findIndex(r=>Number(r.id)===Number(_cbTaxEditId));
     if(idx>=0) monthlyPLData[idx]=entry;
@@ -3486,6 +3553,7 @@ function cbTaxAdd(){
     monthlyPLData.push(entry);
   }
   _cbTaxEditId = null;
+  _cbTaxHold = null;
   _cbTaxDraft = { m, k, acc, owner, pl:'', memo:'' };
   saveMonthlyPL();
   if (hold){
@@ -3499,11 +3567,99 @@ function cbTaxAdd(){
   }
   cbRenderTax();
 }
+// ── 보유 반영 선택 창(2026-11-20, 사용자 결정: 버튼 + 종목 선택 창) ──
+// 입력 줄에는 글자 길이만큼의 버튼만 두고(예전 드롭다운은 가장 긴 종목명만큼 넓어져 입력 줄이 두 줄이 됐다),
+// 누르면 입력 줄에서 고른 소유주·시장(국내 = 원화 종목, 해외 = 그 밖)의 보유 주식만 보여 준다. 고른 값은 메모리 _cbTaxHold 뿐이다.
+let _cbTaxHold=null, _cbTaxHoldPick=null;
+function cbTaxHoldKey(i){ return [i.owner||'',i.tkr||'',i.broker||'',i.acc||'',i.name||''].join('|'); }
+function cbTaxHoldCandidates(owner, kind){
+  return (pfolioData||[]).map((i,idx)=>({i,idx}))
+    .filter(x=>x.i&&x.i.grp==='주식'&&(Number(x.i.qty)||0)>0&&x.i.owner===owner&&((kind==='foreign')===((x.i.cur||'KRW')!=='KRW')));
+}
+function cbTaxHoldLabel(){
+  const item=_cbTaxHold&&pfolioData[_cbTaxHold.idx];
+  if(!item) return '<span>보유 반영</span><b>안 함</b>';
+  const unit=item.unit||'주';
+  return `<span>보유 반영</span><b>${cbEsc(item.name||item.tkr||'종목')} ${Number(_cbTaxHold.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</b>`;
+}
+function cbTaxHoldPaint(){
+  const b=document.getElementById('cb-tax-hold-btn'); if(!b) return;
+  b.innerHTML=cbTaxHoldLabel();
+  b.classList.toggle('is-set',!!_cbTaxHold);
+}
+// 고른 보유 반영이 이 소유주·시장의 보유 주식으로 아직 그대로 있는가(같은 행 열쇠까지).
+function cbTaxHoldValidFor(owner, kind){
+  const item=_cbTaxHold&&pfolioData[_cbTaxHold.idx];
+  return !!item&&cbTaxHoldKey(item)===_cbTaxHold.key&&cbTaxHoldCandidates(owner,kind).some(x=>x.i===item);
+}
+// 소유주·시장을 바꿔 고른 종목이 더는 맞지 않으면 선택을 지운다.
+function cbTaxHoldRecheck(){
+  if(!_cbTaxHold) return;
+  const owner=document.getElementById('cb-tax-owner')?.value, kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  if(!cbTaxHoldValidFor(owner,kind)){ _cbTaxHold=null; cbTaxHoldPaint(); }
+}
+function cbTaxHoldOpen(){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const owner=document.getElementById('cb-tax-owner')?.value||'', kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  _cbTaxHoldPick=_cbTaxHold?{..._cbTaxHold}:null;
+  document.getElementById('tax-hold-sub').textContent=`${owner} · ${kind==='foreign'?'해외주식':'국내주식'} 보유 종목에서 고릅니다`;
+  document.getElementById('tax-hold-q').value='';
+  document.getElementById('tax-hold-qty').value=_cbTaxHold?String(_cbTaxHold.qty):'';
+  const err=document.getElementById('tax-hold-error'); err.textContent=''; err.hidden=true;
+  cbTaxHoldList();
+  const modal=document.getElementById('tax-hold-modal');
+  window._taxHoldReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  modal.classList.add('active'); modal.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>document.getElementById('tax-hold-q')?.focus());
+}
+function cbTaxHoldList(){
+  const owner=document.getElementById('cb-tax-owner')?.value||'', kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  const q=(document.getElementById('tax-hold-q')?.value||'').trim().toLowerCase();
+  const rows=cbTaxHoldCandidates(owner,kind).filter(x=>!q||[x.i.name,x.i.tkr,x.i.broker,x.i.acc].join(' ').toLowerCase().includes(q));
+  const box=document.getElementById('tax-hold-list'); if(!box) return;
+  box.innerHTML=rows.map(x=>{
+    const unit=x.i.unit||'주', picked=_cbTaxHoldPick&&_cbTaxHoldPick.idx===x.idx;
+    return `<label class="tax-hold-row${picked?' is-picked':''}"><input type="radio" name="tax-hold-pick" value="${x.idx}"${picked?' checked':''} onchange="cbTaxHoldPick(${x.idx})">`
+      +`<span class="tax-hold-name"><b>${cbEsc(x.i.name||x.i.tkr||'종목')}</b><small>${cbEsc(cbStrip(x.i.tkr||''))} · ${cbEsc(x.i.broker||'')} / ${cbEsc(x.i.acc||'')}</small></span>`
+      +`<span class="tax-hold-qty">보유 ${Number(x.i.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</span></label>`;
+  }).join('')||`<p class="tax-hold-empty">${q?'검색어에 맞는 종목이 없습니다.':'이 소유주·시장의 보유 주식이 없습니다. 입력 줄의 소유주·시장을 확인하세요.'}</p>`;
+}
+function cbTaxHoldPick(idx){
+  const item=pfolioData[idx]; if(!item) return;
+  _cbTaxHoldPick={idx,key:cbTaxHoldKey(item)};
+  document.querySelectorAll('#tax-hold-list .tax-hold-row').forEach(r=>r.classList.toggle('is-picked',r.querySelector('input')?.value===String(idx)));
+}
+function cbTaxHoldAll(){
+  const item=_cbTaxHoldPick&&pfolioData[_cbTaxHoldPick.idx];
+  if(item) document.getElementById('tax-hold-qty').value=String(Number(item.qty));
+}
+// 고른 종목·수량을 확인해 버튼에 반영한다. 보유보다 많은 수량은 받지 않는다(저장 때 같은 매도 계산이 다시 확인한다).
+function cbTaxHoldError(m){ const err=document.getElementById('tax-hold-error'); if(err){ err.textContent=m||''; err.hidden=!m; } }
+function cbTaxHoldApply(){
+  const fail=cbTaxHoldError;
+  const item=_cbTaxHoldPick&&pfolioData[_cbTaxHoldPick.idx];
+  if(!item||cbTaxHoldKey(item)!==_cbTaxHoldPick.key){ fail('매도한 종목을 고르세요.'); return; }
+  const qty=Number(String(document.getElementById('tax-hold-qty')?.value||'').replace(/,/g,''));
+  if(!(qty>0)) { fail('매도 수량을 입력하세요.'); return; }
+  if(qty>(Number(item.qty)||0)+1e-9) { fail('보유 수량보다 많이 줄일 수 없습니다.'); return; }
+  _cbTaxHold={idx:_cbTaxHoldPick.idx,key:_cbTaxHoldPick.key,qty};
+  cbTaxHoldClose(); cbTaxHoldPaint();
+}
+function cbTaxHoldClear(){ _cbTaxHold=null; cbTaxHoldClose(); cbTaxHoldPaint(); }
+function cbTaxHoldClose(){
+  const modal=document.getElementById('tax-hold-modal');
+  if(!modal?.classList.contains('active')) return;
+  modal.classList.remove('active'); modal.setAttribute('aria-hidden','true');
+  _cbTaxHoldPick=null;
+  const back=window._taxHoldReturnFocus; window._taxHoldReturnFocus=null;
+  if(back&&document.contains(back)) back.focus();
+}
 function cbTaxEdit(id){
   if (typeof isMobileLayout==='function' && isMobileLayout()) return;
   try{ loadMonthlyPL(); }catch(e){}
   const r=monthlyPLData.find(x=>Number(x.id)===Number(id)); if(!r) return;
   _cbTaxEditId=Number(r.id);
+  _cbTaxHold=null;   // 수정 중인 기록에는 보유 반영이 없다
   _cbTaxYear=String(r.month||'').slice(0,4)||_cbTaxYear;
   _cbTaxDraft={
     m:String(parseInt(String(r.month||'').split('-')[1]||'1')),
@@ -3518,6 +3674,7 @@ function cbTaxEdit(id){
 }
 function cbTaxCancelEdit(){
   _cbTaxEditId=null;
+  _cbTaxHold=null;
   _cbTaxDraft={ m:String(new Date().getMonth()+1), k:'domestic', acc:'일반', owner:'', pl:'', memo:'' };
   cbRenderTax();
 }
@@ -3610,7 +3767,7 @@ function cbTaxDel(id){
 }
 
 // ───────────────────────── 페이지: DCA 자동매수 ─────────────────────────
-// 조회 전용 페이지 — 규칙 등록/수정은 "자산 내역"(script.js 자산 추가·수정 모달)에서만 한다.
+// 규칙 등록·수정은 적립식 설정 창(cbDcaEdit — 이 화면 줄의 '수정'과 보유 목록 적립식 칸이 같은 창)과 종목 편집 모달이 맡는다.
 function cbDcaPerMonthKRW(i){
   const amtKrw = (i.dcaMode==='qty')
     ? (i.dcaQty||0)*(i.curP||0)*cbRate(i.cur)
@@ -3662,6 +3819,7 @@ function cbDcaIsHoliday(i,date){
 }
 function cbDcaScheduledOn(i,date){
   if (!i || !i.dca) return false;
+  if (typeof dcaHasRule==='function' && !dcaHasRule(i)) return false;   // 금액 미입력 규칙은 일정이 없다(일정 탭·10일 목록 공통)
   const cycle=i.dcaCycle||'매월';
   if (cycle==='매일') return !cbDcaIsHoliday(i,date);
   if (cycle==='매주'){
@@ -3752,7 +3910,7 @@ function cbRenderDca(){
   const el = document.getElementById('cb-dca2'); if(!el) return;
   const ownerF = (_cbDcaOwner && _cbDcaOwner!=='전체') ? _cbDcaOwner : null;
   const items = (pfolioData||[]).map((i,idx)=>({i,idx}))
-    .filter(x=>(x.i.dcaAmt>0)||(x.i.dcaMode==='qty'&&x.i.dcaQty>0))
+    .filter(x=>dcaState(x.i)!=='none')   // 보유 목록 적립식 칸과 같은 집합(켜짐·중단·금액 미입력)
     .filter(x=>!ownerF || x.i.owner===ownerF);
   // 내역 정렬: 소유주 → 계좌 → 국기(상장국) → 종목명 오름차순
   items.forEach(x=>{ x.r = cbRow(x.i, x.idx); });
@@ -3762,7 +3920,7 @@ function cbRenderDca(){
     || String(a.i.broker||'').localeCompare(String(b.i.broker||''), 'ko')
     || cbCtryLabel(a.r).localeCompare(cbCtryLabel(b.r), 'ko')
     || String(a.r.title||'').localeCompare(String(b.r.title||''), 'ko'));
-  const active = items.filter(x=>x.i.dca);
+  const active = items.filter(x=>dcaState(x.i)==='on');   // 금액 미입력(incomplete)은 활성·일정·합계에서 뺀다(0원 매수가 일정에 뜨지 않게)
   const monthly = active.reduce((s,x)=>s+cbDcaPerMonthKRW(x.i),0);
   const daily = monthly / 21.7; // 월평균 영업일 기준 일평균
   items.forEach(x=>{
@@ -3818,7 +3976,7 @@ function cbRenderDca(){
         acct:x=>x.i.broker||null, monthly:x=>cbDcaPerMonthKRW(x.i),
       }).map(x=>{
         const r=x.r;
-        const amtLabel = x.i.dcaMode==='qty'
+        const amtLabel = !dcaHasRule(x.i) ? '<span class="dca-amount is-missing">금액 미입력</span>' : x.i.dcaMode==='qty'
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
           : cbFmtNative(x.i.dcaAmt||0, x.i.dcaCur||'KRW');
         return `
@@ -3839,9 +3997,10 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
           <span class="dca-rule-actions" style="display:flex;justify-content:flex-end">
+            <button type="button" class="dca-rule-edit" onclick="cbDcaEdit(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 적립식 설정">수정</button>
             <span role="button" tabindex="0" onclick="cbDcaToggle(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 규칙 ${x.i.dca?'일시 중지':'활성화'}" aria-pressed="${!!x.i.dca}" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
           </span>
-        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 위에서 보유 종목을 선택해 규칙을 추가하세요.</div>'}
+        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 추가하세요.</div>'}
     </div>
     <div class="cb-panel cb-dca-allocation-card">
       <div class="cb-insight-title">월 환산 매수 배분 TOP 5</div>
@@ -3865,7 +4024,7 @@ function cbRenderDca(){
     </div>`;
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
-// 적립식 규칙 등록·수정은 종목 편집 모달이 맡고, 이 화면은 일정 확인과 일시정지 토글만 한다.
+// 이 화면의 켜기/끄기 토글 — dca 플래그만 바꾼다. 규칙 수정은 아래 적립식 설정 창(cbDcaEdit)이 맡는다.
 // 자산 원장과 재무계획을 둘 다 불러온 뒤에만 저장한다(빈 기본값으로 덮어쓰지 않도록).
 let _dcaBusy=false;
 function cbDcaCanSave(){
@@ -3883,6 +4042,131 @@ async function cbDcaToggle(idx){
   // 편집기가 사라진 뒤로는 실패가 화면에 전혀 나타나지 않았다.
   if(!result?.ok){item.dca=before;showSaveError('⚠️ 저장하지 못해 적립식 규칙 상태를 되돌렸습니다.');}
   cbRenderDca();
+}
+// ── 적립식 설정 창(2026-11-20, 사용자 결정: 작은 설정 창) ── 보유 목록의 적립식 칸과 이 화면의 줄이 같은 창을 연다.
+// 바꾸는 것은 적립식 필드뿐이고(수량·평균단가·분할 기준일은 그대로), 저장은 기존 경로(saveAssetsToKV, CAS)다.
+// 두 원격 로드가 ready 일 때만 저장하고(cbDcaCanSave), 휴대폰은 조회 전용이다.
+const DCA_EDIT_FIELDS=['dca','dcaCycle','dcaAmt','dcaCur','dcaMode','dcaQty','dcaDays','dcaDay'];
+let _dcaEdit=null;
+// 창을 연 뒤 목록이 다시 그려지거나 행이 지워져도 같은 종목인지 확인하는 열쇠(인덱스만 믿지 않는다)
+function cbDcaEditKey(i){ return [i.owner||'',i.grp||'',i.tkr||'',i.broker||'',i.acc||'',i.name||''].join('|'); }
+// 창을 채울 값 — 저장된 규칙 그대로. 규칙이 없으면 주기는 모으기(소수점 미국 주식) 종목이면 '매일', 아니면 '매월'.
+function cbDcaEditDefaults(i){
+  const rule=dcaHasRule(i), mode=i.dcaMode==='qty'?'qty':'amount';
+  const days=Array.isArray(i.dcaDays)&&i.dcaDays.length?i.dcaDays.map(Number):[1];
+  return {
+    on: rule ? !!i.dca : true,
+    cycle: (rule||i.dca) ? (['매일','매주','매월'].includes(i.dcaCycle)?i.dcaCycle:'매월') : (dcaFractionalUs(i)?'매일':'매월'),
+    mode, amt: Number(i.dcaAmt)>0?Number(i.dcaAmt):'', cur: i.dcaCur==='USD'?'USD':'KRW',
+    qty: Number(i.dcaQty)>0?Number(i.dcaQty):'', days, day: Math.max(1,Math.min(31,Math.round(Number(i.dcaDay)||1))),
+  };
+}
+// 입력값 → 저장할 적립식 필드(순수 함수). 켜려면 금액(또는 수량)이 있어야 하고, 매주는 요일이 하나 이상이어야 한다.
+// 꺼 둔 채 저장하면 규칙만 보관된다(중단 상태 — 나중에 켜기만 하면 재개).
+function cbDcaEditPlan(form){
+  const num=v=>Number(String(v==null?'':v).replace(/,/g,'').trim());
+  const on=!!form.on, cycle=['매일','매주','매월'].includes(form.cycle)?form.cycle:'매월', mode=form.mode==='qty'?'qty':'amount';
+  const amt=num(form.amt)||0, qty=num(form.qty)||0;
+  if(!Number.isFinite(amt)||!Number.isFinite(qty)||amt<0||qty<0) return {ok:false,error:'금액·수량은 0 이상의 숫자로 입력하세요.'};
+  const days=[...new Set((form.days||[]).map(Number).filter(d=>Number.isInteger(d)&&d>=0&&d<=6))].sort((a,b)=>a-b);
+  if(on&&mode==='amount'&&!(amt>0)) return {ok:false,error:'매수를 켜려면 1회 매수 금액을 입력하세요.'};
+  if(on&&mode==='qty'&&!(qty>0)) return {ok:false,error:'매수를 켜려면 1회 매수 수량을 입력하세요.'};
+  if(cycle==='매주'&&!days.length) return {ok:false,error:'매주 매수는 요일을 하나 이상 고르세요.'};
+  return {ok:true,patch:{dca:on,dcaCycle:cycle,dcaMode:mode,dcaAmt:Math.round(amt),dcaCur:form.cur==='USD'?'USD':'KRW',dcaQty:qty,
+    dcaDays:cycle==='매주'?days:[],dcaDay:Math.max(1,Math.min(31,Math.round(Number(form.day)||1)))}};
+}
+function cbDcaEdit(idx){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const item=(pfolioData||[])[idx]; if(!item||item.grp==='현금') return;
+  if(typeof closeAddModal==='function') closeAddModal();
+  if(typeof closeTradeModal==='function') closeTradeModal();
+  const d=cbDcaEditDefaults(item), $=id=>document.getElementById(id);
+  _dcaEdit={idx,key:cbDcaEditKey(item),mode:d.mode};
+  const unit=item.unit||(item.grp==='가상화폐'?'개':'주');
+  $('dca-edit-title').textContent=`${item.name||item.tkr||'종목'} 적립식 설정`;
+  $('dca-edit-now').innerHTML=`<span>${cbEsc(item.owner||'')} · ${cbEsc(item.broker||'')} / ${cbEsc(item.acc||'')}</span>`
+    +`<span>보유 <b>${(Number(item.qty)||0).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</b> · 지금 <b>${DCA_STATE_LABEL[dcaState(item)]}</b></span>`;
+  const daySel=$('dca-edit-day');
+  if(daySel&&!daySel.options.length) daySel.innerHTML=Array.from({length:31},(_,k)=>`<option value="${k+1}">${k+1}일</option>`).join('');
+  $('dca-edit-on').checked=d.on;
+  $('dca-edit-cycle').value=d.cycle;
+  daySel.value=String(d.day);
+  document.querySelectorAll('.dca-edit-dow').forEach(c=>{c.checked=d.days.includes(Number(c.value));});
+  $('dca-edit-amt').value=d.amt===''?'':Number(d.amt).toLocaleString();
+  $('dca-edit-cur').value=d.cur;
+  $('dca-edit-qty').value=d.qty===''?'':String(d.qty);
+  $('dca-edit-qty-label').textContent=`1회 매수 수량 (${unit})`;
+  const err=$('dca-edit-error'); err.textContent=''; err.hidden=true;
+  cbDcaEditMode(d.mode); cbDcaEditSync();
+  const modal=$('dca-modal');
+  window._dcaEditReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  modal.classList.add('active'); modal.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>$('dca-edit-on')?.focus());
+}
+function cbDcaEditSync(){
+  const cycle=document.getElementById('dca-edit-cycle')?.value, on=document.getElementById('dca-edit-on')?.checked;
+  const day=document.getElementById('dca-edit-day-wrap'), dows=document.getElementById('dca-edit-dows'), st=document.getElementById('dca-edit-state');
+  if(day) day.hidden=cycle!=='매월';
+  if(dows) dows.hidden=cycle!=='매주';
+  if(st) st.textContent=on?'저장하면 적립식 일정·합계에 들어갑니다':'끈 채 저장하면 규칙만 보관됩니다(중단)';
+}
+function cbDcaEditMode(mode){
+  mode=mode==='qty'?'qty':'amount';
+  if(_dcaEdit) _dcaEdit.mode=mode;
+  document.getElementById('dca-edit-mode-amount')?.setAttribute('aria-pressed',String(mode==='amount'));
+  document.getElementById('dca-edit-mode-qty')?.setAttribute('aria-pressed',String(mode==='qty'));
+  const a=document.getElementById('dca-edit-amt-wrap'), q=document.getElementById('dca-edit-qty-wrap');
+  if(a) a.hidden=mode!=='amount';
+  if(q) q.hidden=mode!=='qty';
+}
+function cbDcaEditClose(){
+  const modal=document.getElementById('dca-modal');
+  if(!modal?.classList.contains('active')) return;
+  modal.classList.remove('active'); modal.setAttribute('aria-hidden','true');
+  _dcaEdit=null;
+  const back=window._dcaEditReturnFocus; window._dcaEditReturnFocus=null;
+  if(back&&document.contains(back)) back.focus();
+}
+async function cbDcaEditSave(){
+  if(!_dcaEdit||_dcaBusy) return;
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const $=id=>document.getElementById(id), err=$('dca-edit-error');
+  const fail=m=>{err.textContent=m; err.hidden=!m;};
+  const item=(pfolioData||[])[_dcaEdit.idx];
+  if(!item||cbDcaEditKey(item)!==_dcaEdit.key){ fail('목록이 바뀌어 이 종목을 찾지 못했습니다. 창을 닫고 다시 열어 주세요.'); return; }
+  const plan=cbDcaEditPlan({on:$('dca-edit-on').checked,cycle:$('dca-edit-cycle').value,mode:_dcaEdit.mode,amt:$('dca-edit-amt').value,
+    cur:$('dca-edit-cur').value,qty:$('dca-edit-qty').value,day:$('dca-edit-day').value,
+    days:Array.from(document.querySelectorAll('.dca-edit-dow:checked')).map(c=>c.value)});
+  if(!plan.ok){ fail(plan.error); return; }
+  if(!cbDcaCanSave()) return;
+  const before={}; DCA_EDIT_FIELDS.forEach(k=>{ before[k]=Array.isArray(item[k])?item[k].slice():item[k]; });
+  Object.assign(item,plan.patch); _dcaBusy=true;
+  let result;
+  try{ result=await saveAssetsToKV(); }catch(e){ result={ok:false}; }
+  _dcaBusy=false;
+  if(!result?.ok){
+    // 저장 경로가 마지막 정상 상태로 되돌리면 이 객체는 목록에서 빠진다. 충돌(409)처럼 그대로 남은 경우만 직접 되돌린다.
+    if((pfolioData||[]).includes(item)) DCA_EDIT_FIELDS.forEach(k=>{ item[k]=before[k]; });
+    fail('저장하지 못했습니다 — 적립식 설정을 되돌렸습니다.');
+    cbDcaEditRefresh();
+    return;
+  }
+  cbDcaEditClose();
+  cbDcaEditRefresh();
+}
+// 보유 목록(레거시 화면)은 저장 래퍼의 cbRerender 가 다시 그리지 않으므로 여기서 그린다.
+function cbDcaEditRefresh(){
+  if(document.getElementById('view-holdings')?.classList.contains('active')&&typeof renderPortfolio==='function') renderPortfolio(currentOwner);
+}
+// 창 바깥(어두운 바탕)을 누르면 닫는다 — 안에서 누른 채 끌고 나온 경우는 닫지 않는다(매수·매도 창과 같은 방식).
+let _cbModalDownOutside=null;
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('pointerdown',e=>{ const id=e.target&&e.target.id; _cbModalDownOutside=(id==='dca-modal'||id==='tax-hold-modal')?id:null; },true);
+  document.addEventListener('click',e=>{
+    const id=e.target&&e.target.id;
+    if(id&&id===_cbModalDownOutside){ if(id==='dca-modal') cbDcaEditClose(); else if(typeof cbTaxHoldClose==='function') cbTaxHoldClose(); }
+    _cbModalDownOutside=null;
+  });
 }
 // ───────────────────────── 라우팅 통합 ─────────────────────────
 function cbRerender(){
@@ -3965,13 +4249,17 @@ function cbCountUp(id){
 // 화면을 옮길 때만 지우는 화면 안 상태(표 정렬·달력에서 고른 날·펼친 계좌 등).
 // 같은 화면을 다시 그릴 때(시세 갱신·소유주 변경)는 유지된다.
 function cbResetViewState(){
+  if (typeof _cbTaxHold!=='undefined') _cbTaxHold=null;   // 실현손익 '보유 반영' 선택 — 다른 화면에 갔다 오면 다시 고른다
   if (typeof _calDay!=='undefined') _calDay=null;
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
+  _cdashShowAll=false;   // 홈 보유 표 펼침
   _cbTableSort={};
   if (typeof _sortState!=='undefined') _sortState={};   // 보유 목록 표 정렬(script.js)
 }
 switchView = function(id, btn){
   id=navResolve(id);
+  // 로딩 중 다른 화면으로 가면 뼈대만 걷는다(진행 줄은 남는다). initDashboard 가 처음 여는 홈(cdash)은 제외.
+  if (id!=='cdash' && typeof bootReveal==='function') bootReveal();
   const _prevView=document.querySelector('.view-section.active')?.id?.replace('view-','');
   if (_prevView && _prevView!==id) cbResetViewState();
   navPrepare(id);

@@ -29,9 +29,13 @@ const dcaContext = { _taxRuleValue: (_path, fallback) => fallback }
 vm.createContext(dcaContext)
 // 통화 기호는 CURRENCY_META 단일 출처에서 온다 — 정의부를 그대로 가져온다.
 vm.runInContext(scriptSource.slice(scriptSource.indexOf('const CURRENCY_META'), scriptSource.indexOf('function curRateKnown(')), dcaContext)
+vm.runInContext(scriptSource.match(/const DCA_STATE_LABEL=\{[^}]*\};/)[0].replace('const ', 'var '), dcaContext)
 for (const name of [
+  'dcaHasRule',
+  'dcaState',
   'getDcaCycleLabel',
   'getDcaCellHtml',
+  'getDcaAmountText',
   'getDcaAmountCellHtml',
   'getDcaMergedCellHtml',
   'getAccountDivTaxInfo',
