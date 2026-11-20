@@ -112,12 +112,15 @@ assert.match(pages, /const holdingsKpis=typeof renderPortfolio==='function'\?\(r
 
 // ── 홈 보유 표: 검색어가 없으면 처음 10줄 + 전체 보기(보유 목록으로, 소유주는 navPrepare 가 잇는다) ──
 const cobalt = read('cobalt.js');
-const hh = cobalt.match(/const HOME_HOLDINGS_LIMIT=10;\nfunction cbHomeHoldings\(rows\)\{[\s\S]*?\n\}\n/)[0];
-assert.match(hh, /const shown=searching\?rows:rows\.slice\(0,HOME_HOLDINGS_LIMIT\);\n\s*const sel=shown\.find\(r=>r\.key===_cdashSel\)\|\|shown\[0\]\|\|null;/, '선택은 보이는 줄 안에서만');
+const hh = cobalt.match(/const HOME_HOLDINGS_LIMIT=10;\nlet _cdashShowAll=false;\nfunction cbHomeHoldings\(rows\)\{[\s\S]*?\n\}\n/)[0];
+assert.match(hh, /const shown=searching\|\|_cdashShowAll\?rows:rows\.slice\(0,HOME_HOLDINGS_LIMIT\);/, '검색하거나 펼치면 전부, 아니면 처음 10줄');
+assert.match(hh, /const sel=shown\.find\(r=>r\.key===_cdashSel\)\|\|shown\[0\]\|\|null;/, '선택은 보이는 줄 안에서만');
 assert.match(hh, /const maxVal=Math\.max\(0,\.\.\.rows\.map/, '막대 기준은 숨긴 줄까지 포함한 전체');
 assert.match(hh, /<tbody>\$\{shown\.map\(row\)/);
-assert.match(hh, /shown\.length<total\?`<button type="button" class="home-holdings-more" onclick="cbDashAllHoldings\(\)">전체 \$\{total\}종목 보기 ›<\/button>`/);
-assert.match(cobalt, /function cbDashAllHoldings\(\)\{ switchView\('holdings'\); \}/);
+assert.match(hh, /aria-expanded="\$\{_cdashShowAll\}" aria-controls="home-holdings-wrap" onclick="cbDashToggleAll\(\)">\$\{_cdashShowAll\?`처음 \$\{HOME_HOLDINGS_LIMIT\}종목만 보기 ▴`:`전체 \$\{total\}종목 보기 ▾`\}/, '제자리에서 펼치기/접기(2026-11-20, 화면 이동 없음)');
+assert.doesNotMatch(cobalt, /function cbDashAllHoldings|switchView\('holdings'\); \}/, '보유 목록으로 옮기던 버튼은 없앴다');
+assert.match(cobalt, /function cbResetViewState\(\)\{[\s\S]*?_cdashShowAll=false;/, '다른 화면으로 가면 접는다');
+assert.match(ws, /\.home-table-wrap\.is-expanded\{max-height:none\}/, '펼치면 안쪽 스크롤 없이 아래로');
 assert.match(ws, /\.home-holdings-more\{[^}]*color:var\(--acc\)/, '새 버튼에는 글자색을 준다');
 
 assert.doesNotMatch(script, /mt\.textContent = '자산 관리';/, '구성(비중 지도)에서 소유주를 골라도 제목은 투자 분석');

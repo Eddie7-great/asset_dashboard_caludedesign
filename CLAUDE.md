@@ -21,7 +21,7 @@
 - **소유주·검색어는 같은 메뉴 가족 안에서 잇는다(`navPrepare`).** 추가로 `navOwner('cashflow')=_cfOwner`·`navOwner('bubble')=_bubbleOwner`, 보유 목록 ↔ 구성원별 검색어(`_holdingsQ`↔`_famQ`, 계좌별을 거쳐도 `_navAssetQ` 로 마지막 검색어). **레거시 `switchView` 는 holdings·cashflow 에 들어올 때 소유주를 '전체'로 되돌리는데, `navPrepare` 가 소유주를 이어 준 이동이면 `_navKeepOwner` 표식(한 번 쓰고 지움)을 보고 건너뛴다** — 홈 → 보유 목록도 이제 홈의 소유주를 지킨다. 버튼 강조는 `navSync`(보유 목록)·`cf-owner-<소유주>`(현금 흐름)가 맞춘다.
 - **옛 이름 ↔ 지금 자리**(이 문서·CLAUDE.md 의 앞 절은 옛 이름을 그대로 쓴다): 계좌별 보기 = 자산 관리 > 보유 목록 > 계좌별, 구성원 비교 = 보유 목록 > 구성원별, 비중 분석 = 투자 분석 > 구성 > 비중 지도, ETF 탐색 = 투자 분석 > 구성 > ETF 속 종목, 일정 = 현금 흐름 > 일정, 결산 월간·연간 = 결산 리포트 > 결산 > 월간·연간.
 - **계좌별 보기 맨 위는 두 줄이다(사용자 결정): 보유 목록과 같은 숫자 카드 4개 + 계좌 종류 카드 4개.** 숫자 카드는 `renderPortfolio(owner,{kpisOnly:true})` 가 **같은 함수·같은 값**으로 돌려준다(새 계산 없음) — 이 경로는 DOM·`_assetMobileHead`·`_holdingsBrokerFilter` 를 건드리기 전에 돌아가고 계좌 필터는 '전체'로 본다. 보유 목록 숫자 카드의 정의를 바꾸면 계좌별에도 그대로 반영된다.
-- **홈 보유 표는 검색어가 없으면 지금 정렬의 처음 10줄(`HOME_HOLDINGS_LIMIT`)만 보이고 아래 '전체 N종목 보기 ›'(`cbDashAllHoldings` → 보유 목록, 홈의 소유주를 잇는다)가 붙는다.** 검색하면 맞는 것 전부. 선택(`_cdashSel`)은 보이는 줄 안에서만 하고, 머리의 'N개'·비중 분모·막대 기준(`maxVal`)·숫자 카드는 숨긴 줄까지 포함한 그대로다.
+- **홈 보유 표는 검색어가 없으면 지금 정렬의 처음 10줄(`HOME_HOLDINGS_LIMIT`)만 보이고 아래 '전체 N종목 보기 ▾'를 누르면 그 자리에서 아래로 펼친다**(`_cdashShowAll`·`cbDashToggleAll`, 2026-11-20 사용자 결정 — 화면을 옮기지 않는다. 펼친 동안 `.home-table-wrap.is-expanded{max-height:none}` 라 안쪽 스크롤 없이 화면 스크롤로 보고, 버튼은 '처음 10종목만 보기 ▴'·`aria-expanded`. 다른 화면으로 가면 `cbResetViewState` 가 접는다). 검색하면 맞는 것 전부. 선택(`_cdashSel`)은 보이는 줄 안에서만 하고, 머리의 'N개'·비중 분모·막대 기준(`maxVal`)·숫자 카드는 숨긴 줄까지 포함한 그대로다.
 - `test_view_modes.mjs`·`test_navigation_simulator.mjs`·`test_workspace_pages.mjs`·`test_report_page.mjs` 가 지킨다.
 
 ### 로그인 뒤 로딩 화면 B (2026-11-19)
