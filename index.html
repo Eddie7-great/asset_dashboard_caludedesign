@@ -34,6 +34,19 @@
   </form>
 </div>
 
+<!-- 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 로고 막대가 차례로 자라고 단계 점이 하나씩 켜진다. 로그인 화면 아래에 깔려 있다가
+     로그인 화면이 흐려지면 바로 이어 보이고, 배당·환율까지 끝나면(시세 뒤 최대 8초) 걷힌다 — bootStart/bootStep/bootReveal/bootFinish.
+     덮는 동안 본문은 inert 라서 진행 알림 줄은 본문 밖(여기)에 둔다. -->
+<p id="boot-status" class="sr-only" role="status" aria-live="polite"></p>
+<div id="boot-splash" class="boot-splash" aria-hidden="true">
+  <div class="boot-splash-inner">
+    <span class="boot-mark"><svg viewBox="0 0 24 24" focusable="false"><rect class="boot-bar1" x="4" y="13" width="4" height="7" rx="1.2"/><rect class="boot-bar2" x="10" y="9" width="4" height="11" rx="1.2"/><rect class="boot-bar3" x="16" y="4" width="4" height="16" rx="1.2"/><rect class="boot-base" x="3" y="21" width="18" height=".6" rx=".3"/></svg></span>
+    <p class="boot-title">가족 자산 관리</p>
+    <ol class="boot-dots" id="boot-dots"><li></li><li></li><li></li><li></li><li></li></ol>
+    <p class="boot-step" id="boot-step">로그인 확인 …</p>
+  </div>
+</div>
+
 <div class="layout" inert aria-hidden="true">
   <!-- 사이드 메뉴 접기 버튼 — 사이드바 왼쪽 위(고정 위치). 접혀도 같은 자리에 남아 다시 펼 수 있다. -->
   <button id="side-collapse-btn" class="side-collapse-btn" type="button" onclick="toggleSideCollapsed()" aria-controls="app-sidebar" aria-expanded="true" aria-label="사이드 메뉴 접기" title="사이드 메뉴 접기"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M8 4v12"/><path class="side-collapse-arrow" d="M13.5 8 11.5 10l2 2"/></svg></button>
@@ -130,17 +143,6 @@
 
     <!-- 보기 전환 줄(2026-11-19 통폐합) — 한 세부 메뉴 안의 보기(종목별·계좌별·구성원별 등). 머리줄 바로 아래 오른쪽, 스크롤 영역 밖이라 늘 보인다. navModeBar 가 채운다 -->
     <nav id="view-mode-bar" class="view-mode-bar" aria-label="보기 전환" hidden></nav>
-    <!-- 로그인 뒤 첫 로딩(2026-11-19, 시안 B) — 홈 모양 뼈대 + 맨 위 얇은 진행 줄. bootStart/bootStep/bootReveal/bootFinish 가 다룬다.
-         뼈대는 화면 위에 덮을 뿐이고 그동안 실제 화면은 자리를 지킨 채(visibility) 그려진다 — 걷을 때 다시 그리지 않는다. -->
-    <div id="boot-bar" class="boot-bar" aria-hidden="true" hidden><span></span></div>
-    <p id="boot-status" class="sr-only" role="status" aria-live="polite"></p>
-    <div id="boot-skeleton" class="boot-skeleton" aria-hidden="true" hidden>
-      <div class="boot-sk-top"><span class="boot-blk boot-sk-line"></span><span class="boot-steps" id="boot-steps"></span></div>
-      <div class="boot-sk-kpis"><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span></div>
-      <div class="boot-sk-cards"><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span><span class="boot-blk"></span></div>
-      <div class="boot-blk boot-sk-table"></div>
-    </div>
-
     <!-- ===== 메인 페이지 (cobalt.js / finance.js가 렌더링) ===== -->
     <div id="view-cdash" class="view-section"><div class="cb-scroll" id="cb-cdash"></div></div>
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>

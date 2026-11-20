@@ -1220,32 +1220,27 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 일정(cal2)도 현금 흐름 탭 줄을 쓴다 — 현금 흐름과 같은 자리(소유주 버튼 앞)에 오게 한다 */
 .content-area:has(#view-cal2.active) #cf-header-tabs{order:-1}
 
-/* ===== 로그인 뒤 첫 로딩(2026-11-19, 시안 B) — 홈 모양 뼈대 + 맨 위 얇은 진행 줄(script.js bootStart…bootFinish) =====
-   뼈대는 화면 위에 덮고, 그동안 실제 화면은 visibility 로만 숨겨 자리를 지킨 채 그려진다(걷을 때 크기를 다시 재지 않게).
-   토큰 색만 쓰고, 움직임 줄이기에서는 반짝임·전환을 끈다. */
-.boot-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:3000;pointer-events:none;background:color-mix(in srgb,var(--acc) 16%,transparent);transition:opacity 400ms var(--ease-out)}
-.boot-bar[hidden]{display:none}
-.boot-bar>span{display:block;height:100%;background:var(--acc);transform-origin:left center;transform:scaleX(.08);transition:transform var(--dur) var(--ease-out)}
-.boot-bar.is-done{opacity:0}
-body.is-booting .content-area>.view-section{visibility:hidden}
-.boot-skeleton{position:absolute;left:0;right:0;top:var(--workspace-head-height,64px);bottom:0;z-index:20;display:flex;flex-direction:column;gap:12px;padding:16px 22px;overflow:hidden;transition:opacity var(--dur) var(--ease-out)}
-.boot-skeleton[hidden]{display:none}
-.boot-skeleton.is-leaving{opacity:0}
-.boot-sk-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px}
-.boot-sk-line{width:min(320px,40%);height:14px}
-.boot-steps{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
-.boot-steps>i{width:8px;height:8px;border-radius:50%;background:var(--bd2)}
-.boot-steps>i.is-done{background:var(--acc)}
-.boot-steps>i.is-now{background:color-mix(in srgb,var(--acc) 45%,var(--bd2))}
-.boot-steps>b{margin-left:4px;font-weight:500}
-.boot-sk-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-.boot-sk-kpis>.boot-blk{height:96px}
-.boot-sk-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.boot-sk-cards>.boot-blk{height:300px}
-.boot-sk-table{flex:1;min-height:160px}
-.boot-blk{display:block;border:1px solid var(--bd);border-radius:var(--r-lg);background:linear-gradient(90deg,var(--panelSolid) 0%,color-mix(in srgb,var(--bd2) 45%,var(--panelSolid)) 50%,var(--panelSolid) 100%);background-size:200% 100%;animation:bootShimmer 1.4s linear infinite}
-.boot-sk-line.boot-blk{border:0;border-radius:var(--r-sm);background-color:var(--bd)}
-@keyframes bootShimmer{from{background-position:100% 0}to{background-position:-100% 0}}
-@media(max-width:1180px){.boot-sk-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:768px){.boot-skeleton{padding:12px}.boot-sk-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.boot-sk-cards{grid-template-columns:1fr}.boot-sk-cards>.boot-blk:nth-child(n+2){display:none}.boot-steps>b{display:none}}
-@media(prefers-reduced-motion:reduce){.boot-blk{animation:none!important;background:var(--panelSolid)}.boot-bar,.boot-bar>span,.boot-skeleton{transition:none!important}}
+/* ===== 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 5개가 하나씩 켜진다 =====
+   바탕은 로그인 화면과 같아 로그인 화면이 흐려지면 그대로 이어진다. 막대 높이는 bootGrowth 가 --g1~3(0~1)으로 준다.
+   토큰 색만 쓰고(마지막 막대 색은 로그인 표식과 같은 규칙), 움직임 줄이기에서는 막대가 바로 서고 고리도 멈춘다. */
+.boot-splash{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:var(--bg2,var(--bg1));transition:opacity var(--dur) var(--ease-out)}
+.boot-splash[hidden]{display:none}
+.boot-splash.is-leaving{opacity:0}
+.boot-splash-inner{display:flex;flex-direction:column;align-items:center;transform:translateY(-5%)}
+.boot-mark{display:flex;align-items:center;justify-content:center;width:120px;height:120px;border-radius:calc(var(--r-lg)*2);background:var(--kpi-hi-bg)}
+.boot-mark svg{width:72px;height:72px;overflow:visible}
+.boot-mark rect{fill:var(--kpi-hi-tx)}
+.boot-mark rect.boot-base{fill:color-mix(in srgb,var(--kpi-hi-tx) 35%,transparent)}
+.boot-mark rect[class^="boot-bar"]{transform-box:fill-box;transform-origin:50% 100%;transition:transform calc(var(--dur)*2) var(--ease-out)}
+.boot-mark rect.boot-bar1{transform:scaleY(var(--g1,0))}
+.boot-mark rect.boot-bar2{transform:scaleY(var(--g2,0))}
+.boot-mark rect.boot-bar3{transform:scaleY(var(--g3,0))}
+.boot-title{margin:20px 0 0;font:800 var(--fs-title)/1.3 var(--font-ui);letter-spacing:-.02em;color:var(--tx)}
+.boot-dots{display:flex;gap:12px;margin:26px 0 0;padding:0;list-style:none}
+.boot-dots>li{width:10px;height:10px;border-radius:50%;background:var(--bd2);transition:background-color var(--dur) var(--ease-out)}
+.boot-dots>li.is-done{background:var(--acc)}
+.boot-dots>li.is-now{background:var(--acc);box-shadow:0 0 0 5px var(--acc-soft);animation:bootRing 1.6s ease-in-out infinite}
+@keyframes bootRing{0%,100%{box-shadow:0 0 0 3px var(--acc-soft)}50%{box-shadow:0 0 0 7px var(--acc-soft)}}
+.boot-step{min-height:20px;margin:16px 0 0;font-size:var(--fs-body);color:var(--mut)}
+@media(max-width:768px){.boot-mark{width:96px;height:96px}.boot-mark svg{width:58px;height:58px}.boot-title{font-size:var(--fs-card)}}
+@media(prefers-reduced-motion:reduce){.boot-splash,.boot-mark rect,.boot-dots>li{transition:none!important}.boot-dots>li.is-now{animation:none!important}}

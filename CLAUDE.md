@@ -24,10 +24,11 @@
 - **홈 보유 표는 검색어가 없으면 지금 정렬의 처음 10줄(`HOME_HOLDINGS_LIMIT`)만 보이고 아래 '전체 N종목 보기 ▾'를 누르면 그 자리에서 아래로 펼친다**(`_cdashShowAll`·`cbDashToggleAll`, 2026-11-20 사용자 결정 — 화면을 옮기지 않는다. 펼친 동안 `.home-table-wrap.is-expanded{max-height:none}` 라 안쪽 스크롤 없이 화면 스크롤로 보고, 버튼은 '처음 10종목만 보기 ▴'·`aria-expanded`. 다른 화면으로 가면 `cbResetViewState` 가 접는다). 검색하면 맞는 것 전부. 선택(`_cdashSel`)은 보이는 줄 안에서만 하고, 머리의 'N개'·비중 분모·막대 기준(`maxVal`)·숫자 카드는 숨긴 줄까지 포함한 그대로다.
 - `test_view_modes.mjs`·`test_navigation_simulator.mjs`·`test_workspace_pages.mjs`·`test_report_page.mjs` 가 지킨다.
 
-### 로그인 뒤 로딩 화면 B (2026-11-19)
+### 로그인 뒤 로딩 화면 D (2026-11-20, 11-19 의 시안 B 를 바꿨다 — 사용자 결정)
 
-- **로그인 직후에는 홈 모양 뼈대(`#boot-skeleton`: 머리줄·숫자 카드 5개·큰 카드 4개)와 맨 위 얇은 진행 줄(`#boot-bar`)을 띄운다 — `bootStart`·`bootStep(key)`·`bootReveal`·`bootFinish`(script.js `_startDashboardAfterAuth` 위).** 단계(`BOOT_STEPS`)는 로그인 확인 → 보유 자산 → 재무 기록 → 시세 반영 → 배당·환율이고, `initDashboard` 의 **기존 호출 순서·병렬을 그대로 둔 채** 각 약속이 끝날 때 `bootStep` 만 붙인다. 시세 반영이 끝나면 뼈대를 걷어 홈을 보이고(배당·환율은 파이썬 함수라 느려서 진행 줄만 최대 `BOOT_TAIL_MS` 8초 남긴다), 자산 로드 실패면 바로, 로딩 중 홈이 아닌 화면으로 가면(`switchView` 래퍼, 처음 여는 `cdash` 는 제외) 뼈대만, 세션 만료(`authFetch` 401)·`BOOT_SAFETY_MS` 25초면 모두 걷는다. 첫 시작(`_dashboardInitStarted`)에만 돈다.
-  뼈대는 `.content-area` 위에 절대 위치로 덮고 그동안 화면은 `body.is-booting … .view-section{visibility:hidden}` 으로만 숨긴다 — `display:none` 이면 점 그림·차트가 폭 0 으로 그려진다. 걷는 순간 지금 화면에 `cbMarkEntering`·`cbCountUp` 을 다시 건다(뼈대 뒤에서 돈 움직임은 안 보였다). 진행 상황은 뼈대 밖의 `#boot-status`(`role="status"`, sr-only)가 알린다. CSS 는 workspace-ui.css 맨 끝 블록(토큰 색만, 움직임 줄이기에서 반짝임·전환 없음, 휴대폰 카드 2열·큰 카드 1열). `test_boot_loading.mjs` 가 지킨다.
+- **로그인 직후에는 화면 전체 스플래시(`#boot-splash`)를 띄운다: 로그인 표식과 같은 로고 막대 세 개가 진행률에 따라 차례로 자라고(`bootGrowth(p)` → `--g1~3`, `scaleY`), '가족 자산 관리' 아래 단계 점 5개(끝남 강조색 · 지금은 숨 쉬는 고리)와 단계 글자를 보인다.** 직전 세션 시안 원본(mock renderD)을 그대로 옮겼고 고리 깜빡임만 더했다(단계 사이에 멈춰 보이지 않게). 마크업은 **본문(`.layout`) 밖, 로그인 화면 아래에 처음부터 보이는 상태**로 깔려 있어 로그인 화면이 흐려지면 그대로 이어진다(바탕도 같은 `--bg2`). 진행 알림 `#boot-status`(role=status)도 본문 밖이다 — 덮는 동안 `.layout` 에 `inert` 를 걸기 때문이다.
+- 함수는 `bootStart`·`bootStep(key)`·`bootWaitTail`·`bootReveal`·`bootFinish`(script.js `_startDashboardAfterAuth` 위). 단계(`BOOT_STEPS`) = 로그인 확인 → 보유 자산 → 재무 기록 → 시세 반영 → 배당·환율이고, `initDashboard` 의 **기존 호출 순서·병렬을 그대로 둔 채** 각 약속이 끝날 때 `bootStep` 만 붙인다. **걷는 때(사용자 결정): 배당·환율까지 끝나면**(마지막 막대가 다 자라도록 320ms 뒤), 시세 반영 뒤 `BOOT_TAIL_MS` 8초가 지나면 기다리지 않고 걷는다. 자산 로드 실패면 바로, 로딩 중 홈이 아닌 화면으로 가면(`switchView` 래퍼), 세션 만료(`authFetch` 401)·`BOOT_SAFETY_MS` 25초면 걷는다. 걷을 때 로그인 화면이 다시 떠 있으면(401) 본문 잠금을 풀지 않는다. 첫 시작(`_dashboardInitStarted`)에만 돈다. 걷는 순간 지금 화면에 `cbMarkEntering`·`cbCountUp` 을 다시 건다.
+- CSS 는 workspace-ui.css 맨 끝 블록(토큰 색만 — 마지막 막대 색은 로그인 표식 규칙 `.login-mark rect:last-child, .boot-mark rect.boot-bar3` 한 곳, 움직임 줄이기에서 전환·고리 없음, 휴대폰은 작은 타일). 시안 B 의 뼈대·진행 줄·`body.is-booting` 은 지웠다. `test_boot_loading.mjs` 가 지킨다.
 
 ### 금액 가리기 만·억·사이드바 접기 버튼·대출 상환 조건·적립식 묶음 (2026-11-18 4차)
 

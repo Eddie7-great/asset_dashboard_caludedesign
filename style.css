@@ -587,7 +587,7 @@
       background: var(--kpi-hi-bg);
     }
     .login-mark svg { fill: var(--kpi-hi-tx); }
-    .login-mark rect:last-child { fill: #5b9bff; }
+    .login-mark rect:last-child, .boot-mark rect.boot-bar3 { fill: #5b9bff; }   /* 로딩 스플래시(시안 D)의 같은 표식도 */
     .login-title {
       margin: 0 0 6px;
       font-size: var(--fs-title);
