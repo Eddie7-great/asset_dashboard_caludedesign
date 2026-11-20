@@ -113,6 +113,44 @@ assert.match(scriptSource, /e\.target\.id==='trade-modal'&&_tradeDownOutside\)cl
   const rows = [{ owner: '본인', memo: 'SK스퀘어 10주 매도' }, { owner: '아내', memo: 'SK스퀘어 매도' }, { owner: '본인', memo: '402340 일부 매도' }, { owner: '본인', memo: '삼성전자 매도' }]
   assert.equal(ctx.tradeExistingPlRows(stock, rows).length, 2, '같은 소유주 · 메모에 종목명이나 티커가 있는 줄만 안내')
   assert.match(indexSource, /id="trade-pl-skip"[^>]*>\s*실현손익은 이미 기록함/, '매도 창에 이미 기록함 선택')
-  assert.match(cobaltSource, /id="cb-tax-hold"[\s\S]*id="cb-tax-hold-qty"/, '실현손익 입력 줄에 보유 반영(종목·수량)')
+  // 보유 반영(2026-11-20): 입력 줄에는 글자 길이만큼의 버튼, 종목·수량은 선택 창(#tax-hold-modal)에서 — 예전 드롭다운은 가장 긴 이름만큼 넓어졌다
+  assert.match(cobaltSource, /<button type="button" class="cb-tax-hold-btn\$\{_cbTaxHold\?' is-set':''\}" id="cb-tax-hold-btn" aria-haspopup="dialog" onclick="cbTaxHoldOpen\(\)"/, '실현손익 입력 줄에 보유 반영 버튼')
+  assert.doesNotMatch(cobaltSource, /<select id="cb-tax-hold"/, '긴 드롭다운은 없앴다')
+  assert.match(indexSource, /<div class="modal-overlay" id="tax-hold-modal" aria-hidden="true">[\s\S]*id="tax-hold-q"[\s\S]*id="tax-hold-list"[\s\S]*id="tax-hold-qty"/, '선택 창: 검색 · 종목 목록 · 수량')
+  {
+    const grab = n => extractFunction(cobaltSource, n)
+    const items = [
+      { grp: '주식', owner: '본인', cur: 'KRW', qty: 10, name: '삼성전자', tkr: '005930.KS', broker: '삼성', acc: '일반' },
+      { grp: '주식', owner: '본인', cur: 'USD', qty: 2.5, name: 'Tesla', tkr: 'TSLA', broker: '토스', acc: '일반' },
+      { grp: '주식', owner: '아내', cur: 'KRW', qty: 5, name: 'KODEX 200', tkr: '069500.KS', broker: '키움', acc: '일반' },
+      { grp: '가상화폐', owner: '본인', cur: 'KRW', qty: 1, name: '비트코인', tkr: 'BTC' },
+      { grp: '주식', owner: '본인', cur: 'KRW', qty: 0, name: '팔린 종목', tkr: '000001' },
+    ]
+    const els = { 'cb-tax-owner': { value: '본인' }, 'cb-tax-k': { value: 'domestic' }, 'tax-hold-qty': { value: '' }, 'tax-hold-error': { textContent: '', hidden: true },
+      'tax-hold-modal': { classList: { contains: () => false } }, 'cb-tax-hold-btn': null }
+    const hctx = vm.createContext({ pfolioData: items, cbEsc: s => String(s ?? ''), document: { getElementById: id => els[id] ?? null, querySelectorAll: () => [] } })
+    vm.runInContext('var _cbTaxHold=null,_cbTaxHoldPick=null;', hctx)
+    for (const n of ['cbTaxHoldKey', 'cbTaxHoldCandidates', 'cbTaxHoldLabel', 'cbTaxHoldPaint', 'cbTaxHoldRecheck', 'cbTaxHoldPick', 'cbTaxHoldError', 'cbTaxHoldApply', 'cbTaxHoldClose']) vm.runInContext(grab(n), hctx)
+    assert.deepEqual(hctx.cbTaxHoldCandidates('본인', 'domestic').map(x => x.i.name), ['삼성전자'], '고른 소유주 · 국내(원화) 보유 주식만')
+    assert.deepEqual(hctx.cbTaxHoldCandidates('본인', 'foreign').map(x => x.i.name), ['Tesla'], '해외 = 원화가 아닌 종목')
+    hctx.cbTaxHoldApply(); assert.match(els['tax-hold-error'].textContent, /종목을 고르세요/)
+    hctx.cbTaxHoldPick(0); els['tax-hold-qty'].value = '11'; hctx.cbTaxHoldApply()
+    assert.match(els['tax-hold-error'].textContent, /보유 수량보다 많이/, '보유보다 많이 줄일 수 없다')
+    els['tax-hold-qty'].value = '4'; hctx.cbTaxHoldApply()
+    assert.equal(vm.runInContext('_cbTaxHold.qty', hctx), 4)
+    assert.match(hctx.cbTaxHoldLabel(), /삼성전자 4주/, '버튼에 고른 종목·수량')
+    els['cb-tax-k'].value = 'foreign'; hctx.cbTaxHoldRecheck()
+    assert.equal(vm.runInContext('_cbTaxHold', hctx), null, '시장을 바꿔 맞지 않으면 선택을 지운다')
+    assert.match(hctx.cbTaxHoldLabel(), /안 함/)
+  }
+  const add = extractFunction(cobaltSource, 'cbTaxAdd')
+  assert.match(add, /if\(!item\|\|cbTaxHoldKey\(item\)!==_cbTaxHold\.key\)\{ _cbTaxHold=null;/, '고른 뒤 목록이 바뀌었으면 저장하지 않는다')
+  assert.match(add, /_cbTaxHold = null;/, '기록하면 선택을 비운다')
+  // 입력 줄은 한 줄 — 1440px 이상은 제목·입력 줄·도구 한 줄, 그보다 좁으면 제목·도구 윗줄 + 입력 줄 아랫줄(입력 줄 자체는 줄바꿈 없음)
+  const wsSrc = fs.readFileSync(new URL('../../workspace-ui.css', import.meta.url), 'utf8')
+  assert.match(wsSrc, /@media\(min-width:769px\)\{\n\s*\.cb-tax-hist-top \.cb-tax-entry-form\{flex-wrap:nowrap\}/)
+  assert.match(wsSrc, /@media\(min-width:769px\) and \(max-width:1439px\)\{\n\s*\.cb-tax-hist-top>\.cb-tax-hist-tools\{order:1;margin-left:auto\}\n\s*\.cb-tax-hist-top>\.cb-tax-entry-form\{order:2;flex-basis:100%\}/)
+  assert.match(cobaltSource, /<label><span class="sr-only">귀속 월<\/span><select id="cb-tax-m"/, '값만으로 뜻이 보이는 칸은 이름을 낭독용으로만')
+  assert.match(wsSrc, /\.cb-tax-hold-btn\{[^}]*color:var\(--mut\)/, '새 버튼에 글자색')
   assert.match(cobaltSource, /tradeApplyPlan\(item,\{side:'sell',qty,date:finLocalDateKey\(new Date\(\)\),today:finLocalDateKey\(new Date\(\)\),skipPl:true\}\)/, '보유 반영은 매도 창과 같은 계산(새 실현손익 줄 없음)')
 }

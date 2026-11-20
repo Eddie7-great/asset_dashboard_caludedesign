@@ -1091,9 +1091,38 @@ button,input,select,textarea{font-family:var(--font-ui)}
    표 밖으로 나가 가로 스크롤바가 생긴다(계좌별 보기 '종목', 구성원 비교 '수익률', ETF 구성종목 '변화'). 값 칸도 같이 비워 끝선을 맞춘다. */
 .fin-tree.is-acct>.fin-tree-row>:last-child,.cb-family-head>:last-child,.cb-family-row>:last-child,.etf-table-head>:last-child,.etf-table-row>:last-child{padding-right:14px}
 /* 실현손익 ↔ 보유 연동(2026-11-18 3차): 세금 화면 입력 줄의 '보유 반영', 매도 창의 '이미 기록함' */
-.cb-tax-hold-field{display:flex;align-items:center;gap:6px}
-.cb-tax-hold-field select{max-width:220px}
-.cb-tax-hold-field input{width:90px}
+/* 보유 반영 — 글자 길이만큼의 버튼(폭 고정 없음, 아주 긴 이름만 상한에서 말줄임)과 종목 선택 창(2026-11-20) */
+.cb-tax-hold-btn{display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;max-width:260px;min-width:0;height:30px;padding:0 10px;border:1px dashed var(--bd2);border-radius:var(--r-md);background:transparent;color:var(--mut);font:500 var(--fs-cap) var(--font-ui);white-space:nowrap;cursor:pointer}
+.cb-tax-hold-btn>span{flex:none;color:var(--lab)}
+.cb-tax-hold-btn>b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;color:var(--mut)}
+.cb-tax-hold-btn:hover{border-color:var(--acc)}
+.cb-tax-hold-btn.is-set{border-style:solid;background:var(--inner)}
+.cb-tax-hold-btn.is-set>b{color:var(--tx);font-weight:700}
+.tax-hold-modal{width:480px;max-width:92vw;gap:10px}
+.tax-hold-modal .form-input{width:100%;box-sizing:border-box;height:36px}
+.tax-hold-list{display:flex;flex-direction:column;max-height:300px;overflow:auto;border:1px solid var(--bd);border-radius:var(--r-md)}
+.tax-hold-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);color:var(--tx);cursor:pointer}
+.tax-hold-row:last-child{border-bottom:0}
+.tax-hold-row:hover,.tax-hold-row.is-picked{background:var(--inner)}
+.tax-hold-row input{accent-color:var(--acc);margin:0}
+.tax-hold-name{display:flex;flex-direction:column;min-width:0}
+.tax-hold-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.tax-hold-name small{font-size:var(--fs-cap);color:var(--lab);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tax-hold-qty{font-size:var(--fs-cap);color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tax-hold-empty{margin:0;padding:16px;text-align:center;font-size:var(--fs-cap);color:var(--lab)}
+.tax-hold-qty-row{display:flex;gap:6px;align-items:center}
+.tax-hold-qty-row>input{flex:1 1 auto;min-width:0}
+.tax-hold-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 입력 줄은 한 줄이다(2026-11-20) — 값만으로 뜻이 보이는 칸(월·시장·계좌·소유주·메모)은 이름을 화면 낭독용으로만 두고(sr-only),
+   1440px 이상은 제목 · 입력 줄 · 도구가 한 줄(11-18 결정), 그보다 좁으면 제목·도구가 윗줄, 입력 줄이 통째로 아랫줄이다. 입력 줄 자체는 줄바꿈하지 않는다. */
+@media(min-width:769px){
+  .cb-tax-hist-top .cb-tax-entry-form{flex-wrap:nowrap}
+  .cb-tax-hist-top .cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 120px;min-width:90px}
+}
+@media(min-width:769px) and (max-width:1439px){
+  .cb-tax-hist-top>.cb-tax-hist-tools{order:1;margin-left:auto}
+  .cb-tax-hist-top>.cb-tax-entry-form{order:2;flex-basis:100%}
+}
 .trade-skip{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:var(--fs-cap);color:var(--tx);cursor:pointer}
 .trade-pl-match{color:var(--warn)}
 

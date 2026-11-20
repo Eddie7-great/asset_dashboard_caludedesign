@@ -403,6 +403,20 @@
     <button type="button" class="btn-submit" style="width:100%" onclick="cbDcaEditSave()">저장</button>
   </div>
 </div>
+<!-- 보유 반영 선택(2026-11-20) — 실현손익 입력 줄의 '보유 반영' 버튼이 연다. 입력 줄에서 고른 소유주·시장의 보유 주식만 보이고,
+     고른 종목·수량은 실현손익을 기록할 때 같은 매도 계산으로 보유 수량을 줄이는 데 쓰인다. -->
+<div class="modal-overlay" id="tax-hold-modal" aria-hidden="true">
+  <div class="modal-content f-col tax-hold-modal" role="dialog" aria-modal="true" aria-labelledby="tax-hold-title" aria-describedby="tax-hold-sub" tabindex="-1">
+    <div class="modal-header f-between"><h3 style="margin:0" id="tax-hold-title">보유 반영 — 매도한 종목</h3><button type="button" class="modal-close" onclick="cbTaxHoldClose()" aria-label="보유 반영 창 닫기">×</button></div>
+    <p class="trade-note" id="tax-hold-sub" style="margin:0"></p>
+    <label class="sr-only" for="tax-hold-q">종목 검색</label>
+    <input type="search" id="tax-hold-q" class="form-input" placeholder="종목명·티커·계좌 검색" oninput="cbTaxHoldList()">
+    <div class="tax-hold-list" id="tax-hold-list" role="radiogroup" aria-label="보유 종목"></div>
+    <div class="form-group f-col"><label class="form-label" for="tax-hold-qty">매도 수량 (보유에서 줄일 수량)</label><div class="tax-hold-qty-row"><input type="text" id="tax-hold-qty" class="form-input" placeholder="0" inputmode="decimal" oninput="cbTaxHoldError('')"><button type="button" class="dca-rule-edit" onclick="cbTaxHoldAll()">전량</button></div></div>
+    <p class="trade-error" id="tax-hold-error" role="alert" hidden></p>
+    <div class="tax-hold-actions"><button type="button" class="btn-submit" onclick="cbTaxHoldClear()">보유 반영 안 함</button><button type="button" class="btn-submit" onclick="cbTaxHoldApply()">적용</button></div>
+  </div>
+</div>
 <div class="modal-overlay" id="add-modal">
   <div class="modal-content f-col" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="asset-modal-description" tabindex="-1" style="max-width:500px;position:relative;overflow:visible;">
     <p id="asset-modal-description" class="sr-only">소유주, 자산 종류, 금융기관, 수량과 가격 정보를 입력합니다.</p>

@@ -599,7 +599,7 @@ assert.match(workspaceSource, /\.cb-tax-entry-form\{display:flex;flex-wrap:wrap;
 assert.match(workspaceSource, /\.cb-tax-entry-form>label\{display:flex;flex-direction:row;align-items:center/, '라벨을 드롭다운 왼쪽에 둔다')
 assert.match(workspaceSource, /\.cb-tax-entry-form #cb-tax-pl\{width:120px\}/, '실현손익 입력란 고정 폭')
 assert.match(workspaceSource, /\.cb-tax-entry-form>label\.cb-tax-memo-field\{flex:1 1 140px;max-width:340px\}/, '메모 입력은 남는 폭만 쓰고 상한을 둔다')
-assert.match(cobaltSource, /<label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="[^"]*" placeholder="메모" \/><\/label>/, '메모 폭은 인라인이 아니라 CSS 클래스로 준다')
+assert.match(cobaltSource, /<label class="cb-tax-memo-field"><span class="sr-only">메모<\/span><input id="cb-tax-memo" class="cb-input" value="[^"]*" placeholder="메모" \/><\/label>/, '메모 폭은 인라인이 아니라 CSS 클래스로 준다')
 assert.doesNotMatch(workspaceSource, /cb-tax-entry-form\{grid-template-columns:65px/, '고정 그리드 템플릿은 flex 로 대체했다')
 assert.match(styleSource, /\.cb-gift-field\{max-width:216px\}/, '증여 페이지 입력 라벨 폭 상한')
 assert.match(styleSource, /@media \(max-width: 768px\) \{[\s\S]*\.cb-gift-field\{max-width:none\}/, '모바일에서는 증여 입력 라벨 폭 상한 해제')

@@ -3404,13 +3404,13 @@ function cbRenderTax(){
         <div class="cb-tax-hist-top">
           <div class="cb-panel-title"><span data-tip="매도로 확정된 손익을 귀속 월별로 적습니다. 세금 계산은 이 기록을 씁니다.">실현손익 기록</span></div>
           <div class="cb-tax-entry-form">
-          <label>귀속 월<select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
-          <label>시장<select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
-          <label>계좌<select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
-          <label>소유주<select id="cb-tax-owner" class="cb-input">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
-          <label>실현손익(원)<input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" /></label>
-          <label class="cb-tax-memo-field">메모<input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
-          ${_cbTaxEditId==null?`<label class="cb-tax-hold-field"><span data-tip="고르면 저장할 때 그 종목의 보유 수량을 함께 줄입니다(보유 목록의 매도와 같은 계산 — 평균단가는 그대로, 전량이면 삭제 확인). 실현손익은 이 줄 하나만 남습니다.">보유 반영</span><select id="cb-tax-hold" class="cb-input"><option value="">안 함</option>${(pfolioData||[]).map((i,idx)=>({i,idx})).filter(x=>x.i&&x.i.grp==='주식'&&(Number(x.i.qty)||0)>0).map(x=>`<option value="${x.idx}">${cbEsc(x.i.owner||'')} · ${cbEsc(x.i.name||x.i.tkr||'')} (${Number(x.i.qty).toLocaleString(undefined,{maximumFractionDigits:4})}${cbEsc(x.i.unit||'주')})</option>`).join('')}</select><input id="cb-tax-hold-qty" class="cb-input" placeholder="매도 수량" inputmode="decimal" aria-label="보유에서 줄일 수량" /></label>`:''}
+          <label><span class="sr-only">귀속 월</span><select id="cb-tax-m" class="cb-input">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===_cbTaxDraft.m?'selected':''}>${i+1}월</option>`).join('')}</select></label>
+          <label><span class="sr-only">시장</span><select id="cb-tax-k" class="cb-input" onchange="cbTaxKindChange(this.value)"><option value="domestic" ${_cbTaxDraft.k==='domestic'?'selected':''}>국내주식</option><option value="foreign" ${_cbTaxDraft.k==='foreign'?'selected':''}>해외주식</option></select></label>
+          <label><span class="sr-only">계좌</span><select id="cb-tax-acc" class="cb-input">${acctOpts.map(a=>`<option value="${a}" ${a===_cbTaxDraft.acc?'selected':''}>${a}</option>`).join('')}</select></label>
+          <label><span class="sr-only">소유주</span><select id="cb-tax-owner" class="cb-input" onchange="cbTaxHoldRecheck()">${OWNERS.map(o=>`<option value="${cbEsc(o)}" ${o===draftOwner?'selected':''}>${cbEsc(o)}</option>`).join('')}</select></label>
+          <label><span class="sr-only">실현손익(원)</span><input id="cb-tax-pl" class="cb-input" value="${cbEsc(String(_cbTaxDraft.pl||'').replace(/,/g,'').replace(/^-?\d+$/,v=>(v.startsWith('-')?'-':'')+Math.abs(parseInt(v,10)).toLocaleString('ko-KR')))}" placeholder="실현손익(원)" inputmode="numeric" data-no-comma="1" oninput="handlePLAmtInput(this)" style="flex:1;min-width:118px" /></label>
+          <label class="cb-tax-memo-field"><span class="sr-only">메모</span><input id="cb-tax-memo" class="cb-input" value="${cbEsc(_cbTaxDraft.memo||'')}" placeholder="메모" /></label>
+          ${_cbTaxEditId==null?`<button type="button" class="cb-tax-hold-btn${_cbTaxHold?' is-set':''}" id="cb-tax-hold-btn" aria-haspopup="dialog" onclick="cbTaxHoldOpen()" data-tip="고르면 저장할 때 그 종목의 보유 수량을 함께 줄입니다(보유 목록의 매도와 같은 계산 — 평균단가는 그대로, 전량이면 삭제 확인). 실현손익은 이 줄 하나만 남습니다.">${cbTaxHoldLabel()}</button>`:''}
           <button onclick="cbTaxAdd()" class="cb-btn" style="font-size:var(--fs-cap)">${_cbTaxEditId!=null?'수정 저장':'기록'}</button>
           ${_cbTaxEditId!=null?'<button onclick="cbTaxCancelEdit()" class="cb-btn" style="font-size:var(--fs-cap);color:var(--mut)">취소</button>':''}
           </div>
@@ -3493,6 +3493,7 @@ function cbTaxMonthPick(m){
 // 구분(국내/해외) 변경 → 해외주식은 일반 계좌만 노출 (해외 상장 주식은 ISA·연금저축에서 직접 매매 불가)
 function cbTaxKindChange(v){
   _cbTaxDraft.k = v;
+  cbTaxHoldRecheck();
   _cbTaxDraft.pl = document.getElementById('cb-tax-pl')?.value || '';
   _cbTaxDraft.memo = document.getElementById('cb-tax-memo')?.value || '';
   _cbTaxDraft.m = document.getElementById('cb-tax-m')?.value || _cbTaxDraft.m;
@@ -3517,12 +3518,12 @@ function cbTaxAdd(){
   const pl = parseFloat(raw);
   if (raw==='' || isNaN(pl)) { alert('실현손익 금액을 입력하세요.'); return; }
   // 보유 반영(선택): 같은 매도 계산(tradeApplyPlan, 실현손익 줄은 만들지 않음)으로 보유 수량을 먼저 확인한다 — 틀리면 아무것도 저장하지 않는다.
-  const holdIdx = _cbTaxEditId==null ? (document.getElementById('cb-tax-hold')?.value||'') : '';
+  // 종목·수량은 '보유 반영' 선택 창이 고른 _cbTaxHold 다. 고른 뒤 목록이 바뀌었으면(열쇠 불일치) 저장하지 않는다.
   let hold=null;
-  if (holdIdx!==''){
-    const item=pfolioData[Number(holdIdx)];
-    const qty=Number(String(document.getElementById('cb-tax-hold-qty')?.value||'').replace(/,/g,''));
-    if(!item){ alert('보유 종목을 찾지 못했습니다. 화면을 새로 고친 뒤 다시 시도하세요.'); return; }
+  if (_cbTaxEditId==null && _cbTaxHold){
+    const item=pfolioData[_cbTaxHold.idx];
+    const qty=Number(_cbTaxHold.qty);
+    if(!item||cbTaxHoldKey(item)!==_cbTaxHold.key){ _cbTaxHold=null; cbTaxHoldPaint(); alert('보유 반영 종목을 찾지 못했습니다. 보유 반영을 다시 골라 주세요.'); return; }
     if(window._kvLoadState?.assets!=='ready'||window._kvLoadState?.ext!=='ready'){ alert('데이터를 아직 불러오지 못해 보유 수량을 바꿀 수 없습니다.'); return; }
     if(item.owner!==owner){ alert('보유 반영 종목의 소유주와 실현손익의 소유주가 다릅니다.'); return; }
     const plan=tradeApplyPlan(item,{side:'sell',qty,date:finLocalDateKey(new Date()),today:finLocalDateKey(new Date()),skipPl:true});
@@ -3534,7 +3535,7 @@ function cbTaxAdd(){
   const year = (_cbTaxYear && /^\d{4}$/.test(_cbTaxYear)) ? _cbTaxYear : String(new Date().getFullYear());
   const ruleSetId=typeof assetTaxRulesFor==='function'?(assetTaxRulesFor(year)?.id||''):'';
   const entry = { id:_cbTaxEditId!=null?_cbTaxEditId:Date.now(), month:`${year}-${String(m).padStart(2,'0')}`, amt:pl, memo, owner, category:k, account:acc, ruleSetId };
-  if (hold && !entry.memo) entry.memo = `${hold.item.name||hold.item.tkr||'종목'} ${Number(String(document.getElementById('cb-tax-hold-qty')?.value||'').replace(/,/g,'')).toLocaleString(undefined,{maximumFractionDigits:8})}${hold.item.unit||'주'} 매도`.slice(0,240);
+  if (hold && !entry.memo) entry.memo = `${hold.item.name||hold.item.tkr||'종목'} ${Number(_cbTaxHold.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${hold.item.unit||'주'} 매도`.slice(0,240);
   if (_cbTaxEditId!=null){
     const idx=monthlyPLData.findIndex(r=>Number(r.id)===Number(_cbTaxEditId));
     if(idx>=0) monthlyPLData[idx]=entry;
@@ -3543,6 +3544,7 @@ function cbTaxAdd(){
     monthlyPLData.push(entry);
   }
   _cbTaxEditId = null;
+  _cbTaxHold = null;
   _cbTaxDraft = { m, k, acc, owner, pl:'', memo:'' };
   saveMonthlyPL();
   if (hold){
@@ -3556,11 +3558,95 @@ function cbTaxAdd(){
   }
   cbRenderTax();
 }
+// ── 보유 반영 선택 창(2026-11-20, 사용자 결정: 버튼 + 종목 선택 창) ──
+// 입력 줄에는 글자 길이만큼의 버튼만 두고(예전 드롭다운은 가장 긴 종목명만큼 넓어져 입력 줄이 두 줄이 됐다),
+// 누르면 입력 줄에서 고른 소유주·시장(국내 = 원화 종목, 해외 = 그 밖)의 보유 주식만 보여 준다. 고른 값은 메모리 _cbTaxHold 뿐이다.
+let _cbTaxHold=null, _cbTaxHoldPick=null;
+function cbTaxHoldKey(i){ return [i.owner||'',i.tkr||'',i.broker||'',i.acc||'',i.name||''].join('|'); }
+function cbTaxHoldCandidates(owner, kind){
+  return (pfolioData||[]).map((i,idx)=>({i,idx}))
+    .filter(x=>x.i&&x.i.grp==='주식'&&(Number(x.i.qty)||0)>0&&x.i.owner===owner&&((kind==='foreign')===((x.i.cur||'KRW')!=='KRW')));
+}
+function cbTaxHoldLabel(){
+  const item=_cbTaxHold&&pfolioData[_cbTaxHold.idx];
+  if(!item) return '<span>보유 반영</span><b>안 함</b>';
+  const unit=item.unit||'주';
+  return `<span>보유 반영</span><b>${cbEsc(item.name||item.tkr||'종목')} ${Number(_cbTaxHold.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</b>`;
+}
+function cbTaxHoldPaint(){
+  const b=document.getElementById('cb-tax-hold-btn'); if(!b) return;
+  b.innerHTML=cbTaxHoldLabel();
+  b.classList.toggle('is-set',!!_cbTaxHold);
+}
+// 소유주·시장을 바꿔 고른 종목이 더는 맞지 않으면 선택을 지운다.
+function cbTaxHoldRecheck(){
+  if(!_cbTaxHold) return;
+  const item=pfolioData[_cbTaxHold.idx];
+  const owner=document.getElementById('cb-tax-owner')?.value, kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  if(!item||cbTaxHoldKey(item)!==_cbTaxHold.key||!cbTaxHoldCandidates(owner,kind).some(x=>x.i===item)){ _cbTaxHold=null; cbTaxHoldPaint(); }
+}
+function cbTaxHoldOpen(){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const owner=document.getElementById('cb-tax-owner')?.value||'', kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  _cbTaxHoldPick=_cbTaxHold?{..._cbTaxHold}:null;
+  document.getElementById('tax-hold-sub').textContent=`${owner} · ${kind==='foreign'?'해외주식':'국내주식'} 보유 종목에서 고릅니다`;
+  document.getElementById('tax-hold-q').value='';
+  document.getElementById('tax-hold-qty').value=_cbTaxHold?String(_cbTaxHold.qty):'';
+  const err=document.getElementById('tax-hold-error'); err.textContent=''; err.hidden=true;
+  cbTaxHoldList();
+  const modal=document.getElementById('tax-hold-modal');
+  window._taxHoldReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  modal.classList.add('active'); modal.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>document.getElementById('tax-hold-q')?.focus());
+}
+function cbTaxHoldList(){
+  const owner=document.getElementById('cb-tax-owner')?.value||'', kind=document.getElementById('cb-tax-k')?.value||'domestic';
+  const q=(document.getElementById('tax-hold-q')?.value||'').trim().toLowerCase();
+  const rows=cbTaxHoldCandidates(owner,kind).filter(x=>!q||[x.i.name,x.i.tkr,x.i.broker,x.i.acc].join(' ').toLowerCase().includes(q));
+  const box=document.getElementById('tax-hold-list'); if(!box) return;
+  box.innerHTML=rows.map(x=>{
+    const unit=x.i.unit||'주', picked=_cbTaxHoldPick&&_cbTaxHoldPick.idx===x.idx;
+    return `<label class="tax-hold-row${picked?' is-picked':''}"><input type="radio" name="tax-hold-pick" value="${x.idx}"${picked?' checked':''} onchange="cbTaxHoldPick(${x.idx})">`
+      +`<span class="tax-hold-name"><b>${cbEsc(x.i.name||x.i.tkr||'종목')}</b><small>${cbEsc(cbStrip(x.i.tkr||''))} · ${cbEsc(x.i.broker||'')} / ${cbEsc(x.i.acc||'')}</small></span>`
+      +`<span class="tax-hold-qty">보유 ${Number(x.i.qty).toLocaleString(undefined,{maximumFractionDigits:8})}${cbEsc(unit)}</span></label>`;
+  }).join('')||`<p class="tax-hold-empty">${q?'검색어에 맞는 종목이 없습니다.':'이 소유주·시장의 보유 주식이 없습니다. 입력 줄의 소유주·시장을 확인하세요.'}</p>`;
+}
+function cbTaxHoldPick(idx){
+  const item=pfolioData[idx]; if(!item) return;
+  _cbTaxHoldPick={idx,key:cbTaxHoldKey(item)};
+  document.querySelectorAll('#tax-hold-list .tax-hold-row').forEach(r=>r.classList.toggle('is-picked',r.querySelector('input')?.value===String(idx)));
+}
+function cbTaxHoldAll(){
+  const item=_cbTaxHoldPick&&pfolioData[_cbTaxHoldPick.idx];
+  if(item) document.getElementById('tax-hold-qty').value=String(Number(item.qty));
+}
+// 고른 종목·수량을 확인해 버튼에 반영한다. 보유보다 많은 수량은 받지 않는다(저장 때 같은 매도 계산이 다시 확인한다).
+function cbTaxHoldError(m){ const err=document.getElementById('tax-hold-error'); if(err){ err.textContent=m||''; err.hidden=!m; } }
+function cbTaxHoldApply(){
+  const fail=cbTaxHoldError;
+  const item=_cbTaxHoldPick&&pfolioData[_cbTaxHoldPick.idx];
+  if(!item||cbTaxHoldKey(item)!==_cbTaxHoldPick.key){ fail('매도한 종목을 고르세요.'); return; }
+  const qty=Number(String(document.getElementById('tax-hold-qty')?.value||'').replace(/,/g,''));
+  if(!(qty>0)) { fail('매도 수량을 입력하세요.'); return; }
+  if(qty>(Number(item.qty)||0)+1e-9) { fail('보유 수량보다 많이 줄일 수 없습니다.'); return; }
+  _cbTaxHold={idx:_cbTaxHoldPick.idx,key:_cbTaxHoldPick.key,qty};
+  cbTaxHoldClose(); cbTaxHoldPaint();
+}
+function cbTaxHoldClear(){ _cbTaxHold=null; cbTaxHoldClose(); cbTaxHoldPaint(); }
+function cbTaxHoldClose(){
+  const modal=document.getElementById('tax-hold-modal');
+  if(!modal?.classList.contains('active')) return;
+  modal.classList.remove('active'); modal.setAttribute('aria-hidden','true');
+  _cbTaxHoldPick=null;
+  const back=window._taxHoldReturnFocus; window._taxHoldReturnFocus=null;
+  if(back&&document.contains(back)) back.focus();
+}
 function cbTaxEdit(id){
   if (typeof isMobileLayout==='function' && isMobileLayout()) return;
   try{ loadMonthlyPL(); }catch(e){}
   const r=monthlyPLData.find(x=>Number(x.id)===Number(id)); if(!r) return;
   _cbTaxEditId=Number(r.id);
+  _cbTaxHold=null;   // 수정 중인 기록에는 보유 반영이 없다
   _cbTaxYear=String(r.month||'').slice(0,4)||_cbTaxYear;
   _cbTaxDraft={
     m:String(parseInt(String(r.month||'').split('-')[1]||'1')),
@@ -3575,6 +3661,7 @@ function cbTaxEdit(id){
 }
 function cbTaxCancelEdit(){
   _cbTaxEditId=null;
+  _cbTaxHold=null;
   _cbTaxDraft={ m:String(new Date().getMonth()+1), k:'domestic', acc:'일반', owner:'', pl:'', memo:'' };
   cbRenderTax();
 }
