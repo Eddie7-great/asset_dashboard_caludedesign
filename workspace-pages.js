@@ -36,6 +36,8 @@ function acctKind(acc, owner){
 // 소유주 범위에 자녀1 이 없거나 자녀1 의 증여계좌가 없으면 null.
 function acctGiftCompare(groups, ownerF){
   if(ownerF&&ownerF!==ACCT_GIFT_OWNER) return null;
+  // 재무 기록(증여 기록장·자동이체)을 아직 못 불러왔으면 '기록이 없다'고 단정하지 않는다.
+  if(typeof window!=='undefined'&&window._kvLoadState&&window._kvLoadState.ext!=='ready') return null;
   const mine=(groups||[]).filter(g=>g.owner===ACCT_GIFT_OWNER&&g.kind==='증여계좌');
   if(!mine.length) return null;
   const value=mine.reduce((s,g)=>s+g.value,0);

@@ -101,6 +101,11 @@ assert.equal(d.groups[0].share, 100, '비중 분모는 그 소유주의 투자�
   assert.equal(ctx.acctGiftCompare(ctx.acctGroups('본인').groups, '본인'), null, '자녀1 이 범위에 없으면 그리지 않는다');
   gifts = [];
   assert.equal(ctx.acctGiftCompare(d.groups, null).count, 0, '기록이 없으면 count 0 — 연결 안내를 그린다');
+  ctx.window = { _kvLoadState: { assets: 'ready', ext: 'failed' } };
+  assert.equal(ctx.acctGiftCompare(d.groups, null), null, "재무 기록을 못 불러왔으면 '기록 없음'이라 단정하지 않는다");
+  ctx.window._kvLoadState.ext = 'ready';
+  assert.equal(ctx.acctGiftCompare(d.groups, null).count, 0);
+  delete ctx.window;
   delete ctx.cbGiftRecords;
 }
 
