@@ -16,14 +16,34 @@ const ACCT_KIND_NOTE={
   '일반':'배당·매매차익에 일반 과세',
   'ISA':'만기·해지 때 계좌 전체 손익으로 정산',
   '연금':'인출할 때까지 과세이연',
-  '증여계좌':'증여받은 자금 계좌 · 과세는 일반 계좌와 같음',
+  '증여계좌':'증여받은 돈으로 운용 · 과세는 일반 계좌와 같음',
 };
-// 화면 구분: 계좌 이름에 '증여'가 있으면 증여계좌, 그 밖은 배당세 엔진과 같은 구분(getAccountDivTaxInfo).
-function acctKind(acc){
+// 증여받은 돈으로 운용하는 소유주 — 가족 증여 계획의 '자녀'(cbGiftOwnerScope 의 자녀 증여 당사자)와 같다.
+// 사용자 설명(2026-11-20): 자녀1 의 계좌(메리츠·토스)는 매달 유기정기금으로 증여한 돈으로 주식을 산다.
+const ACCT_GIFT_OWNER='자녀1';
+// 화면 구분: 계좌 이름에 '증여'가 있으면 증여계좌, 그 밖은 배당세 엔진과 같은 구분(getAccountDivTaxInfo)이고,
+// 자녀1 의 일반 계좌도 증여계좌로 본다(ISA·연금은 세제 구분 그대로). 화면 구분일 뿐 — 세금 계산은 getAccountDivTaxInfo 그대로다.
+function acctKind(acc, owner){
   const a=String(acc||'');
   if(/증여/.test(a)) return '증여계좌';
   const type=getAccountDivTaxInfo(a).type;
-  return type==='ISA'?'ISA':type==='연금'?'연금':'일반';
+  if(type==='ISA') return 'ISA';
+  if(type==='연금') return '연금';
+  return owner===ACCT_GIFT_OWNER?'증여계좌':'일반';
+}
+// 자녀1 증여 계좌 평가액 ↔ 증여 이체 누계(가족 증여 기록장 + 증여로 연결한 자동이체 — cbGiftRecords('child') 그대로).
+// 누계는 기록된 이체의 단순 합이다: 연결한 자동이체는 최근 10년·오늘까지만 센다(cbGiftTransferRecords). 증여세 신고가액(유기정기금 평가액)과 다르다.
+// 소유주 범위에 자녀1 이 없거나 자녀1 의 증여계좌가 없으면 null.
+function acctGiftCompare(groups, ownerF){
+  if(ownerF&&ownerF!==ACCT_GIFT_OWNER) return null;
+  // 재무 기록(증여 기록장·자동이체)을 아직 못 불러왔으면 '기록이 없다'고 단정하지 않는다.
+  if(typeof window!=='undefined'&&window._kvLoadState&&window._kvLoadState.ext!=='ready') return null;
+  const mine=(groups||[]).filter(g=>g.owner===ACCT_GIFT_OWNER&&g.kind==='증여계좌');
+  if(!mine.length) return null;
+  const value=mine.reduce((s,g)=>s+g.value,0);
+  const records=typeof cbGiftRecords==='function'?cbGiftRecords('child'):[];
+  const gifted=records.reduce((s,r)=>s+(Number(r.amt)||0),0);
+  return {value,gifted,diff:value-gifted,count:records.length,accounts:mine.length};
 }
 function acctGroups(ownerF){
   const rows=finRows(ownerF), total=rows.reduce((s,r)=>s+r.val,0), map=new Map();
@@ -31,7 +51,7 @@ function acctGroups(ownerF){
     const owner=r.i.owner||'—', broker=r.i.broker||'미지정', acc=r.i.acc||'미지정';
     const key=[owner,broker,acc].join('\u001f');
     let g=map.get(key);
-    if(!g){ g={key,owner,broker,acc,kind:acctKind(r.i.acc),value:0,cost:0,gain:0,dividend:0,stale:0,rows:[]}; map.set(key,g); }
+    if(!g){ g={key,owner,broker,acc,kind:acctKind(r.i.acc,owner),value:0,cost:0,gain:0,dividend:0,stale:0,rows:[]}; map.set(key,g); }
     g.value+=r.val;
     // 현금과 취득가 미상은 손익에서 뺀다(보유 목록 숫자 카드와 같은 기준).
     if(r.i.grp!=='현금'&&!r.i.costUnknown){ g.cost+=r.cost; g.gain+=r.gain; }
@@ -67,10 +87,16 @@ function cbRenderAccounts(){
     el.innerHTML=`<div class="cb-panel"><div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}보유 자산이 없습니다. 자산 관리 > 보유 목록에서 추가하면 계좌별로 묶어 보여 드립니다.</div></div>`;
     return;
   }
+  const gift=acctGiftCompare(data.groups,ownerF);
+  const giftLine=!gift?'':gift.count
+    ? `<span class="acct-gift-line"><span>${ACCT_GIFT_OWNER} 증여 이체 누계 <b class="cb-num">${cbDisp(gift.gifted)}</b></span>
+        <span>평가액 ${cbDisp(gift.value)} · <span data-tip="차이 = ${ACCT_GIFT_OWNER} 증여계좌 평가액 − 증여 이체 누계. 투자 손익 외에 기록하지 않은 입출금도 섞입니다. 누계는 가족 증여 기록장과 증여로 연결한 자동이체(최근 10년·오늘까지)의 단순 합이며, 증여세 신고가액(유기정기금 평가액)과 다릅니다.">차이</span> <b class="cb-num" style="${cbGainStyle(gift.diff,false)}">${cbSignDisp(gift.diff)}</b></span></span>`
+    : `<span class="acct-gift-line is-empty"><span>증여 이체 기록이 없습니다.</span><button type="button" class="acct-gift-link" onclick="switchView('gift2')">가족 증여에서 자동이체 연결 ›</button></span>`;
   const kindCards=data.kinds.map(k=>`<div class="cb-panel acct-kind-card${k.accounts?'':' is-empty'}">
       <span class="acct-kind-label">${k.kind}</span>
       <b class="acct-kind-value">${k.accounts?cbDisp(k.value):'—'}</b>
       <span class="acct-kind-sub">${k.accounts?`${k.share.toFixed(1)}% · 계좌 ${k.accounts}개 · ${k.holdings}종목`:'해당 계좌 없음'}</span>
+      ${k.kind==='증여계좌'?giftLine:''}
       <span class="acct-kind-note">${ACCT_KIND_NOTE[k.kind]}</span>
     </div>`).join('');
   // 소유주 → 증권사 → 계좌 → (펼치면) 종목 트리 — 리밸런싱 '계좌 배치 진단'과 같은 부품(finTreeHtml)이다.
@@ -118,7 +144,7 @@ function cbRenderAccounts(){
     accountName:a=>`<b>${cbEsc(a.acc)}</b>${a.kind==='증여계좌'?'<em class="acct-kind-chip">증여계좌</em>':''}${a.stale?`<em class="acct-stale-chip">시세 미조회 ${a.stale}</em>`:''}<span class="fin-tree-caret" aria-hidden="true">${_acctOpen.has(a.key)?'▾':'▸'}</span>`,
     children:a=>_acctOpen.has(a.key)?cbSortRows('acct',a.rows,sortGet):[],
     holdingName:h=>`<span class="acct-asset" title="${cbEsc([h.title,h.subTitle].filter(Boolean).join(' · '))}">${cbFlagCell(h,24,14)}<b>${cbEsc(h.title)}</b>${h.subTitle?` <small>${cbEsc(h.subTitle)}</small>`:''}</span>`,
-    legend:'<span class="fin-acct-note">증여계좌는 과세가 일반 계좌와 같아 일반 색입니다 · 계좌 줄을 누르면 보유 종목이 펼쳐집니다</span>',
+    legend:`<span class="fin-acct-note">증여계좌(이름에 '증여'가 있는 계좌·${ACCT_GIFT_OWNER} 의 일반 계좌)는 과세가 일반 계좌와 같아 일반 색입니다 · 계좌 줄을 누르면 보유 종목이 펼쳐집니다</span>`,
   });
   // 위 두 줄(사용자 결정, 2026-11-19): 보유 목록과 같은 숫자 카드(같은 함수가 같은 값으로 만든다 — 새 계산 없음) + 계좌 종류 카드.
   const holdingsKpis=typeof renderPortfolio==='function'?(renderPortfolio(_acctOwner,{kpisOnly:true})||''):'';
@@ -157,7 +183,7 @@ function calEvents(year, month0, ownerF){
     transfers.forEach(at=>{
       if(!_autoTransferOccursOn(at,date)) return;
       const amount=_effectiveAutoTransferAmt(at,year,month0+1);
-      if(amount>0) push(day,{kind:at.type==='수입'?'in':'out',title:at.desc||at.cat||'자동이체',owner:at.owner||'—',amount});
+      if(amount>0) push(day,{kind:at.type==='수입'?'in':'out',title:at.desc||at.cat||'자동이체',owner:at.owner||'—',amount,cat:at.cat||''});
     });
   }
   // 배당: 과거 지급 패턴으로 추정한 세전 금액. 지급일을 모르면 '이번 달 예정'으로만 둔다.
@@ -170,6 +196,8 @@ function calEvents(year, month0, ownerF){
   });
   return {year,month0,last,days,undated,totals};
 }
+// 이 달 예정 순현금 = 배당(세전 추정) + 수입 자동이체 − 자동이체 지출 − 적립 매수 — calEvents 의 합계만 쓴다.
+function calNetCash(data){ const t=(data&&data.totals)||{}; return (t.div||0)+(t.in||0)-(t.out||0)-(t.dca||0); }
 function calMove(delta){
   const ym=calYm(), d=new Date(ym.y,ym.m+delta,1);
   _calYm={y:d.getFullYear(),m:d.getMonth()}; _calDay=null; cbRenderCalendar();
@@ -212,6 +240,15 @@ function cbRenderCalendar(){
       <b class="cb-num">${ev.kind==='div'||ev.kind==='in'?'+':'−'}${cbDisp(ev.amount)}</b>
     </div>`;
   const card=(kind,sub)=>`<div class="cb-panel cal-sum-card"><span class="cal-kind ${CAL_KINDS[kind].cls}"><i></i>${CAL_KINDS[kind].label}</span><b>${cbDisp(data.totals[kind])}</b><small>${sub}</small></div>`;
+  // 4번째 카드 — 이 달 예정 순현금(2026-11-20 8차, 사용자 결정. 예전 '자동이체 수입' 카드는 수입 자동이체가 없으면 늘 ₩0 이었다).
+  // 위 세 카드와 같은 일정 합계를 더하고 뺄 뿐이다(새 판정 없음). 현금 흐름 화면의 실제 순현금흐름이 아니라 일정 기준 추정이라 손익 색을 쓰지 않는다.
+  const net=calNetCash(data);
+  const savingOut=Object.values(data.days).some(list=>list.some(ev=>ev.kind==='out'&&(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(ev.cat)));
+  const netNotes=[
+    data.totals.in>0?'':'수입 자동이체가 없어 수입은 0원입니다.',
+    savingOut&&data.totals.dca>0?"'저축/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다.":'',
+  ].filter(Boolean);
+  const netCard=`<div class="cb-panel cal-sum-card cal-net-card"><span class="cal-kind"><span data-tip="이 달 일정의 배당(세전 추정) + 수입 자동이체 − 자동이체 지출 − 적립 매수입니다. 일정 기준 추정이며 현금 흐름 화면의 실제 순현금흐름과 다릅니다.">이 달 예정 순현금</span></span><b class="cb-num">${cbSignDisp(net)}</b><small>배당 + 수입 − 지출 − 적립 매수</small>${netNotes.map(t=>`<small class="cal-net-note">${t}</small>`).join('')}</div>`;
   el.innerHTML=`<div class="cal-toolbar">
       <button type="button" class="cb-btn" data-cal-move="-1" onclick="calMove(-1)" aria-label="이전 달">‹</button>
       <b class="cal-title" aria-live="polite">${ym.y}년 ${ym.m+1}월</b>
@@ -222,7 +259,7 @@ function cbRenderCalendar(){
       ${card('div','세전 추정 · 확정 지급액 아님')}
       ${card('dca','활성 규칙 기준 · 실제 체결 아님')}
       ${card('out','등록한 자동이체')}
-      ${card('in','등록한 자동이체')}
+      ${netCard}
     </div>
     <div class="cal-layout">
       <div class="cb-panel cal-grid-panel">

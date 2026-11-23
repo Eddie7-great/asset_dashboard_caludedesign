@@ -50,8 +50,65 @@ try {
   assert.equal(res.body.result, undefined)
 
   const script = read('script.js')
-  assert.match(script, /const result = \(data && data\.result\) \|\| \(data && data\.ticker \? \{ \[data\.ticker\]: data \} : \{\}\);/, '화면은 평탄한 응답도 버리지 않는다')
-  assert.match(script, /const chunks = _chunkTickers\(tickers, 10\);/)
+  assert.match(script, /Object\.assign\(merged,\(data&&data\.result\)\|\|\(data&&data\.ticker\?\{\[data\.ticker\]:data\}:\{\}\)\);/, '화면은 평탄한 응답도 버리지 않는다')
+  assert.match(script, /const chunks=_chunkTickers\(tickers\|\|\[\],10\);/)
+
+  // ── 1-2) 첫 로딩의 국내 시세(2026-11-20 8차): 묶음 둘씩 동시에, 주 시세와 동시에 받되 반영은 주 시세 뒤 ──
+  {
+    const grab = re => script.match(re)[0]
+    const code = [
+      grab(/function _chunkTickers\(list, size = API_TICKER_CHUNK\) \{[\s\S]*?\n\}/),
+      grab(/function _isDomesticEquity\(item\) \{[\s\S]*?\n\}/),
+      grab(/function _domesticQuoteTickers\(\)\{[\s\S]*?\n\}/),
+      grab(/async function _fetchDomesticQuotes\(tickers\)\{[\s\S]*?\n\}/),
+      grab(/async function liveRefreshDomesticEtfs\(prefetch\) \{[\s\S]*?\n\}/),
+      grab(/async function refreshMarketPrices\(\)\{[\s\S]*?\n\}/),
+    ].join('\n')
+    const log = [], waiters = []
+    const domestic = Array.from({ length: 12 }, (_, k) => ({ grp: '주식', tkr: String(100000 + k), cur: 'KRW', curP: 1 }))
+    const ctx = vm.createContext({
+      API_TICKER_CHUNK: 25, KR_CODE_RE: /^[0-9A-Z]{6}$/i, normTkr: t => String(t || '').trim().toUpperCase().replace(/\.(KS|KQ)$/, ''),
+      pfolioData: [...domestic, { grp: '주식', tkr: 'NVDA', cur: 'USD', curP: 1 }], currentOwner: '전체', changeOwner() {}, console: quiet,
+      Promise, Set, Array, Object, String,
+      authFetch: url => new Promise(resolve => {
+        const n = (String(url).match(/tickers=([^&]*)/)[1] || '').split(',').length
+        log.push('fetch:' + n)
+        waiters.push(() => {
+          if (n === 2) { resolve({ ok: false }); return }   // 실패한 묶음은 삼킨다 — 거부가 남지 않는다
+          const tick = String(url).match(/tickers=([^,&]*)/)[1]
+          resolve({ ok: true, json: async () => n === 1 ? { ticker: tick, success: true, price: 2, prevClose: 2 } : { result: Object.fromEntries(String(url).match(/tickers=([^&]*)/)[1].split(',').map(t => [t, { success: true, price: 5, prevClose: 5 }])) } })
+        })
+      }),
+      liveRefresh: async () => { log.push('primary'); ctx.pfolioData.forEach(i => { i.curP = 3; i._priceStale = false }); return { ok: true } },
+    })
+    vm.runInContext(code, ctx)
+    const done = vm.runInContext('refreshMarketPrices()', ctx)
+    await new Promise(r => setTimeout(r, 0))
+    assert.deepEqual(log, ['fetch:10', 'fetch:2', 'primary'], '국내 두 묶음을 동시에 보내고, 주 시세를 기다리지 않고 미리 시작한다')
+    waiters.forEach(w => w())
+    const out = await done
+    assert.equal(ctx.pfolioData[0].curP, 5, '국내 값은 주 시세(Yahoo) 뒤에 반영돼 덮는다')
+    assert.equal(ctx.pfolioData[11].curP, 3, '실패한 묶음의 종목은 주 시세 값을 유지')
+    assert.equal(out.domestic.updated, 10)
+    assert.equal(out.domestic.ok, false, '전부 받지 못하면 ok 가 아니다')
+    // 묶음이 셋 이상이면 둘씩만 동시에(네이버 동시 요청 상한)
+    log.length = 0; waiters.length = 0
+    ctx.pfolioData = Array.from({ length: 25 }, (_, k) => ({ grp: '주식', tkr: String(200000 + k), cur: 'KRW', curP: 1 }))
+    const p2 = vm.runInContext('_fetchDomesticQuotes(_domesticQuoteTickers())', ctx)
+    await new Promise(r => setTimeout(r, 0))
+    assert.deepEqual(log, ['fetch:10', 'fetch:10'], '세 번째 묶음은 앞의 둘이 끝난 뒤')
+    waiters.splice(0).forEach(w => w())
+    await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0))
+    assert.deepEqual(log, ['fetch:10', 'fetch:10', 'fetch:5'])
+    waiters.splice(0).forEach(w => w())
+    assert.equal(Object.keys(await p2).length, 25)
+    // 평탄한 응답(한 종목)도 버리지 않는다
+    log.length = 0; waiters.length = 0
+    ctx.pfolioData = [{ grp: '주식', tkr: '0117V0', cur: 'KRW', curP: 1 }]
+    const p3 = vm.runInContext('liveRefreshDomesticEtfs()', ctx)
+    await new Promise(r => setTimeout(r, 0)); waiters.splice(0).forEach(w => w())
+    assert.equal((await p3).updated, 1); assert.equal(ctx.pfolioData[0].curP, 2)
+  }
 
   // ── 2) price.ts 는 실패한 환율·금값을 지어내지 않는다 ─────
   const priceSource = read('api/price.ts')

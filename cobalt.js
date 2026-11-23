@@ -1160,6 +1160,8 @@ function cbRenderDash(){
   const gainAbs = rows.reduce((s,r)=>s+r.gain,0);
   const costTot = rows.reduce((s,r)=>s+r.cost,0) || 1;
   const divAnnual = rows.reduce((s,r)=>s+cbDivIncomeKRW(r.i),0);
+  // 로딩 화면이 시세까지만 기다리므로(2026-11-20 8차) 배당 조회가 끝나기 전에 홈이 보일 수 있다 — 그동안은 '확인 중'이라고 밝힌다.
+  const divPending = cbSnapDivCoverage(rows).status==='pending';
   const risk = cbRisk(ownerF);
 
   // 자산 배분 (도넛/범례 클릭 → 해당 자산군 종목 펼침)
@@ -1281,7 +1283,7 @@ function cbRenderDash(){
         dayBase>0 ? cbSignDisp(dayAbs) : '—', dayBase>0 ? cbUpDn(dayAbs) : 'color:var(--lab)',
         dayBase>0 ? cbPct(dayAbs/dayBase)+' · 전일 대비' : '시세 연동 종목 없음', 'perf2')}
       ${kpi('<span data-tip="현재 평가액 − 총 매입원가">평가손익</span>', cbSignDisp(gainAbs), cbUpDn(gainAbs), cbPct(gainAbs/costTot)+' · 매입원가 대비', 'holdings')}
-      ${kpi('연 배당', cbDisp(divAnnual), '', '월평균 '+cbDisp(divAnnual/12), 'divm')}
+      ${kpi('연 배당', cbDisp(divAnnual), '', divPending?'배당 정보 확인 중 …':'월평균 '+cbDisp(divAnnual/12), 'divm')}
       ${kpi('리스크', risk.score+'점', '', cbEsc(risk.grade)+(risk.warns?` · 주의·경고 ${risk.warns}개`:''), 'risk2')}
     </div>
 
@@ -3909,8 +3911,10 @@ function cbDcaRuleLabel(i){
 function cbRenderDca(){
   const el = document.getElementById('cb-dca2'); if(!el) return;
   const ownerF = (_cbDcaOwner && _cbDcaOwner!=='전체') ? _cbDcaOwner : null;
+  // 조회 전용(2026-11-20 8차, 사용자 결정) — 켜 둔 규칙만 보인다. 중단한 규칙은 빠지고(보유 목록 칸도 '—'),
+  // 드물게 남은 '금액 미입력'(켜짐 + 금액 0)은 고치도록 주황 글자로 남긴다. 등록·수정·켜기/끄기는 보유 목록의 적립식 칸(cbDcaEdit)이 맡는다.
   const items = (pfolioData||[]).map((i,idx)=>({i,idx}))
-    .filter(x=>dcaState(x.i)!=='none')   // 보유 목록 적립식 칸과 같은 집합(켜짐·중단·금액 미입력)
+    .filter(x=>{ const st=dcaState(x.i); return st==='on'||st==='incomplete'; })
     .filter(x=>!ownerF || x.i.owner===ownerF);
   // 내역 정렬: 소유주 → 계좌 → 국기(상장국) → 종목명 오름차순
   items.forEach(x=>{ x.r = cbRow(x.i, x.idx); });
@@ -3921,6 +3925,7 @@ function cbRenderDca(){
     || cbCtryLabel(a.r).localeCompare(cbCtryLabel(b.r), 'ko')
     || String(a.r.title||'').localeCompare(String(b.r.title||''), 'ko'));
   const active = items.filter(x=>dcaState(x.i)==='on');   // 금액 미입력(incomplete)은 활성·일정·합계에서 뺀다(0원 매수가 일정에 뜨지 않게)
+  const incomplete = items.length - active.length;
   const monthly = active.reduce((s,x)=>s+cbDcaPerMonthKRW(x.i),0);
   const daily = monthly / 21.7; // 월평균 영업일 기준 일평균
   items.forEach(x=>{
@@ -3941,11 +3946,11 @@ function cbRenderDca(){
   });
   const dcaTopAlloc=Array.from(dcaAllocMap.values()).sort((a,b)=>b.amount-a.amount).slice(0,5);
   // 계획만 저장하며 실제 주문이나 보유수량은 변경하지 않는다.
-  cbSetHead('적립식 매수 규칙·예정일 관리 · 실제 주문과 체결은 증권사에서 확인하세요',
+  cbSetHead('적립식 매수 일정 · 조회 전용이며 규칙 등록·수정은 보유 목록의 적립식 칸에서 합니다 · 실제 체결은 증권사에서 확인하세요',
     cbOwnerBtns(_cbDcaOwner,'cbDcaOwner'));
   el.innerHTML = `
     <div class="cb-dca-summary-grid">
-      <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">활성 규칙</div><div class="cb-dca-summary-value">${active.length}<span> / ${items.length}</span></div></div>
+      <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">진행 중 규칙</div><div class="cb-dca-summary-value">${active.length}<span>개</span></div>${incomplete?`<div class="cb-dca-summary-sub">금액 미입력 ${incomplete}개는 빼고 셉니다</div>`:''}</div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label"><span data-tip="활성 규칙의 월 적립식 매수 합계를 월평균 영업일(21.7일)로 나눈 하루 평균 매수 금액">일평균 적립식 매수 합계</span></div><div class="cb-dca-summary-value">${cbDisp(daily)}</div></div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">월 적립식 매수 합계 (활성 기준)</div><div class="cb-dca-summary-value">${cbDisp(monthly)}</div></div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">연간 적립 예상</div><div class="cb-dca-summary-value">${cbDisp(monthly*12)}</div></div>
@@ -3966,9 +3971,9 @@ function cbRenderDca(){
     })()}
     <div class="cb-dca-detail-grid">
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
-      <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span></div>
+      <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
       <div class="cb-thead cb-dca-head">
-        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text')}</span><span>${cbSortBtn('dca','next','다음 매수','text')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text')}</span><span>${cbSortBtn('dca','monthly','월 환산')}</span><span>관리</span>
+        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text')}</span><span>${cbSortBtn('dca','next','다음 매수','text')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text')}</span><span>${cbSortBtn('dca','monthly','월 환산')}</span>
       </div>
       ${cbSortRows('dca',items,{
         owner:x=>cbOwnerRank(x.i.owner), name:x=>x.r.title||'', order:x=>cbDcaPerOrderKRW(x.i), cycle:x=>cbDcaRuleLabel(x.i),
@@ -3980,7 +3985,7 @@ function cbRenderDca(){
           ? (Number(x.i.dcaQty)||0).toLocaleString(undefined,{maximumFractionDigits:4})+'주'
           : cbFmtNative(x.i.dcaAmt||0, x.i.dcaCur||'KRW');
         return `
-        <div class="cb-dca-row${x.i.dca?'':' is-paused'}">
+        <div class="cb-dca-row">
           <span>${cbOwnerTag(x.i.owner)}</span>
           <div class="cb-dca-asset">
             ${cbFlagCell(r, 27, 15)}
@@ -3996,11 +4001,7 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap)">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
-          <span class="dca-rule-actions" style="display:flex;justify-content:flex-end">
-            <button type="button" class="dca-rule-edit" onclick="cbDcaEdit(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 적립식 설정">수정</button>
-            <span role="button" tabindex="0" onclick="cbDcaToggle(${x.idx})" aria-label="${cbEsc(x.i.owner)} ${cbEsc(x.r.title)} 규칙 ${x.i.dca?'일시 중지':'활성화'}" aria-pressed="${!!x.i.dca}" style="width:34px;height:19px;border-radius:10px;cursor:pointer;position:relative;transition:background .15s;background:${x.i.dca?'var(--up)':'var(--bd2)'}"><span style="position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;left:${x.i.dca?'17px':'2px'}"></span></span>
-          </span>
-        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">등록된 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 추가하세요.</div>'}
+        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">진행 중인 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 등록하거나 다시 켜세요.</div>'}
     </div>
     <div class="cb-panel cb-dca-allocation-card">
       <div class="cb-insight-title">월 환산 매수 배분 TOP 5</div>
@@ -4024,24 +4025,12 @@ function cbRenderDca(){
     </div>`;
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
-// 이 화면의 켜기/끄기 토글 — dca 플래그만 바꾼다. 규칙 수정은 아래 적립식 설정 창(cbDcaEdit)이 맡는다.
-// 자산 원장과 재무계획을 둘 다 불러온 뒤에만 저장한다(빈 기본값으로 덮어쓰지 않도록).
+// 적립식 규칙 저장 가드 — 설정 창(cbDcaEditSave)이 쓴다. (적립식 매수 화면의 켜기/끄기 토글은 2026-11-20 8차에
+// 화면을 조회 전용으로 바꾸며 지웠다.) 자산 원장과 재무계획을 둘 다 불러온 뒤에만 저장한다(빈 기본값으로 덮어쓰지 않도록).
 let _dcaBusy=false;
 function cbDcaCanSave(){
   if(window._kvLoadState?.assets==='ready'&&window._kvLoadState?.ext==='ready')return true;
   showSaveError('자산과 재무계획을 모두 불러온 뒤 규칙을 저장할 수 있습니다.');return false;
-}
-async function cbDcaToggle(idx){
-  if(isMobileLayout()||_dcaBusy||!cbDcaCanSave())return;
-  const item=pfolioData[idx];if(!item)return;
-  const before=item.dca;item.dca=!item.dca;_dcaBusy=true;
-  let result;
-  try{result=await saveAssetsToKV();}catch(e){result={ok:false};}
-  _dcaBusy=false;
-  // 실패 안내는 토스트로 보여 준다. 예전엔 인라인 편집기가 읽던 변수에만 넣어서
-  // 편집기가 사라진 뒤로는 실패가 화면에 전혀 나타나지 않았다.
-  if(!result?.ok){item.dca=before;showSaveError('⚠️ 저장하지 못해 적립식 규칙 상태를 되돌렸습니다.');}
-  cbRenderDca();
 }
 // ── 적립식 설정 창(2026-11-20, 사용자 결정: 작은 설정 창) ── 보유 목록의 적립식 칸과 이 화면의 줄이 같은 창을 연다.
 // 바꾸는 것은 적립식 필드뿐이고(수량·평균단가·분할 기준일은 그대로), 저장은 기존 경로(saveAssetsToKV, CAS)다.

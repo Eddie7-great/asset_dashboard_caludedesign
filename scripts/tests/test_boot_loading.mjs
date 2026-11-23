@@ -1,5 +1,5 @@
-// 로그인 뒤 첫 로딩(2026-11-20, 시안 D — 사용자 결정) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 5개가 하나씩 켜진다.
-// 단계 표시는 initDashboard 의 실제 대기에 붙고(순서·병렬 그대로), 배당·환율까지 끝나면 걷는다(시세 반영 뒤 최대 8초).
+// 로그인 뒤 첫 로딩(2026-11-20, 시안 D — 사용자 결정) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 4개가 하나씩 켜진다.
+// 단계 표시는 initDashboard 의 실제 대기에 붙고(순서·병렬 그대로), 시세 반영이 끝나면 걷는다(8차 사용자 결정 — 배당·환율은 기다리지 않는다).
 // 자산 로드 실패·다른 화면 이동·세션 만료·안전 시간에는 바로 걷힌다. 덮는 동안 본문은 inert, 진행 알림은 본문 밖이다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,7 +13,7 @@ const html = read('index.html'), script = read('script.js'), cobalt = read('coba
 const sp = html.match(/<div id="boot-splash"[\s\S]*?\n<\/div>\n/)[0];
 assert.match(sp, /^<div id="boot-splash" class="boot-splash" aria-hidden="true">/, '처음부터 보이는 상태로 로그인 화면 아래 깔려 있다(hidden 없음)');
 assert.match(sp, /<rect class="boot-bar1"[^>]*\/><rect class="boot-bar2"[^>]*\/><rect class="boot-bar3"[^>]*\/>/, '로그인 표식과 같은 막대 세 개');
-assert.equal((sp.match(/<li><\/li>/g) || []).length, 5, '단계 점 5개');
+assert.equal((sp.match(/<li><\/li>/g) || []).length, 4, '단계 점 4개');
 assert.match(sp, /<p class="boot-title">가족 자산 관리<\/p>/);
 assert.match(sp, /id="boot-step"/);
 assert.match(html, /<p id="boot-status" class="sr-only" role="status" aria-live="polite"><\/p>/, '진행 상황은 화면 낭독용 한 줄');
@@ -26,8 +26,10 @@ assert.match(script, /_dashboardInitStarted = true;\n  bootStart\(\);\n  initDas
 const init = script.match(/function initDashboard\(\)\{[\s\S]*?\n\}\n/)[0];
 assert.match(init, /loadAssetsFromKV\(\)\.then\(r=>\{bootStep\('assets'\);if\(!r\?\.ok\)bootReveal\(\);return r;\}\)/, '자산 로드 실패면 바로 걷는다');
 assert.match(init, /loadExtDataFromKV\(\)\.then\(r=>\{bootStep\('ext'\);return r;\}\)/);
-assert.match(init, /try\{ if\(assetsResult\?\.ok\) await refreshMarketPrices\(\); \}\n\s*finally\{ bootStep\('prices'\); bootWaitTail\(\); \}/, '시세 뒤에는 걷지 않고 배당·환율을 최대 8초 기다린다(사용자 결정)');
-assert.match(init, /refreshPyData\(\{includeDividends:[^)]*\}\)\n\s*\.finally\(\(\)=>bootStep\('market'\)\)/);
+assert.match(init, /try\{ if\(assetsResult\?\.ok\) await refreshMarketPrices\(\); \}\n\s*finally\{ bootStep\('prices'\); \}/, '시세 반영이 끝나면 걷는다(시세 조회가 예외여도)');
+assert.match(init, /refreshPyData\(\{includeDividends:[^)]*\}\)\n\s*\.catch\(/, '배당·환율은 뒤에서 돌고 로딩 화면은 기다리지 않는다');
+assert.doesNotMatch(script + cobalt, /bootWaitTail|BOOT_TAIL_MS|bootStep\('market'\)/, '예전 배당·환율 대기(최대 8초)는 없앴다');
+assert.match(script, /const BOOT_STEPS=\[\['auth','로그인 확인'\],\['assets','보유 자산 불러오는 중'\],\['ext','재무 기록 불러오는 중'\],\['prices','시세 반영 중'\]\];/, '4단계');
 assert.match(script, /if \(res\.status === 401\) \{\n\s*bootFinish\(\);/, '세션 만료면 걷는다');
 assert.match(cobalt, /if \(id!=='cdash' && typeof bootReveal==='function'\) bootReveal\(\);/, '다른 화면으로 가면 걷는다');
 
@@ -42,7 +44,7 @@ function makeEl(id) {
 function run({ reduce = false, loginShown = false } = {}) {
   const els = Object.fromEntries(['boot-splash', 'boot-step', 'boot-status', 'login-overlay'].map(id => [id, makeEl(id)]));
   if (loginShown) els['login-overlay'].style.display = 'flex';
-  const layout = makeEl('layout'), dots = [0, 1, 2, 3, 4].map(k => makeEl('dot' + k)), timers = [], calls = [];
+  const layout = makeEl('layout'), dots = [0, 1, 2, 3].map(k => makeEl('dot' + k)), timers = [], calls = [];
   const ctx = vm.createContext({
     document: { getElementById: id => els[id] || null,
       querySelector: s => (s === '.layout' ? layout : s === '.view-section.active' ? { id: 'view-cdash' } : null),
@@ -63,34 +65,24 @@ function run({ reduce = false, loginShown = false } = {}) {
   t.ctx.bootStart();
   assert.equal(t.els['boot-splash'].hidden, false);
   assert.ok(t.layout.hasAttribute('inert'), '덮는 동안 본문은 inert');
-  assert.deepEqual(t.dots.map(d => d.className), ['is-done', 'is-now', '', '', ''], '로그인 확인은 끝난 단계');
+  assert.deepEqual(t.dots.map(d => d.className), ['is-done', 'is-now', '', ''], '로그인 확인은 끝난 단계');
   assert.equal(t.els['boot-step'].textContent, '보유 자산 불러오는 중 …');
-  assert.equal(t.els['boot-status'].textContent, '보유 자산 불러오는 중 (1/5)');
-  assert.equal(t.els['boot-splash'].props['--g1'], '0.556');
+  assert.equal(t.els['boot-status'].textContent, '보유 자산 불러오는 중 (1/4)');
+  assert.equal(t.els['boot-splash'].props['--g1'], '0.694');
   assert.equal(t.timers[0].ms, 25000, '안전 시간 25초');
   t.ctx.bootStep('ext'); t.ctx.bootStep('assets'); t.ctx.bootStep('assets');
-  assert.deepEqual(t.dots.map(d => d.className), ['is-done', 'is-done', 'is-done', 'is-now', ''], '끝난 순서와 무관하게 다음 미완료 단계');
-  t.ctx.bootStep('prices'); t.ctx.bootWaitTail();
-  assert.equal(t.els['boot-splash'].hidden, false, '시세 뒤에도 걷지 않는다 — 배당·환율을 기다린다');
-  assert.ok(t.layout.hasAttribute('inert'));
-  const tail = t.timers.find(x => x.ms === 8000); assert.ok(tail, '배당·환율은 최대 8초');
-  t.ctx.bootWaitTail(); assert.equal(t.timers.filter(x => x.ms === 8000).length, 1, '꼬리 시계는 한 번만');
-  t.ctx.bootStep('market');
+  assert.deepEqual(t.dots.map(d => d.className), ['is-done', 'is-done', 'is-done', 'is-now'], '끝난 순서와 무관하게 다음 미완료 단계');
+  assert.equal(t.timers.length, 1, '시세 전에는 걷지 않는다');
+  t.ctx.bootStep('prices');
   assert.equal(t.els['boot-step'].textContent, '준비 완료');
-  const fin = t.timers.at(-1); assert.equal(fin.ms, 320, '마지막 막대가 다 자라는 걸 보고 걷는다'); fin.fn();
+  const fin = t.timers.at(-1); assert.equal(fin.ms, 320, '시세 반영까지 끝나면 마지막 막대가 다 자라는 걸 보고 걷는다'); fin.fn();
   assert.ok(t.els['boot-splash'].classList.contains('is-leaving'), '페이드로 걷는다');
   assert.ok(!t.layout.hasAttribute('inert'), '걷으면 본문 잠금 해제');
   assert.deepEqual(t.calls.slice(0, 2), ['enter:cdash', 'count:cdash'], '걷는 순간 등장 움직임·숫자 올리기');
-  assert.ok(t.timers[0].cleared && tail.cleared, '안전·꼬리 시계를 지운다');
+  assert.ok(t.timers[0].cleared, '안전 시계를 지운다');
   t.timers.find(x => x.ms === 240).fn(); assert.equal(t.els['boot-splash'].hidden, true);
   assert.equal(t.els['boot-status'].textContent, '불러오기 완료');
-  t.ctx.bootStep('market'); t.ctx.bootReveal(); t.ctx.bootFinish();   // 끝난 뒤 호출은 아무 일도 하지 않는다
-}
-{ // 배당·환율이 느리면 시세 뒤 8초에 걷는다
-  const t = run();
-  t.ctx.bootStart(); t.ctx.bootStep('assets'); t.ctx.bootStep('ext'); t.ctx.bootStep('prices'); t.ctx.bootWaitTail();
-  t.timers.find(x => x.ms === 8000).fn();
-  assert.ok(t.els['boot-splash'].classList.contains('is-leaving'));
+  t.ctx.bootStep('prices'); t.ctx.bootReveal(); t.ctx.bootFinish();   // 끝난 뒤 호출은 아무 일도 하지 않는다
 }
 { // 자산 로드 실패 → 바로 걷힘, 안전 시간 / 로그인 화면이 다시 떠 있으면 본문 잠금 유지
   const t = run();
@@ -102,7 +94,7 @@ function run({ reduce = false, loginShown = false } = {}) {
 }
 { // 움직임 줄이기 — 페이드·지연 없이 바로
   const t = run({ reduce: true });
-  t.ctx.bootStart(); ['assets', 'ext', 'prices', 'market'].forEach(k => t.ctx.bootStep(k));
+  t.ctx.bootStart(); ['assets', 'ext', 'prices'].forEach(k => t.ctx.bootStep(k));
   assert.equal(t.timers.at(-1).ms, 0); t.timers.at(-1).fn();
   assert.equal(t.els['boot-splash'].hidden, true);
   assert.ok(!t.els['boot-splash'].classList.contains('is-leaving'));
