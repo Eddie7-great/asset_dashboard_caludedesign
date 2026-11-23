@@ -171,18 +171,22 @@ function cbGiftFromPicker(at){
   const set=(yy,mm)=>`cbGiftLinkTransfer('${id}','from',${yy}+'-'+String(${mm}).padStart(2,'0'))`;
   return `<span class="cb-gift-link-from"><select class="cb-input cb-num" aria-label="증여 시작 연도" onchange="${set('this.value',`this.parentNode.querySelector('[data-gift-m]').value`)}">${years.map(k=>`<option value="${k}"${k===y?' selected':''}>${k}년</option>`).join('')}</select><select class="cb-input cb-num" data-gift-m aria-label="증여 시작 월" onchange="${set(`this.parentNode.querySelector('select').value`,'this.value')}">${Array.from({length:12},(_,i)=>i+1).map(k=>`<option value="${k}"${k===m?' selected':''}>${k}월</option>`).join('')}</select>부터</span>`;
 }
+// 연결 목록은 현금 흐름에서 '증여 이체'로 체크한 지출 자동이체만 보여 준다(_autoTransferIsGift — 예전에 연결한 것 포함).
+// 관리비·통신비 같은 일반 지출이 섞이지 않게 하려는 것이다. 표식은 자동이체 등록 폼·고정비 표의 '증여' 버튼에서 붙인다.
 function cbGiftTransferLinkHtml(kinds){
-  const list=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[]).filter(at=>at&&at.type==='지출');
-  if(!list.length) return '';
+  const isGift=typeof _autoTransferIsGift==='function'?_autoTransferIsGift:(at=>at&&at.type==='지출'&&(at.isGift===true||!!at.giftKind));
+  const list=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[]).filter(isGift);
   const LABEL={child:'자녀 증여',spouse:'부부 증여'};
+  const guide=`현금 흐름에서 자동이체를 등록할 때 '증여 이체'에 체크하거나, 고정비 관리 표의 '증여' 버튼을 누르면 여기에 나타납니다.`;
+  if(!list.length) return `<details class="cb-gift-link"><summary>자동이체를 증여로 연결 <span>· 증여 이체로 표시한 자동이체가 없습니다</span></summary><p class="cb-gift-link-empty">${guide}</p></details>`;
   const rows=list.slice().sort((a,b)=>(b.giftKind?1:0)-(a.giftKind?1:0)||String(a.desc||'').localeCompare(String(b.desc||''),'ko')).map(at=>`
     <div class="cb-gift-link-row${at.giftKind?' is-on':''}">
       <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(typeof _effectiveAutoTransferAmt==='function'?_effectiveAutoTransferAmt(at,new Date().getFullYear(),new Date().getMonth()+1):(at.amt||0))}</small></span>
-      <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 연결" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
-        <option value="">증여 아님</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
+      <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 구분" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
+        <option value="">구분 선택 (아직 안 셈)</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
       ${at.giftKind?cbGiftFromPicker(at):'<span></span>'}
     </div>`).join('');
-  return `<details class="cb-gift-link"${list.some(at=>at.giftKind)?' open':''}><summary>자동이체를 증여로 연결 <span>· 가족 계좌로 매달 보내는 이체를 고르면 이체일마다 기록장에 자동으로 더합니다</span></summary>${rows}</details>`;
+  return `<details class="cb-gift-link" open><summary>자동이체를 증여로 연결 <span>· 증여 이체로 표시한 ${list.length}건 · 구분을 고르면 이체일마다 기록장에 자동으로 더합니다</span></summary>${rows}<p class="cb-gift-link-empty">${guide}</p></details>`;
 }
 // 기준일의 10년 전 같은 날(2월 29일은 28일로). 이 날부터 기준일까지를 '이전 10년'으로 본다(양 끝 포함 — 넓게 잡는 쪽이 안전하다).
 function cbGiftWindowStart(asOf){

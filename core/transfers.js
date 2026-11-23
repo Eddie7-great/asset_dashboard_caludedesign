@@ -177,11 +177,14 @@ function addAutoTransfer() {
   const dow = parseInt(document.getElementById('at-dow').value)||1;
   const owner = document.getElementById('cf-owner-input')?.value || (_cfOwner==='전체'?'':_cfOwner);
   const isFixedCost = !!document.getElementById('cf-fixed-flag')?.checked;
+  // '증여 이체' 체크 — 가족 증여 화면의 '자동이체를 증여로 연결' 목록에는 이 표식이 있는 지출만 나타난다
+  const isGift = type==='지출' && !!document.getElementById('cf-gift-flag')?.checked;
   if (!desc||!amt) { alert('내용과 금액을 입력하세요.'); return; }
   if (!OWNERS.includes(owner)) { alert('소유주를 선택하세요.'); return; }
   const today = new Date();
   const ym = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
   const at = {id:Date.now(), owner, type, cat, desc, amt, cycle, dayOfMonth:dom, dayOfWeek:dow, isFixedCost, businessDayRule:'next', lastApplied:'', startMonth: ym};
+  if (isGift) at.isGift = true;
   autoTransferData.push(at);
   saveAutoTransfers(false);
   // 이미 도래한 월간 일정만 실제 예정일로 상세 내역에 추가한다.
@@ -198,6 +201,7 @@ function addAutoTransfer() {
   const descEl=document.getElementById('cf-desc');if(descEl)descEl.value='';
   const amtEl=document.getElementById('cf-amt');if(amtEl)amtEl.value='';
   const fixedEl=document.getElementById('cf-fixed-flag');if(fixedEl)fixedEl.checked=false;
+  const giftEl=document.getElementById('cf-gift-flag');if(giftEl)giftEl.checked=false;
   renderFixedCostView();
 }
 
@@ -392,6 +396,8 @@ function toggleCfMode() {
   if(dateGrp) dateGrp.style.display = isAuto?'none':'';
   if(cycleGrp) cycleGrp.style.display = isAuto?'':'none';
   if(fixedFlag) fixedFlag.style.display = isAuto?'flex':'none';
+  const giftFlag = document.getElementById('cf-gift-flag-group');
+  if(giftFlag) giftFlag.style.display = isAuto?'flex':'none';
   // 주기 관련 필드 표시
   toggleAtCycleFields();
 }
@@ -632,11 +638,13 @@ function renderFixedCostView() {
       ?`<select class="cf-fixed-inline-owner" aria-label="${_cfEsc(at.desc)} 소유주" onchange="setAutoTransferOwner(${safeId},this.value)"><option value="">미지정</option>${OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`
       :`<span class="cf-fixed-owner"><i style="background:${ownerColors[owner]||'#8a97b0'}"></i>${_cfEsc(owner)}</span>`;
     const state=isExcluded?'<span class="cf-fixed-state is-ended">제외</span>':(isPending?'<span class="cf-fixed-state is-pending">분류 필요</span>':(!active?'<span class="cf-fixed-state is-ended">종료</span>':'<span class="cf-fixed-state is-included">합산</span>'));
-    const actions=isExcluded
+    const isGift=_autoTransferIsGift(at);
+    const giftBtn=`<button class="btn-action cf-fixed-gift-btn${isGift?' is-on':''}" aria-pressed="${isGift}" onclick="toggleAutoTransferGift(${safeId})" title="${isGift?'증여 이체 표시 해제':'증여 이체로 표시 — 가족 증여 화면에서 연결할 수 있습니다'}">증여</button>`;
+    const actions=giftBtn+(isExcluded
       ?`<button class="btn-action" onclick="restoreFixedCost(${safeId})" title="고정비 검토 대상으로 복원">↺</button>`
       :isPending
       ?`<button class="btn-action" onclick="includeFixedCost(${safeId})" title="고정비로 포함">✓</button><button class="btn-action" onclick="editFixedCost(${safeId})" title="확인 후 수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`
-      :`<button class="btn-action" onclick="editFixedCost(${safeId})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`;
+      :`<button class="btn-action" onclick="editFixedCost(${safeId})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`);
     // 대출 상환 조건이 있으면 바로 아래 줄(항목 칸부터 끝까지)에 방식·금리·잔여·잔액 — 좁은 항목 칸에 넣으면 잘린다
     const loanRow=at.loan?`<tr class="cf-fixed-loan-row"><td colspan="2"></td><td colspan="5" class="text-left"><small class="cf-fixed-loan-note">${_cfEsc(_loanStatusText(at.loan,y,m))}</small></td></tr>`:'';
     return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
@@ -736,6 +744,9 @@ function resetFixedCostForm() {
   const day=document.getElementById('cf-fixed-day');if(day)day.value='25';
   const start=document.getElementById('cf-fixed-start');if(start)start.value=_cfMonthKey();
   const owner=document.getElementById('cf-fixed-owner');if(owner)owner.value=_cfOwner==='전체'?'본인':_cfOwner;
+  const gift=document.getElementById('cf-fixed-gift');if(gift)gift.checked=false;
+  const catSel=document.getElementById('cf-fixed-cat');
+  if(catSel){catSel.querySelectorAll('option[data-temp]').forEach(o=>o.remove());if(catSel.selectedIndex<0)catSel.selectedIndex=0;}
   _fixedLoanFillForm(null);
   toggleFixedCostLoanFields();
   toggleFixedCostScheduleFields();
@@ -757,6 +768,7 @@ function submitFixedCost() {
   const day=Math.max(1,Math.min(31,Number(document.getElementById('cf-fixed-day')?.value)||1));
   const dow=Number(document.getElementById('cf-fixed-dow')?.value)||0;
   let start=document.getElementById('cf-fixed-start')?.value||_cfMonthKey();
+  const isGift=!!document.getElementById('cf-fixed-gift')?.checked;
   if(!OWNERS.includes(owner)){alert('소유주를 선택하세요.');return;}
   if(!desc||(!loan&&(!amt||amt<0))){alert('항목과 금액을 입력하세요.');return;}
   // 첫 납입이 앱 시작 월보다 늦으면 그 달부터 센다. 만기 뒤에는 기록하지 않는다.
@@ -767,6 +779,7 @@ function submitFixedCost() {
     const changeFrom=_cfMonthKey();
     const oldMaturity=existing.loan?(loanSchedule(existing.loan).slice(-1)[0]||{}).month:'';
     Object.assign(existing,{owner,type:'지출',cat,desc,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,isFixedCost:true,businessDayRule:existing.businessDayRule||'next'});
+    _setAutoTransferGift(existing,isGift);
     if(loan){
       existing.loan=loan; existing.amt=amt; existing.endMonth=maturity;
       // 이번 달부터 이미 기록된 이 자동이체의 현금 흐름 줄을 상환 일정 값으로 맞춘다(지난 달 기록은 그대로)
@@ -793,6 +806,7 @@ function submitFixedCost() {
   }else{
     const row={id:Date.now(),owner,type:'지출',cat,desc,amt,cycle,dayOfMonth:day,dayOfWeek:dow,startMonth:start,endMonth:maturity,lastApplied:'',isFixedCost:true,businessDayRule:'next'};
     if(loan) row.loan=loan;
+    if(isGift) row.isGift=true;
     autoTransferData.push(row);
   }
   saveAutoTransfers();
@@ -806,7 +820,10 @@ function editFixedCost(id) {
   const at=autoTransferData.find(x=>x.id===id);if(!at)return;
   document.getElementById('cf-fixed-edit-id').value=String(id);
   document.getElementById('cf-fixed-owner').value=OWNERS.includes(at.owner)?at.owner:(_cfOwner==='전체'?'본인':_cfOwner);
-  document.getElementById('cf-fixed-cat').value=at.cat||'기타';
+  // 목록에 없는 카테고리(예: 월별 화면에서 등록한 '저축/투자')는 선택지를 잠시 더해 그대로 보존한다 — 없으면 '기타'로 바뀌어 저장된다
+  const catSel=document.getElementById('cf-fixed-cat');
+  if(at.cat&&![...catSel.options].some(o=>o.value===at.cat)){const o=document.createElement('option');o.textContent=at.cat;o.dataset.temp='1';catSel.appendChild(o);}
+  catSel.value=at.cat||'기타';
   document.getElementById('cf-fixed-desc').value=at.desc||'';
   const now=new Date();
   document.getElementById('cf-fixed-amt').value=Number(_effectiveAutoTransferAmt(at,now.getFullYear(),now.getMonth()+1)||0).toLocaleString();
@@ -814,6 +831,7 @@ function editFixedCost(id) {
   document.getElementById('cf-fixed-day').value=at.dayOfMonth||1;
   document.getElementById('cf-fixed-dow').value=String(at.dayOfWeek||0);
   document.getElementById('cf-fixed-start').value=at.startMonth||_cfMonthKey();
+  const giftEl=document.getElementById('cf-fixed-gift');if(giftEl)giftEl.checked=_autoTransferIsGift(at);
   // 대출 상환 조건이 있으면 채우고, 없으면 빈 칸 — 기존 대출납입금은 여기서 조건을 적어 다시 등록한다(같은 자동이체 id)
   _fixedLoanFillForm(at.loan||null);
   toggleFixedCostLoanFields();
@@ -822,6 +840,24 @@ function editFixedCost(id) {
   document.getElementById('cf-fixed-cancel').style.display='';
   toggleFixedCostScheduleFields();
   document.getElementById('cf-fixed-desc').focus();
+}
+
+// '증여 이체' 표식(isGift) — 가족 증여 화면의 연결 목록은 이 표식이 있는 지출 자동이체만 보여 준다.
+// 예전에 증여로 연결해 둔 것(giftKind)은 표식이 없어도 증여 이체로 본다(저장값 정리도 같은 규칙, _normalizeAutoTransfers).
+function _autoTransferIsGift(at){ return !!at&&at.type==='지출'&&(at.isGift===true||at.giftKind==='child'||at.giftKind==='spouse'); }
+// 표식을 끄면 증여 연결(giftKind·giftFrom)도 함께 푼다 — 목록에서 사라진 이체가 기록장에 계속 더해지지 않게.
+function _setAutoTransferGift(at,on){
+  if(!at) return;
+  if(on&&at.type==='지출'){ at.isGift=true; return; }
+  delete at.isGift; delete at.giftKind; delete at.giftFrom;
+}
+// 고정비 표의 '증여' 버튼 — 이미 등록한 자동이체에 표식을 붙이거나 뗀다(고정비 포함 여부는 건드리지 않는다).
+function toggleAutoTransferGift(id) {
+  if(isMobileLayout())return;
+  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
+  _setAutoTransferGift(at,!_autoTransferIsGift(at));
+  saveAutoTransfers();
+  renderFixedCostView();
 }
 
 function setAutoTransferOwner(id,owner) {

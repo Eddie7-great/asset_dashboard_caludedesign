@@ -124,7 +124,7 @@ assert.match(grab('editAutoTransferFromMonth'), /if \(at\.loan\) \{ alert\(/, 'ë
     ],
   });
   vm.runInContext([constLine('LOAN_METHOD_LABEL'), constLine('_loanScheduleCache')].join('\n').replace(/^const /gm, 'var '), sctx);
-  for (const n of ['_safeStoredNumber', '_isStoredDateKey', '_loanMonthIndex', '_loanYm', 'loanSchedule', 'loanPaymentFor', '_normalizeLoanTerms', '_fixedLoanFromForm', 'submitFixedCost']) vm.runInContext(grab(n), sctx);
+  for (const n of ['_safeStoredNumber', '_isStoredDateKey', '_loanMonthIndex', '_loanYm', 'loanSchedule', 'loanPaymentFor', '_normalizeLoanTerms', '_fixedLoanFromForm', '_setAutoTransferGift', 'submitFixedCost']) vm.runInContext(grab(n), sctx);
   vm.runInContext('submitFixedCost()', sctx);
   const saved = sctx.autoTransferData[0];
   assert.deepEqual(calls.filter((c) => c.startsWith('alert')), []);
