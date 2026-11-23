@@ -967,7 +967,10 @@ function cbRiskMeterHtml(m, unit, color){
   } else {
     ticks+=lab(pw,fmt(m.warnAt),'warn')+lab(pb,fmt(m.badAt),'bad');
   }
-  return `<div class="cb-meter-wrap"><div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
+  // '낮을수록 안전' 글자는 눈금 글자와 같은 줄에 둔다 — 눈금이 왼쪽에 몰리면 오른쪽 끝, 오른쪽에 몰리면 왼쪽 끝,
+  // 양쪽에 걸치면 막대 위 오른쪽(겹침 방지). 예전엔 눈금 아래 따로 한 줄이라 카드 안에서 떠 보였다.
+  const dirPos=Math.max(pw,pb)<=58?'is-right':(Math.min(pw,pb)>=42?'is-left':'is-top');
+  return `<div class="cb-meter-wrap ${dirPos}"><div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
     + ticks
     + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`
     + `<span class="cb-meter-dir">${m.invert?'높을수록 안전':'낮을수록 안전'}</span></div>`;

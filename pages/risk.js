@@ -144,7 +144,7 @@ function cbRiskMergeEntries(entries){
 function cbRiskSubHtml(sub){
   const c=sub.card;
   return `<div class="cb-risk-sub" style="--risk-tone:${c.tone}">
-      <div class="cb-risk-sub-head"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${cbEsc(sub.label)}</span><b class="cb-num">${cbEsc(c.value)}</b><span class="cb-risk-verdict is-${sub.verdict.key}">${sub.verdict.label}</span></div>
+      <div class="cb-risk-sub-head"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${cbEsc(sub.label)}</span><span class="cb-risk-verdict is-${sub.verdict.key}">${sub.verdict.label}</span><b class="cb-num">${cbEsc(c.value)}</b></div>
       ${cbRiskMeterHtml(c.meter,'%',c.tone)}
       <small>${cbEsc(c.detail)}</small>
     </div>`;
@@ -181,17 +181,17 @@ function cbRenderRisk(){
   cbSetHead('규칙 기반 자동 점검', cbOwnerBtns(_cbRiskOwner,'cbRiskOwner'));
   const cardHtml=(entry,fill='')=>{
           const card=entry.card, subs=(entry.subs||[]).map(cbRiskSubHtml).join('');
-          if(entry.kind==='insight') return `
+          // 두 종류 카드를 한 모양으로: 머리줄 = 제목·판정(왼쪽) + 값(오른쪽), 그 아래 설명, 게이지·부 카드는 카드 바닥(.cb-risk-foot).
+          if(entry.kind==='insight') { const foot=cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)+subs; return `
             <div class="cb-panel cb-risk-insight-card${subs?' has-sub':''}${fill}" style="--risk-tone:${card.tone}">
-              <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(entry.title||card.title)}</div><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div>
+              <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"><span${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(entry.title||card.title)}</span><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div><div class="cb-risk-insight-value">${cbEsc(card.value)}</div></div>
               ${entry.hostLabel?`<div class="cb-risk-host-label">${cbEsc(entry.hostLabel)}</div>`:''}
-              <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
-              ${cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)}
               <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
                 <span data-overflow-watch>${cbEsc(card.detail)}</span>
-              </div>${subs}
-            </div>`;
+              </div>${foot?`<div class="cb-risk-foot">${foot}</div>`:''}
+            </div>`; }
           const c=card;
+          const foot=(c.fxMix?cbFxMixHtml(c.fxMix,c.meter):cbRiskMeterHtml(c.meter, c.title==='자산군 분산'?'개':'%', c.color))+subs;
           return `
             <div class="cb-panel cb-risk-primary-card${subs?' has-sub':''}${fill}">
               <div class="cb-risk-primary-head">
@@ -199,7 +199,7 @@ function cbRenderRisk(){
                 <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
               </div>
               <div class="cb-risk-primary-message">${cbSentenceHtml(c.msg)}</div>
-              ${c.fxMix?cbFxMixHtml(c.fxMix,c.meter):cbRiskMeterHtml(c.meter, c.title==='자산군 분산'?'개':'%', c.color)}${subs}
+              ${foot?`<div class="cb-risk-foot">${foot}</div>`:''}
             </div>`;
   };
   const okNames=okCards.map(e=>cbEsc(e.title||e.card.title)).join(' · ');

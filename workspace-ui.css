@@ -1021,7 +1021,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
    눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
 /* 리스크 게이지(2026-11-23) — 회색 한 줄 + 기준 눈금 두 개 + 지금 값 동그라미. 구간 바탕색을 칠하지 않는다. */
-.cb-meter-wrap{position:relative;margin-top:8px;padding-bottom:38px;flex-shrink:0}
+.cb-meter-wrap{position:relative;margin-top:10px;padding-bottom:22px;flex-shrink:0}
+.cb-meter-wrap.is-top{padding-top:18px}
 .cb-meter{overflow:visible;margin-top:0;background:var(--inner);box-shadow:inset 0 0 0 1px var(--bd)}
 .cb-meter-tick{position:absolute;top:-3px;bottom:-3px;width:1px;margin-left:-.5px;background:var(--lab)}
 .cb-meter-tick.bad{width:2px;margin-left:-1px}
@@ -1030,6 +1031,16 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-meter-tick-lab.is-end{transform:translateX(-100%)}
 .cb-meter-mark{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--glass,#fff);box-shadow:0 0 0 1px var(--bd2);z-index:1}
 .cb-meter-dir{position:absolute;right:0;bottom:0;font-size:var(--fs-micro);line-height:1.2;color:var(--lab)}
+.cb-meter-wrap.is-left>.cb-meter-dir{right:auto;left:0}
+.cb-meter-wrap.is-top>.cb-meter-dir{bottom:auto;top:0}
+/* 리스크 카드: 머리줄(제목·판정 | 값) → 설명 → 바닥(게이지·부 카드). 두 종류 카드가 같은 자리에 같은 것을 둔다 */
+.cb-risk-primary-card,.cb-risk-insight-card{display:flex;flex-direction:column}
+.cb-risk-foot{margin-top:auto;padding-top:2px}
+.cb-risk-insight-head{align-items:center}
+.cb-risk-insight-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cb-risk-insight-head>.cb-risk-insight-value{margin-top:0;font-size:var(--fs-card);flex-shrink:0}
+.cb-risk-insight-card>.cb-risk-insight-detail{margin-top:3px;padding-top:0;color:var(--mut)}
+.cb-risk-primary-head{align-items:center}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
 .cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--div-bar) 0 2px,color-mix(in srgb,var(--div-bar) 28%,transparent) 2px 4px)}
