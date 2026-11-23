@@ -43,7 +43,7 @@ const context = {
 vm.createContext(context)
 // 은행 영업일 판정은 _krHolidaySet(연도) 계산기 하나에만 의존한다.
 // 예전에는 테스트가 2026년 공휴일을 손으로 넣었지만, 그러면 실제 판정 로직을 건너뛴다.
-for (const line of ['_MARKET_HOLIDAY_CACHE', '_KR_ONE_OFF_HOLIDAYS', 'cfColors']) {
+for (const line of ['_MARKET_HOLIDAY_CACHE', '_KR_ONE_OFF_HOLIDAYS', 'cfColors', 'CF_OWNERS']) {
   vm.runInContext(extractConstLine(line), context)
 }
 for (const name of [
@@ -63,6 +63,7 @@ for (const name of [
   '_fixedCostCycleText',
   '_autoTransferOccursOn',
   '_nextFixedCostDate',
+  'cfInScope',
   '_fixedCostOwnerMatches',
   '_fixedCostDistribution',
   '_fixedCostDistributionHtml',
@@ -92,6 +93,8 @@ const nextDate=context._nextFixedCostDate(monthly,new Date(2026,7,26))
 // (예전 기대값 9/25는 테스트가 손으로 넣은 공휴일 집합에 추석이 빠져 있어서 나온 값이고,
 //  실제 앱은 그때도 9/29를 돌려주고 있었다.)
 assert.deepEqual([nextDate.getFullYear(),nextDate.getMonth()+1,nextDate.getDate()],[2026,9,29],'결제일이 지난 경우 다음 달 예정일 — 추석 연휴를 건너뛴다')
+assert.equal(context._fixedCostOwnerMatches({...monthly,owner:'자녀1'}),false,'부부 합계에는 자녀1·아버지 고정비를 넣지 않는다')
+assert.equal(context._fixedCostOwnerMatches(weekly),true,'부부 합계에는 아내 고정비 포함')
 context._cfOwner='본인'
 assert.equal(context._fixedCostOwnerMatches(monthly),true,'선택 소유주 고정비 포함')
 assert.equal(context._fixedCostOwnerMatches(weekly),false,'다른 소유주 고정비 제외')

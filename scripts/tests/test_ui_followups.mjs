@@ -369,9 +369,9 @@ assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax
 // 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 열의 첫
 // 카드(수입/지출 구성) 하단에 붙는다 — 총수입/지출/순현금흐름이 두 위젯에 중복
 // 표시되던 것을 없앴고, 차트 열이 그 행까지 통째로 차지해 세로 폭이 커진다.
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cfDonutChart"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-couple-flow" class="glass-panel cf-flow-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cfDonutChart"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
 assert.doesNotMatch(indexSource, /id="cf-tot-in"|id="cf-tot-out"|id="cf-tot-net"/, '차트 카드의 총수입·총지출·순현금흐름 중복 표시를 없앤다 — cfMonthSummaryHtml 이 유일한 출처')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:2[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/3/, '차트 열이 입력부+요약 두 행 높이를 모두 차지해 세로로 커진다')
+assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:3[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/4[\s\S]*\.cf-flow-panel\{grid-column:1;grid-row:2/, '차트 열이 입력부·부부 흐름·내역 세 행 높이를 모두 차지한다')
 assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
 // 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
 // (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
@@ -384,12 +384,14 @@ assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!impor
   }
   summaryContext._cfEsc = v => String(v == null ? '' : v)
   vm.createContext(summaryContext)
+  vm.runInContext(extractFunction(scriptSource, 'cfScopeLabel'), summaryContext)
   vm.runInContext(extractFunction(scriptSource, 'cfMonthSummaryHtml'), summaryContext)
   const html = summaryContext.cfMonthSummaryHtml(5_000_000, 3_000_000, { 식비: 1_000_000, '저축/투자': 2_000_000 })
   assert.match(html, /순현금흐름[\s\S]*?\+₩2,000,000/, '순현금흐름은 통장에 남은 돈')
   assert.match(html, /저축률[\s\S]*?80\.0%/, "저축률은 '저축/투자' 400만을 소비에서 되돌려 계산")
   assert.match(html, /자동이체 2건<\/b>이 고정비로 분류되지 않았습니다/, '미분류 자동이체를 그 자리에서 안내')
   assert.match(html, /2026년 9월 요약/, '선택한 달을 제목에 표시')
+  assert.match(html, /부부 합계/, "'전체' 탭은 부부 합계로 표시")
   const noIncome = summaryContext.cfMonthSummaryHtml(0, 120000, { 식비: 120000 })
   assert.match(noIncome, /저축률[\s\S]*?—/, '수입이 없으면 저축률을 내지 않는다')
 }

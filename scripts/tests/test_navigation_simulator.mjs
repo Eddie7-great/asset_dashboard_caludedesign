@@ -25,8 +25,11 @@ ctx.navPrepare('fam2');assert.equal(ctx._famKey,'아내');assert.equal(ctx._famQ
 previous='fam2';ctx.currentOwner='전체';ctx.navPrepare('bubble');assert.equal(ctx.currentOwner,'전체');
 previous='etf2';ctx._etfOwner='아내';ctx.navPrepare('bubble');
 assert.equal(ctx.currentOwner,'아내');assert.equal(ctx._bubbleOwner,'아내');assert.equal(vm.runInContext('_navKeepOwner',ctx),true,'레거시 화면이 소유주를 되돌리지 않게 표식');
-previous='cal2';ctx._calOwner='자녀1';vm.runInContext('_navKeepOwner=false',ctx);ctx.navPrepare('cashflow');
-assert.equal(ctx._cfOwner,'자녀1','일정 → 현금 흐름은 소유주를 잇는다');assert.equal(vm.runInContext('_navKeepOwner',ctx),true);
+ctx.CF_OWNERS=['본인','아내'];
+previous='cal2';ctx._calOwner='아내';vm.runInContext('_navKeepOwner=false',ctx);ctx.navPrepare('cashflow');
+assert.equal(ctx._cfOwner,'아내','일정 → 현금 흐름은 소유주를 잇는다');assert.equal(vm.runInContext('_navKeepOwner',ctx),true);
+previous='cal2';ctx._calOwner='자녀1';ctx.navPrepare('cashflow');
+assert.equal(ctx._cfOwner,'전체','현금 흐름은 부부만 다룬다 — 자녀1·아버지는 부부 합계로 들어간다');
 previous='cashflow';ctx._cfOwner='아내';ctx.navPrepare('cal2');assert.equal(ctx._calOwner,'아내');
 previous='plan2';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'본인');
 previous='dca2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',ctx),'본인');
