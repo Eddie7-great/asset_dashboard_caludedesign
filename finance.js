@@ -419,6 +419,25 @@ function finGoalCurrent(g){
   if(link==='manual')return Number(g.currentAmount)||0;
   return finRows().filter(r=>r.cls===link).reduce((s,r)=>s+r.val,0);
 }
+// 같은 자산에 연결된 목표끼리 돈을 나눠 갖는다(2026-11-23, 사용자 결정: 기한 순서로 배정).
+// 연결 대상(투자자산·순자산·자산군)이 같은 목표들은 기한이 가까운 것부터 목표 금액만큼 가져가고 남은 돈이 다음 목표로 간다
+// — 예전에는 목표마다 같은 투자자산 전액을 자기 몫으로 세어, 1.18억으로 1억·5억 목표가 '100% + 23.6%'처럼 보였다.
+// 기한 없는 목표는 맨 뒤, 같은 기한은 등록 순. 직접 입력(manual)은 나누지 않는다. 서로 다른 연결 대상 사이(예: 투자자산 ↔ 미국 주식)는
+// 겹쳐도 나누지 않는다. 결산 보관(workspace-pages.js reportBuildEntry · scripts/net_worth_snapshot.py allocate_goals)도 이 함수와 같은 규칙이다.
+// poolOf(g) → {key, value} (key 가 null 이면 나누지 않고 value 그대로).
+function finGoalAllocate(goals, poolOf){
+  const list=Array.isArray(goals)?goals:[];
+  const out=list.map(()=>0), left={};
+  const due=g=>(g&&typeof g.targetDate==='string'&&g.targetDate)?g.targetDate:'9999-99-99';
+  list.map((g,k)=>({g,k})).sort((a,b)=>{const da=due(a.g),db=due(b.g);return da<db?-1:da>db?1:a.k-b.k;}).forEach(({g,k})=>{
+    const p=poolOf(g)||{key:null,value:0}, v=Number(p.value)||0;
+    if(p.key==null){out[k]=v;return;}
+    if(!(p.key in left)) left[p.key]=Math.max(0,v);
+    const take=Math.min(left[p.key],Math.max(0,Number(g.targetAmount)||0));
+    out[k]=take; left[p.key]-=take;
+  });
+  return out;
+}
 function finGoalFind(id){ return (goalData||[]).findIndex(g=>String(g.id)===String(id)); }
 function finGoalEdit(id){_finGoalEdit=id;cbRenderPlan();document.getElementById('fin-goal-form')?.scrollIntoView({behavior:'smooth',block:'center'});}
 function finGoalCancel(){_finGoalEdit=null;_finGoalFormOpen=false;cbRenderPlan();}
@@ -603,10 +622,12 @@ function finGoalStatus(goal,current,now=new Date()){
   out.label=dca>=out.need?'여유':'부족';
   return out;
 }
-// 목표 화면의 세 위젯(진행 비교·일정·카드)이 함께 쓰는 행. 금액은 finGoalCurrent 그대로다.
+// 목표 화면의 세 위젯(진행 비교·일정·카드)이 함께 쓰는 행. 금액은 finGoalCurrent 를 finGoalAllocate 로 나눈 몫이다.
 function finGoalRows(now=new Date()){
-  return (goalData||[]).map(g=>{
-    const cur=Number(finGoalCurrent(g))||0;
+  const goals=goalData||[];
+  const alloc=finGoalAllocate(goals,g=>({key:(g.linkClass||'investment')==='manual'?null:(g.linkClass||'investment'),value:Number(finGoalCurrent(g))||0}));
+  return goals.map((g,k)=>{
+    const cur=alloc[k];
     const target=Number(g.targetAmount)||0;
     const pct=Math.max(0,Math.min(100,target?cur/target*100:0));
     const due=g.targetDate?new Date(g.targetDate+'T00:00:00'):null;
@@ -621,7 +642,7 @@ function finGoalDday(row){ return row.days==null?'기한 미정':(row.days>=0?'D
 function finGoalProgressCard(rows){
   if(!rows.length)return '';
   const list=rows.slice().sort((a,b)=>a.pct-b.pct);
-  return `<div class="cb-panel fin-goal-compare"><div class="fin-section-head"><span>목표별 진행 비교</span><small>달성률 낮은 순 · 막대 끝이 목표 금액</small></div>
+  return `<div class="cb-panel fin-goal-compare"><div class="fin-section-head"><span>목표별 진행 비교</span><small>달성률 낮은 순 · 막대 끝이 목표 금액 · <span data-tip="같은 자산에 연결된 목표는 기한이 가까운 목표부터 목표 금액만큼 채우고 남은 돈을 다음 목표에 넘깁니다. 그래서 목표별 금액의 합이 실제 자산을 넘지 않습니다.">같은 자산은 기한 순서로 나눔</span></small></div>
     <div class="fin-goal-compare-list">${list.map(r=>`<div class="fin-goal-compare-row">
       <span class="fin-goal-compare-name">${cbEsc(r.g.name)}</span>
       <span class="fin-goal-compare-track"><i class="is-${r.st.key}" style="width:${r.pct.toFixed(2)}%"></i></span>
@@ -726,7 +747,7 @@ function cbRenderPlan(){
   const goalRows=rebalance?[]:finGoalRows();
   const goalCards=goalRows.map(finGoalCardHtml).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
   const acctTree=finAccountTree(accounts);
-  el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-comparison"><div class="fin-rebal-main">${finRebalBulletHtml(ta)}<div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>`<div class="${Math.abs(x.drift)>=ta.threshold?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span class="${x.drift>=0?'up':'down'}">${x.drift>=0?'+':''}${x.drift.toFixed(1)}%p</span><span class="${x.diff>=0?'up':'down'}">${x.diff>=0?'매수 ':'축소 '}${cbDisp(Math.abs(x.diff))}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
+  el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-comparison"><div class="fin-rebal-main">${finRebalBulletHtml(ta)}<div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>{const out=Math.abs(x.drift)>ta.threshold;return `<div class="${out?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}${out?'<em class="fin-rebal-out">범위 밖</em>':''}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span>${x.drift>=0?'+':'−'}${Math.abs(x.drift).toFixed(1)}%p</span><span>${Math.abs(x.diff)<1?'—':cbDisp(Math.abs(x.diff))+(x.diff>0?' 늘리기':' 줄이기')}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`;}).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
     <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div>${finAccountTreeHtml(acctTree,accounts.reduce((sum,x)=>sum+x.value,0))}</div>`:`
     ${finGoalContext(ownerF)}${goalRows.length?`<div class="fin-goal-overview">${finGoalProgressCard(goalRows)}${finGoalTimelineCard(goalRows)}</div>`:''}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 가구 공통 · 속도 판정은 연결 자산의 월 적립식 매수액과 견준 목표별 참고값(수익률 0% 가정)</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}

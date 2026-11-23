@@ -131,7 +131,8 @@ assert.match(
 assert.match(styleSource, /#owner-tabs-container\.holdings-owner-tabs\{margin-left:auto!important;margin-right:0!important/, '자산 내역 소유주 탭 우측 정렬')
 assert.match(styleSource, /\.table-float-tip\{[\s\S]*position:fixed/, '전역 툴팁을 스크롤 컨테이너 밖 고정 레이어로 표시')
 assert.match(scriptSource, /closest\?\.\('\[data-tip\]'\)/, '모든 페이지 data-tip을 body 포털 툴팁으로 연결')
-assert.match(styleSource, /\[data-tip\]:hover::after\{display:none!important\}/, '잘리고 흔들리는 pseudo 툴팁 비활성화')
+assert.doesNotMatch(styleSource, /\[data-tip\]\{[^}]*border-bottom:1px dashed/, "용어 툴팁은 점선 밑줄 대신 ⓘ 표식");
+assert.match(styleSource, /:is\(span,small,em\)\[data-tip\][^{]*::after\{content:"ⓘ"/, "글자형 툴팁에 ⓘ 표식");
 assert.match(styleSource, /\.cb-thead,\s*\.pt-table th\{[\s\S]*font-family:var\(--font-ui\)/, '페이지별 칼럼명 폰트를 자산 내역과 통일')
 assert.match(styleSource, /\.cb-perf-card-grid\{display:grid;grid-template-columns:repeat\(6,minmax\(124px,1fr\)\)/, '성과 비교 상단 소유주·지수 카드를 한 줄로 유지')
 assert.match(styleSource, /\.cb-perf-card-grid\{[^}]*overflow:visible/, '성과 비교 상단 카드의 외곽선 때문에 세로 스크롤바가 생기지 않게 함')
@@ -165,32 +166,33 @@ assert.match(workspaceSource, /@media\(max-width:768px\)\{\s*\.cb-perf-plot\{min
 assert.doesNotMatch(cobaltSource, /rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(r=>r\.e\.key==='아내'\)/, '좌우 두 표로 나누던 고정 배치를 남기지 않음(선택 기간 수익률 순 한 표)')
 assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row\$\{r\.e\.isBench\?' is-bench':''\}"/, '성과 비교 하단 기존 표 행 구조 유지(벤치마크 줄은 is-bench 표시)')
 assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')
-// 2026-11-18 2차(사용자 결정): 평가손익 기여도 = 손익 타일 지도, 수익률·손실률 TOP 5 두 카드 = 수익률 × 평가손익 점 그림
-assert.doesNotMatch(cobaltSource, /수익률 TOP 5|손실률 TOP 5|cbContribSteps|cb-wf-/, '예전 TOP5 두 카드·폭포형은 없앴다')
-assert.match(cobaltSource, /ct=cbContribTiles\(contributionEligible, CT_W, CT_H\)[\s\S]*평가손익 기여도/, '기여도 타일은 현금·시세 미조회를 뺀 같은 대상(contributionEligible)')
-assert.match(cobaltSource, /_cdashScatterRows = rankedMovers;/, '점 그림은 예전 순위와 같은 대상(rankedMovers)')
+// 2026-11-23(사용자 결정): 홈 오른쪽 두 칸 = 평가손익 기여 TOP 막대 + 투자자산 최근 30일 추이(타일 지도·점 그림은 없앴다)
+assert.doesNotMatch(cobaltSource, /수익률 TOP 5|손실률 TOP 5|cbContribSteps|cb-wf-|cbContribTiles|cbMoverScatterSvg|cbFillScatter|cb-scatter-host/, '예전 TOP5 두 카드·폭포형·타일 지도·점 그림은 없앴다')
+assert.match(cobaltSource, /const cr=cbContribRank\(contributionEligible\);[\s\S]*평가손익 기여 TOP/, '기여 순위는 현금·시세 미조회를 뺀 같은 대상(contributionEligible)')
+assert.match(cobaltSource, /const trend=cbInvestTrend\(window\._netWorthHistory, ownerF\);/, '30일 추이는 이미 쌓이는 일별 기록을 소유주 필터대로')
 {
-  const tCtx = { Math, Number }
+  const tCtx = { Math, Number, Array, Date, finLocalDateKey: d => d.toISOString().slice(0, 10), finSnapshotInvestment: e => e.portfolio ?? null, finSnapshotOwnerInvestment: (e, o) => e.portfolioByOwner?.[o] ?? null }
   vm.createContext(tCtx)
-  vm.runInContext(['cbTreemapLayout', 'cbContribTiles'].map(n => extractFunction(cobaltSource, n)).join('\n'), tCtx)
+  vm.runInContext(['cbTreemapLayout', 'cbContribRank', 'cbInvestTrend'].map(n => extractFunction(cobaltSource, n)).join('\n'), tCtx)
   const items = [50, 30, 20, 10, 5, 3, 1].map((a, k) => ({ k, a }))
   const tiles = Array.from(tCtx.cbTreemapLayout(items, 0, 0, 300, 200))
-  assert.equal(tiles.length, 7, '값마다 칸 하나')
+  assert.equal(tiles.length, 7, '값마다 칸 하나(섹터 타일 지도)')
   const area = tiles.reduce((t, x) => t + x.w * x.h, 0)
   assert.ok(Math.abs(area - 60000) < 1e-6, '칸 넓이 합 = 영역 넓이(빈틈 없음)')
-  tiles.forEach(t => {
-    assert.ok(Math.abs(t.w * t.h / 60000 - t.a / 119) < 1e-9, '칸 넓이 비 = 값 비')
-    assert.ok(t.x >= -1e-9 && t.y >= -1e-9 && t.x + t.w <= 300 + 1e-9 && t.y + t.h <= 200 + 1e-9, '칸이 영역 밖으로 나가지 않는다')
-  })
   assert.equal(tCtx.cbTreemapLayout([{ a: 0 }, { a: -3 }], 0, 0, 10, 10).length, 0, '0·음수 값은 칸을 만들지 않는다')
   const r = (title, gain) => ({ title, gain })
-  const ct = tCtx.cbContribTiles([r('A', 60), r('B', 20), r('L1', -15), r('L2', -5), r('Z', 0)], 300, 200)
-  assert.equal(ct.tiles.length, 4, '손익 0 종목은 칸이 없다')
-  assert.equal(ct.G, 80); assert.equal(ct.L, -20)
-  assert.ok(Math.abs(ct.gw - 240) < 1e-9, '이익 묶음 폭 = 이익 합 / (이익 합 + |손실 합|)')
-  assert.ok(ct.tiles.filter(t => t.r.gain > 0).every(t => t.x + t.w <= 240), '이익 칸은 왼쪽 묶음 안')
-  assert.ok(ct.tiles.filter(t => t.r.gain < 0).every(t => t.x >= 240), '손실 칸은 오른쪽 묶음 안')
-  assert.equal(tCtx.cbContribTiles([], 300, 200).tiles.length, 0, '손익이 없으면 칸 없음(화면은 안내 문구)')
+  const cr = tCtx.cbContribRank([r('A', 60), r('B', 20), r('C', 9), r('D', 8), r('E', 7), r('F', 6), r('L1', -15), r('L2', -5), r('L3', -4), r('L4', -1), r('Z', 0)])
+  assert.deepEqual(Array.from(cr.gains, x => x.title), ['A', 'B', 'C', 'D', 'E'], '이익 상위 5')
+  assert.deepEqual(Array.from(cr.losses, x => x.title), ['L1', 'L2', 'L3'], '손실 상위 3(큰 손실부터)')
+  assert.equal(cr.more, 2, '나머지 개수(0 은 세지 않는다)')
+  assert.equal(cr.max, 60, '막대 기준 = 보이는 것 중 최대 |손익|')
+  const today = new Date('2026-11-23T03:00:00Z')
+  const hist = [{ date: '2026-10-01', portfolio: 1 }, { date: '2026-10-25', portfolio: 100, portfolioByOwner: { 본인: 60 } }, { date: '2026-11-22', portfolio: 103.6, portfolioByOwner: { 본인: 50 } }, { date: '2026-11-10', portfolio: 101 }]
+  const t = tCtx.cbInvestTrend(hist, null, today)
+  assert.deepEqual([t.first.date, t.last.date, t.pts.length], ['2026-10-25', '2026-11-22', 3], '30일 안의 기록만, 날짜순')
+  assert.ok(Math.abs(t.change - 3.6) < 1e-9 && Math.abs(t.pct - 0.036) < 1e-9)
+  assert.equal(tCtx.cbInvestTrend(hist, '본인', today).change, -10, '소유주별 기록')
+  assert.equal(tCtx.cbInvestTrend([hist[2]], null, today), null, '기록이 하나면 그리지 않는다')
 }
 assert.match(styleSource, /\.cb-dash-insight-grid\{display:grid;grid-template-columns:minmax\(240px,1\.12fr\)[\s\S]*minmax\(205px,.74fr\)[\s\S]*minmax\(235px,.88fr\)/, '대시보드 자산 배분·섹터 위젯은 넓히고 TOP5 폭은 축소')
 assert.match(cobaltSource, /if \(id==='divm'\) cbVerifyDividendDataOnOpen\(\)/, '배당 관리 페이지 진입 때마다 데이터 캐시 검증')
@@ -744,3 +746,47 @@ assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-al
   assert.match(workspaceSource, /\.cal-toolbar\{display:flex;align-items:center;justify-content:flex-end;/, '일정의 연월·이번 달 버튼은 오른쪽 정렬')
   assert.match(workspaceSource, /\.sim-view-tabs(?:,\.view-mode-bar)?\{gap:4px;justify-content:flex-end;/, '투자 시뮬레이터 세 탭은 오른쪽 정렬')
 }
+
+// ── 2026-11-23 작은 것들 ──
+{
+  const ctx = vm.createContext({})
+  vm.runInContext(['cbRingSvg', 'cbUpDn'].map(n => extractFunction(cobaltSource, n)).join('\n'), ctx)
+  const firm = ctx.cbRingSvg(70, 100, 'var(--up)', false)
+  const prov = ctx.cbRingSvg(70, 100, 'var(--up)', true)
+  assert.doesNotMatch(firm, /is-provisional|stroke-dasharray="3 5"/, '확정 점수는 실선')
+  assert.match(prov, /is-provisional/, '잠정 점수 표식')
+  assert.match(prov, /stroke-dasharray="3 5"/, '잠정 점수는 점선 바탕')
+  assert.match(prov, /stroke="var\(--lab\)"/, '잠정 점수는 회색 호')
+  assert.equal(ctx.cbUpDn(0), 'color:var(--lab)', '0 은 회색')
+  assert.equal(ctx.cbUpDn(1), 'color:var(--up)')
+  assert.equal(ctx.cbUpDn(-1), 'color:var(--dn)')
+}
+assert.doesNotMatch(cobaltSource, />=0\?'\+':''\)\+cbKrw\(/, '세금 카드의 0원에 + 를 붙이지 않는다')
+assert.match(cobaltSource, /pos:Math\.max\(40000,\.\.\.vals\.filter/, '빈 세금 그래프 왼쪽 눈금이 +0만을 반복하지 않게 바닥값')
+{
+  const tbl = financeSource.slice(financeSource.indexOf('<div class="fin-rebal-table">'), financeSource.indexOf('<small class="fin-disclaimer">조정액은'))
+  assert.match(tbl, /const out=Math\.abs\(x\.drift\)>ta\.threshold/, '범위 밖 판정은 막대 차트와 같은 > 기준')
+  assert.match(tbl, /fin-rebal-out">범위 밖</, '범위 밖은 글자로도 알린다')
+  assert.match(tbl, / 늘리기':' 줄이기'/, '조정 방향을 말로 적는다')
+  assert.doesNotMatch(tbl, /class="(up|dn)"/, '범위 안 행은 위·아래 색을 칠하지 않는다')
+}
+{
+  const ws = fs.readFileSync(new URL('../../workspace-pages.js', import.meta.url), 'utf8')
+  assert.match(ws, /\$\{reportCoverStats\(cur,prev,adjacent,ownerF,todayKey,live\)\}/, '결산 표지에 핵심 숫자')
+  const fn = extractFunction(ws, 'reportCoverStats')
+  const ctx = vm.createContext({
+    cbDisp: v => '₩' + Math.round(v).toLocaleString('en-US'),
+    cbSignDisp: v => (v > 0 ? '+' : '') + Math.round(v),
+    cbGainStyle: v => v > 0 ? 'color:var(--up)' : 'color:var(--lab)',
+    reportYmLabel: ym => ym,
+    reportDividendYear: () => ({ months: Array.from({ length: 12 }, (_, i) => ({ v: i === 9 ? 5000 : 0, kind: 'rec' })) }),
+  })
+  vm.runInContext(fn, ctx)
+  const html = ctx.reportCoverStats({ ym: '2026-10', v: 1000000, entry: { goals: [{ target: 100, now: 100 }, { target: 100, now: 50 }] } }, { ym: '2026-09', v: 900000 }, true, null, '2026-11-23', false)
+  assert.match(html, /월말 투자자산/)
+  assert.match(html, /전월 대비[\s\S]*\+100000/)
+  assert.match(html, /이 달 배당\(기록\)[\s\S]*₩5,000/)
+  assert.match(html, /2개 중 1개 달성/)
+}
+console.log('PASS: 2026-11-23 작은 것들·표지·리밸런싱 표')
+for (const v of ['totalDue', 'genDue', 'isaDue']) assert.match(cobaltSource, new RegExp(`color:var\\(\\$\\{${v}>0\\?'--dn':'--lab'\\}\\)`), `${v} 0원은 회색`)

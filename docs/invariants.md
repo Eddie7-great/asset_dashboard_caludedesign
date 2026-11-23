@@ -184,6 +184,13 @@ API 가 지급월을 안 알려준 종목의 기본값은 `cbDefaultDivMonths` *
 
 `scripts/tests/test_market_sources.py` 와 `scripts/tests/test_price_fallbacks.mjs` 가 같은 날짜표로 지킵니다.
 
+### 2-8. 같은 돈을 목표마다 따로 세기
+
+여러 목표가 같은 자산(예: 투자자산 전체)에 연결돼 있으면, 각 목표가 그 돈을 모두 자기 것으로 세면
+목표 셋이 모두 '거의 다 모았다'로 보입니다. 같은 자산을 쓰는 목표는 **기한이 빠른 것부터** 차례로
+나눠 갖습니다(사용자 결정). 이 규칙은 목표 화면·결산 리포트(앱)·매일 도는 결산 기록(배치) 세 곳에 있고,
+한 곳만 바꾸면 같은 목표가 화면마다 다른 진행률을 보입니다. `test_report_page.mjs`·`test_net_worth_snapshot.py` 가 지킵니다.
+
 ---
 
 ## 3. `npm test` 가 초록이어도 안심하면 안 되는 영역
