@@ -241,7 +241,7 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary" style="font-weight:700">${amtLabel}</span>
           <span style="color:var(--mut);font-size:var(--fs-cap)">${cbEsc(cbDcaRuleLabel(x.i))}</span>
           <span style="color:${x.i.dca?'var(--acc)':'var(--dim)'};font-weight:700;white-space:nowrap" aria-label="${x.i.dca&&x.schedule.nextDate?'다음 매수일 '+cbEsc(x.schedule.nextDate):'다음 매수일 없음'}">${x.i.dca?cbDcaNextLabel(x.schedule.nextDate):'—'}</span>
-          <span class="cb-mobile-secondary cb-dca-timing-cell" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
+          <span class="cb-mobile-secondary cb-dca-timing-cell cb-tip-block" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap)">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
           <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>

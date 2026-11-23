@@ -35,7 +35,7 @@ vm.runInContext(nav, ctx);
 const groups = JSON.parse(vm.runInContext('JSON.stringify(APP_NAV)', ctx));
 assert.equal(groups.length, 8, '상위 메뉴 8개 그대로');
 const sections = groups.flatMap(g => g.views.map(v => v[0]));
-assert.deepEqual(sections, ['cdash', 'holdings', 'perf2', 'risk2', 'bubble', 'divm', 'plan2', 'rebal2', 'dca2', 'sim2', 'cashflow', 'tax2', 'gift2', 'report2']);
+assert.deepEqual(sections, ['cdash', 'holdings', 'perf2', 'risk2', 'bubble', 'divm', 'plan2', 'rebal2', 'sim2', 'cashflow', 'tax2', 'gift2', 'report2']);
 const hosted = JSON.parse(vm.runInContext('JSON.stringify(NAV_HOST)', ctx));
 const modes = JSON.parse(vm.runInContext('JSON.stringify(NAV_MODES)', ctx));
 assert.equal(sections.length + Object.keys(hosted).length, 19, '화면 19개(데이터 상태 제외) — 세부 메뉴 14 + 보기·탭으로 오가는 5');

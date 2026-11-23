@@ -967,7 +967,10 @@ function cbRiskMeterHtml(m, unit, color){
   } else {
     ticks+=lab(pw,fmt(m.warnAt),'warn')+lab(pb,fmt(m.badAt),'bad');
   }
-  return `<div class="cb-meter-wrap"><div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
+  // '낮을수록 안전' 글자는 눈금 글자와 같은 줄에 둔다 — 눈금이 왼쪽에 몰리면 오른쪽 끝, 오른쪽에 몰리면 왼쪽 끝,
+  // 양쪽에 걸치면 막대 위 오른쪽(겹침 방지). 예전엔 눈금 아래 따로 한 줄이라 카드 안에서 떠 보였다.
+  const dirPos=Math.max(pw,pb)<=58?'is-right':(Math.min(pw,pb)>=42?'is-left':'is-top');
+  return `<div class="cb-meter-wrap ${dirPos}"><div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
     + ticks
     + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`
     + `<span class="cb-meter-dir">${m.invert?'높을수록 안전':'낮을수록 안전'}</span></div>`;
@@ -1160,15 +1163,47 @@ function cbTrendChartHtml(pts){
   const last=pts[pts.length-1], mid=Math.floor((pts.length-1)/2);
   const md=p=>{const [,m,dd]=p.date.split('-'); return `${+m}/${+dd}`;};
   const xs=[[0,'is-first'],[mid,''],[pts.length-1,'is-last']].filter((x,n,a)=>a.findIndex(y=>y[0]===x[0])===n);
+  window._cbTrendPts=pts.map((p,k)=>({date:p.date,v:p.v,x:xPct(k),y:yPct(p.v)}));
   return `<span class="cb-trend-chart">`
     // 눈금 칸 폭은 가장 긴 눈금 글자가 정한다(보이지 않는 자리 잡기 글자) — 글자는 그래프 밖 왼쪽 칸에 선다.
     +`<span class="cb-trend-y" aria-hidden="true"><b class="cb-trend-y-sizer">${ticks.map(v=>cbAmtAxisLab(v,step)).sort((a,b)=>b.length-a.length)[0]||''}</b>${ticks.map(v=>`<span style="top:${yPct(v).toFixed(2)}%">${cbAmtAxisLab(v,step)}</span>`).join('')}</span>`
-    +`<span class="cb-trend-plot"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">`
+    +`<span class="cb-trend-plot" onmousemove="cbTrendHover(event)" onmouseleave="cbTrendHover(null)"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">`
     +ticks.map(v=>`<line x1="0" x2="100" y1="${yPct(v).toFixed(2)}" y2="${yPct(v).toFixed(2)}" class="cb-trend-grid" vector-effect="non-scaling-stroke"/>`).join('')
     +`<path d="${d}L100,100L0,100Z" class="cb-trend-area"/><path d="${d}" class="cb-trend-line" vector-effect="non-scaling-stroke"/></svg>`
-    +`<i class="cb-trend-dot" style="left:${xPct(pts.length-1)}%;top:${yPct(last.v).toFixed(2)}%"></i></span>`
+    +`<i class="cb-trend-dot" style="left:${xPct(pts.length-1)}%;top:${yPct(last.v).toFixed(2)}%"></i>`
+    // 마우스를 올리면 가장 가까운 날의 세로선·점·설명 상자(cbTrendHover). 값은 위 점 그대로다.
+    +`<i class="cb-trend-guide" hidden></i><i class="cb-trend-hdot" hidden></i><span class="cb-trend-tip" hidden></span></span>`
     +`<span class="cb-trend-x" aria-hidden="true">${xs.map(([k,c])=>`<span class="${c}" style="left:${xPct(k).toFixed(2)}%">${md(pts[k])}</span>`).join('')}</span>`
     +`</span>`;
+}
+// 홈 30일 그래프 hover — 마우스 x 에 가장 가까운 날의 날짜·금액·전날 대비·첫날 대비를 그래프 안 상자에 보인다(새 계산 없음).
+function cbTrendIdx(pts, frac){
+  if(!pts||!pts.length) return -1;
+  let best=0, bd=Infinity;
+  pts.forEach((p,k)=>{ const d=Math.abs(p.x-frac*100); if(d<bd){bd=d;best=k;} });
+  return best;
+}
+function cbTrendHover(ev){
+  const plot=ev?ev.currentTarget:document.querySelector('.cb-trend-plot');
+  if(!plot) return;
+  const guide=plot.querySelector('.cb-trend-guide'), dot=plot.querySelector('.cb-trend-hdot'), tip=plot.querySelector('.cb-trend-tip');
+  const pts=window._cbTrendPts;
+  if(!ev||!pts||!pts.length){ [guide,dot,tip].forEach(n=>n&&(n.hidden=true)); return; }
+  const r=plot.getBoundingClientRect(); if(!r.width) return;
+  const k=cbTrendIdx(pts, Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width)));
+  const p=pts[k], prev=k>0?pts[k-1]:null, first=pts[0];
+  const [,m,d]=p.date.split('-');
+  const diff=(label,base)=>`<span>${label} <b class="cb-num" style="${cbGainStyle(p.v-base,false)}">${cbSignDisp(p.v-base)}</b></span>`;
+  tip.innerHTML=`<em>${+m}월 ${+d}일</em><b class="cb-num">${cbDisp(p.v)}</b>`
+    +(prev?diff('전날보다',prev.v):'')
+    +(k>1?diff(`${+first.date.slice(5,7)}/${+first.date.slice(8)}보다`,first.v):'');
+  guide.style.left=dot.style.left=p.x+'%'; dot.style.top=p.y+'%';
+  // 상자는 점을 가리지 않게 세로선 옆(오른쪽 절반이면 왼쪽)에, 점이 위쪽이면 아래에 둔다.
+  tip.classList.toggle('is-low',p.y<50);
+  [guide,dot,tip].forEach(n=>n.hidden=false);
+  const W=r.width, tw=tip.offsetWidth, px=p.x/100*W;
+  let left=px+12; if(left+tw>W) left=px-12-tw;
+  tip.style.left=Math.max(0, Math.min(W-tw, left))+'px';
 }
 function cbRenderDash(){
   cbEnsureDivHist();
@@ -1666,6 +1701,7 @@ function cbResetViewState(){
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
   if (typeof _cbDivOpen!=='undefined') _cbDivOpen=new Set();   // 배당 표 펼친 줄
   if (typeof _cbGiftTab!=='undefined') _cbGiftTab='child';   // 가족 증여 자세히 보기 탭
+  if (typeof _cbRiskOkOpen!=='undefined') _cbRiskOkOpen=false;   // 리스크 '양호 N개' 묶음
   _cdashShowAll=false;   // 홈 보유 표 펼침
   _cdashAllocOpen=null; _cdashSecOpen=null;   // 홈 자산군·섹터 종목 창
   _cbTableSort={};

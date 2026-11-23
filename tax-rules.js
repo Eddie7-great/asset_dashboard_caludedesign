@@ -121,6 +121,13 @@
       url: 'https://www.law.go.kr/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1033071489',
       expected: ['제91조의26', '국내시장복귀계좌', '2026년 12월 31일'],
     },
+    {
+      id: 'pension-account-tax-credit',
+      authority: '법제처 국가법령정보센터',
+      title: '소득세법 제59조의3 · 연금계좌세액공제',
+      url: 'https://www.law.go.kr/lsLawLinkInfo.do?lsJoLnkSeq=1001059881&chrClsCd=010202',
+      expected: ['제59조의3', '600만원', '900만원'],
+    },
   ];
 
   const COMMON_SOURCE_IDS = [
@@ -137,6 +144,7 @@
     'gift-annuity-discount',
     'financial-income-guide',
     'securities-transaction-tax-history',
+    'pension-account-tax-credit',
   ];
 
   function valuesForYear(year) {
@@ -161,6 +169,11 @@
         pensionReceiptMinRate: 0.033,
         pensionReceiptMaxRate: 0.055,
         otherIncomeWithdrawalRate: 0.165,
+      },
+      // 연금계좌세액공제 대상 납입 한도(소득세법 제59조의3 ①, 법률 제21221호 시행 2026-01-01 원문 대조 2026-11-24) — 소득 기준은 공제율(12%/15%)만 가르고 한도는 모두 같다. 공제율·환급액은 계산하지 않는다.
+      pensionCredit: {
+        pensionSavingsCapKrw: 6_000_000,
+        combinedCapKrw: 9_000_000,
       },
       capitalGains: {
         foreignStockBasicDeductionKrw: 2_500_000,
@@ -253,6 +266,20 @@
           ...(year === 2026 ? ['2026년 국내시장복귀계좌 양도소득 특례는 계좌·보유일·재투자 요건을 확인할 수 없어 반영하지 않습니다.'] : []),
         ],
       },
+      taxSaving: {
+        title: '연금계좌 세액공제 한도',
+        sourceIds: ['pension-account-tax-credit'],
+        assumptions: [
+          '연금저축은 연 600만원까지, 연금저축과 퇴직연금(IRP 등)을 합쳐 연 900만원까지를 세액공제 대상 납입액으로 봅니다.',
+          '납입액은 사용자가 직접 입력한 그해 납입 합계이며, 금융회사의 납입 증명이 기준입니다.',
+        ],
+        exclusions: [
+          '세액공제율(총급여·종합소득금액에 따른 차등)과 예상 환급액은 계산하지 않습니다.',
+          'ISA 만기 자금의 연금계좌 전환 추가공제, 퇴직금·계좌 이전 금액, 연금 수령 단계의 세금은 반영하지 않습니다.',
+          'ISA 납입 한도는 규칙 자료에 없어 판정하지 않고 입력한 납입액만 보여 줍니다.',
+          '공제 대상에서 빠지는 납입(연금계좌로 옮긴 퇴직소득 등 아직 과세되지 않은 소득, 다른 연금계좌에서 이체한 금액)은 자동 판정하지 않습니다.',
+        ],
+      },
       gift: {
         title: '증여재산 공제·유기정기금 규칙',
         sourceIds: ['gift-deduction', 'gift-prior-aggregation', 'gift-marriage-birth', 'gift-annuity-discount', 'gift-law-revision-history'],
@@ -295,7 +322,7 @@
 
   const MANIFEST = {
     schemaVersion: 1,
-    manifestVersion: 'kr-tax-gift-2026.5',
+    manifestVersion: 'kr-tax-gift-2026.6',
     jurisdiction: '대한민국',
     timezone: 'Asia/Seoul',
     monitoring: {
@@ -307,7 +334,7 @@
     periods: [
       makePeriod(2024, 'kr-tax-gift-2024.1', true),
       makePeriod(2025, 'kr-tax-gift-2025.1', true),
-      makePeriod(2026, 'kr-tax-gift-2026.5', false),
+      makePeriod(2026, 'kr-tax-gift-2026.6', false),
     ],
   };
 
@@ -399,6 +426,13 @@
         `직계비속 ${formatKrw(values.gift.linealDescendantDeductionKrw)} · 기타 친족 ${formatKrw(values.gift.otherRelativeDeductionKrw)}`,
         `혼인·출산 추가공제 최대 ${formatKrw(values.gift.marriageBirthCombinedCapKrw)} · 자동 계산 제외`,
         `유기정기금 평가 할인율 연 ${formatPct(values.gift.annuityDiscountRate)}`,
+      ];
+    }
+    if (scope === 'taxSaving') {
+      return [
+        `연금저축 세액공제 대상 납입 연 ${formatKrw(values.pensionCredit.pensionSavingsCapKrw)}`,
+        `연금저축 + 퇴직연금(IRP 등) 합산 연 ${formatKrw(values.pensionCredit.combinedCapKrw)}`,
+        '세액공제율·환급액 계산 제외',
       ];
     }
     if (scope === 'dividend') {

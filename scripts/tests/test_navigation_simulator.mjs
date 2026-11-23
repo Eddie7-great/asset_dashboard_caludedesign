@@ -32,8 +32,12 @@ assert.equal(ctx._cfOwner,'아내','일정 → 현금 흐름은 소유주를 잇
 previous='cal2';ctx._calOwner='자녀1';ctx.navPrepare('cashflow');
 assert.equal(ctx._cfOwner,'전체','현금 흐름은 부부만 다룬다 — 자녀1·아버지는 부부 합계로 들어간다');
 previous='cashflow';ctx._cfOwner='아내';ctx.navPrepare('cal2');assert.equal(ctx._calOwner,'아내');
-previous='plan2';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'본인');
-previous='dca2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',ctx),'본인');
+previous='plan2';ctx.navPrepare('sim2');assert.equal(vm.runInContext('_simOwner',ctx),'본인');
+// 적립식(dca2)은 2026-11-23 보유 목록의 넷째 보기로 옮겼다 — 보유 목록 가족 안에서 소유주를 잇고, 투자 계획과는 잇지 않는다.
+assert.equal(ctx.navGroup('dca2').menu,'holdings','적립식은 자산 관리 메뉴에 속한다');
+previous='holdings';ctx.currentOwner='아내';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'아내');
+previous='dca2';ctx._cbDcaOwner='자녀1';ctx.navPrepare('fam2');assert.equal(vm.runInContext('_famKey',ctx),'자녀1');
+previous='plan2';ctx._cbDcaOwner='전체';ctx.navPrepare('dca2');assert.equal(ctx._cbDcaOwner,'전체','다른 메뉴에서 오면 소유주를 잇지 않는다');
 // All former top-level destinations remain reachable in the corresponding family.
 for(const id of ['holdings','acct2','fam2','bubble','etf2','perf2','risk2','plan2','dca2','cal2','tax2','gift2','report2','reporty'])assert.ok(ctx.navGroup(id));
 assert.ok(read('script.js').includes("typeof navResolve==='function'?navResolve(requestedView):requestedView"),'legacy snapshot hash must resolve before first history record');

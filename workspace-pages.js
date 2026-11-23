@@ -178,7 +178,8 @@ function calEvents(year, month0, ownerF){
     dcaRows.forEach(r=>{
       if(!cbDcaScheduledOn(r.i,date)) return;
       const amount=cbDcaPerOrderKRW(r.i);
-      if(amount>0) push(day,{kind:'dca',title:r.title,owner:r.i.owner||'—',amount});
+      // 매일 적립은 표식(daily)을 단다 — 달력 칸·이 달 목록에서는 한 줄 요약(calDailyRules)으로 접고, 날짜를 고르면 그날 것으로 보인다.
+      if(amount>0) push(day,{kind:'dca',title:r.title,owner:r.i.owner||'—',amount,...((r.i.dcaCycle||'매월')==='매일'?{daily:true}:{})});
     });
     transfers.forEach(at=>{
       if(!_autoTransferOccursOn(at,date)) return;
@@ -195,6 +196,18 @@ function calEvents(year, month0, ownerF){
     else push(ev.date.getDate(),item);
   });
   return {year,month0,last,days,undated,totals};
+}
+// 매일 적립 요약(2026-11-23, 사용자 결정): 매일 사는 규칙 하나가 달력 20칸·목록 20줄을 덮어 월 적립·배당·자동이체가 묻혔다.
+// calEvents 의 그날그날 항목을 규칙(종목·소유주)별로 묶어 '1회 금액 × 횟수 = 합계'로만 줄인다 — 새 일정 규칙·합계를 만들지 않는다.
+function calDailyRules(data){
+  const map=new Map();
+  Object.keys(data&&data.days||{}).map(Number).sort((a,b)=>a-b).forEach(day=>data.days[day].forEach(ev=>{
+    if(!ev.daily) return;
+    const k=ev.owner+'\u001f'+ev.title;
+    const g=map.get(k)||{kind:'dca',title:ev.title,owner:ev.owner,count:0,amount:0,per:ev.amount,first:day,last:day};
+    g.count++; g.amount+=ev.amount; g.last=day; map.set(k,g);
+  }));
+  return [...map.values()];
 }
 // 이 달 예정 순현금 = 배당(세전 추정) + 수입 자동이체 − 자동이체 지출 − 적립 매수 — calEvents 의 합계만 쓴다.
 function calNetCash(data){ const t=(data&&data.totals)||{}; return (t.div||0)+(t.in||0)-(t.out||0)-(t.dca||0); }
@@ -220,15 +233,15 @@ function cbRenderCalendar(){
   let cells='';
   for(let n=0;n<first;n++) cells+='<div class="cal-cell is-blank"></div>';
   for(let day=1;day<=data.last;day++){
-    const list=data.days[day]||[], dow=(first+day-1)%7;
+    const dayAll=data.days[day]||[], list=dayAll.filter(ev=>!ev.daily), dailyN=dayAll.length-list.length, dow=(first+day-1)%7;
     const picked=_calDay===day;
-    cells+=`<div class="cal-cell${isThisMonth&&today.getDate()===day?' is-today':''}${dow===0?' is-sun':dow===6?' is-sat':''}${picked?' is-picked':''}" role="button" tabindex="0" data-cal-day="${day}" aria-pressed="${picked}" aria-label="${ym.m+1}월 ${day}일 · 일정 ${list.length}건${picked?' · 선택됨, 다시 누르면 이 달 전체':''}" onclick="calPickDay(${day})">
+    cells+=`<div class="cal-cell${isThisMonth&&today.getDate()===day?' is-today':''}${dow===0?' is-sun':dow===6?' is-sat':''}${picked?' is-picked':''}" role="button" tabindex="0" data-cal-day="${day}" aria-pressed="${picked}" aria-label="${ym.m+1}월 ${day}일 · 일정 ${dayAll.length}건${dailyN?` (매일 적립 ${dailyN}건 포함)`:''}${picked?' · 선택됨, 다시 누르면 이 달 전체':''}" onclick="calPickDay(${day})">
       <span class="cal-day">${day}</span>
       ${list.slice(0,3).map(chip).join('')}${list.length>3?`<span class="cal-more">외 ${list.length-3}건</span>`:''}
     </div>`;
   }
-  const all=[];
-  Object.keys(data.days).map(Number).sort((a,b)=>a-b).forEach(day=>data.days[day].forEach(ev=>all.push({...ev,when:`${ym.m+1}월 ${day}일`})));
+  const all=[], dailyRules=calDailyRules(data);
+  Object.keys(data.days).map(Number).sort((a,b)=>a-b).forEach(day=>data.days[day].forEach(ev=>{ if(!ev.daily) all.push({...ev,when:`${ym.m+1}월 ${day}일`}); }));
   data.undated.forEach(ev=>all.push({...ev,when:`${ym.m+1}월 중 · 지급일 미정`}));
   // 고른 날이 이 달에 없으면(달을 넘겨 온 경우) 해제한다
   if(_calDay!=null&&(_calDay<1||_calDay>data.last)) _calDay=null;
@@ -239,6 +252,15 @@ function cbRenderCalendar(){
       <span class="cal-list-title">${cbEsc(ev.title)}<small>${cbEsc(ev.owner)}</small></span>
       <b class="cb-num">${ev.kind==='div'||ev.kind==='in'?'+':'−'}${cbDisp(ev.amount)}</b>
     </div>`;
+  // 매일 적립 한 줄 요약 — 날짜를 고르지 않았을 때만 목록 맨 위에 둔다(고른 날에는 그날 항목이 그대로 보인다).
+  const dailyRow=g=>`<div class="cal-list-row cal-daily-row">
+      <span class="cal-list-when">매일 · ${g.count}회</span>
+      <span class="cal-kind dca"><i></i>매일 적립</span>
+      <span class="cal-list-title">${cbEsc(g.title)}<small>${cbEsc(g.owner)}</small><small class="cal-daily-per">회당 ${cbDisp(g.per)}</small></span>
+      <b class="cb-num">−${cbDisp(g.amount)}</b>
+    </div>`;
+  const listRows=_calDay==null?dailyRules.map(dailyRow).join('')+shown.map(row).join(''):shown.map(row).join('');
+  const listCount=_calDay==null?shown.length+dailyRules.reduce((n,g)=>n+g.count,0):shown.length;
   const card=(kind,sub)=>`<div class="cb-panel cal-sum-card"><span class="cal-kind ${CAL_KINDS[kind].cls}"><i></i>${CAL_KINDS[kind].label}</span><b>${cbDisp(data.totals[kind])}</b><small>${sub}</small></div>`;
   // 4번째 카드 — 이 달 예정 순현금(2026-11-20 8차, 사용자 결정. 예전 '자동이체 수입' 카드는 수입 자동이체가 없으면 늘 ₩0 이었다).
   // 위 세 카드와 같은 일정 합계를 더하고 뺄 뿐이다(새 판정 없음). 현금 흐름 화면의 실제 순현금흐름이 아니라 일정 기준 추정이라 손익 색을 쓰지 않는다.
@@ -268,11 +290,11 @@ function cbRenderCalendar(){
         </div>
       </div>
       <div class="cb-panel cal-list-panel">
-        <div class="cal-list-head"><span class="cb-panel-title">${_calDay==null?'이 달의 일정':`${ym.m+1}월 ${_calDay}일 일정`} <span style="color:var(--dim)">· ${shown.length}건</span></span>${_calDay!=null?`<button type="button" class="cb-btn cal-day-clear" data-cal-day="${_calDay}" onclick="calPickDay(${_calDay})">이 달 전체 보기 ×</button>`:''}</div>
-        ${shown.length?`<div class="cal-list">${shown.map(row).join('')}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:`<div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다. 적립식 규칙·자동이체·배당 종목이 있으면 여기에 모입니다.</div>`)}
+        <div class="cal-list-head"><span class="cb-panel-title">${_calDay==null?'이 달의 일정':`${ym.m+1}월 ${_calDay}일 일정`} <span style="color:var(--dim)">· ${listCount}건</span></span>${_calDay!=null?`<button type="button" class="cb-btn cal-day-clear" data-cal-day="${_calDay}" onclick="calPickDay(${_calDay})">이 달 전체 보기 ×</button>`:''}</div>
+        ${listRows?`<div class="cal-list">${listRows}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:`<div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다. 적립식 규칙·자동이체·배당 종목이 있으면 여기에 모입니다.</div>`)}
       </div>
     </div>
-    <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;
+    <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 매일 사는 적립식은 달력 칸에서 빼고 목록 맨 위에 한 줄로 묶었습니다 — 날짜를 누르면 그날 것도 함께 보입니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;
 }
 
 // ───────────────────────── 결산 리포트 (report2 월간 · reporty 연간) ─────────────────────────
@@ -381,6 +403,50 @@ function reportHoldingDiff(prevHoldings, curHoldings, ownerF){
   rows.sort((a,b)=>(order[a.kind]-order[b.kind])||Math.abs(b.dc||b.dv)-Math.abs(a.dc||a.dv));
   const trades=rows.filter(r=>r.kind!=='cash'&&r.kind!=='split').length;
   return {rows,trades,flow,change:curTotal-prevTotal,market:(curTotal-prevTotal)-flow};
+}
+// 넣은 돈 vs 값이 오른 몫(2026-11-23, 사용자 결정) — 월간 결산 '무엇이 달라졌나'의 나눗셈(reportHoldingDiff)을 달마다 이어 붙인다.
+// 새 계산은 없다: flow = 그 달 매입금액(현금 포함) 변화 = 새로 넣거나 뺀 돈, market = 나머지 = 값이 오르내린 몫.
+// 앞 달과 그 달 모두 종목 기록(entry)이 있을 때만 나눈다 — 총액만 남은 달은 none(빗금)이고 숫자를 지어내지 않는다.
+function reportPrevYm(ym){ const [y,m]=String(ym).split('-').map(Number); return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`; }
+function reportLastYms(todayKey, n){
+  const out=[]; let ym=String(todayKey).slice(0,7);
+  for(let i=0;i<n;i++){ out.unshift(ym); ym=reportPrevYm(ym); }
+  return out;
+}
+function reportFlowSeries(tl, ownerF, yms){
+  const byYm=new Map((Array.isArray(tl)?tl:[]).map(m=>[m.ym,m]));
+  return (yms||[]).map(ym=>{
+    const cur=byYm.get(ym), prev=byYm.get(reportPrevYm(ym)), live=!!(cur&&cur.src==='live');
+    const d=cur&&prev&&cur.entry&&prev.entry?reportHoldingDiff(prev.entry.holdings,cur.entry.holdings,ownerF):null;
+    return d?{ym,flow:d.flow,market:d.market,change:d.change,live}:{ym,none:true,live};
+  });
+}
+function reportFlowTotals(series){
+  const ok=(series||[]).filter(m=>!m.none);
+  return {months:ok.length,flow:ok.reduce((t,m)=>t+m.flow,0),market:ok.reduce((t,m)=>t+m.market,0),change:ok.reduce((t,m)=>t+m.change,0)};
+}
+// 막대 하나 = 한 달. 0 선 위로 늘어난 몫(넣은 돈 → 오른 몫), 아래로 줄어든 몫(뺀 돈 → 내린 몫)을 쌓는다. 정확한 금액은 말풍선.
+function reportFlowChartHtml(series, opts){
+  const o=opts||{}, list=series||[];
+  const parts=m=>m.none?[]:[{k:'in',v:m.flow},{k:'mk',v:m.market}];
+  const up=m=>parts(m).filter(p=>p.v>0).reduce((t,p)=>t+p.v,0), dn=m=>parts(m).filter(p=>p.v<0).reduce((t,p)=>t-p.v,0);
+  const maxUp=Math.max(0,...list.map(up)), maxDn=Math.max(0,...list.map(dn)), span=(maxUp+maxDn)||1;
+  const tot=reportFlowTotals(list);
+  const seg=(p,base)=>`<i class="rep-flow-seg is-${p.k==='in'?(p.v<0?'out':'in'):(p.v<0?'loss':'gain')}" style="height:${(Math.abs(p.v)/base*100).toFixed(2)}%"></i>`;
+  const col=m=>{
+    const label=`${Number(m.ym.slice(5))}월${m.live?'(진행 중)':''}`;
+    if(m.none) return `<div class="rep-flow-col is-none" role="img" aria-label="${label} · 나눌 기록 없음" data-tip="${label} · 앞 달과 이 달의 종목 기록이 함께 있어야 나눌 수 있습니다"><div class="rep-flow-up"><i class="rep-flow-seg is-none"></i></div><div class="rep-flow-dn"></div></div>`;
+    const tip=`${label} · 새로 넣은 돈 ${cbSignDisp(m.flow)} · 값이 오르내린 몫 ${cbSignDisp(m.market)} · 합계 ${cbSignDisp(m.change)}`;
+    const ups=parts(m).filter(p=>p.v>0), dns=parts(m).filter(p=>p.v<0);
+    return `<div class="rep-flow-col${m.live?' is-live':''}" role="img" aria-label="${cbEsc(tip)}" data-tip="${cbEsc(tip)}"><div class="rep-flow-up">${maxUp>0?ups.map(p=>seg(p,maxUp)).join(''):''}</div><div class="rep-flow-dn">${maxDn>0?dns.map(p=>seg(p,maxDn)).join(''):''}</div></div>`;
+  };
+  const box=(k,v,cls,sub)=>`<div class="rep-flow-sum ${cls||''}"><small>${k}</small><b class="cb-num">${v}</b>${sub?`<em>${sub}</em>`:''}</div>`;
+  const sums=tot.months?`<div class="rep-flow-sums">${box('기간 증감',cbSignDisp(tot.change),'',`나눌 수 있는 ${tot.months}개월`)}<span aria-hidden="true">=</span>${box('새로 넣은 돈',cbSignDisp(tot.flow),'is-in')}<span aria-hidden="true">+</span>${box('값이 오르내린 몫',cbSignDisp(tot.market),tot.market<0?'is-loss':'is-gain')}</div>`:'';
+  return `<div class="rep-flow${o.compact?' is-compact':''}">${o.noSums?'':sums}
+    <div class="rep-flow-chart" style="--flow-up:${(maxUp/span*100).toFixed(2)}%;--flow-dn:${(maxDn/span*100).toFixed(2)}%">${list.map(col).join('')}</div>
+    <div class="rep-flow-labels" aria-hidden="true">${list.map(m=>`<span>${Number(m.ym.slice(5))}월</span>`).join('')}</div>
+    <div class="rep-flow-legend"><span><i class="is-in"></i>새로 넣은 돈</span><span><i class="is-gain"></i>값이 오른 몫</span><span><i class="is-loss"></i>값이 내린 몫·뺀 돈</span><span><i class="is-none"></i>나눌 기록 없음</span></div>
+  </div>`;
 }
 // 배당 12칸: 끝난 달은 현금 흐름에 기록된 '배당금' 수입, 이번 달 이후는 배당 엔진의 세후 예상(divHistoryOf).
 function reportDividendYear(year, ownerF, todayKey){
@@ -634,6 +700,12 @@ function cbRenderReportYear(){
   pages.push(reportChapter('repy',no++,'한 해 동안 얼마나 늘었나',basis,'is-ink',
     `<p>${start===last?`기록이 한 달뿐이라 비교할 수 없습니다. ${reportYmLabel(last.ym)} 말 투자자산은 <b>${cbDisp(last.v)}</b>입니다.`:`${base?reportYmLabel(base.ym)+' 말':reportYmLabel(first.ym)+' 말(그해 첫 기록)'} <b>${cbDisp(start.v)}</b>에서 ${reportYmLabel(last.ym)} 말 <b>${cbDisp(last.v)}</b>로, ${reportDiffAmt(grew)} ${grew<0?'줄었습니다':'늘었습니다'}.`}</p><p class="rep-note">새로 넣은 돈과 값이 오른 몫이 함께 들어 있어 수익률이 아닙니다.</p>`,
     `<p class="rep-fig">${cbDisp(last.v)}</p><div class="rep-months is-total" role="img" aria-label="${year}년 월말 투자자산">${Array.from({length:12},(_,i)=>{const m=byM.get(i+1);return `<i class="${m?(m.src==='live'?'is-est':''):'is-none'}" style="--h:${m?(m.v/mx*100).toFixed(1):0}%" title="${i+1}월"></i>`;}).join('')}</div><div class="rep-months-l" aria-hidden="true">${Array.from({length:12},(_,i)=>`<span>${i+1}</span>`).join('')}</div><p class="rep-cap">월말 투자자산 · 빈칸은 기록이 없는 달</p>`));
+  // 넣은 돈과 값이 오른 몫 — 그해 1월부터 마지막 기록 달까지 달마다 나눈다(reportFlowSeries).
+  const flowYms=Array.from({length:lastM},(_,i)=>`${year}-${String(i+1).padStart(2,'0')}`), flowSeries=reportFlowSeries(tl,ownerF,flowYms), flowTot=reportFlowTotals(flowSeries);
+  pages.push(reportChapter('repy',no++,'넣은 돈과 값이 오른 몫',basis,'is-soft',
+    flowTot.months?`<p>나눌 수 있는 <b>${flowTot.months}개월</b> 동안 투자자산은 ${reportDiffAmt(flowTot.change)} 달라졌습니다. 그중 새로 넣은 돈이 ${reportDiffAmt(flowTot.flow)}, 값이 오르내린 몫이 ${reportDiffAmt(flowTot.market)}입니다.</p><p class="rep-note">월말 보유의 매입금액 변화(현금 포함)를 '넣은 돈'으로 본 추정입니다. 취득가를 모르는 자산을 더하면 값이 오른 몫으로 잡힙니다. 종목 기록이 없는 달은 빗금입니다.</p>`
+      :`<p>앞 달과 이 달의 종목 기록이 함께 있는 달이 아직 없어 나누지 못했습니다.</p><p class="rep-note">종목 기록은 매일 자동 기록이 월말마다 남깁니다. 다음 달부터 막대가 채워집니다.</p>`,
+    reportFlowChartHtml(flowSeries,{noSums:true})+'<p class="rep-cap">막대 하나가 한 달 · 정확한 금액은 막대에 손을 올리면 보입니다</p>',true));
   const lastEntry=inYear.slice().reverse().find(m=>m.entry), entry=lastEntry&&lastEntry.entry;
   if(!entry){
     pages.push(`<section class="rep-page rep-chapter" data-rep-page="기록 없음"><div class="rep-inner is-single"><div class="rep-prose"><h2>이 해는 총액만 남아 있습니다</h2><p>구성·보유 변화·손익·목표는 월말 기록을 남기기 시작한 뒤부터 볼 수 있습니다.</p></div></div></section>`);

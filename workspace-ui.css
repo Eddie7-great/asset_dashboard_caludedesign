@@ -383,10 +383,13 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
    패널 높이는 달력이 정하고, 목록은 남은 높이를 채운 뒤 넘치면 안에서 스크롤한다. 한 단으로 쌓이면(1100px 이하) 예전처럼 상한 520px. */
 .cal-list-panel{display:flex;flex-direction:column}
 .cal-list{display:flex;flex-direction:column;margin-top:8px;flex:1 1 auto;min-height:160px;contain:size;position:relative;overflow-y:auto}
-.cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cal-list-when{color:var(--mut);font-size:var(--fs-cap)}
+/* 모든 줄이 좌우 8px 를 같이 비워야 매일 적립 줄(바탕색)과 아래 줄의 칸이 같은 x 에 선다 */
+.cal-daily-row{background:var(--acc-soft);border-radius:var(--r-md);border-bottom:0;margin-bottom:4px}
 .cal-list-title{min-width:0;overflow-wrap:anywhere}
 .cal-list-title>small{margin-left:6px;color:var(--lab)}
+.cal-list-title>small.cal-daily-per{display:block;margin:2px 0 0;white-space:nowrap}
 @media(max-width:1100px){.cal-layout{grid-template-columns:minmax(0,1fr)}.acct-kind-grid,.cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-list{contain:none;max-height:520px}}
 @media(max-width:768px){
   .acct-kind-grid,.cal-sum-grid{gap:8px}
@@ -516,7 +519,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
    그 폭 아래에서는 배분 카드를 표 아래로 내린다. */
 @media(max-width:1559px){.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr)}}
 /* 화면 다듬기(2026-11-11) — 헤더 설명 문구는 '…'로 자르지 않고 두 줄까지 보여 준다(휴대폰은 기존 ⓘ 토글 그대로) */
-@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
+@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;text-wrap:balance;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
 /* 목표 화면 상단 세 카드 — 값 줄을 카드 바닥에 맞춘다. 현금 안전판 카드만 입력 줄이 있어, 위에서부터 쌓으면
    옆 두 카드는 값 아래가 비고 세 값의 높이도 어긋났다 */
 .fin-goal-context b{margin-top:auto;padding-top:6px}
@@ -574,6 +577,37 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .rep-goals p{margin:6px 0 0;font:500 var(--fs-cap) var(--font-num);color:var(--lab);font-variant-numeric:tabular-nums}
 /* 무엇이 달라졌나 — 새로 넣거나 뺀 돈 / 값이 오르내린 몫, 종목별 변화 목록, 연간 달별 건수 띠 */
 .rep-split{display:grid;gap:10px;margin:4px 0 14px}
+/* 넣은 돈 vs 값이 오른 몫(2026-11-23) — 연간 결산 장·성과 투자자산 추이 카드 공용(reportFlowChartHtml) */
+.rep-flow{--flow-gain:var(--up);--flow-loss:var(--dn);width:100%}
+.rep-flow-sums{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.rep-flow-sums>span{color:var(--lab);font-size:var(--fs-card)}
+.rep-flow-sum{border:1px solid var(--bd);border-radius:var(--r-md);padding:6px 12px;min-width:120px}
+.rep-flow-sum>small{display:block;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-sum>b{font-size:var(--fs-card);font-weight:800}
+.rep-flow-sum>em{display:block;font-style:normal;font-size:var(--fs-cap);color:var(--lab)}
+.rep-flow-sum.is-in>b{color:var(--flow-in)}.rep-flow-sum.is-gain>b{color:var(--flow-gain)}.rep-flow-sum.is-loss>b{color:var(--flow-loss)}
+.rep-flow-chart{display:flex;gap:6px;height:180px;border-bottom:0}
+.rep-flow.is-compact .rep-flow-chart{height:120px}
+.rep-flow-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center}
+.rep-flow-up{height:var(--flow-up);width:62%;max-width:56px;display:flex;flex-direction:column-reverse;border-bottom:1px solid var(--bd2)}
+.rep-flow-dn{height:var(--flow-dn);width:62%;max-width:56px;display:flex;flex-direction:column}
+.rep-flow-col.is-none .rep-flow-up{height:var(--flow-up)}
+.rep-flow-seg{display:block;flex:0 0 auto;width:100%}
+.rep-flow-seg.is-in{background:var(--flow-in)}.rep-flow-seg.is-out{background:color-mix(in srgb,var(--flow-loss) 55%,transparent)}
+.rep-flow-seg.is-gain{background:var(--flow-gain)}.rep-flow-seg.is-loss{background:var(--flow-loss)}
+.rep-flow-seg.is-none{height:40%;background:repeating-linear-gradient(45deg,var(--bd2) 0 3px,transparent 3px 7px);border-radius:var(--r-sm) var(--r-sm) 0 0}
+.rep-flow-up>.rep-flow-seg:last-child{border-radius:var(--r-sm) var(--r-sm) 0 0}
+.rep-flow-dn>.rep-flow-seg:last-child{border-radius:0 0 var(--r-sm) var(--r-sm)}
+.rep-flow-col.is-live .rep-flow-seg:not(.is-none){opacity:.72}
+.rep-flow-labels{display:flex;gap:6px;margin-top:4px}
+.rep-flow-labels>span{flex:1 1 0;min-width:0;text-align:center;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-legend i{display:inline-block;width:10px;height:10px;border-radius:var(--r-sm);margin-right:5px;vertical-align:-1px}
+.rep-flow-legend i.is-in{background:var(--flow-in)}.rep-flow-legend i.is-gain{background:var(--flow-gain)}.rep-flow-legend i.is-loss{background:var(--flow-loss)}
+.rep-flow-legend i.is-none{background:repeating-linear-gradient(45deg,var(--bd2) 0 2px,transparent 2px 5px)}
+.fin-flow-block{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+.fin-flow-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fin-flow-head>b{font-size:var(--fs-body)}.fin-flow-head>span{font-size:var(--fs-cap);color:var(--mut)}
 .rep-split-row{display:grid;grid-template-columns:120px minmax(0,1fr) 130px;gap:10px;align-items:center;font-size:var(--fs-body)}
 .rep-split-row>i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 9%,transparent);overflow:hidden}
 .rep-split-row>i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:var(--up)}
@@ -989,7 +1023,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
    눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
 /* 리스크 게이지(2026-11-23) — 회색 한 줄 + 기준 눈금 두 개 + 지금 값 동그라미. 구간 바탕색을 칠하지 않는다. */
-.cb-meter-wrap{position:relative;margin-top:8px;padding-bottom:38px;flex-shrink:0}
+.cb-meter-wrap{position:relative;margin-top:10px;padding-bottom:22px;flex-shrink:0}
+.cb-meter-wrap.is-top{padding-top:18px}
 .cb-meter{overflow:visible;margin-top:0;background:var(--inner);box-shadow:inset 0 0 0 1px var(--bd)}
 .cb-meter-tick{position:absolute;top:-3px;bottom:-3px;width:1px;margin-left:-.5px;background:var(--lab)}
 .cb-meter-tick.bad{width:2px;margin-left:-1px}
@@ -998,6 +1033,16 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-meter-tick-lab.is-end{transform:translateX(-100%)}
 .cb-meter-mark{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--glass,#fff);box-shadow:0 0 0 1px var(--bd2);z-index:1}
 .cb-meter-dir{position:absolute;right:0;bottom:0;font-size:var(--fs-micro);line-height:1.2;color:var(--lab)}
+.cb-meter-wrap.is-left>.cb-meter-dir{right:auto;left:0}
+.cb-meter-wrap.is-top>.cb-meter-dir{bottom:auto;top:0}
+/* 리스크 카드: 머리줄(제목·판정 | 값) → 설명 → 바닥(게이지·부 카드). 두 종류 카드가 같은 자리에 같은 것을 둔다 */
+.cb-risk-primary-card,.cb-risk-insight-card{display:flex;flex-direction:column}
+.cb-risk-foot{margin-top:auto;padding-top:2px}
+.cb-risk-insight-head{align-items:center}
+.cb-risk-insight-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cb-risk-insight-head>.cb-risk-insight-value{margin-top:0;font-size:var(--fs-card);flex-shrink:0}
+.cb-risk-insight-card>.cb-risk-insight-detail{margin-top:3px;padding-top:0;color:var(--mut)}
+.cb-risk-primary-head{align-items:center}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
 .cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--div-bar) 0 2px,color-mix(in srgb,var(--div-bar) 28%,transparent) 2px 4px)}
@@ -1087,8 +1132,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 계좌 칸이 두 줄이므로 종목도 이름 / 티커 두 줄 — 한 줄이면 티커가 이름 폭을 먹어 긴 ETF 이름이 잘린다. */
 .cb-family-asset .cb-asset-inline{flex-direction:column;align-items:flex-start;gap:0;line-height:1.35}
 /* 구성원 비교(2026-11-18) — 표에 '계좌' 칸이 생겨 1420px 미만에서는 옆 카드(자산군 구성)와 나란히 두면 평가손익·수익률이
-   가로 스크롤로 밀린다. 그 폭에서는 카드를 표 위 가로 띠로 올린다(배당 '향후 90일 일정'과 같은 방식). 1420px 이상은 오른쪽 sticky(style.css). */
-@media(min-width:769px) and (max-width:1419px){
+   가로 스크롤로 밀린다. 그 폭에서는 카드를 표 위 가로 띠로 올린다(배당 '향후 90일 일정'과 같은 방식). 1600px 이상은 오른쪽 sticky(style.css). */
+@media(min-width:769px) and (max-width:1599px){
   .cb-family-detail-grid{grid-template-columns:minmax(0,1fr)}
   .cb-family-mix-card{order:-1}
   .cb-family-mix-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
@@ -1376,6 +1421,14 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-trend-x>span{position:absolute;top:0;transform:translateX(-50%);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap}
 .cb-trend-x>span.is-first{transform:none}.cb-trend-x>span.is-last{transform:translateX(-100%)}
 .cb-trend-line{fill:none;stroke:var(--acc);stroke-width:2}
+.cb-trend-plot{cursor:crosshair}
+.cb-trend-guide{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--bd2);pointer-events:none}
+.cb-trend-hdot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--panelSolid);pointer-events:none}
+.cb-trend-tip{position:absolute;top:4px;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--panelSolid);box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:var(--fs-cap);color:var(--t2);white-space:nowrap;pointer-events:none;z-index:2}
+.cb-trend-tip.is-low{top:auto;bottom:4px}
+.cb-trend-tip>em{font-style:normal;color:var(--lab)}
+.cb-trend-tip>b{font-size:var(--fs-body);color:var(--tx)}
+.cb-trend-guide[hidden],.cb-trend-hdot[hidden],.cb-trend-tip[hidden]{display:none}
 .cb-trend-area{fill:color-mix(in srgb,var(--acc) 12%,transparent)}
 .cb-dash-trend-note{font-size:var(--fs-cap);color:var(--dim)}
 /* 결산 표지 핵심 숫자(2026-11-23) */
@@ -1405,3 +1458,13 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-dash-pop-list>div{padding-top:6px!important;padding-bottom:6px!important;font-size:var(--fs-body)!important}
 .cb-dash-pop-empty{padding:16px;text-align:center;color:var(--dim)}
 .cb-dash-pop-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
+/* ===== 글자 줄바꿈·빈 칸 정리(2026-11-23, 사용자 요청 '한쪽으로 치우쳐 여백이 어색한 것') =====
+   한국어는 낱말 중간('자 / 녀1', '아 / 닙니다')에서 끊지 않고(keep-all), 그래도 넘치는 긴 글자만 끊는다(break-word —
+   anywhere 와 달리 칸의 최소 폭을 줄이지 않는다). 마지막 줄에 한두 글자만 남지 않게 text-wrap:pretty. */
+body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
+/* 데이터 상태 '상태 해석' 5칸 — 2열 격자에서 마지막 하나가 반쪽만 차지해 옆이 비었다. */
+.fin-guidance>p:last-child:nth-child(odd){grid-column:1/-1}
+/* 목표 카드 — 3열 격자에 2개면 셋째 칸이, 4개면 둘째 줄 두 칸이 빈다. 2·4개는 2열로. */
+@media(min-width:1101px){
+  .fin-goal-grid:has(>:nth-child(2):last-child),.fin-goal-grid:has(>:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+}

@@ -18,7 +18,7 @@ vm.runInContext(rulesSource, context)
 const manifest = context.ASSET_TAX_RULES
 
 assert.equal(manifest.schemaVersion, 1, '규칙 스키마 버전')
-assert.equal(manifest.manifestVersion, 'kr-tax-gift-2026.5', '현재 규칙 버전')
+assert.equal(manifest.manifestVersion, 'kr-tax-gift-2026.6', '현재 규칙 버전')
 assert.equal(Object.isFrozen(manifest), true, '런타임에서 규칙 매니페스트 변경 금지')
 assert.equal(Object.isFrozen(manifest.periods[2].values.gift), true, '중첩 규칙 값도 변경 금지')
 
@@ -28,7 +28,7 @@ assert.equal(manifest.sources.every(source => /^https:\/\/(?:www\.)?(?:law\.go\.
 assert.equal(manifest.sources.every(source => Array.isArray(source.expected) && source.expected.length), true, '모든 출처에 변경 감시 문구 존재')
 
 const current = context.assetTaxRulesFor(2026)
-assert.equal(current.id, 'kr-tax-gift-2026.5', '2026년 규칙 선택')
+assert.equal(current.id, 'kr-tax-gift-2026.6', '2026년 규칙 선택')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2024), 0.0018, '2024 KOSPI 총 부담 0.18%')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2025), 0.0015, '2025 KOSPI 총 부담 0.15%')
 assert.equal(context.assetTaxRuleValue('capitalGains.kospiTotalTransactionRate', null, 2026), 0.002, '2026 KOSPI 총 부담 0.20%')
@@ -44,7 +44,7 @@ assert.equal(context.assetTaxRuleStatus(2025, new Date('2026-08-31T00:00:00+09:0
 assert.equal(context.assetTaxRuleStatus(2027, new Date('2027-01-01T00:00:00+09:00')).state, 'unsupported', '검증하지 않은 미래 연도 미지원')
 
 const taxHtml = context.assetTaxRuleDisclosureHtml('capitalGains', 2026)
-assert.match(taxHtml, /2026년 적용[\s\S]*kr-tax-gift-2026\.5/, '적용 연도와 규칙 버전 표시')
+assert.match(taxHtml, /2026년 적용[\s\S]*kr-tax-gift-2026\.6/, '적용 연도와 규칙 버전 표시')
 assert.match(taxHtml, /계산에 적용[\s\S]*계산 가정[\s\S]*제외·주의[\s\S]*공식 기준 출처/, '값·가정·제외·공식 출처를 한 패널에 표시')
 assert.match(taxHtml, /KOSPI·KOSDAQ 장내 매도 부담 참고 0\.2%/, '2026 거래세 표시 보정')
 assert.match(taxHtml, /target="_blank" rel="noopener noreferrer"/, '공식 출처 새 창 링크 보호')
@@ -69,4 +69,8 @@ assert.match(checkerSource, /ALLOWED_HOSTS[\s\S]*MAX_BYTES[\s\S]*redirect: 'manu
 assert.match(workflowSource, /schedule:[\s\S]*cron:[\s\S]*issues: write[\s\S]*tax-rule-watch/, '매일 점검과 검토 이슈 자동 관리')
 assert.doesNotMatch(workflowSource, /pull_request:/, '외부 네트워크·이슈 권한 워크플로를 PR 코드로 실행하지 않음')
 
+assert.equal(context.assetTaxRuleValue('pensionCredit.pensionSavingsCapKrw', null, 2026), 6_000_000, '연금저축 세액공제 대상 600만원')
+assert.equal(context.assetTaxRuleValue('pensionCredit.combinedCapKrw', null, 2026), 9_000_000, '연금저축+퇴직연금 합산 900만원')
+const savingHtml = context.assetTaxRuleDisclosureHtml('taxSaving', 2026)
+assert.match(savingHtml, /연금계좌 세액공제 한도[\s\S]*세액공제율[\s\S]*소득세법 제59조의3/, '연금계좌 한도 근거·제외 공개')
 console.log('PASS: 세금·증여 규칙 버전·출처·가정·제외·최신성 감시 계약')
