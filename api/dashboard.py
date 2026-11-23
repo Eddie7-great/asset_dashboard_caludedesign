@@ -23,6 +23,9 @@ UNAVAILABLE = '미조회'
 SESSION_COOKIE = 'asset_dashboard_session'
 SESSION_TTL_SECONDS = 8 * 60 * 60
 MAX_TICKERS = 25
+# 배당(type=dividend) 요청당 상한. script.js 의 PY_DIVIDEND_TICKER_LIMIT 과 같아야 한다 —
+# 클라이언트가 더 크게 묶으면 요청 전체가 too_many_tickers 로 거부된다. 올려서 해결하지 않는다.
+MAX_DIVIDEND_TICKERS = 20
 MAX_QUERY_LENGTH = 2048
 TICKER_PATTERN = re.compile(r'^[A-Z0-9.^=_-]{1,24}$')
 ALLOWED_TYPES = {'rates', 'gold', 'price', 'dividend', 'health', 'benchmark', 'resolve', 'etf_holdings'}
@@ -169,13 +172,56 @@ try:
 except (ImportError, Exception):
     PD_OK = False
 
+# ── KRX(pykrx) 사용 가능 여부 — pykrx 를 부르는 곳은 모두 이 관문을 거친다 ──
+# KRX 는 이제 회원 로그인(KRX_ID/KRX_PW) 없는 조회를 거부한다. pykrx 는 그 실패를 삼키고
+# 빈 DataFrame 을 돌려주므로 결과는 어차피 yfinance 로 채워지는데, 종목마다 실패하는 KRX
+# 왕복이 1~1.4초씩 걸려 국내 17종목 배당 조회가 24초가 됐다(2026-11-20 운영 로그).
+# 자격이 없으면 아예 부르지 않고, 자격이 있어도 프로세스당 한 번(10분 기억) 확인 호출로
+# KRX 가 실제로 응답하는지 본다. 자격을 Vercel 환경변수에 넣으면(재배포) 코드 수정 없이 다시 켜진다.
+KRX_PROBE_TICKER = '005930'      # 늘 상장된 대형주 — 로그인·응답 확인용
+KRX_PROBE_WINDOW_DAYS = 14       # 연휴가 끼어도 거래일이 한 번은 들어가는 구간
+KRX_PROBE_TTL_SECONDS = 600      # 확인 결과를 10분 기억(일시 장애로 프로세스 내내 막히지 않게)
+_KRX_PROBE = {'ok': None, 'at': 0.0, 'skipLogged': False}
+
+
+def _krx_credentials_set():
+    # scripts/collect_etf_holdings.py 의 krx_available() 과 같은 기준.
+    return bool(os.environ.get('KRX_ID') and os.environ.get('KRX_PW'))
+
+
+def _krx_usable():
+    """이 프로세스에서 pykrx(KRX) 조회가 쓸 만한지. 자격이 없으면 KRX 호출 0회."""
+    if not PYKRX_OK:
+        return False
+    if not _krx_credentials_set():
+        if not _KRX_PROBE['skipLogged']:
+            print('[dashboard.py] KRX_ID/KRX_PW 미설정 — pykrx(KRX) 조회를 건너뛰고 yfinance 로 조회')
+            _KRX_PROBE['skipLogged'] = True
+        return False
+    now = time.monotonic()
+    if _KRX_PROBE['ok'] is not None and now - _KRX_PROBE['at'] < KRX_PROBE_TTL_SECONDS:
+        return _KRX_PROBE['ok']
+    ok = False
+    try:
+        end = datetime.date.today()
+        start = end - datetime.timedelta(days=KRX_PROBE_WINDOW_DAYS)
+        df = krx.get_market_ohlcv_by_date(start.strftime('%Y%m%d'), end.strftime('%Y%m%d'), KRX_PROBE_TICKER)
+        ok = df is not None and not df.empty
+    except Exception:
+        ok = False
+    if not ok:
+        print(f'[dashboard.py] KRX 확인 호출 실패 — {KRX_PROBE_TTL_SECONDS}초 동안 pykrx(KRX) 조회를 건너뜀')
+    _KRX_PROBE['ok'] = ok
+    _KRX_PROBE['at'] = now
+    return ok
+
 # ── 국내 전 종목 리스트 캐시 (메모리 절약형) ──────────────────
 _KR_TICKER_CACHE = {} # { "종목명": "티커" }
 _KR_CACHE_TIME = None
 
 def _update_kr_ticker_cache():
     global _KR_TICKER_CACHE, _KR_CACHE_TIME
-    if not PYKRX_OK: return
+    if not _krx_usable(): return
     try:
         now = datetime.datetime.now()
         if _KR_CACHE_TIME and (now - _KR_CACHE_TIME).total_seconds() < 3600*12:
@@ -334,7 +380,7 @@ def get_prices(tickers):
             if is_kr:
                 # 한국 주식 – pykrx 우선, yfinance fallback
                 price = UNAVAILABLE
-                if PYKRX_OK:
+                if _krx_usable():
                     try:
                         d = prev_biz_day_str()
                         df = krx.get_market_ohlcv_by_date(d, d, tkr)
@@ -387,70 +433,78 @@ def get_dividends(tickers):
             is_kr = len(t_up) == 6 and all(c.isdigit() or ('A' <= c <= 'Z') for c in t_up)
 
             if is_kr:
-                if PYKRX_OK:
-                    try:
-                        d = prev_biz_day_str()
-                        # 1) 배당수익률 & 현재가 → 연간 DPS 추정
-                        df_f = krx.get_market_fundamental(d, d, tkr)
-                        yld = 0.0
-                        if not df_f.empty and 'DIV' in df_f.columns:
-                            yld = float(df_f['DIV'].iloc[-1])
-                        df_p = krx.get_market_ohlcv_by_date(d, d, tkr)
-                        price = float(df_p['종가'].iloc[-1]) if not df_p.empty else 0
-                        annual_dps = round(price * yld / 100) if yld > 0 and price > 0 else 0
+                try:
+                    # 1) 배당수익률 & 현재가 → 연간 DPS 추정 (KRX 를 쓸 수 있을 때만)
+                    #    _krx_usable() 이 거짓이면 pykrx 가 빈 응답을 준 것과 같은 상태(가격 0·수익률 0)로
+                    #    아래 yfinance 경로를 탄다 — 예전 운영(로그인 없는 KRX 가 빈 값을 주던 때)과 결과가 같다.
+                    #    yfinance 경로를 pykrx 분기 밖에 두므로 pykrx 미설치·예외 때도 '미조회'로 끝나지 않는다.
+                    yld = 0.0
+                    price = 0
+                    if _krx_usable():
+                        try:
+                            d = prev_biz_day_str()
+                            df_f = krx.get_market_fundamental(d, d, tkr)
+                            if not df_f.empty and 'DIV' in df_f.columns:
+                                yld = float(df_f['DIV'].iloc[-1])
+                            df_p = krx.get_market_ohlcv_by_date(d, d, tkr)
+                            price = float(df_p['종가'].iloc[-1]) if not df_p.empty else 0
+                        except Exception:
+                            yld = 0.0
+                            price = 0
+                    annual_dps = round(price * yld / 100) if yld > 0 and price > 0 else 0
 
-                        # 2) 최근 2년 배당 이력 → cycle 및 months 도출
-                        #    pykrx.stock.get_index_fundamental 에는 dividend 가 없으므로
-                        #    get_market_ohlcv_by_date 로는 확인 불가. 대신 개별 배당 이력은
-                        #    krx.get_index_price_deposit / stock_index_dividend 로도 제공되지 않음.
-                        #    → yfinance .KS/.KQ 티커를 보조 수단으로 사용해 월별 지급 이력 확보.
-                        cycle = '-'
-                        months = []
-                        pay_day_kr = None
-                        if YF_OK:
-                            try:
-                                for suf in ('.KS', '.KQ'):
-                                    ytkr = f'{tkr}{suf}'
-                                    yt = yf.Ticker(ytkr)
-                                    divs = yt.dividends
-                                    if divs is not None and not divs.empty:
-                                        recent = divs[divs.index >= (datetime.datetime.now() - datetime.timedelta(days=400))]
-                                        if not recent.empty:
-                                            ms = sorted({int(d.month)-1 for d in recent.index})
-                                            months = ms[:12]
-                                            if len(ms) >= 10: cycle = '월배당'
-                                            elif len(ms) >= 3: cycle = '분기'
-                                            elif len(ms) == 2: cycle = '반기'
-                                            elif len(ms) == 1: cycle = '연간'
-                                            # yfinance에서 annual_dps 재확인 (pykrx DIV 부재 시)
-                                            if annual_dps == 0:
-                                                annual_dps = round(float(recent.sum()))
-                                                if price > 0 and annual_dps > 0:
-                                                    yld = round(annual_dps/price*100, 2)
-                                            # 최빈 지급일(day-of-month)
-                                            pay_days_kr = [d.day for d in recent.index]
-                                            if pay_days_kr:
-                                                pay_day_kr = int(Counter(pay_days_kr).most_common(1)[0][0])
-                                            break
-                            except Exception:
-                                pass
-                        # cycle 미상이면 연간으로 가정 (한국 주식 관행: 연 1회 기말배당)
-                        if cycle == '-' and annual_dps > 0:
-                            cycle = '연간'
-                            months = [11]   # 12월 기말 가정
+                    # 2) 최근 2년 배당 이력 → cycle 및 months 도출
+                    #    pykrx.stock.get_index_fundamental 에는 dividend 가 없으므로
+                    #    get_market_ohlcv_by_date 로는 확인 불가. 대신 개별 배당 이력은
+                    #    krx.get_index_price_deposit / stock_index_dividend 로도 제공되지 않음.
+                    #    → yfinance .KS/.KQ 티커를 보조 수단으로 사용해 월별 지급 이력 확보.
+                    cycle = '-'
+                    months = []
+                    pay_day_kr = None
+                    if YF_OK:
+                        try:
+                            for suf in ('.KS', '.KQ'):
+                                ytkr = f'{tkr}{suf}'
+                                yt = yf.Ticker(ytkr)
+                                divs = yt.dividends
+                                if divs is not None and not divs.empty:
+                                    recent = divs[divs.index >= (datetime.datetime.now() - datetime.timedelta(days=400))]
+                                    if not recent.empty:
+                                        ms = sorted({int(d.month)-1 for d in recent.index})
+                                        months = ms[:12]
+                                        if len(ms) >= 10: cycle = '월배당'
+                                        elif len(ms) >= 3: cycle = '분기'
+                                        elif len(ms) == 2: cycle = '반기'
+                                        elif len(ms) == 1: cycle = '연간'
+                                        # yfinance에서 annual_dps 재확인 (pykrx DIV 부재 시)
+                                        if annual_dps == 0:
+                                            annual_dps = round(float(recent.sum()))
+                                            if price > 0 and annual_dps > 0:
+                                                yld = round(annual_dps/price*100, 2)
+                                        # 최빈 지급일(day-of-month)
+                                        pay_days_kr = [d.day for d in recent.index]
+                                        if pay_days_kr:
+                                            pay_day_kr = int(Counter(pay_days_kr).most_common(1)[0][0])
+                                        break
+                        except Exception:
+                            pass
+                    # cycle 미상이면 연간으로 가정 (한국 주식 관행: 연 1회 기말배당)
+                    if cycle == '-' and annual_dps > 0:
+                        cycle = '연간'
+                        months = [11]   # 12월 기말 가정
 
-                        if annual_dps > 0 or yld > 0:
-                            result[tkr] = {
-                                'dps': annual_dps,
-                                'yld': round(yld, 2),
-                                'cycle': cycle,
-                                'months': months,
-                                'cur': 'KRW',
-                                'payDay': pay_day_kr
-                            }
-                            continue
-                    except Exception:
-                        pass
+                    if annual_dps > 0 or yld > 0:
+                        result[tkr] = {
+                            'dps': annual_dps,
+                            'yld': round(yld, 2),
+                            'cycle': cycle,
+                            'months': months,
+                            'cur': 'KRW',
+                            'payDay': pay_day_kr
+                        }
+                        continue
+                except Exception:
+                    pass
                 result[tkr] = {'dps': UNAVAILABLE, 'yld': UNAVAILABLE, 'cycle': '-', 'months': [], 'cur': 'KRW'}
 
             else:
@@ -617,14 +671,15 @@ def get_benchmark(p_tkrs=None, p_weights=None):
         # 국내 종목/ETF는 yfinance 커버리지가 불안정(특히 국내 ETF) → yfinance로 못 받은 KR 코드는
         # pykrx 과거시세로 보완한다(주식: get_market_ohlcv_by_date, ETF: get_etf_ohlcv_by_date).
         # get_prices의 pykrx 우선 패턴을 시계열로 확장. 실패 시 기존 동작으로 안전 강등.
-        if PYKRX_OK and tkrs_list:
+        # 보완할 종목이 있을 때만 KRX 확인(_krx_usable)을 부른다 — 쓰지 않을 확인 호출을 하지 않는다.
+        if tkrs_list:
             kr_missing = []
             for t in tkrs_list:
                 base = _kr_base(t)
                 if base and _resolve_col(t, close_df.columns) is None:
                     kr_missing.append(base)
             kr_missing = list(dict.fromkeys(kr_missing))
-            if kr_missing:
+            if kr_missing and _krx_usable():
                 start_s = close_df.index[0].strftime('%Y%m%d')
                 end_s = close_df.index[-1].strftime('%Y%m%d')
                 for base in kr_missing:
@@ -780,7 +835,7 @@ class handler(BaseHTTPRequestHandler):
             elif qtype == 'price':
                 data = get_prices(_parse_tickers(params.get('tickers', [''])[0]))
             elif qtype == 'dividend':
-                data = get_dividends(_parse_tickers(params.get('tickers', [''])[0], 20))
+                data = get_dividends(_parse_tickers(params.get('tickers', [''])[0], MAX_DIVIDEND_TICKERS))
             elif qtype == 'health': data = get_health()
             elif qtype == 'benchmark':
                 benchmark_tickers = _parse_tickers(params.get('p_tkrs', [''])[0], 20)

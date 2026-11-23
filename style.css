@@ -985,7 +985,7 @@
     .cb-fam-card-foot{margin-top:4px;font-size:var(--fs-micro);color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 표 제목 줄과 옆 카드 제목 줄은 같은 높이(내용 34px)로 둔다 — 검색칸이 있는 줄만 키가 커져 제목이 5~7px 내려가던 것을 막는다. */
     .cb-family-table-toolbar,.cb-div-table-toolbar,.cb-dca-table-toolbar{min-height:43px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
-    .cb-dca-table-toolbar{display:flex;align-items:center;gap:8px}
+    .cb-dca-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
     /* 표 옆 카드의 제목 줄을 표 제목 줄(36px − 아래 여백 9px)과 같은 높이로 맞춰 두 제목이 한 줄에 선다. */
     .cb-family-mix-card>.cb-insight-title,.cb-div-upcoming-card>.cb-insight-title,.cb-dca-allocation-card>.cb-insight-title{display:flex;align-items:center;min-height:34px}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}

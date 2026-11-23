@@ -637,7 +637,7 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   const annual = grid.slice(0, grid.indexOf('월평균'))
   assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')
-  assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(150px,2\.4fr\)/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
+  assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(170px,2\.4fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(124px,\.9fr\) minmax\(76px,\.7fr\) minmax\(88px,\.8fr\) minmax\(98px,\.8fr\);column-gap:8px;align-items:center;min-width:950px;/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
   assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>\$\{cbSortBtn\('dca','owner','소유주','text'\)\}<\/span><span>\$\{cbSortBtn\('dca','name','종목','text'\)\}<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
   assert.match(workspaceSource, /\.fin-tree\.is-acct\{grid-template-columns:/, '계좌별 내역은 트리 한 격자 — 계좌 줄과 종목 줄이 같은 칸 틀(subgrid)을 쓴다')
   assert.doesNotMatch(workspaceSource, /\.acct-row|\.acct-holding\{/, '예전 계좌별 표 규칙은 지웠다')

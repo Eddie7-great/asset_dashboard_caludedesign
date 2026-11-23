@@ -1682,20 +1682,19 @@ function _fixedCostDcaGroup(ownerF){
   const rows=mine.filter(i=>dcaState(i)==='on').map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
     label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
     .sort((a,b)=>b.monthly-a.monthly||String(a.name).localeCompare(String(b.name),'ko'));
-  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0),paused:mine.filter(i=>dcaState(i)==='paused').length};
+  return {rows,total:rows.reduce((s,r)=>s+r.monthly,0)};
 }
 function _fixedCostDcaHtml(group, savingCount){
   const won=v=>`₩${Math.round(v).toLocaleString()}`;
   const tag=o=>typeof cbOwnerTag==='function'?cbOwnerTag(o):`<span>${_cfEsc(o)}</span>`;
   const list=group.rows.map(r=>`<div class="cf-fixed-dca-row">${tag(r.owner)}<span class="cf-fixed-dca-name" title="${_cfEsc(r.name)}">${_cfEsc(r.name)}</span><span class="cf-fixed-dca-rule">${_cfEsc(r.label)}</span><b>${won(r.monthly)}</b></div>`).join('');
-  const paused=group.paused?`<p class="cf-fixed-dca-sub">일시정지 ${group.paused}건은 빼고 셉니다.</p>`:'';
   const dup=savingCount?`<p class="cf-fixed-dca-warn">고정비에 '저축/투자' 자동이체가 ${savingCount}건 있습니다. 증권계좌로 보내는 그 돈으로 적립식 매수를 한다면, 월 고정비 카드의 '+ 적립식' 합계에는 같은 돈이 두 번 들어갑니다.</p>`:'';
+  // 합계가 종목 목록보다 먼저다(2026-11-20 8차, 사용자 결정) — 목록이 길어도 합계가 카드 위에서 바로 보인다. 중단한 규칙은 세지도 적지도 않는다.
   return `<div class="cf-fixed-dca-head"><div class="cb-label">적립식 매수 <small>고정비와 별도</small></div><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
+    <div class="cf-fixed-dca-total"><span>적립식 월 합계</span><b>${won(group.total)}</b></div>
     <p class="cf-fixed-dca-sub">매수 규칙의 월 환산액입니다. 고정비 합계·분포·수입 대비 비율에는 넣지 않습니다.</p>
-    <div class="cf-fixed-dca-list">${list}</div>
-    <div class="cf-fixed-dca-total"><span>적립식 월 합계</span><b>${won(group.total)}</b></div>${paused}${dup}`;
+    <div class="cf-fixed-dca-list">${list}</div>${dup}`;
 }
-
 function renderFixedCostView() {
   const body=document.getElementById('cf-fixed-table-body');
   if(!body) return;
@@ -2975,20 +2974,21 @@ function getDcaAmountCellHtml(item){
 }
 // 보유 목록의 '적립식' 한 칸 — 윗줄 주기, 아랫줄 회당 금액. 예전에는 'DCA 주기'·'회당 금액' 두 칸이었는데
 // 대부분 '—' 인 두 칸이 표 폭의 13%를 차지해 종목명이 'TIGER 미…'로 잘렸다.
-// 상태는 dcaState 한 벌이다 — 중단한 규칙도 '중단 · 주기 / 금액'으로 보여 적립식 매수 화면과 같은 종목이 같은 상태로 보인다.
+// 상태는 dcaState 한 벌이다. 중단한 규칙은 칸에 드러내지 않고 '—'(설정 없음과 같은 모양)이다(2026-11-20 8차, 사용자 결정) —
+// 적립식 매수 화면도 중단한 규칙을 빼므로 두 화면이 같다. 규칙은 지우지 않아 칸을 누르면 설정 창에 그대로 채워지고 켜기만 하면 재개된다.
 // pIdx 를 주면(넓은 화면 표) 칸 전체가 적립식 설정 창(cbDcaEdit) 버튼이다. 현금은 적립식 대상이 아니다.
 const DCA_STATE_LABEL={on:'진행 중',paused:'중단',incomplete:'금액 미입력',none:'설정 없음'};
 function getDcaMergedCellHtml(item, pIdx){
   const st=dcaState(item);
   let inner;
   if (st==='on') inner=getDcaCellHtml(item) + getDcaAmountCellHtml(item);
-  else if (st==='paused') inner=`<span class="dca-cycle is-paused">중단 · ${getDcaCycleLabel(item)}</span><span class="dca-amount is-paused">${getDcaAmountText(item)}</span>`;
   else if (st==='incomplete') inner=`<span class="dca-cycle">${getDcaCycleLabel(item)}</span><span class="dca-amount is-missing">금액 미입력</span>`;
-  else inner=getDcaCellHtml(item);
+  else inner=getDcaCellHtml(item);   // 설정 없음·중단 → '—'
   if (pIdx==null || !item || item.grp==='현금') return inner;
   // 칸이 좁아 긴 요일 목록은 말줄임되므로 전체 규칙을 말풍선(title)에 적는다.
-  const full=st==='none'?'적립식 설정 없음':[DCA_STATE_LABEL[st],getDcaCycleLabel(item),st==='incomplete'?'금액 미입력':getDcaAmountText(item)].join(' · ');
-  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="${holdingsEsc(full)} — 눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${DCA_STATE_LABEL[st]}">${inner}</button>`;
+  const full=st==='none'?'적립식 설정 없음':st==='paused'?'적립식 꺼짐':[DCA_STATE_LABEL[st],getDcaCycleLabel(item),st==='incomplete'?'금액 미입력':getDcaAmountText(item)].join(' · ');
+  const aria=st==='paused'?'꺼짐':DCA_STATE_LABEL[st];
+  return `<button type="button" class="dca-cell-btn" onclick="cbDcaEdit(${Number(pIdx)})" title="${holdingsEsc(full)} — 눌러서 적립식 설정" aria-label="${holdingsEsc(item.name||item.tkr||'종목')} 적립식 설정 · ${aria}">${inner}</button>`;
 }
 // 평가액 칸 아랫줄의 비중 막대 — 막대 길이는 표에서 가장 큰 평가액 대비(홈 보유 표와 같은 방식),
 // 숫자는 위 '평가액' 숫자 카드 합계 대비 비중이다. 새 계산 없이 각 행의 평가액만 쓴다.
@@ -4886,11 +4886,13 @@ async function manualRefresh(source='all') {
 }
 
 // 서버(api/price.ts·api/dashboard.py)는 요청당 티커 개수를 제한한다(MAX_TICKERS=25,
-// 벤치마크 포트폴리오는 20). 보유 종목이 상한을 넘으면 서버가 요청 '전체'를
+// 벤치마크 포트폴리오는 20, dashboard.py 배당(type=dividend)은 MAX_DIVIDEND_TICKERS=20).
+// 보유 종목이 상한을 넘으면 서버가 요청 '전체'를
 // too_many_tickers 로 거부해 시세·배당이 통째로 비고, 데이터 상태가 영구히 '확인 필요'가 된다.
 // 상한은 입력 검증(보안 통제)이라 올리지 않고, 클라이언트가 상한에 맞춰 나눠 보낸다.
 const API_TICKER_CHUNK = 25;
 const BENCH_TICKER_LIMIT = 20;
+const PY_DIVIDEND_TICKER_LIMIT = 20;
 function _chunkTickers(list, size = API_TICKER_CHUNK) {
   const out = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
@@ -5436,19 +5438,20 @@ async function authFetch(url, options = {}) {
 }
 
 // ── 로그인 뒤 첫 로딩(2026-11-20, 시안 D — 사용자 결정) ── 화면 전체를 덮는 스플래시: 로고 막대가 진행에 따라 차례로 자라고
-// 단계 점 5개가 하나씩 켜진다(직전 세션 시안 원본 renderD 를 그대로 옮겼다. 지금 점의 고리만 느리게 숨 쉰다 — 단계 사이에 멈춰 보이지 않게).
+// 단계 점 4개가 하나씩 켜진다(직전 세션 시안 원본 renderD 를 그대로 옮겼다. 지금 점의 고리만 느리게 숨 쉰다 — 단계 사이에 멈춰 보이지 않게).
 // 단계는 실제로 기다리는 일 그대로다(initDashboard 의 호출 순서·병렬은 바꾸지 않고 끝날 때 표시만 한다).
-// 걷는 때(사용자 결정): 배당·환율까지 끝나면. 시세 반영 뒤 BOOT_TAIL_MS(8초)가 지나면 배당·환율을 기다리지 않고 걷는다.
+// 걷는 때(2026-11-20 8차, 사용자 결정): 시세 반영까지 끝나면. 배당·환율은 기다리지 않는다 — 환율은 시세 응답(/api/price)에 실려 와
+// 금액이 맞고, 국내 배당 조회가 20초 넘게 걸려 예전의 '배당·환율까지(시세 뒤 최대 8초)' 대기가 매번 8초를 꽉 채웠다.
 // 자산 로드 실패는 바로(오류 안내가 보이게), 다른 화면으로 이동·세션 만료(401)·BOOT_SAFETY_MS(25초)도 걷는다.
-const BOOT_STEPS=[['auth','로그인 확인'],['assets','보유 자산 불러오는 중'],['ext','재무 기록 불러오는 중'],['prices','시세 반영 중'],['market','배당·환율 확인 중']];
-const BOOT_SAFETY_MS=25000, BOOT_TAIL_MS=8000;
+const BOOT_STEPS=[['auth','로그인 확인'],['assets','보유 자산 불러오는 중'],['ext','재무 기록 불러오는 중'],['prices','시세 반영 중']];
+const BOOT_SAFETY_MS=25000;
 let _boot=null;
 function _bootReduced(){ return typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches; }
 // 로고 막대 세 개의 높이(0~1) — 진행률 p 에 따라 첫 막대부터 차례로 자란다(시안과 같은 식).
 function bootGrowth(p){ return [0,1,2].map(k=>Math.max(0,Math.min(1,(p-k*.28)/.36))); }
 function bootStart(){
   const sp=document.getElementById('boot-splash'); if(!sp) return;
-  _boot={done:new Set(['auth']),revealed:false,safety:0,tail:0};
+  _boot={done:new Set(['auth']),revealed:false,safety:0};
   sp.hidden=false; sp.classList.remove('is-leaving');
   document.querySelector('.layout')?.setAttribute('inert','');   // 덮는 동안 가려진 메뉴에 포커스가 가지 않게
   _bootPaint();
@@ -5472,11 +5475,6 @@ function bootStep(key){
   _boot.done.add(key); _bootPaint();
   if(BOOT_STEPS.every(([k])=>_boot.done.has(k))) setTimeout(bootFinish,_bootReduced()?0:320);   // 마지막 막대가 다 자라는 걸 보고 걷는다
 }
-// 시세 반영 뒤 — 배당·환율을 최대 BOOT_TAIL_MS 만 기다린다.
-function bootWaitTail(){
-  if(!_boot||_boot.tail) return;
-  _boot.tail=setTimeout(bootFinish,BOOT_TAIL_MS);
-}
 // 스플래시를 걷는다. 걷는 순간 지금 화면의 등장 움직임·숫자 올리기를 돌린다 — 덮여 있는 동안 돈 움직임은 안 보였다.
 function bootReveal(){
   if(!_boot||_boot.revealed) return;
@@ -5496,7 +5494,7 @@ function bootReveal(){
 function bootFinish(){
   if(!_boot) return;
   bootReveal();
-  clearTimeout(_boot.safety); clearTimeout(_boot.tail);
+  clearTimeout(_boot.safety);
   const st=document.getElementById('boot-status'); if(st) st.textContent='불러오기 완료';
   _boot=null;
 }
@@ -5731,12 +5729,12 @@ function initDashboard(){
     // 1차: stocks.json 기반으로 티커/초기값 주입 → 화면 즉시 채움
     if(assetsResult?.ok) injectInitialFromStocksDB();
     // 2차: 기존 EOD 시세(Yahoo 기반) 반영 — 페이지 진입 시 '전일 종가 갱신' 버튼과 동일한 자동 갱신
-    // 시세 반영 뒤에는 배당·환율을 최대 8초 기다렸다 걷는다(사용자 결정) — 시세 조회가 예외로 끝나도(뒤 단계는 예전처럼 멈춘다) 그 시계는 돈다.
+    // 시세 반영이 끝나면 로딩 화면을 걷는다(사용자 결정) — 시세 조회가 예외로 끝나도(뒤 단계는 예전처럼 멈춘다) 걷는다.
     try{ if(assetsResult?.ok) await refreshMarketPrices(); }
-    finally{ bootStep('prices'); bootWaitTail(); }
-    // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요)
+    finally{ bootStep('prices'); }
+    // 환율/금 등 Python 데이터도 자산 로드 완료 직후 자동 수집 (버튼 클릭 불필요) — 로딩 화면은 이것을 기다리지 않는다.
     refreshPyData({includeDividends:!!assetsResult?.ok&&!!extResult?.ok})
-      .finally(()=>bootStep('market')).catch(e=>console.warn('[refreshPyData]',e));
+      .catch(e=>console.warn('[refreshPyData]',e));
     // 벤치마크 차트: 자산·시세(curP) 로드가 끝난 시점에 1회 로드 (고정 타이머 경합 제거).
     //   await 하지 않고 병렬 실행 — 이후 DCA/스냅샷 단계가 벤치마크 로딩을 기다리지 않도록.
     if(assetsResult?.ok) fetchBenchmarkData();
@@ -7042,52 +7040,66 @@ function injectInitialFromStocksDB() {
   return fixed;
 }
 
-/**
- * 네이버 금융 스크래핑 API(/api/stock-price)로 국내 주식/ETF 실시간 가격 반영.
- *   - 숫자 뿐 아니라 알파뉴메릭 6자리 코드(예: 0117V0) 도 지원.
- *   - 최대 N건씩 묶어 호출하여 서버 부하 방지.
- *   - 성공 티커만 curP를 갱신하고 _priceStale=false 로 마킹.
- *   - 기존 liveRefresh()가 실패한 경우에도 이 함수가 폴백/보완 역할 수행.
- */
-async function liveRefreshDomesticEtfs() {
-  const items = pfolioData.filter(_isDomesticEquity);
-  const tickers = Array.from(new Set(
-    items
+// 국내 종목 시세 조회 대상(6자리 단축코드, 중복 없음).
+function _domesticQuoteTickers(){
+  return Array.from(new Set(
+    (pfolioData||[]).filter(_isDomesticEquity)
       .map(i => String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase())
       .filter(t => KR_CODE_RE.test(t))
   ));
+}
+/**
+ * 국내 시세를 네이버 금융 스크래핑 API(/api/stock-price)에서 받아 오기만 한다(반영은 liveRefreshDomesticEtfs).
+ *   - 10개씩 묶고, 묶음은 둘씩 동시에 보낸다 — 서버가 요청마다 네이버를 5개씩 동시에 부르므로 동시 요청은 최대 10개다.
+ *     예전에는 묶음을 차례로 보내 국내 종목 17개에 6.8초가 걸렸다(2026-11-20 운영 기록).
+ *   - 묶음 실패는 여기서 삼킨다(빈 결과) — 첫 로딩에서 await 하기 전에 시작해 두므로 거부된 약속이 남으면 안 된다.
+ *   - 서버가 한 종목을 평탄한 응답으로 줘도 버리지 않는다(예전 배포·캐시 응답 호환).
+ */
+async function _fetchDomesticQuotes(tickers){
+  const merged={};
+  const chunks=_chunkTickers(tickers||[],10);
+  const one=async chunk=>{
+    try{
+      const resp=await authFetch(`/api/stock-price?tickers=${chunk.join(',')}`);
+      if(!resp.ok) return;
+      const data=await resp.json();
+      Object.assign(merged,(data&&data.result)||(data&&data.ticker?{[data.ticker]:data}:{}));
+    }catch(e){ console.warn('[DomesticEtfLive] chunk error:', e && e.message); }
+  };
+  for(let k=0;k<chunks.length;k+=2) await Promise.all(chunks.slice(k,k+2).map(one));
+  return merged;
+}
+/**
+ * 네이버 금융 스크래핑 API(/api/stock-price)로 국내 주식/ETF 실시간 가격 반영.
+ *   - 숫자 뿐 아니라 알파뉴메릭 6자리 코드(예: 0117V0) 도 지원.
+ *   - 성공 티커만 curP를 갱신하고 _priceStale=false 로 마킹.
+ *   - 기존 liveRefresh()가 실패한 경우에도 이 함수가 폴백/보완 역할 수행.
+ *   - prefetch: 미리 시작해 둔 _fetchDomesticQuotes 약속(refreshMarketPrices). 반영은 주 시세(liveRefresh)가 끝난 뒤라
+ *     국내 값이 Yahoo 값을 덮는 순서는 예전과 같다.
+ */
+async function liveRefreshDomesticEtfs(prefetch) {
+  const items = pfolioData.filter(_isDomesticEquity);
+  const tickers = _domesticQuoteTickers();
   if (tickers.length === 0) return {ok:true,skipped:true,updated:0,attempted:0,stale:0};
-  // 네이버 과요청 방지: 10개씩 청크
-  const chunks = _chunkTickers(tickers, 10);
+  const result = (prefetch ? await prefetch : null) || await _fetchDomesticQuotes(tickers);
 
   const updatedTickers=new Set();
-  for (const chunk of chunks) {
-    try {
-      const resp = await authFetch(`/api/stock-price?tickers=${chunk.join(',')}`);
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      // 서버가 한 종목을 평탄한 응답으로 줘도 버리지 않는다(예전 배포·캐시 응답 호환).
-      const result = (data && data.result) || (data && data.ticker ? { [data.ticker]: data } : {});
-      pfolioData.forEach(i => {
-        if (!_isDomesticEquity(i)) return;
-        const t6 = String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase();
-        const q = result[t6];
-        if (q && q.success && q.price > 0) {
-          // 장 마감 후에도 안정값을 유지하기 위해 prevClose 가 있으면 그것을 사용,
-          // 없으면 price (현재가) 사용
-          i.curP = q.prevClose || q.price;
-          i._priceStale = false;
-          // 네이버 pair(price=현재가/당일종가, prevClose=전일종가)로 일간 변동 갱신
-          // — curP가 안정값(전일종가)이라 curP-prevP 방식으로는 0이 되므로 별도 저장
-          i.prevP = q.prevClose || null;
-          i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
-          updatedTickers.add(t6);
-        }
-      });
-    } catch (e) {
-      console.warn('[DomesticEtfLive] chunk error:', e && e.message);
+  pfolioData.forEach(i => {
+    if (!_isDomesticEquity(i)) return;
+    const t6 = String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase();
+    const q = result[t6];
+    if (q && q.success && q.price > 0) {
+      // 장 마감 후에도 안정값을 유지하기 위해 prevClose 가 있으면 그것을 사용,
+      // 없으면 price (현재가) 사용
+      i.curP = q.prevClose || q.price;
+      i._priceStale = false;
+      // 네이버 pair(price=현재가/당일종가, prevClose=전일종가)로 일간 변동 갱신
+      // — curP가 안정값(전일종가)이라 curP-prevP 방식으로는 0이 되므로 별도 저장
+      i.prevP = q.prevClose || null;
+      i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
+      updatedTickers.add(t6);
     }
-  }
+  });
 
   if (updatedTickers.size > 0) {
     try { changeOwner(currentOwner, null); } catch (_) {}
@@ -7099,8 +7111,11 @@ async function liveRefreshDomesticEtfs() {
 
 // 주 시세 API와 국내 보완 소스를 한 번의 최종 결과로 합친다.
 async function refreshMarketPrices(){
+  // 국내 시세는 주 시세와 동시에 받아 두고(기다리는 시간 단축), 반영은 주 시세 뒤에 한다(덮는 순서는 예전 그대로).
+  const domTickers=_domesticQuoteTickers();
+  const domPrefetch=domTickers.length?_fetchDomesticQuotes(domTickers):null;
   const primary=await liveRefresh();
-  const domestic=await liveRefreshDomesticEtfs();
+  const domestic=await liveRefreshDomesticEtfs(domPrefetch);
   const marketItems=(pfolioData||[]).filter(i=>i&&(i.grp==='주식'||i.grp==='가상화폐'));
   const stale=marketItems.filter(i=>i._priceStale).length;
   const hasForeign=marketItems.some(i=>!_isDomesticEquity(i));
@@ -7325,7 +7340,7 @@ async function fetchPyDividends() {
   // 국내 종목 배당 (pykrx 기반)
   if (krTickers.length) {
     try {
-      for (const chunk of _chunkTickers(krTickers)) {
+      for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
         const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
         if (d && d.success && d.result) {
           Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
@@ -7337,7 +7352,7 @@ async function fetchPyDividends() {
   // 해외 종목 배당 (yfinance 기반)
   if (foreignTickers.length) {
     try {
-      for (const chunk of _chunkTickers(foreignTickers)) {
+      for (const chunk of _chunkTickers(foreignTickers, PY_DIVIDEND_TICKER_LIMIT)) {
         const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
         if (d && d.success && d.result) {
           Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));

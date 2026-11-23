@@ -30,10 +30,9 @@ const all = ctx._fixedCostDcaGroup('전체');
 assert.deepEqual(all.rows.map((r) => r.name), ['엔비디아', 'QQQ', 'TIME'], '켜 둔 규칙만, 월 환산 큰 순');
 assert.equal(all.rows[0].monthly, 200000 * 4.33, '매주는 4.33주');
 assert.equal(all.rows[0].label, '매주 월요일');
-assert.equal(all.paused, 1, '일시정지 규칙은 빼고 개수만');
+assert.equal(all.paused, undefined, '중단한 규칙은 세지도 적지도 않는다(2026-11-20 8차)');
 assert.equal(all.total, 200000 * 4.33 + 500000 + 140000);
 assert.deepEqual(ctx._fixedCostDcaGroup('아내').rows.map((r) => r.name), ['TIME'], '소유주 필터');
-assert.equal(ctx._fixedCostDcaGroup('아내').paused, 0, 'dca 금액이 없는 종목은 일시정지로 세지 않는다');
 
 // 현금 안전판의 dca 와 같은 대상·금액(켜 둔 규칙의 cbDcaPerMonthKRW 합)
 const safety = grab(finance, 'finCashSafety');
@@ -44,7 +43,8 @@ assert.equal(all.total, safetyDca);
 const out = ctx._fixedCostDcaHtml(all, 1);
 assert.match(out, /적립식 매수 <small>고정비와 별도<\/small>/);
 assert.match(out, /onclick="switchView\('holdings'\)">보유 목록에서 수정 ›<\/button>/, '조회 전용 — 수정은 보유 목록');
-assert.match(out, /일시정지 1건은 빼고 셉니다/);
+assert.doesNotMatch(out, /일시정지|중단/, '중단한 규칙은 드러내지 않는다');
+assert.ok(out.indexOf('cf-fixed-dca-total') < out.indexOf('cf-fixed-dca-list') && out.indexOf('cf-fixed-dca-head') < out.indexOf('cf-fixed-dca-total'), '합계는 제목 바로 아래, 종목 목록보다 먼저(사용자 결정)');
 assert.match(out, /'저축\/투자' 자동이체가 1건/, '증권계좌 이체와 겹칠 수 있다는 안내');
 assert.doesNotMatch(ctx._fixedCostDcaHtml(all, 0), /cf-fixed-dca-warn/);
 

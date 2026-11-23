@@ -20,7 +20,6 @@
 .cb-tax-entry-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:14px}
 .cb-tax-entry-form>label{display:flex;flex-direction:row;align-items:center;gap:5px;font-size:var(--fs-cap);color:var(--lab);min-width:0;white-space:nowrap}.cb-tax-entry-form .cb-input{width:auto;max-width:none!important;min-width:0!important;flex:none!important}.cb-tax-entry-form #cb-tax-pl{width:120px}.cb-tax-entry-form>label.cb-tax-memo-field{flex:1 1 140px;max-width:340px}.cb-tax-entry-form>label.cb-tax-memo-field .cb-input{flex:1 1 auto!important;width:100%;min-width:110px!important}.cb-tax-entry-form>button{height:30px;padding:0 12px!important;white-space:nowrap}
 
-.dca-rule-actions{flex-shrink:0;align-items:center}.dca-rule-actions button{padding:4px 6px}
 /* Investment Lab: persistent controls, only the result region rerenders on input. */
 .sim-mobile-preview{display:none}.sim-weight-total.invalid{color:var(--warn)}
 
@@ -40,7 +39,7 @@
   .view-section.active:has(>.cb-scroll){flex:0 0 auto}.view-section>.cb-scroll{flex:none;overflow:visible!important}
 
   .fin-form-grid{grid-template-columns:1fr}
-  .cb-gift-field{flex:1 1 140px!important;max-width:none}.dca-rule-actions{display:none!important}
+  .cb-gift-field{flex:1 1 140px!important;max-width:none}
   .sim-layout{grid-template-columns:1fr;gap:14px}.sim-controls{padding:18px}.sim-weights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px}.sim-weight{grid-template-columns:minmax(0,1fr) 48px 10px;gap:4px}.sim-weight label{font-size:var(--fs-micro);gap:4px}.sim-weight i{width:5px;height:5px}.sim-weight-total{grid-column:1/-1}
   .sim-kpis{grid-template-columns:1fr}.sim-kpis>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.sim-kpis b{margin:0;font-size:var(--fs-title)}.sim-comparison,.sim-breakdown{padding:18px}.sim-row{grid-template-columns:minmax(90px,1fr) minmax(100px,1fr)}.sim-table-head{display:none}.sim-row>span:nth-child(3){grid-column:1;text-align:left;color:var(--mut)}.sim-row>span:last-child:before{content:'목표 ';color:var(--lab)}.sim-gap b{font-size:var(--fs-title)}
 }
@@ -332,6 +331,12 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .acct-kind-value{font:800 var(--fs-title)/1.2 var(--font-ui);letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .acct-kind-sub{font-size:var(--fs-cap);color:var(--lab)}
 .acct-kind-note{font-size:var(--fs-cap);color:var(--dim);margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)}
+/* 자녀1 증여 계좌 — 증여 이체 누계와 평가액 비교(2026-11-20 8차). 두 줄로 쌓아 좁은 카드에서도 금액이 잘리지 않게 한다. */
+.acct-gift-line{display:flex;flex-direction:column;gap:2px;font-size:var(--fs-cap);color:var(--mut)}
+.acct-gift-line b{color:var(--tx);font-weight:700}
+.acct-gift-line.is-empty{color:var(--lab)}
+.acct-gift-link{align-self:flex-start;padding:0;border:0;background:none;color:var(--acc);font:inherit;cursor:pointer}
+.acct-gift-link:hover{text-decoration:underline}
 .acct-table-panel{padding:16px 18px}
 .acct-kind-chip,.acct-stale-chip{font-style:normal;font-size:var(--fs-micro);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 .acct-stale-chip{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
@@ -342,6 +347,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cal-sum-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 16px}
 .cal-sum-card>b{font:800 var(--fs-title)/1.2 var(--font-ui);letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .cal-sum-card>small{font-size:var(--fs-cap);color:var(--lab)}
+.cal-sum-card>small.cal-net-note{color:var(--mut);line-height:1.4}
 .cal-kind{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
 .cal-kind>i,.cal-chip>i{width:8px;height:8px;border-radius:var(--r-sm);flex-shrink:0;background:var(--cal-c)}
 .cal-kind.div,.cal-chip.div{--cal-c:var(--acc2)}.cal-kind.dca,.cal-chip.dca{--cal-c:var(--acc)}
@@ -358,12 +364,15 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cal-chip{display:flex;align-items:center;gap:4px;min-width:0;font-size:var(--fs-micro);color:var(--tx)}
 .cal-chip>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-more{font-size:var(--fs-micro);color:var(--dim)}
-.cal-list{display:flex;flex-direction:column;margin-top:8px;max-height:520px;overflow-y:auto}
+/* 목록은 달력 바닥까지(2026-11-20 8차, 사용자 결정) — contain:size 라 목록 길이가 줄 높이를 늘리지 않는다:
+   패널 높이는 달력이 정하고, 목록은 남은 높이를 채운 뒤 넘치면 안에서 스크롤한다. 한 단으로 쌓이면(1100px 이하) 예전처럼 상한 520px. */
+.cal-list-panel{display:flex;flex-direction:column}
+.cal-list{display:flex;flex-direction:column;margin-top:8px;flex:1 1 auto;min-height:160px;contain:size;position:relative;overflow-y:auto}
 .cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cal-list-when{color:var(--mut);font-size:var(--fs-cap)}
 .cal-list-title{min-width:0;overflow-wrap:anywhere}
 .cal-list-title>small{margin-left:6px;color:var(--lab)}
-@media(max-width:1100px){.cal-layout{grid-template-columns:minmax(0,1fr)}.acct-kind-grid,.cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1100px){.cal-layout{grid-template-columns:minmax(0,1fr)}.acct-kind-grid,.cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-list{contain:none;max-height:520px}}
 @media(max-width:768px){
   .acct-kind-grid,.cal-sum-grid{gap:8px}
   .cal-cell{min-height:46px;padding:4px;align-items:center}
@@ -636,16 +645,16 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
    회백색 본문 + 남색 사이드바 사이에서 파랑 채움만 따로 튀었다. 강조색은 링크·현재 위치 표시에만 남긴다. */
 :is(.holdings-add-btn,.cf-entry-open,.fin-goal-add-btn,.fin-form-actions button.primary):hover{background:var(--hover-bg);border-color:var(--mut)}
 /* 적립식 규칙 표 — 인라인 flex(종목 칸이 남는 폭을 전부 가져감) 대신 격자. 남는 폭을 모든 칸이 나눠 가져
-   '종목'과 '회당 금액'이 멀어지지 않는다. 머리줄 '종목'은 국기 왼쪽 끝과 같은 선에서 시작한다. */
-.cb-dca-head,.cb-dca-row{display:grid;grid-template-columns:62px minmax(150px,2.4fr) minmax(84px,.8fr) minmax(84px,.8fr) minmax(84px,.7fr) minmax(124px,1fr) minmax(76px,.7fr) minmax(88px,.8fr) minmax(98px,.8fr) 92px;column-gap:6px;align-items:center;min-width:988px;box-sizing:border-box;padding:9px 8px;border-bottom:1px solid var(--bd)}
+   '종목'과 '회당 금액'이 멀어지지 않는다. 머리줄 '종목'은 국기 왼쪽 끝과 같은 선에서 시작한다.
+   2026-11-20 8차: 조회 전용이라 관리 칸(수정·켜기/끄기)을 뺀 9칸 — 빈 92px 를 '종목'(이름+티커가 가장 길다)과 나머지 칸이 나눈다. */
+.cb-dca-head,.cb-dca-row{display:grid;grid-template-columns:62px minmax(170px,2.4fr) minmax(84px,.8fr) minmax(84px,.8fr) minmax(84px,.8fr) minmax(124px,.9fr) minmax(76px,.7fr) minmax(88px,.8fr) minmax(98px,.8fr);column-gap:8px;align-items:center;min-width:950px;box-sizing:border-box;padding:9px 8px;border-bottom:1px solid var(--bd)}
 .cb-dca-head{font-size:var(--fs-cap);color:var(--dim);padding:7px 8px}
 .cb-dca-row{font-size:var(--fs-body)}
-.cb-dca-row.is-paused{opacity:.45}
 .cb-dca-head>span:nth-child(n+3),.cb-dca-row>:nth-child(n+3){text-align:right;min-width:0}
 .cb-dca-row>.cb-dca-asset{display:flex;align-items:center;gap:8px;min-width:0}
 .cb-dca-row>.cb-dca-timing-cell{padding-left:0;align-items:flex-end}
 @media(max-width:768px){
-  .cb-dca-head,.cb-dca-row{grid-template-columns:62px minmax(150px,1.5fr) 92px 88px 100px 46px}
+  .cb-dca-head,.cb-dca-row{grid-template-columns:62px minmax(150px,1.5fr) 92px 88px 100px}
 }
 /* 실현손익 기록 표 — 메모 칸(flex:1)이 남는 폭을 다 가져가 가운데가 휑했다. 모든 칸이 남는 폭을 나눠 갖는다. */
 .cb-tax-hist-head,.cb-tax-hist-row{display:grid;grid-template-columns:44px minmax(64px,.6fr) 46px minmax(60px,.5fr) minmax(88px,.6fr) minmax(160px,2.6fr) minmax(112px,.9fr) minmax(118px,.9fr) 54px;column-gap:12px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
@@ -1175,18 +1184,19 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-dca-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
 .cf-fixed-dca-rule{font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
 .cf-fixed-dca-row b,.cf-fixed-dca-total b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
-.cf-fixed-dca-total{display:flex;justify-content:space-between;gap:8px;padding-top:2px;font-size:var(--fs-body);color:var(--tx)}
+/* 합계는 제목 바로 아래(2026-11-20 8차) — 목록보다 먼저 보이도록 크게, 아래 줄로 목록과 나눈다 */
+.cf-fixed-dca-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);color:var(--tx)}
+.cf-fixed-dca-total b{font-size:var(--fs-card);font-weight:800}
 .cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
 #cf-fixed-dca-sum[hidden]{display:none}
 @media(max-width:768px){.cf-fixed-side{overflow:visible}}
 
-/* ===== 적립식 설정 창·적립식 칸 상태(2026-11-20) — 보유 목록 적립식 칸과 적립식 매수 화면의 '수정'이 같은 창(#dca-modal)을 연다 =====
-   칸은 dcaState 한 벌로 그린다: 진행 중(주기/금액) · 중단(흐린 '중단 · 주기'/금액) · 금액 미입력 · 없음('—'). */
+/* ===== 적립식 설정 창·적립식 칸 상태(2026-11-20) — 보유 목록 적립식 칸이 설정 창(#dca-modal)을 연다(적립식 매수 화면은 조회 전용, 8차) =====
+   칸은 dcaState 한 벌로 그린다: 진행 중(주기/금액) · 금액 미입력 · 없음·중단('—' — 중단한 규칙은 드러내지 않는다, 8차). */
 .dca-cell-btn{display:flex;flex-direction:column;align-items:flex-end;gap:2px;width:100%;min-width:0;min-height:32px;padding:2px 4px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--tx);font:inherit;text-align:right;cursor:pointer}
 /* 칸은 예전처럼 오른쪽 정렬·말줄임(두 줄) — 버튼 안에서도 같은 규칙 */
 #view-holdings .pt-table td.dca-cell .dca-cell-btn>span{display:block;max-width:100%;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #view-holdings .pt-table td.dca-cell .dca-cell-btn>.dca-amount{color:var(--mut)}
-#view-holdings .pt-table td.dca-cell .is-paused{color:var(--lab);font-weight:500}
 #view-holdings .pt-table td.dca-cell .is-missing{color:var(--warn)}
 .dca-cell-btn:hover{background:var(--inner)}
 .dca-amount.is-missing{color:var(--warn);font-size:var(--fs-cap);font-weight:600}
@@ -1205,10 +1215,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .dca-edit-amt-row{display:flex;gap:6px}
 .dca-edit-amt-row>input{flex:1 1 auto;min-width:0}
 .dca-edit-amt-row>select{flex:0 0 96px;width:96px}
-.dca-rule-actions{align-items:center;gap:8px}
-.dca-rule-edit{min-height:28px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);font:700 var(--fs-cap) var(--font-ui);cursor:pointer;white-space:nowrap}
-.dca-rule-edit:hover{border-color:var(--acc);color:var(--acc)}
-@media(max-width:768px){.dca-rule-edit{display:none}}
 
 /* ===== 페이지 통폐합(2026-11-19) — 보기 전환 줄(#view-mode-bar, navigation.js navModeBar) =====
    한 세부 메뉴 안의 보기(종목별·계좌별·구성원별 / 비중 지도·ETF 속 종목 / 월간·연간)는 머리줄 바로 아래 오른쪽 밑줄형 줄로 오간다.
@@ -1224,7 +1230,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 일정(cal2)도 현금 흐름 탭 줄을 쓴다 — 현금 흐름과 같은 자리(소유주 버튼 앞)에 오게 한다 */
 .content-area:has(#view-cal2.active) #cf-header-tabs{order:-1}
 
-/* ===== 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 5개가 하나씩 켜진다 =====
+/* ===== 로그인 뒤 첫 로딩(2026-11-20, 시안 D) — 화면 전체 스플래시: 로고 막대가 차례로 자라고 단계 점 4개가 하나씩 켜진다 =====
    바탕은 로그인 화면과 같아 로그인 화면이 흐려지면 그대로 이어진다. 막대 높이는 bootGrowth 가 --g1~3(0~1)으로 준다.
    토큰 색만 쓰고(마지막 막대 색은 로그인 표식과 같은 규칙), 움직임 줄이기에서는 막대가 바로 서고 고리도 멈춘다. */
 .boot-splash{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:var(--bg2,var(--bg1));transition:opacity var(--dur) var(--ease-out)}
