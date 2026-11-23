@@ -4914,6 +4914,20 @@ function _applyLiveRates(rates){
   window._GOLD_G_KRW=rates.GOLD_G_KRW;
   return true;
 }
+// 시세 응답이 종목 통화와 다른 통화로 왔을 때(가상화폐 업비트 원화가 ↔ 달러로 저장된 종목) 종목 통화로 바꾼다.
+// 화면은 curP × RATES[cur] 로 원화를 다시 구하므로, 같은 환율로 나눠 두면 표시 원화가 업비트 원화가와 같다.
+// 배치(net_worth_snapshot.py market_price)도 같은 방식이다. 환율을 모르면 반영하지 않는다(null).
+function _quoteToItemCur(q,item){
+  if(!q) return null;
+  const price=Number(q.price||q.prevClose);
+  if(!(price>0)) return null;
+  const from=String(q.currency||item.cur||'KRW').toUpperCase(), to=String(item.cur||'KRW').toUpperCase();
+  if(from===to) return {price, prevClose:Number(q.prevClose)||null};
+  const rFrom=from==='KRW'?1:Number(RATES[from]), rTo=to==='KRW'?1:Number(RATES[to]);
+  if(!(rFrom>0)||!(rTo>0)) return null;
+  const k=rFrom/rTo;
+  return {price:price*k, prevClose:Number(q.prevClose)>0?Number(q.prevClose)*k:null};
+}
 async function liveRefresh() {
   const tickers=new Set();
   pfolioData.forEach(i=>{if((i.grp==='주식'||i.grp==='가상화폐')&&quoteKey(i.tkr))tickers.add(quoteKey(i.tkr));});
@@ -4965,12 +4979,14 @@ async function liveRefresh() {
         const t6=normTkr(i.tkr);
         const quotes=data.quotes||{};
         const q=quotes[key]||quotes[t6]||quotes[t6+'.KS']||quotes[t6+'.KQ'];
-        const price=Number(q?.price||q?.prevClose);
-        if(q&&price>0){
+        // 가상화폐는 업비트 원화가(currency:'KRW')로 온다 — 종목 통화로 바꿔 넣는다(_quoteToItemCur).
+        const conv=_quoteToItemCur(q,i);
+        const price=conv?Number(conv.price):NaN;
+        if(conv&&price>0){
           i.curP = price;i._priceStale=false;
           // 일간 변동(DAILY) 산출용 — 전일 종가 및 종가 간 차이를 시세 수신 시점에 저장
-          i.prevP = q.prevClose || null;
-          i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
+          i.prevP = conv.prevClose || null;
+          i.dayP = (conv.price && conv.prevClose) ? conv.price - conv.prevClose : null;
         }else{i._priceStale=true;}
       }
     });
@@ -7089,14 +7105,13 @@ async function liveRefreshDomesticEtfs(prefetch) {
     const t6 = String(i.tkr || '').replace(/\.(KS|KQ)$/i, '').toUpperCase();
     const q = result[t6];
     if (q && q.success && q.price > 0) {
-      // 장 마감 후에도 안정값을 유지하기 위해 prevClose 가 있으면 그것을 사용,
-      // 없으면 price (현재가) 사용
-      i.curP = q.prevClose || q.price;
+      // 서버가 이미 '직전 종가'(장이 끝난 마지막 거래일 종가)를 price 로 준다 — 장중에는 전 거래일,
+      // 15:40 뒤에는 오늘 종가. prevClose 는 그 전 거래일 종가다. 배치(net_worth_snapshot.py)와 같은 규칙.
+      // 예전엔 prevClose 를 curP 로 써서 장 마감 뒤에도 하루 묵은 종가가 남았다.
+      i.curP = q.price;
       i._priceStale = false;
-      // 네이버 pair(price=현재가/당일종가, prevClose=전일종가)로 일간 변동 갱신
-      // — curP가 안정값(전일종가)이라 curP-prevP 방식으로는 0이 되므로 별도 저장
       i.prevP = q.prevClose || null;
-      i.dayP = (q.price && q.prevClose) ? q.price - q.prevClose : null;
+      i.dayP = q.prevClose ? q.price - q.prevClose : null;
       updatedTickers.add(t6);
     }
   });
@@ -7261,8 +7276,9 @@ async function fetchPyPrices(tickers) {
     const tkr6 = normTkr(i.tkr);
     const q = qmap[quoteKey(i.tkr)] || qmap[tkr6] || qmap[i.tkr];
     if (q && q.price !== '미조회' && typeof q.price === 'number') {
-      if (!i.curP || i._priceStale) {
-        i.curP = q.price;
+      const conv = _quoteToItemCur({price:q.price, currency:q.cur}, i);
+      if (conv && (!i.curP || i._priceStale)) {
+        i.curP = conv.price;
         i._priceStale = false;
         updated = true;
       }

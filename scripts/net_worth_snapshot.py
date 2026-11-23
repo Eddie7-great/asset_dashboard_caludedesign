@@ -194,11 +194,20 @@ def fetch_gold_per_gram(api):
     return float(ppg) if isinstance(ppg, (int, float)) and ppg > 0 else None
 
 
-def market_price(api, item):
+def crypto_price_in_item_cur(krw_price, cur, rates):
+    """원화 시세를 종목 통화로. 앱 script.js _quoteToItemCur 와 같은 계산 — 표시 원화가 업비트 원화가와 같아진다."""
+    if cur == 'KRW':
+        return krw_price
+    rate = (rates or {}).get(cur)
+    return krw_price / rate if rate and rate > 0 else None
+
+
+def market_price(api, item, rates=None):
     """자산 한 건의 현재가(종목 통화 기준). 실패하면 None.
 
     시장 판정은 저장된 grp/cur를 따른다 — 티커가 숫자인지로 나누면
     KRX 영숫자 단축코드(0117V0 등)를 미국 주식으로 오인한다.
+    출처는 앱과 같다: 국내 = 네이버 직전 종가, 가상화폐 = 업비트 원화(빗썸 폴백).
     """
     tkr = strip_ticker(item.get('tkr'))
     if not tkr:
@@ -207,10 +216,18 @@ def market_price(api, item):
     cur = (item.get('cur') or 'KRW').upper()
 
     if grp == '가상화폐':
-        return api.safe_last_close(tkr + '-USD')
+        ck = api.crypto_krw(tkr) if hasattr(api, 'crypto_krw') else None
+        if ck:
+            price = crypto_price_in_item_cur(ck[0], cur, rates)
+            if price:
+                return price
+        return api.safe_last_close(tkr + '-USD') if cur == 'USD' else None
 
     if cur == 'KRW':
-        # 국내 주식·ETF — pykrx 우선, 실패 시 .KS → .KQ 폴백 (api/dashboard.py와 같은 순서)
+        # 국내 주식·ETF — 네이버 직전 종가 → pykrx → .KS → .KQ (api/dashboard.py get_prices 와 같은 순서)
+        nv = api.naver_last_close(tkr) if hasattr(api, 'naver_last_close') else None
+        if nv and nv.get('price'):
+            return float(nv['price'])
         if getattr(api, 'PYKRX_OK', False):
             try:
                 day = api.prev_biz_day_str()
@@ -248,7 +265,7 @@ def refresh_prices(api, assets, rates, gold_per_gram):
             continue
         price = None
         try:
-            price = market_price(api, item)
+            price = market_price(api, item, rates)
         except Exception as e:
             log('시세 조회 실패 %s: %s' % (item.get('tkr'), type(e).__name__))
         if price and price > 0:

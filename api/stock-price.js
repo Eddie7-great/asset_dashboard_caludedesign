@@ -1,10 +1,14 @@
 // api/stock-price.js
 // ------------------------------------------------------------------
-// 네이버 금융 스크래핑 기반 국내 종목(ETF 포함) 실시간 현재가 API.
+// 네이버 증권 기반 국내 종목(ETF 포함) '직전 종가' API.
 //  - 쿼리:
 //      /api/stock-price?ticker=069500      → 단일 조회
 //      /api/stock-price?tickers=069500,360750,133690  → 복수 조회
 //  - 티커는 반드시 6자리 문자열로 처리(앞의 '0' 유지).
+//  - 1차: m.stock.naver.com 일별 시세 JSON — 장이 끝난 마지막 거래일의 종가를 price 로 준다.
+//    장중(평일 KST 15:40 전)에는 오늘 줄이 '지금 가격'이라 건너뛰고 전 거래일 종가를 쓴다.
+//    배치(scripts/net_worth_snapshot.py → api/dashboard.py naver_last_close)도 같은 규칙이다.
+//  - 2차: finance.naver.com 종목 페이지 스크래핑(같은 규칙으로 현재가/전일종가 중 고른다).
 //  - 외부 API 키 불필요 (axios + cheerio).
 // ------------------------------------------------------------------
 
@@ -84,6 +88,64 @@ function parseNumber(text) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// ── '직전 종가' 규칙 (api/dashboard.py 의 naver_last_close 와 같은 값이어야 한다) ──
+// 장 마감(15:30) 뒤 종가가 확정돼 내려오기까지 여유를 둔다.
+const KRX_CLOSE_SETTLE_MIN = 15 * 60 + 40;
+
+function kstParts(now) {
+  const d = new Date((now instanceof Date ? now.getTime() : Number(now) || Date.now()) + 9 * 3600 * 1000);
+  const date = d.toISOString().slice(0, 10);
+  return { date, minutes: d.getUTCHours() * 60 + d.getUTCMinutes(), weekday: d.getUTCDay() };
+}
+
+/** 오늘(KST) 줄이 아직 장중 가격인가 — 평일이고 15:40 전이면 그렇다. */
+function todayStillTrading(now) {
+  const k = kstParts(now);
+  return k.weekday >= 1 && k.weekday <= 5 && k.minutes < KRX_CLOSE_SETTLE_MIN;
+}
+
+/**
+ * 일별 시세 줄(최신순)에서 '장이 끝난 마지막 거래일'의 종가를 고른다.
+ * 반환: { price, prevClose, change, asOf } 또는 null.
+ */
+function pickLastClose(rows, now) {
+  const list = (Array.isArray(rows) ? rows : [])
+    .map(r => ({ date: String(r && r.localTradedAt || '').slice(0, 10), close: parseNumber(r && r.closePrice), diff: parseNumber(r && r.compareToPreviousClosePrice) }))
+    .filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.close > 0)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const k = kstParts(now);
+  const done = list.filter(r => r.date < k.date || (r.date === k.date && !todayStillTrading(now)));
+  if (!done.length) return null;
+  const last = done[0];
+  const prev = done[1];
+  const prevClose = prev ? prev.close : (last.close - last.diff);
+  return { price: last.close, prevClose: prevClose > 0 ? prevClose : last.close, change: last.close - (prevClose > 0 ? prevClose : last.close), asOf: last.date };
+}
+
+async function fetchNaverDaily(ticker) {
+  const url = `https://m.stock.naver.com/api/stock/${ticker}/price?pageSize=5&page=1`;
+  const { data } = await axios.get(url, {
+    headers: { ...NAVER_HEADERS, Accept: 'application/json', Referer: 'https://m.stock.naver.com/' },
+    timeout: 8000,
+  });
+  const picked = pickLastClose(typeof data === 'string' ? JSON.parse(data) : data);
+  if (!picked) return null;
+  return {
+    success: true,
+    ticker,
+    symbol: ticker,
+    name: '',
+    price: picked.price,          // 직전 종가 (KRW)
+    prevClose: picked.prevClose,  // 그 전 거래일 종가
+    change: picked.change,
+    changeRate: picked.prevClose ? Math.round((picked.change / picked.prevClose) * 10000) / 100 : 0,
+    asOf: picked.asOf,
+    currency: 'KRW',
+    source: 'naver-daily',
+    fetchedAt: Date.now(),
+  };
+}
+
 /**
  * 네이버 금융 종목 상세 페이지에서 현재가/전일종가/등락 정보를 스크래핑.
  * 국내 상장 주식/ETF는 동일한 item/main.naver 페이지 레이아웃을 사용한다.
@@ -140,15 +202,18 @@ async function fetchNaverPrice(ticker) {
     };
   }
 
+  // 이 페이지는 날짜를 주지 않는다 — 장중이면 '현재가'가 아직 확정 전이라 전일 종가를 직전 종가로 쓴다.
+  // (장이 안 열린 평일 오전에는 하루 앞선 종가가 될 수 있다 — 1차 JSON 이 실패했을 때만 쓰는 폴백이다.)
+  const intraday = todayStillTrading(Date.now()) && prevClose > 0;
   return {
     success: true,
     ticker,            // 6자리 문자열 (앞의 '0' 유지)
     symbol: ticker,    // 호환용 필드
     name,
-    price,             // 현재가 (KRW)
-    prevClose: prevClose || price,
-    change,
-    changeRate,
+    price: intraday ? prevClose : price,   // 직전 종가 (KRW)
+    prevClose: intraday ? null : (prevClose || null),
+    change: intraday ? null : change,
+    changeRate: intraday ? null : changeRate,
     currency: 'KRW',
     source: 'naver-finance',
     fetchedAt: Date.now(),
@@ -165,7 +230,13 @@ async function fetchWithCache(ticker) {
   if (hit) CACHE.delete(ticker);
 
   try {
-    const data = await fetchNaverPrice(ticker);
+    let data = null;
+    try {
+      data = await fetchNaverDaily(ticker);
+    } catch (e) {
+      console.warn('[stock-price] daily json failed', ticker, e && e.message);
+    }
+    if (!data) data = await fetchNaverPrice(ticker);
     cacheSet(ticker, { ts: now, data });
     return data;
   } catch (e) {
@@ -253,6 +324,8 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+module.exports.pickLastClose = pickLastClose;
 
 // Vercel Node.js Serverless Function 설정
 module.exports.config = {

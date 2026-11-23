@@ -28,26 +28,59 @@ process.env.SESSION_SECRET = 'test-session-secret-that-is-long-enough'
 try {
   const cookie = authHelper.sessionCookie(authHelper.createSessionValue().value).split(';')[0]
 
-  // ── 1) stock-price 응답 모양 ─────────────────────────────
-  const spModule = { exports: {} }
+  // ── 1) stock-price 응답 모양 + '직전 종가' 규칙 ─────────────
+  // 시각을 고정한다: 2026-11-23(월) KST 10:00 = 장중, 16:00 = 마감 뒤.
+  const fixedDate = iso => { const t = Date.parse(iso); return class extends Date { constructor(...a) { super(...(a.length ? a : [t])) } static now() { return t } } }
   const naverHtml = '<div class="wrap_company"><h2><a>테스트</a></h2></div><p class="no_today"><span class="blind">71,200</span></p><table class="no_info"><tr><td><span class="blind">70,000</span></td></tr></table>'
-  vm.runInContext(read('api/stock-price.js'), vm.createContext({
-    module: spModule, exports: spModule.exports, console: quiet, Date, Map, Set, Promise, Array, Number, String,
-    require(id) {
-      if (id === 'axios') return { get: async () => ({ data: naverHtml }) }
-      if (id === './_auth.js') return authHelper
-      return require(id)
-    },
-  }))
-  const stockPrice = spModule.exports
+  const dailyRows = [
+    { localTradedAt: '2026-11-23', closePrice: '72,000', compareToPreviousClosePrice: '800' },
+    { localTradedAt: '2026-11-20', closePrice: '71,200', compareToPreviousClosePrice: '1,200' },
+    { localTradedAt: '2026-11-19', closePrice: '70,000', compareToPreviousClosePrice: '-500' },
+  ]
+  const loadStockPrice = (nowIso, { jsonOk = true } = {}) => {
+    const spModule = { exports: {} }
+    vm.runInContext(read('api/stock-price.js'), vm.createContext({
+      module: spModule, exports: spModule.exports, console: quiet, Date: fixedDate(nowIso), Map, Set, Promise, Array, Number, String, JSON, Math,
+      require(id) {
+        if (id === 'axios') return { get: async url => {
+          if (String(url).includes('m.stock.naver.com')) { if (!jsonOk) throw new Error('down'); return { data: dailyRows } }
+          return { data: naverHtml }
+        } }
+        if (id === './_auth.js') return authHelper
+        return require(id)
+      },
+    }))
+    return spModule.exports
+  }
+  let stockPrice = loadStockPrice('2026-11-23T01:00:00Z')   // KST 10:00 장중
   let res = recorder()
   await stockPrice({ method: 'GET', headers: { cookie }, query: { tickers: '0117V0' } }, res)
   assert.equal(res.statusCode, 200)
-  assert.equal(res.body.result['0117V0'].price, 71200, 'tickers= 는 한 종목이어도 result 로 감싼다')
+  assert.equal(res.body.result['0117V0'].price, 71200, '장중에는 오늘 줄을 건너뛰고 전 거래일 종가가 직전 종가다')
+  assert.equal(res.body.result['0117V0'].prevClose, 70000)
+  assert.equal(res.body.result['0117V0'].asOf, '2026-11-20')
   res = recorder()
   await stockPrice({ method: 'GET', headers: { cookie }, query: { ticker: '005930' } }, res)
   assert.equal(res.body.price, 71200, 'ticker= 단일 조회는 평탄한 응답 유지')
   assert.equal(res.body.result, undefined)
+  stockPrice = loadStockPrice('2026-11-23T07:00:00Z')        // KST 16:00 마감 뒤
+  res = recorder()
+  await stockPrice({ method: 'GET', headers: { cookie }, query: { tickers: '005930' } }, res)
+  assert.equal(res.body.result['005930'].price, 72000, '15:40 뒤에는 오늘 종가')
+  assert.equal(res.body.result['005930'].prevClose, 71200)
+  stockPrice = loadStockPrice('2026-11-22T01:00:00Z')        // 일요일: 금요일 종가
+  assert.deepEqual({ ...stockPrice.pickLastClose(dailyRows.slice(1)) }, { price: 71200, prevClose: 70000, change: 1200, asOf: '2026-11-20' })
+  // JSON 이 실패하면 종목 페이지로: 장중에는 전일 종가, 마감 뒤에는 현재가
+  stockPrice = loadStockPrice('2026-11-23T01:00:00Z', { jsonOk: false })
+  res = recorder()
+  await stockPrice({ method: 'GET', headers: { cookie }, query: { tickers: '005930' } }, res)
+  assert.equal(res.body.result['005930'].price, 70000)
+  assert.equal(res.body.result['005930'].prevClose, null, '장중 폴백은 그 전 종가를 모른다')
+  stockPrice = loadStockPrice('2026-11-23T07:00:00Z', { jsonOk: false })
+  res = recorder()
+  await stockPrice({ method: 'GET', headers: { cookie }, query: { tickers: '005930' } }, res)
+  assert.equal(res.body.result['005930'].price, 71200)
+  assert.equal(res.body.result['005930'].prevClose, 70000)
 
   const script = read('script.js')
   assert.match(script, /Object\.assign\(merged,\(data&&data\.result\)\|\|\(data&&data\.ticker\?\{\[data\.ticker\]:data\}:\{\}\)\);/, '화면은 평탄한 응답도 버리지 않는다')
@@ -145,6 +178,47 @@ try {
   assert.equal(res.body.rates.AUD, 875, '호주달러 환율도 함께 준다')
   assert.equal(res.body.rates.USDJPY, 140)
 
+  // (c) 2026-11-23 단일 기준: 환율 = 네이버(하나은행 고시), 금 = 네이버 국내 금(KRX), 가상화폐 = 업비트 원화
+  const naverIdx = (closePrice, extra = {}) => ({ ok: true, status: 200, json: async () => ({ isSuccess: true, result: { closePrice, marketStatus: 'CLOSE', ...extra } }) })
+  const marketFetch = ({ upbit = true, bithumb = true, goldOpen = false } = {}) => async url => {
+    const u = String(url)
+    if (u.includes('FX_USDKRW')) return naverIdx('1,345.20')
+    if (u.includes('FX_JPYKRW')) return naverIdx('846.57')
+    if (u.includes('FX_AUDKRW')) return naverIdx('894.29')
+    if (u.includes('M04020000')) return naverIdx('156,560', goldOpen ? { marketStatus: 'OPEN', marketIndexTotalInfos: [{ code: 'lastClosePrice', value: '153,090' }] } : {})
+    if (u.includes('api.upbit.com')) { if (!upbit) throw new Error('ENOTFOUND'); return { ok: true, status: 200, json: async () => [{ market: 'KRW-BTC', trade_price: 83500000, prev_closing_price: 83000000 }] } }
+    if (u.includes('api.bithumb.com')) { if (!bithumb) throw new Error('down'); return { ok: true, status: 200, json: async () => ({ status: '0000', data: { closing_price: '83430000', prev_closing_price: '83151000' } }) } }
+    if (/er-api|exchangerate|GC%3DF|gold-api/.test(u)) throw new Error('다른 출처를 부르면 안 된다 ' + u)
+    return yahooQuote
+  }
+  res = recorder()
+  await compilePrice(marketFetch())({ method: 'GET', headers: { cookie }, query: { tickers: 'NVDA,BTC' } }, res)
+  assert.equal(res.body.rates.USD, 1345.2, '달러 = 하나은행 고시')
+  assert.equal(Math.round(res.body.rates.JPY * 10000), 84657, '1엔 = 100엔 고시 ÷ 100')
+  assert.equal(res.body.rates.AUD, 894.29)
+  assert.equal(Math.round(res.body.rates.USDJPY * 100), Math.round(1345.2 / 8.4657 * 100))
+  assert.equal(res.body.rates.GOLD_G_KRW, 156560, '금 = KRX 금시장 원/g (마감 뒤 오늘 종가)')
+  assert.deepEqual({ ...res.body.quotes.BTC }, { price: 83500000, prevClose: 83000000, currency: 'KRW', source: 'upbit' })
+  assert.equal(res.body.quotes.NVDA.currency, undefined, '해외 주식은 종목 통화 그대로')
+  res = recorder()
+  await compilePrice(marketFetch({ upbit: false, goldOpen: true }))({ method: 'GET', headers: { cookie }, query: { tickers: 'BTC' } }, res)
+  assert.equal(res.body.quotes.BTC.source, 'bithumb', '업비트에 닿지 않으면 빗썸 원화')
+  assert.equal(res.body.quotes.BTC.price, 83430000)
+  assert.equal(res.body.rates.GOLD_G_KRW, 153090, '금 장중에는 전일 종가')
+  res = recorder()
+  await compilePrice(marketFetch({ upbit: false, bithumb: false }))({ method: 'GET', headers: { cookie }, query: { tickers: 'BTC' } }, res)
+  assert.deepEqual({ ...res.body.quotes.BTC }, { price: 100, prevClose: 99, currency: 'USD', source: 'yahoo' }, '둘 다 실패하면 Yahoo 달러(통화 표시)')
+  // Yahoo 장중 봉은 버린다(직전 종가)
+  {
+    const mod = { exports: {} }
+    vm.runInContext(ts.transpileModule(priceSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
+      vm.createContext({ module: mod, exports: mod.exports, process, console: quiet, Buffer, AbortController, URL, setTimeout, clearTimeout, fetch: async () => { throw new Error('no') }, require(id) { return id === './_auth.js' ? authHelper : require(id) } }))
+    const body = { chart: { result: [{ meta: { currentTradingPeriod: { regular: { start: 1000, end: 2000 } } }, timestamp: [100, 500, 1100], indicators: { quote: [{ close: [10, 11, 12] }] } }] } }
+    assert.deepEqual({ ...mod.exports.yahooCompletedCloses(body, 1500) }, { price: 11, prevClose: 10 }, '장중이면 오늘 봉을 버린다')
+    assert.deepEqual({ ...mod.exports.yahooCompletedCloses(body, 2100) }, { price: 12, prevClose: 11 }, '마감 뒤에는 오늘 종가')
+    assert.equal(mod.exports.naverGoldClose(null), null)
+  }
+
   // 화면: 받은 값만 반영하고 금 시세 수신 여부를 돌려준다
   const applyFn = script.match(/function _applyLiveRates\(rates\)\{[\s\S]*?\n\}/)[0]
   const els = {}
@@ -161,6 +235,19 @@ try {
   assert.equal(els['side-gold-rate'].textContent, '₩150,123')
   assert.equal(vm.runInContext('_applyLiveRates(null)', ctx), false)
   assert.match(script, /if\(goldFresh\)\{[\s\S]{0,300}i\._priceStale = false;\s*\}else\{[\s\S]{0,120}i\._priceStale = true;/, '금 시세를 못 받으면 미조회로 드러내고, 받으면 끈다')
+
+  // 화면: 원화로 온 가상화폐 시세를 종목 통화로 바꾼다 — 표시 원화(curP × RATES[cur])가 업비트 원화가와 같다
+  {
+    const qctx = vm.createContext({ RATES: { USD: 1345.2, JPY: 8.4657, AUD: 894.29, KRW: 1 } })
+    vm.runInContext(script.match(/function _quoteToItemCur\(q,item\)\{[\s\S]*?\n\}/)[0], qctx)
+    const usdItem = vm.runInContext('_quoteToItemCur({price:83500000,prevClose:83000000,currency:"KRW"},{cur:"USD"})', qctx)
+    assert.equal(Math.round(usdItem.price * 1345.2), 83500000)
+    assert.equal(Math.round(usdItem.prevClose * 1345.2), 83000000)
+    assert.equal(vm.runInContext('_quoteToItemCur({price:83500000,currency:"KRW"},{cur:"KRW"}).price', qctx), 83500000)
+    assert.equal(vm.runInContext('_quoteToItemCur({price:120,prevClose:118},{cur:"USD"}).price', qctx), 120, '통화 표시가 없으면 종목 통화 그대로')
+    assert.equal(vm.runInContext('_quoteToItemCur({price:0},{cur:"USD"})', qctx), null)
+    assert.match(script, /const conv = _quoteToItemCur\(\{price:q\.price, currency:q\.cur\}, i\);/, 'Python 시세 보완도 같은 변환을 거친다')
+  }
 
   // ── 3) 영숫자 KRX 단축코드 ───────────────────────────────
   const KR = /^[0-9][0-9A-Z]{5}$/
@@ -198,7 +285,7 @@ try {
   let naverCalls = 0
   res = await divCall(async url => {
     const u = String(url)
-    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('m.stock.naver.com/api/stock/')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
     if (u.includes('/api/dashboard')) return { ok: false, status: 500, json: async () => ({}) }
     if (u.includes('finance.yahoo.com')) return yahooDivBody({})
     if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
@@ -213,7 +300,7 @@ try {
   const now = Math.floor(Date.now() / 1000)
   res = await divCall(async url => {
     const u = String(url)
-    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('m.stock.naver.com/api/stock/')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
     if (u.includes('/api/dashboard')) return { ok: false, status: 500, json: async () => ({}) }
     if (u.includes('finance.yahoo.com')) return yahooDivBody({ a: { date: now - 86400 * 30, amount: 500 }, b: { date: now - 86400 * 120, amount: 500 } })
     if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
@@ -225,7 +312,7 @@ try {
   naverCalls = 0
   res = await divCall(async url => {
     const u = String(url)
-    if (u.includes('m.stock.naver.com')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
+    if (u.includes('m.stock.naver.com/api/stock/')) { naverCalls++; return { ok: true, status: 200, json: async () => nvStock } }
     if (u.includes('finance.yahoo.com')) return yahooDivBody({})
     if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
     throw new Error('unexpected ' + u)

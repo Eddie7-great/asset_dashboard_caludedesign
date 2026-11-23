@@ -52,8 +52,8 @@ function trustedInternalOrigin(): string | null {
 }
 
 // 삭제된 API 키: FINNHUB_KEY, KIS_APP_KEY, KIS_APP_SECRET
-// 이제 모든 시세는 Yahoo Finance (무료, 키 불필요)로 조회
-// 실시간 시세 X → 마지막 거래일 종가(EOD) 기준
+// 시세 출처(2026-11-23 단일 기준): 해외 주식 = Yahoo, 환율·금 = 네이버 증권, 가상화폐 = 업비트(빗썸) 원화.
+// 국내 주식은 Yahoo 값을 /api/stock-price(네이버 직전 종가)가 화면에서 덮는다. 모두 직전 종가(EOD) 기준.
 
 // ── 타임아웃 가드 달린 fetch ──────────────────────────────────
 // 외부 API가 응답 없이 멈추면 Vercel maxDuration(30s) 전체를 잡아먹어 504가 난다.
@@ -69,6 +69,25 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1000
 }
 
 // ── Yahoo Finance 마지막 거래일 종가 조회 ─────────────────────
+// 장이 열려 있는 동안 마지막 일봉은 '지금 가격'이다 — 직전 종가 기준을 지키려고 그 봉을 버린다
+// (meta.currentTradingPeriod.regular 의 start ≤ 마지막 봉, 지금 < end 일 때). 국내 종목은 네이버
+// (/api/stock-price)가 같은 규칙으로 덮어쓰고, 이 값은 네이버가 실패했을 때의 폴백이다.
+export function yahooCompletedCloses(d: any, nowSec: number): { price: number; prevClose: number } | null {
+  const r = d?.chart?.result?.[0];
+  const ts: any[] = r?.timestamp || [];
+  const raw: any[] = r?.indicators?.quote?.[0]?.close || [];
+  let rows = raw.map((c, k) => ({ c, t: Number(ts[k]) || 0 })).filter(x => x.c != null && Number.isFinite(x.c));
+  const reg = r?.meta?.currentTradingPeriod?.regular;
+  const start = Number(reg?.start), end = Number(reg?.end);
+  if (rows.length > 1 && Number.isFinite(start) && Number.isFinite(end) && nowSec < end && rows[rows.length - 1].t >= start) {
+    rows = rows.slice(0, -1);
+  }
+  if (rows.length < 1) return null;
+  const price = rows[rows.length - 1].c;
+  const prevClose = rows.length >= 2 ? rows[rows.length - 2].c : price;
+  return { price: parseFloat(price.toFixed(4)), prevClose: parseFloat(prevClose.toFixed(4)) };
+}
+
 async function yahooScrapePrevClose(symbol: string): Promise<{ price: number; prevClose: number } | null> {
   try {
     const encodedSym = encodeURIComponent(symbol);
@@ -76,13 +95,56 @@ async function yahooScrapePrevClose(symbol: string): Promise<{ price: number; pr
     const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (!res.ok) return null;
     const d = await res.json();
-    const closes = (d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter((v: any) => v != null);
-    if (closes.length < 1) return null;
-    // 마지막 거래일 종가
-    const prevClose = closes.length >= 2 ? closes[closes.length - 2] : closes[closes.length - 1];
-    const price = closes[closes.length - 1];
-    return { price: parseFloat(price.toFixed(4)), prevClose: parseFloat(prevClose.toFixed(4)) };
+    return yahooCompletedCloses(d, Date.now() / 1000);
   } catch (e) { console.error(`[Yahoo Scrape] ${symbol}:`, e); return null; }
+}
+
+// ── 네이버 증권 시장지표(환율·국내 금) ────────────────────────
+// 환율 = 하나은행 고시 매매기준율, 금 = KRX 금시장 1g(99.99%). api/dashboard.py 의 naver_fx /
+// naver_gold_per_g 와 같은 주소·같은 규칙이다(배치도 그쪽을 쓴다).
+const NAVER_JSON_HEADERS = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json', Referer: 'https://m.stock.naver.com/' };
+function naverNum(v: any): number | null {
+  const n = parseFloat(String(v ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+async function naverMarketIndex(category: string, code: string): Promise<any | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://m.stock.naver.com/front-api/marketIndex/productDetail?category=${category}&reutersCode=${code}`,
+      { headers: NAVER_JSON_HEADERS }, 8000);
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d?.isSuccess && d?.result ? d.result : null;
+  } catch (e) { console.error(`[Naver ${code}]`, e); return null; }
+}
+/** 금: 장중(marketStatus OPEN)에는 '전일' 종가, 장 마감 뒤에는 오늘 종가 — 직전 종가 기준. */
+export function naverGoldClose(result: any): number | null {
+  if (!result) return null;
+  const last = (result.marketIndexTotalInfos || []).find((x: any) => x?.code === 'lastClosePrice');
+  if (String(result.marketStatus || '').toUpperCase() === 'OPEN') return naverNum(last?.value);
+  return naverNum(result.closePrice);
+}
+
+// ── 가상화폐: 업비트 원화 → 빗썸 원화 (api/dashboard.py crypto_krw 와 같은 순서) ──
+async function cryptoKrwQuote(sym: string): Promise<{ price: number; prevClose: number; source: string } | null> {
+  try {
+    const res = await fetchWithTimeout(`https://api.upbit.com/v1/ticker?markets=KRW-${encodeURIComponent(sym)}`, { headers: { Accept: 'application/json' } }, 6000);
+    if (res.ok) {
+      const d = await res.json();
+      const row = Array.isArray(d) ? d[0] : null;
+      const price = naverNum(row?.trade_price);
+      if (price) return { price, prevClose: naverNum(row?.prev_closing_price) || price, source: 'upbit' };
+    }
+  } catch (e) { console.warn(`[Upbit] ${sym}:`, (e as any)?.message || e); }
+  try {
+    const res = await fetchWithTimeout(`https://api.bithumb.com/public/ticker/${encodeURIComponent(sym)}_KRW`, { headers: { Accept: 'application/json' } }, 6000);
+    if (res.ok) {
+      const d = await res.json();
+      const price = d?.status === '0000' ? naverNum(d?.data?.closing_price) : null;
+      if (price) return { price, prevClose: naverNum(d?.data?.prev_closing_price) || price, source: 'bithumb' };
+    }
+  } catch (e) { console.warn(`[Bithumb] ${sym}:`, (e as any)?.message || e); }
+  return null;
 }
 
 // ── 섹터 → 대표 ETF (추세 분석 어드바이저의 상대강도 비교용) ────
@@ -179,10 +241,18 @@ export function getSectorForTicker(tkr: string): string {
   return '기타';
 }
 
-// ── ExchangeRate 조회 (무료 fallback 우선) ────────────────────
+// ── 환율 조회: 네이버(하나은행 고시) → ExchangeRate-API → open.er-api ──
+// 반환 모양은 예전과 같다(1달러당 통화: KRW·JPY·AUD). 세 통화를 모두 네이버에서 받았을 때만 네이버 값을 쓴다
+// — 한 통화만 다른 출처로 섞으면 같은 화면에서 기준이 갈린다.
 async function getExchangeRates(): Promise<Record<string,number>|null> {
+  const [usd, jpy, aud] = await Promise.all(['FX_USDKRW', 'FX_JPYKRW', 'FX_AUDKRW'].map(c => naverMarketIndex('exchange', c)));
+  const usdKrw = naverNum(usd?.closePrice), jpy100Krw = naverNum(jpy?.closePrice), audKrw = naverNum(aud?.closePrice);
+  if (usdKrw && jpy100Krw && audKrw) {
+    console.log(`[Rates Naver] USD ${usdKrw} · JPY100 ${jpy100Krw} · AUD ${audKrw}`);
+    return { KRW: usdKrw, JPY: usdKrw / (jpy100Krw / 100), AUD: usdKrw / audKrw };
+  }
+  console.warn('[Rates Naver] 일부 통화 실패 → 다른 출처로');
   const EXCHANGE_KEY = process.env.EXCHANGE_KEY || '';
-  // 1차: ExchangeRate-API (유료 키 있을 때)
   if (EXCHANGE_KEY) {
     try {
       const res = await fetchWithTimeout(`https://v6.exchangerate-api.com/v6/${EXCHANGE_KEY}/latest/USD`);
@@ -192,7 +262,6 @@ async function getExchangeRates(): Promise<Record<string,number>|null> {
       }
     } catch (e) { console.error('[ExchangeRate-API]', e); }
   }
-  // 2차: open.er-api.com (무료, 키 불필요)
   try {
     const res = await fetchWithTimeout('https://open.er-api.com/v6/latest/USD');
     if (res.ok) {
@@ -203,9 +272,16 @@ async function getExchangeRates(): Promise<Record<string,number>|null> {
   return null;
 }
 
-// ── 금 시세: Yahoo Finance → gold-api.com → open.er-api 폴백 ──
-async function getGoldPriceKRW(usdRate: number): Promise<number|null> {
-  // 1차: Yahoo Finance (GC=F 금 선물, 키 불필요)
+// ── 금 시세: 네이버 국내 금(KRX) → Yahoo GC=F → gold-api.com → open.er-api 폴백 ──
+async function getGoldPriceKRW(usdRate: number | null): Promise<number|null> {
+  // 1차: 네이버 증권 '국내 금'(KRX 금시장, 원/g) — 환율을 거치지 않는 국내 가격
+  const naverGold = naverGoldClose(await naverMarketIndex('metals', 'M04020000'));
+  if (naverGold) {
+    console.log(`[Gold Naver KRX] ₩${naverGold}/g`);
+    return Math.round(naverGold);
+  }
+  if (!usdRate) return null;   // 아래 폴백은 국제 시세(달러)라 원화로 바꿀 환율이 있어야 한다
+  // 2차: Yahoo Finance (GC=F 금 선물, 키 불필요)
   try {
     const res = await fetchWithTimeout(
       'https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1d&range=1d',
@@ -673,8 +749,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const currentAUD = currentUSD && audPerUsd ? currentUSD / audPerUsd : null;
     console.log(`[Rates] USD/KRW=${currentUSD}`);
 
-    // 금 시세 — 달러 환율이 없으면 원화로 바꿀 수 없으므로 조회하지 않는다
-    const goldPriceG_KRW = currentUSD ? await getGoldPriceKRW(currentUSD) : null;
+    // 금 시세 — 네이버 국내 금(원화)이 먼저, 국제 시세 폴백은 달러 환율이 있을 때만 쓴다
+    const goldPriceG_KRW = await getGoldPriceKRW(currentUSD);
     console.log(`[Gold] ₩${goldPriceG_KRW}/g`);
 
     // 가상화폐: Yahoo Finance 심볼 (BTC-USD 등)
@@ -691,14 +767,27 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const krRaw = tickers.filter(t => KR_CODE_RE.test(t));
     const krTickers = krRaw.map(t => t.replace(/\.(KS|KQ)$/, ''));
     const foreignTickers = tickers.filter(t => !KR_CODE_RE.test(t));
-    const quoteResults: Record<string,{price:number;prevClose:number}> = {};
+    const quoteResults: Record<string,{price:number;prevClose:number;currency?:string;source?:string}> = {};
 
-    // 해외주식 & 가상화폐: Yahoo Finance
-    await mapWithConcurrency(foreignTickers, async(rawTkr) => {
+    // 가상화폐: 업비트 원화가 먼저(빗썸 원화 폴백). 받은 값은 currency:'KRW' 로 표시해 화면이
+    // 종목 통화로 바꿔 넣는다. 둘 다 실패하면 아래 Yahoo(달러) 경로로 내려간다.
+    const cryptoTickers = foreignTickers.filter(t => cryptoYahooMap[t]);
+    await mapWithConcurrency(cryptoTickers, async(sym) => {
+      const q = await cryptoKrwQuote(sym);
+      if (q) {
+        quoteResults[sym] = { price: q.price, prevClose: q.prevClose, currency: 'KRW', source: q.source };
+        console.log(`[Crypto ${q.source}] ${sym}: ₩${q.price}`);
+      }
+    });
+
+    // 해외주식 & (원화 시세를 못 받은) 가상화폐: Yahoo Finance
+    await mapWithConcurrency(foreignTickers.filter(t => !quoteResults[t]), async(rawTkr) => {
         const yahooSym = cryptoYahooMap[rawTkr] ?? rawTkr;
         const q = await yahooScrapePrevClose(yahooSym);
         if (q) {
-          quoteResults[rawTkr] = { price: q.price, prevClose: q.prevClose };
+          quoteResults[rawTkr] = cryptoYahooMap[rawTkr]
+            ? { price: q.price, prevClose: q.prevClose, currency: 'USD', source: 'yahoo' }
+            : { price: q.price, prevClose: q.prevClose };
           console.log(`[Yahoo] ${rawTkr} (${yahooSym}): ${q.price}`);
         } else {
           console.warn(`[Yahoo] ${rawTkr}: 시세 조회 실패`);
