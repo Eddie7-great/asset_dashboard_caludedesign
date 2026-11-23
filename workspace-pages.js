@@ -305,11 +305,14 @@ function reportBuildEntry(items, balanceSheet, goals, dateStr){
   const sumAmt=list=>(Array.isArray(list)?list:[]).reduce((s,r)=>s+(r&&typeof r==='object'?num(r.amount):0),0);
   const bs=balanceSheet&&typeof balanceSheet==='object'?balanceSheet:{};
   const net=total+sumAmt(bs.assets)-sumAmt(bs.liabilities);
-  const goalRows=(Array.isArray(goals)?goals:[]).filter(g=>g&&typeof g==='object').map(g=>{
+  // 같은 자산에 연결된 목표는 기한 순서로 나눠 갖는다 — 목표 화면과 같은 finGoalAllocate(finance.js).
+  const goalList=(Array.isArray(goals)?goals:[]).filter(g=>g&&typeof g==='object');
+  const goalNow=finGoalAllocate(goalList,g=>{
     const link=g.linkClass||'investment';
-    const now=link==='net'?net:link==='investment'?total:link==='manual'?num(g.currentAmount):(cls['전체'][link]||0);
-    return {name:String(g.name||'목표'),now:Math.round(now),target:Math.round(num(g.targetAmount))};
+    if(link==='manual') return {key:null,value:num(g.currentAmount)};
+    return {key:link,value:link==='net'?net:link==='investment'?total:(cls['전체'][link]||0)};
   });
+  const goalRows=goalList.map((g,k)=>({name:String(g.name||'목표'),now:Math.round(goalNow[k]),target:Math.round(num(g.targetAmount))}));
   const roundMap=m=>Object.fromEntries(Object.entries(m).map(([k,v])=>[k,Math.round(v)]));
   return {ym:String(dateStr).slice(0,7),date:String(dateStr),schemaV:1,total:Math.round(total),byOwner:roundMap(byOwner),
     cls:Object.fromEntries(Object.entries(cls).map(([k,m])=>[k,roundMap(m)])),
@@ -528,6 +531,19 @@ function reportGoalChapter(id,no,entry,basisBadge){
     `<div class="rep-goals">${goals.map(g=>`<div><h3><span>${cbEsc(g.name)}</span><span>${g.p.toFixed(0)}%</span></h3><i style="--p:${g.p.toFixed(1)}%"></i><p>${g.p>=100?'목표 금액을 채웠습니다.':`${cbDisp(g.now)} / ${cbDisp(g.target)}`}</p></div>`).join('')}</div>`);
 }
 
+// 표지 핵심 숫자 4개(2026-11-23) — 뒤 장들이 이미 보여 주는 값을 미리 꺼낼 뿐 새 계산은 없다:
+// 월말(오늘) 투자자산 = cur.v, 앞 달 대비 = cur.v - prev.v, 이 달 배당 = reportDividendYear 의 그 달 값(끝난 달은 기록, 이번 달은 추정),
+// 목표 = entry.goals 의 달성 개수(reportGoalChapter 와 같은 판정).
+function reportCoverStats(cur,prev,adjacent,ownerF,todayKey,live){
+  const cell=(k,v,sub,style)=>`<div><small>${k}</small><b class="cb-num"${style?` style="${style}"`:''}>${v}</b>${sub?`<em>${sub}</em>`:''}</div>`;
+  const out=[cell(live?'오늘 투자자산':'월말 투자자산',cbDisp(cur.v))];
+  if(prev){ const d=cur.v-prev.v; out.push(cell(adjacent?'전월 대비':reportYmLabel(prev.ym)+' 대비',cbSignDisp(d),'입금 포함 · 수익률 아님',cbGainStyle(d,false))); }
+  const m=reportDividendYear(cur.ym.slice(0,4),ownerF,todayKey).months[Number(cur.ym.slice(5))-1];
+  if(m&&m.v!=null) out.push(cell(m.kind==='est'?'이 달 배당(예상)':'이 달 배당(기록)',cbDisp(m.v)));
+  const goals=(cur.entry&&cur.entry.goals)||[];
+  if(goals.length) out.push(cell('목표 진행',`${goals.length}개 중 ${goals.filter(g=>g.target>0&&g.now>=g.target).length}개 달성`,'가구 전체'));
+  return `<div class="rep-cover-stats">${out.join('')}</div>`;
+}
 // ── 월간 ──
 function cbRenderReport(){
   const el=document.getElementById('cb-report2'); if(!el) return;
@@ -552,7 +568,7 @@ function cbRenderReport(){
   const yLine=(yearFirst&&yearFirst.ym!==cur.ym)?` ${cur.ym.slice(0,4)}년 첫 기록(${Number(yearFirst.ym.slice(5))}월)보다는 ${reportDiffAmt(cur.v-yearFirst.v)}입니다.`:'';
   const pages=[];
   pages.push(`<section class="rep-page rep-cover" data-rep-page="표지"><div class="rep-inner"><p class="rep-kicker">${who} · 월간 결산</p><h1>${mLabel}</h1>
-    <p>${live?'아직 끝나지 않은 달이라 오늘 기준으로 보여 줍니다. 보유 종목을 고치면 바로 반영됩니다.':`${mShort} ${day}일 종가 기준 기록입니다.`}</p><p class="rep-scroll-hint" aria-hidden="true">아래로 스크롤하면 다음 장으로 넘어갑니다</p></div></section>`);
+    <p>${live?'아직 끝나지 않은 달이라 오늘 기준으로 보여 줍니다. 보유 종목을 고치면 바로 반영됩니다.':`${mShort} ${day}일 종가 기준 기록입니다.`}</p>${reportCoverStats(cur,prev,adjacent,ownerF,todayKey,live)}<p class="rep-scroll-hint" aria-hidden="true">아래로 스크롤하면 다음 장으로 넘어갑니다</p></div></section>`);
   let no=1, flip=false;
   pages.push(reportChapter('rep',no++,'얼마인가',basis,'is-ink',
     `<p>${live?'오늘':mLabel+' 말'} ${who}의 투자자산은 <b>${cbDisp(cur.v)}</b>입니다. ${prevLine}${yLine}</p><p class="rep-note">새로 넣은 돈과 값이 오른 몫이 함께 들어 있어 수익률이 아닙니다.</p>`,

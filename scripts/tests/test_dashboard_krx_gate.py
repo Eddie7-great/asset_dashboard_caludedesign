@@ -237,7 +237,10 @@ try:
     krx_e, _ = setup('down', creds=False)
     seen = []
     dashboard.safe_last_close = lambda sym, period='5d': (seen.append(sym) or 70000.0)
+    saved_naver = dashboard.naver_last_close
+    dashboard.naver_last_close = lambda code, now=None: None   # 네이버(1차)가 실패한 경우의 보완 경로를 본다
     prices = dashboard.get_prices(list(KR[:5]))
+    dashboard.naver_last_close = saved_naver
     check('국내 시세 보완에 KRX 호출 0회', krx_e.calls == [], str(krx_e.calls[:4]))
     check('yfinance(.KS) 값으로 채운다', seen == [f'{t}.KS' for t in KR[:5]]
           and all(prices['result'][t] == {'price': 70000, 'cur': 'KRW'} for t in KR[:5]))

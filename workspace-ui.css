@@ -178,7 +178,7 @@
 @media(max-width:768px){.etf-inspection-row{grid-template-columns:1fr auto}.etf-inspection-row>span{grid-column:1/-1}.cb-risk-priorities{margin:10px 0}}
 .cb-risk-card-grid{align-content:stretch;grid-auto-rows:1fr}
 
-.cb-mover-stale{margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);font-size:var(--fs-micro);color:var(--lab);line-height:1.45}
+
 
 /* 목표 연결 자산군 도넛. cbDonutSvg 를 그대로 쓰고 중앙에 합계만 오버레이한다. */
 
@@ -1064,7 +1064,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .pt-table th.sortable.text-left::after{position:static;display:inline-block;margin-left:2px;transform:scale(.7)}
 /* 홈 타일 지도(2026-11-18 2차, 평가손익 기여도·섹터 집중도) — cbTreemapLayout 이 기준 크기(W×H)에서 정한 칸을 % 좌표로
    놓아 카드 크기에 따라 늘어난다. 칸 사이 틈은 패널색 안쪽 테두리(inset), 글자는 본문색(바탕은 토큰을 패널색과 섞은 색). */
-.cb-dash-contrib-card,.cb-mover-scatter-card{display:flex;flex-direction:column;min-width:0}
+.cb-dash-contrib-card,.cb-dash-trend-card{display:flex;flex-direction:column;min-width:0}
 .cb-tilemap{position:relative;flex:1 1 auto;min-height:240px;border-radius:var(--r-md);overflow:hidden}
 .cb-tilemap.is-sector{min-height:220px}
 .cb-tilemap-legend{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:var(--fs-cap);color:var(--lab);margin:0 0 6px}
@@ -1082,12 +1082,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-sector-open-head>b{color:var(--tx)}
 .cb-sector-open-head>.cb-btn{margin-left:auto;height:26px;min-height:26px;padding:0 9px;font-size:var(--fs-cap)}
 /* 수익률 × 평가손익 점 그림 — 예전 수익률·손실률 TOP 5 두 카드 자리 */
-.cb-scatter-axis-note{margin:4px 0 2px;font-size:var(--fs-cap);color:var(--lab)}
-.cb-scatter-host{flex:1 1 auto;min-height:200px;min-width:0;overflow:hidden}
-.cb-scatter{display:block}
-.cb-scatter-dot{fill-opacity:.5;stroke:var(--panelSolid);stroke-width:1.5}
-.cb-scatter-dot:hover{fill-opacity:.9;stroke:var(--tx)}
-.cb-scatter-dot[data-tip]{border-bottom:0}
 /* 2026-11-18 3차 — 홈 화면 */
 /* 스크롤 영역(.cb-scroll·홈 보유 표)은 위치 기준(position:relative)이다. 기준이 없으면 안쪽의 화면 낭독용 글자(.sr-only,
    position:absolute)가 스크롤 상자를 빠져나와 바깥 .content-area 높이를 늘려, 휠을 끝까지 내리면 빈 화면이 나오고 스크롤바가 셋 생겼다. */
@@ -1254,3 +1248,32 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .boot-step{min-height:20px;margin:16px 0 0;font-size:var(--fs-body);color:var(--mut)}
 @media(max-width:768px){.boot-mark{width:96px;height:96px}.boot-mark svg{width:58px;height:58px}.boot-title{font-size:var(--fs-card)}}
 @media(prefers-reduced-motion:reduce){.boot-splash,.boot-mark rect,.boot-dots>li{transition:none!important}.boot-dots>li.is-now{animation:none!important}}
+/* 리밸런싱 표(2026-11-23): 손익색(초록/빨강)을 방향에 쓰지 않는다 — 색은 '범위 밖' 줄에만 주황, 방향은 글자(늘리기·줄이기) */
+.fin-rebal-table>div.warn{background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.fin-rebal-out{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn);font-style:normal;font-size:var(--fs-cap);font-weight:700;white-space:nowrap}
+@media(max-width:768px){.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(color-mix(in srgb,var(--warn) 12%,transparent),color-mix(in srgb,var(--warn) 12%,transparent)),var(--panelSolid)}}
+/* 홈 평가손익 기여 TOP · 투자자산 30일 추이(2026-11-23) */
+.cb-contrib-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.cb-contrib-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(40px,1fr) auto;align-items:center;gap:8px;font-size:var(--fs-cap)}
+.cb-contrib-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
+.cb-contrib-track{height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.cb-contrib-track>i{display:block;height:100%;border-radius:var(--r-sm)}
+.cb-contrib-row.is-up .cb-contrib-track>i{background:var(--up)}.cb-contrib-row.is-dn .cb-contrib-track>i{background:var(--dn)}
+.cb-contrib-row.is-up>b{color:var(--up)}.cb-contrib-row.is-dn>b{color:var(--dn)}
+.cb-contrib-row>b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.cb-contrib-sep{height:1px;background:var(--bd);margin:1px 0}
+.cb-contrib-foot{margin-top:auto;padding-top:10px;font-size:var(--fs-cap);color:var(--dim)}
+.cb-dash-trend-card{text-align:left;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--bd);gap:4px}
+.cb-dash-trend-card:hover{border-color:var(--bd2)}
+.cb-dash-trend-value{margin-top:8px;font-size:var(--fs-kpi);font-weight:800;color:var(--tx)}
+.cb-dash-trend-sub{font-size:var(--fs-cap);color:var(--mut)}
+.cb-trend-spark{display:block;width:100%;height:110px;margin-top:auto;padding-top:10px}
+.cb-trend-line{fill:none;stroke:var(--acc);stroke-width:2}
+.cb-trend-area{fill:color-mix(in srgb,var(--acc) 12%,transparent)}
+.cb-dash-trend-note{font-size:var(--fs-cap);color:var(--dim)}
+/* 결산 표지 핵심 숫자(2026-11-23) */
+.rep-cover .rep-cover-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;max-width:880px;margin-top:clamp(20px,5vh,44px)}
+.rep-cover-stats>div{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel)}
+.rep-cover-stats small{font-size:var(--fs-cap);color:var(--lab)}
+.rep-cover-stats b{font-size:var(--fs-kpi);font-weight:800;color:var(--tx);white-space:nowrap}
+.rep-cover-stats em{font-style:normal;font-size:var(--fs-cap);color:var(--dim)}

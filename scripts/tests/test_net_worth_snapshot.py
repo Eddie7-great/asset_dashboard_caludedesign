@@ -247,6 +247,8 @@ def js_month_entry():
     cobalt_js = open(os.path.join(ROOT, 'cobalt.js'), encoding='utf-8').read()
     pages_js = open(os.path.join(ROOT, 'workspace-pages.js'), encoding='utf-8').read()
     parts = [extract_js_function(cobalt_js, n) for n in ('cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW')]
+    finance_js = open(os.path.join(ROOT, 'finance.js'), encoding='utf-8').read()
+    parts.append(extract_js_function(finance_js, 'finGoalAllocate'))
     parts.append(extract_js_function(pages_js, 'reportBuildEntry'))
     harness = """
 const RATES = %s;

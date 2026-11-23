@@ -134,7 +134,7 @@ Object.assign(context, {
   cbTaxAxisLab: v => String(Math.round(v)),
   cbAmtAxisLab: v => String(Math.round(v)),
   cbSmoothPath: pts => 'M' + pts.map(p => `${p.x},${p.y}`).join(' L'),
-  cbUpDn: v => (v >= 0 ? 'color:var(--up)' : 'color:var(--dn)'),
+  cbUpDn: v => (v > 0 ? 'color:var(--up)' : v < 0 ? 'color:var(--dn)' : 'color:var(--lab)'),
   CB_LINE_PAD: { l: 48, r: 12 },
   getAccountDivTaxInfo: acc => String(acc || '').includes('ISA')
     ? { type: 'ISA', normalRate: 0.099, exempt: 2_000_000, label: 'ISA, 9.9%' }
@@ -153,7 +153,7 @@ context.window._netWorthHistory = []
 context.window._divDataCache = {}
 for (const name of ['cbAmtGridSvg', 'cbAxisTicks']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalAllocate', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')

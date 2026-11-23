@@ -189,11 +189,13 @@
       --upSoft:rgba(23,138,82,.10);
     }
     [data-theme="dark"]{--upSoft:rgba(52,211,153,.12)}
-    /* 시안식 용어 툴팁 — 점선 밑줄 + 호버 말풍선 */
-    [data-tip]{position:relative;cursor:help;border-bottom:1px dashed var(--dim)}
+    /* 용어 툴팁 — 점선 밑줄 대신 글자 뒤 작은 ⓘ 표식 + 호버 말풍선(2026-11-23).
+       밑줄이 화면마다 수십 개 겹쳐 강조처럼 읽혔다. 표식은 글자형(span·small·em)에만 붙인다 —
+       막대·타일·버튼 같은 덩어리 요소는 말풍선만 둔다. */
+    [data-tip]{position:relative;cursor:help}
+    :is(span,small,em)[data-tip]:not(.cb-tip-block):not([data-overflow-tip]):not(.cb-tax-treatment):not(.cal-chip):not(.fin-ice-seg)::after{content:"ⓘ";display:inline-block;margin-left:3px;font-size:var(--fs-cap);line-height:1;color:var(--dim);vertical-align:.08em;font-weight:400;text-decoration:none}
     /* 말풍선은 전 페이지 공통 body 포털(.table-float-tip)에서 표시한다.
        pseudo-element를 병행하면 스크롤 패널에 잘리고 hover 순간 레이아웃이 흔들린다. */
-    [data-tip]:hover::after{display:none!important}
     /* 블록형 툴팁 대상(progress bar 세그먼트 등) — 점선 밑줄 제거 */
     [data-tip].cb-tip-block{border-bottom:none}
     [data-overflow-tip][data-tip]{border-bottom:none}

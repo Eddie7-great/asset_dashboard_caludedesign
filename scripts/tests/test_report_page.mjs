@@ -58,6 +58,7 @@ const ctx = vm.createContext({
   divHistoryOf: (y, o) => (y === '2026' && o === '전체' ? [0, 0, 30, 0, 0, 30, 0, 0, 30, 0, 50, 70] : Array(12).fill(0)),
 });
 for (const n of ['cbStrip', 'cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW']) vm.runInContext(cobalt.match(new RegExp(`function ${n}\\([^)]*\\)\\{[\\s\\S]*?\\n?\\}`))[0], ctx);
+vm.runInContext(read('finance.js').match(/function finGoalAllocate\(goals, poolOf\)\{[\s\S]*?\n\}/)[0], ctx);
 for (const n of ['reportYmNext', 'reportBuildEntry', 'reportMonthEnds', 'reportEntryValue', 'reportTimeline', 'reportDefaultYm', 'reportHoldingDiff', 'reportDividendYear', 'reportRealizedYear']) vm.runInContext(grab(n), ctx);
 
 // reportBuildEntry — 분류·원가 규칙(가상화폐 원화 평단), 현금·취득가 미상은 손익 제외, 목표 연결
@@ -77,6 +78,17 @@ assert.deepEqual(JSON.parse(JSON.stringify(e.cls['전체'])), { crypto: 63000000
 assert.equal(e.pl['전체'].cost, 2100000 + 40000000, '가상화폐 원화 평단은 달러로 바꿔 원가 계산, 현금·미상 제외');
 assert.equal(e.pl['본인'].gain, 700000);
 assert.deepEqual(Array.from(e.goals, (g) => g.now), [e.total, 1000000, e.total + 4e8]);
+// 같은 자산에 연결된 목표는 기한 순서로 나눠 갖는다(2026-11-23) — 합계가 실제 자산을 넘지 않는다
+{
+  const shared = [
+    { name: '은퇴', targetAmount: 5e8, linkClass: 'investment', targetDate: '2040-12-31' },
+    { name: '대학', targetAmount: 5e7, linkClass: 'investment', targetDate: '2034-03-01' },
+    { name: '언젠가', targetAmount: 1e8, linkClass: 'investment' },
+    { name: '직접', targetAmount: 1e7, linkClass: 'manual', currentAmount: 3e6 },
+  ];
+  const s2 = ctx.reportBuildEntry(items, null, shared, '2026-11-11');
+  assert.deepEqual(Array.from(s2.goals, (g) => g.now), [e.total - 5e7, 5e7, 0, 3e6], '가까운 기한부터 목표 금액만큼, 남은 돈이 다음으로, 기한 없는 목표는 맨 뒤')
+}
 
 // reportTimeline — 지난 달은 보관 우선, 일별 기록만 있는 달은 총액만, 이번 달은 실시간
 ctx.window._reportArchive = { '2026-09': { ym: '2026-09', date: '2026-09-30', total: 900, byOwner: { 본인: 600 }, cls: {}, pl: {}, holdings: [], goals: [] }, '2025-01': { ym: '2025-01', date: '2025-01-31', total: 500, byOwner: {}, cls: {}, pl: {}, goals: [] } };

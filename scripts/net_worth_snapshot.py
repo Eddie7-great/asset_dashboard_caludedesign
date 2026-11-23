@@ -194,11 +194,20 @@ def fetch_gold_per_gram(api):
     return float(ppg) if isinstance(ppg, (int, float)) and ppg > 0 else None
 
 
-def market_price(api, item):
+def crypto_price_in_item_cur(krw_price, cur, rates):
+    """원화 시세를 종목 통화로. 앱 script.js _quoteToItemCur 와 같은 계산 — 표시 원화가 업비트 원화가와 같아진다."""
+    if cur == 'KRW':
+        return krw_price
+    rate = (rates or {}).get(cur)
+    return krw_price / rate if rate and rate > 0 else None
+
+
+def market_price(api, item, rates=None):
     """자산 한 건의 현재가(종목 통화 기준). 실패하면 None.
 
     시장 판정은 저장된 grp/cur를 따른다 — 티커가 숫자인지로 나누면
     KRX 영숫자 단축코드(0117V0 등)를 미국 주식으로 오인한다.
+    출처는 앱과 같다: 국내 = 네이버 직전 종가, 가상화폐 = 업비트 원화(빗썸 폴백).
     """
     tkr = strip_ticker(item.get('tkr'))
     if not tkr:
@@ -207,10 +216,18 @@ def market_price(api, item):
     cur = (item.get('cur') or 'KRW').upper()
 
     if grp == '가상화폐':
-        return api.safe_last_close(tkr + '-USD')
+        ck = api.crypto_krw(tkr) if hasattr(api, 'crypto_krw') else None
+        if ck:
+            price = crypto_price_in_item_cur(ck[0], cur, rates)
+            if price:
+                return price
+        return api.safe_last_close(tkr + '-USD') if cur == 'USD' else None
 
     if cur == 'KRW':
-        # 국내 주식·ETF — pykrx 우선, 실패 시 .KS → .KQ 폴백 (api/dashboard.py와 같은 순서)
+        # 국내 주식·ETF — 네이버 직전 종가 → pykrx → .KS → .KQ (api/dashboard.py get_prices 와 같은 순서)
+        nv = api.naver_last_close(tkr) if hasattr(api, 'naver_last_close') else None
+        if nv and nv.get('price'):
+            return float(nv['price'])
         if getattr(api, 'PYKRX_OK', False):
             try:
                 day = api.prev_biz_day_str()
@@ -248,7 +265,7 @@ def refresh_prices(api, assets, rates, gold_per_gram):
             continue
         price = None
         try:
-            price = market_price(api, item)
+            price = market_price(api, item, rates)
         except Exception as e:
             log('시세 조회 실패 %s: %s' % (item.get('tkr'), type(e).__name__))
         if price and price > 0:
@@ -375,6 +392,33 @@ def report_cost_krw(item, rates):
     return _num(item.get('qty')) * avg * _rate(item, rates)
 
 
+def allocate_goals(goals, pool_of):
+    """같은 연결 대상의 목표는 기한 순서로 나눠 갖는다. finance.js finGoalAllocate 와 같은 규칙.
+
+    pool_of(goal) → (key, value). key 가 None 이면 나누지 않고 value 그대로.
+    기한 없는 목표는 맨 뒤, 같은 기한은 등록 순.
+    """
+    out = [0.0] * len(goals)
+    left = {}
+
+    def due(g):
+        d = g.get('targetDate')
+        return d if isinstance(d, str) and d else '9999-99-99'
+
+    for k in sorted(range(len(goals)), key=lambda k: (due(goals[k]), k)):
+        key, value = pool_of(goals[k])
+        value = float(value or 0)
+        if key is None:
+            out[k] = value
+            continue
+        if key not in left:
+            left[key] = max(0.0, value)
+        take = min(left[key], max(0.0, _num(goals[k].get('targetAmount'))))
+        out[k] = take
+        left[key] -= take
+    return out
+
+
 def build_month_entry(assets, balance_sheet, goals, rates, date_str):
     """그날 기준 한 달 요약. 달의 마지막 실행분이 월말 결산으로 남는다."""
     rows = []
@@ -409,21 +453,21 @@ def build_month_entry(assets, balance_sheet, goals, rates, date_str):
 
     bs = balance_sheet if isinstance(balance_sheet, dict) else {}
     net = total + sum_amounts(bs.get('assets')) - sum_amounts(bs.get('liabilities'))
-    goal_rows = []
-    for goal in goals if isinstance(goals, list) else []:
-        if not isinstance(goal, dict):
-            continue
+    goal_list = [g for g in (goals if isinstance(goals, list) else []) if isinstance(g, dict)]
+
+    def pool_of(goal):
         link = goal.get('linkClass') or 'investment'
+        if link == 'manual':
+            return None, _num(goal.get('currentAmount'))
         if link == 'net':
-            now = net
-        elif link == 'investment':
-            now = total
-        elif link == 'manual':
-            now = _num(goal.get('currentAmount'))
-        else:
-            now = cls['전체'].get(link, 0.0)
-        goal_rows.append({'name': str(goal.get('name') or '목표'), 'now': _round(now),
-                          'target': _round(_num(goal.get('targetAmount')))})
+            return link, net
+        if link == 'investment':
+            return link, total
+        return link, cls['전체'].get(link, 0.0)
+
+    goal_now = allocate_goals(goal_list, pool_of)
+    goal_rows = [{'name': str(g.get('name') or '목표'), 'now': _round(goal_now[k]),
+                  'target': _round(_num(g.get('targetAmount')))} for k, g in enumerate(goal_list)]
 
     return {
         'ym': date_str[:7], 'date': date_str, 'schemaV': 1,

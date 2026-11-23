@@ -265,6 +265,138 @@ def resolve_kr_ticker(name):
     return None
 
 
+# ── 네이버 증권·업비트 시세 (앱의 api/stock-price.js · api/price.ts 와 같은 주소·같은 규칙) ──
+# 배치(scripts/net_worth_snapshot.py)가 이 함수들을 그대로 쓴다 — 한쪽만 바꾸면 앱과 배치의 평가액이 갈린다.
+NAVER_JSON_HEADERS = {'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json',
+                      'Referer': 'https://m.stock.naver.com/'}
+KRX_CLOSE_SETTLE_MIN = 15 * 60 + 40   # api/stock-price.js 의 KRX_CLOSE_SETTLE_MIN 과 같은 값
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
+def _http_json(url, timeout=8, headers=None):
+    import urllib.request
+    req = urllib.request.Request(url, headers=headers or NAVER_JSON_HEADERS)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+def _num(v):
+    try:
+        n = float(str(v if v is not None else '').replace(',', ''))
+    except ValueError:
+        return None
+    return n if math.isfinite(n) and n > 0 else None
+
+
+def _signed(v):
+    try:
+        n = float(str(v if v is not None else '').replace(',', ''))
+    except ValueError:
+        return 0.0
+    return n if math.isfinite(n) else 0.0
+
+
+def _kst_now(now=None):
+    if now is None:
+        return datetime.datetime.now(KST)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    return now.astimezone(KST)
+
+
+def today_still_trading(now=None):
+    """오늘(KST) 일별 줄이 아직 장중 가격인가 — 평일이고 15:40 전."""
+    k = _kst_now(now)
+    return k.weekday() < 5 and (k.hour * 60 + k.minute) < KRX_CLOSE_SETTLE_MIN
+
+
+def pick_last_close(rows, now=None):
+    """일별 시세 줄에서 '장이 끝난 마지막 거래일' 종가. stock-price.js pickLastClose 와 같은 결과."""
+    items = []
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        date = str(r.get('localTradedAt') or '')[:10]
+        close = _num(r.get('closePrice'))
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', date) and close:
+            items.append((date, close, _signed(r.get('compareToPreviousClosePrice'))))
+    items.sort(key=lambda x: x[0], reverse=True)
+    today = _kst_now(now).strftime('%Y-%m-%d')
+    trading = today_still_trading(now)
+    done = [x for x in items if x[0] < today or (x[0] == today and not trading)]
+    if not done:
+        return None
+    date, close, diff = done[0]
+    prev = done[1][1] if len(done) > 1 else close - diff
+    if not prev or prev <= 0:
+        prev = close
+    return {'price': close, 'prevClose': prev, 'change': close - prev, 'asOf': date}
+
+
+def naver_last_close(code, now=None):
+    try:
+        rows = _http_json('https://m.stock.naver.com/api/stock/%s/price?pageSize=5&page=1' % code)
+    except Exception as e:
+        print('[naver] %s 일별 시세 실패: %s' % (code, type(e).__name__))
+        return None
+    return pick_last_close(rows, now)
+
+
+def naver_market_index(category, code):
+    try:
+        d = _http_json('https://m.stock.naver.com/front-api/marketIndex/productDetail?category=%s&reutersCode=%s'
+                       % (category, code))
+    except Exception as e:
+        print('[naver] %s 실패: %s' % (code, type(e).__name__))
+        return None
+    return d.get('result') if isinstance(d, dict) and d.get('isSuccess') else None
+
+
+def naver_gold_close(result):
+    """금: 장중(OPEN)에는 '전일' 종가, 마감 뒤에는 오늘 종가. price.ts naverGoldClose 와 같다."""
+    if not isinstance(result, dict):
+        return None
+    if str(result.get('marketStatus') or '').upper() == 'OPEN':
+        for info in result.get('marketIndexTotalInfos') or []:
+            if isinstance(info, dict) and info.get('code') == 'lastClosePrice':
+                return _num(info.get('value'))
+        return None
+    return _num(result.get('closePrice'))
+
+
+def naver_fx():
+    """하나은행 고시 매매기준율. 세 통화를 모두 받았을 때만 돌려준다(한 통화만 다른 출처로 섞지 않는다)."""
+    usd = _num((naver_market_index('exchange', 'FX_USDKRW') or {}).get('closePrice'))
+    jpy100 = _num((naver_market_index('exchange', 'FX_JPYKRW') or {}).get('closePrice'))
+    aud = _num((naver_market_index('exchange', 'FX_AUDKRW') or {}).get('closePrice'))
+    if usd and jpy100 and aud:
+        return {'usd_krw': usd, 'jpy100_krw': jpy100, 'aud_krw': aud}
+    return None
+
+
+def crypto_krw(sym):
+    """가상화폐 원화 시세: 업비트 → 빗썸. (price, prevClose, source) 또는 None. price.ts cryptoKrwQuote 와 같은 순서."""
+    try:
+        d = _http_json('https://api.upbit.com/v1/ticker?markets=KRW-%s' % sym, timeout=6,
+                       headers={'Accept': 'application/json'})
+        row = d[0] if isinstance(d, list) and d else {}
+        price = _num(row.get('trade_price'))
+        if price:
+            return price, _num(row.get('prev_closing_price')) or price, 'upbit'
+    except Exception as e:
+        print('[upbit] %s 실패: %s' % (sym, type(e).__name__))
+    try:
+        d = _http_json('https://api.bithumb.com/public/ticker/%s_KRW' % sym, timeout=6,
+                       headers={'Accept': 'application/json'})
+        data = d.get('data') if isinstance(d, dict) and d.get('status') == '0000' else {}
+        price = _num((data or {}).get('closing_price'))
+        if price:
+            return price, _num(data.get('prev_closing_price')) or price, 'bithumb'
+    except Exception as e:
+        print('[bithumb] %s 실패: %s' % (sym, type(e).__name__))
+    return None
+
+
 # ── 헬퍼: 직전 영업일 ────────────────────────────────────────────
 def prev_biz_day_str():
     d = datetime.date.today()
@@ -295,47 +427,58 @@ def safe_last_close(ticker_yf, period='5d'):
 # ── 1. 환율 ─────────────────────────────────────────────────────
 def get_rates():
     r = {'usd_krw': UNAVAILABLE, 'usd_jpy': UNAVAILABLE, 'jpy100_krw': UNAVAILABLE,
-         'aud_krw': UNAVAILABLE}
+         'aud_krw': UNAVAILABLE, 'source': UNAVAILABLE}
 
-    # USD/KRW
+    # 1차: 네이버 증권(하나은행 고시) — 앱의 /api/price 와 같은 출처
+    fx = naver_fx()
+    if fx:
+        r['usd_krw'] = round(fx['usd_krw'], 2)
+        r['jpy100_krw'] = round(fx['jpy100_krw'], 2)
+        r['aud_krw'] = round(fx['aud_krw'], 2)
+        r['usd_jpy'] = round(fx['usd_krw'] / (fx['jpy100_krw'] / 100.0), 2)
+        r['source'] = 'naver'
+        return {'success': True, 'rates': r}
+
+    # 2차: yfinance. AUD/KRW 를 못 받으면 '미조회'로 두고 절대 1로 대체하지 않는다
+    # (1로 대체하면 A$1 = ₩1 로 계산돼 평가액이 약 950배 어긋난 채 조용히 표시된다).
     v = safe_last_close('KRW=X')
     if v:
         r['usd_krw'] = round(v, 2)
-
-    # USD/JPY
     v = safe_last_close('JPY=X')
     if v:
         r['usd_jpy'] = round(v, 2)
-
-    # AUD/KRW — 호주달러 예수금용. 환율을 못 받으면 '미조회'로 두고 절대 1로 대체하지 않는다
-    # (1로 대체하면 A$1 = ₩1 로 계산돼 평가액이 약 950배 어긋난 채 조용히 표시된다).
     v = safe_last_close('AUDKRW=X')
     if v:
         r['aud_krw'] = round(v, 2)
-
-    # JPY100/KRW (계산)
     u = r.get('usd_krw')
     j = r.get('usd_jpy')
     if isinstance(u, (int, float)) and isinstance(j, (int, float)) and j > 0:
         r['jpy100_krw'] = round(u / j * 100, 2)
-
+    r['source'] = 'yfinance'
     return {'success': True, 'rates': r}
 
 
 # ── 2. 금 시세 ──────────────────────────────────────────────────
 def get_gold(unit='g'):
     """
-    한국 금거래소 기준가 = 국제 금 시세(USD/oz) × USD/KRW ÷ 31.1035
+    KRX 금시장 1g(99.99%) 가격(네이버 증권). 실패 시 국제 시세(USD/oz) × USD/KRW ÷ 31.1035
     단위: g / 돈(3.75g) / kg(1000g)
     """
     info = {'price': UNAVAILABLE, 'unit': unit,
-            'price_per_g': UNAVAILABLE, 'source': 'yfinance GC=F + KRW=X'}
+            'price_per_g': UNAVAILABLE, 'source': 'naver KRX gold'}
 
-    gold_usd_oz = safe_last_close('GC=F')   # COMEX 금 선물 (USD/oz)
-    usd_krw = safe_last_close('KRW=X')
+    # 1차: 네이버 증권 '국내 금'(KRX 금시장 99.99%, 원/g) — 앱의 /api/price 와 같은 출처
+    ppg = naver_gold_close(naver_market_index('metals', 'M04020000'))
+    gold_usd_oz = usd_krw = None
+    if not ppg:
+        # 2차: 국제 시세(COMEX 금 선물 USD/oz) × USD/KRW ÷ 31.1035
+        info['source'] = 'yfinance GC=F + KRW=X'
+        gold_usd_oz = safe_last_close('GC=F')
+        usd_krw = safe_last_close('KRW=X')
+        if gold_usd_oz and usd_krw:
+            ppg = gold_usd_oz * usd_krw / 31.1035   # KRW per gram
 
-    if gold_usd_oz and usd_krw:
-        ppg = gold_usd_oz * usd_krw / 31.1035   # KRW per gram
+    if ppg:
         info['price_per_g'] = round(ppg)
         if unit == '돈':
             info['price'] = round(ppg * 3.75)    # 1돈 = 3.75g
@@ -380,7 +523,11 @@ def get_prices(tickers):
             if is_kr:
                 # 한국 주식 – pykrx 우선, yfinance fallback
                 price = UNAVAILABLE
-                if _krx_usable():
+                # 1차: 네이버 일별 시세의 직전 종가 (앱 /api/stock-price 와 같은 규칙)
+                nv = naver_last_close(t_up)
+                if nv:
+                    price = round(nv['price'])
+                if price == UNAVAILABLE and _krx_usable():
                     try:
                         d = prev_biz_day_str()
                         df = krx.get_market_ohlcv_by_date(d, d, tkr)
@@ -399,11 +546,16 @@ def get_prices(tickers):
                 result[tkr] = {'price': price, 'cur': 'KRW'}
 
             elif is_crypto:
-                price = safe_last_close(tkr + '-USD')
-                result[tkr] = {
-                    'price': round(price, 4) if price else UNAVAILABLE,
-                    'cur': 'USD'
-                }
+                # 업비트 원화가 먼저(빗썸 폴백) — 원화로 돌려주고 화면이 종목 통화로 바꾼다
+                ck = crypto_krw(t_up)
+                if ck:
+                    result[tkr] = {'price': round(ck[0], 4), 'cur': 'KRW', 'source': ck[2]}
+                else:
+                    price = safe_last_close(tkr + '-USD')
+                    result[tkr] = {
+                        'price': round(price, 4) if price else UNAVAILABLE,
+                        'cur': 'USD'
+                    }
 
             else:
                 # 미국 주식
