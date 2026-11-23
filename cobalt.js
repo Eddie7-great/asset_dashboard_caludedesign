@@ -1199,9 +1199,11 @@ function cbTrendHover(ev){
     +(k>1?diff(`${+first.date.slice(5,7)}/${+first.date.slice(8)}보다`,first.v):'');
   guide.style.left=dot.style.left=p.x+'%'; dot.style.top=p.y+'%';
   // 상자는 점을 가리지 않게 세로선 옆(오른쪽 절반이면 왼쪽)에, 점이 위쪽이면 아래에 둔다.
-  tip.style.left=p.x+'%';
-  tip.classList.toggle('is-flip',p.x>50); tip.classList.toggle('is-low',p.y<50);
+  tip.classList.toggle('is-low',p.y<50);
   [guide,dot,tip].forEach(n=>n.hidden=false);
+  const W=r.width, tw=tip.offsetWidth, px=p.x/100*W;
+  let left=px+12; if(left+tw>W) left=px-12-tw;
+  tip.style.left=Math.max(0, Math.min(W-tw, left))+'px';
 }
 function cbRenderDash(){
   cbEnsureDivHist();
