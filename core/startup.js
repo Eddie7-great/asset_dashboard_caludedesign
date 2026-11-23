@@ -30,6 +30,7 @@ document.addEventListener('keydown', function(e) {
     closeTradeModal();
     if (typeof cbDcaEditClose === 'function') cbDcaEditClose();
     if (typeof cbTaxHoldClose === 'function') cbTaxHoldClose();
+    if (typeof cbDashPopClose === 'function') cbDashPopClose();
     if (typeof closeREModal === 'function') closeREModal();
     if (typeof closeLiabModal === 'function') closeLiabModal();
     closeCfDetails();

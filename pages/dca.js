@@ -186,12 +186,11 @@ function cbRenderDca(){
     <div class="cb-dca-summary-grid">
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">진행 중 규칙</div><div class="cb-dca-summary-value">${active.length}<span>개</span></div>${incomplete?`<div class="cb-dca-summary-sub">금액 미입력 ${incomplete}개는 빼고 셉니다</div>`:''}</div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label"><span data-tip="활성 규칙의 월 적립식 매수 합계를 월평균 영업일(21.7일)로 나눈 하루 평균 매수 금액">일평균 적립식 매수 합계</span></div><div class="cb-dca-summary-value">${cbDisp(daily)}</div></div>
-      <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">월 적립식 매수 합계 (활성 기준)</div><div class="cb-dca-summary-value">${cbDisp(monthly)}</div></div>
+      <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label"><span data-tip="켜 둔(활성) 규칙만 월 기준으로 환산해 더한 금액">월 적립식 매수 합계</span></div><div class="cb-dca-summary-value">${cbDisp(monthly)}</div></div>
       <div class="cb-panel cb-dca-summary-card"><div class="cb-dca-summary-label">연간 적립 예상</div><div class="cb-dca-summary-value">${cbDisp(monthly*12)}</div></div>
       <div class="cb-panel cb-dca-summary-card cb-dca-remaining-card">
         <div class="cb-dca-summary-label"><span data-tip="오늘 이후 이번 달에 남아 있는 활성 DCA 예정일을 시장 휴장일 기준으로 계산합니다. 실제 체결 여부는 증권사 앱에서 확인해야 합니다.">이번 달 남은 매수</span></div>
-        <div class="cb-dca-summary-value">${remainingCount}<span>회</span></div>
-        <div class="cb-dca-summary-sub">${remainingCount?cbDisp(remainingAmount)+' 예정':'이번 달 일정 완료'}</div>
+        <div class="cb-dca-summary-value">${remainingCount}<span>회</span><em class="cb-dca-summary-amt">${remainingCount?cbDisp(remainingAmount)+' 예정':'이번 달 일정 완료'}</em></div>
       </div>
     </div>
     ${(()=>{
@@ -200,7 +199,18 @@ function cbRenderDca(){
       const WD=['일','월','화','수','목','금','토'];
       return `<section class="cb-panel cb-dca-upcoming" aria-label="앞으로 10일 매수 일정">
         <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 10일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small></div>
-        ${up.length?`<ol class="cb-dca-upcoming-list">${up.map(d=>`<li><b>${d.date.getMonth()+1}/${d.date.getDate()} <span>(${WD[d.date.getDay()]})</span></b>${d.items.map(x=>`<span class="cb-dca-upcoming-item"><i style="background:${cbOwnerColor(x.i.owner)}"></i>${cbEsc(cbStrip(x.i.tkr)||x.r.title)}</span>`).join('')}<em>${cbDisp(d.amount)}</em></li>`).join('')}</ol>`:'<div class="cb-dca-upcoming-empty">10일 안에 예정된 매수가 없습니다.</div>'}
+        ${up.length?(()=>{
+          // 10일을 빈 날까지 모두 칸으로 그려 카드 폭을 채운다 — 예정이 있는 날만 강조한다.
+          const byKey=new Map(up.map(d=>[d.key,d])), start=cbDcaDateAt();
+          const cells=Array.from({length:10},(_,n)=>{const d=new Date(start); d.setDate(start.getDate()+n); return {d,hit:byKey.get(cbDcaDateKey(d))};});
+          return `<ol class="cb-dca-upcoming-list">${cells.map(({d,hit},n)=>{
+            const wd=d.getDay(), head=`<b>${d.getMonth()+1}/${d.getDate()} <span>(${WD[wd]})</span>${n===0?'<small>오늘</small>':''}</b>`;
+            const cls=[hit?'is-hit':'is-empty',(wd===0||wd===6)?'is-weekend':''].filter(Boolean).join(' ');
+            return hit
+              ?`<li class="${cls}">${head}${hit.items.map(x=>`<span class="cb-dca-upcoming-item"><i style="background:${cbOwnerColor(x.i.owner)}"></i>${cbEsc(cbStrip(x.i.tkr)||x.r.title)}</span>`).join('')}<em>${cbDisp(hit.amount)}</em></li>`
+              :`<li class="${cls}" aria-label="${d.getMonth()+1}월 ${d.getDate()}일 예정 없음">${head}<span class="cb-dca-upcoming-none">—</span></li>`;
+          }).join('')}</ol>`;
+        })():'<div class="cb-dca-upcoming-empty">10일 안에 예정된 매수가 없습니다.</div>'}
       </section>`;
     })()}
     <div class="cb-dca-detail-grid">

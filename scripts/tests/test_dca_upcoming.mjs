@@ -33,6 +33,7 @@ assert.match(cobalt, /10일 안에 예정된 매수가 없습니다\./);
 // 기본 범위는 10일이다 — 3일 규칙은 잡히고 25일 규칙은 범위 밖
 assert.equal(ctx.cbDcaUpcoming(list, '2026-11-01').map((d) => d.key).join(), '2026-11-03', '기본 10일');
 assert.match(cobalt, /aria-label="앞으로 10일 매수 일정"/);
-assert.match(read('workspace-ui.css'), /\.cb-dca-upcoming-list\{display:flex;flex-wrap:wrap;[^}]*\}/, '줄바꿈한다');
+assert.match(read('workspace-ui.css'), /\.cb-dca-upcoming-list\{display:grid;grid-template-columns:repeat\(10,minmax\(0,1fr\)\)/, '10일을 같은 폭 칸으로 카드 폭을 채운다');
+assert.match(cobalt, /class="\$\{cls\}" aria-label="\$\{d\.getMonth\(\)\+1\}월 \$\{d\.getDate\(\)\}일 예정 없음"/, '빈 날도 칸으로 그린다');
 assert.doesNotMatch(read('workspace-ui.css'), /\.cb-dca-upcoming-list\{[^}]*overflow-x/, '옆으로 미는 스크롤바를 만들지 않는다');
 console.log('ok - dca upcoming');

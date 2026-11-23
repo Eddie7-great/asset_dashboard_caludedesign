@@ -128,6 +128,8 @@ function cbUpcomingDividendSchedule(list, days=90, asOf=null){
         owner:x.i?.owner||'—',
         ticker:cbStrip(x.tkr||x.i?.tkr),
         title:x.title||x.i?.name||x.tkr||'—',
+        // 표시 이름 — 미국 주식은 티커, 한국·일본은 종목명(홈 섹터 펼침과 같은 규칙)
+        us:x.cls==='us'||x.i?.cur==='USD',
         amount:perAmount
       });
     }
@@ -401,7 +403,7 @@ function cbRenderDiv(){
           <span class="cb-num cb-mobile-secondary r cap" style="${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
           <span class="r b mut">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary r cb-div-c-yoc">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
-          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')} <i class="cb-div-caret" aria-hidden="true">${open?'▾':'▸'}</i></span>          ${open?`<div class="cb-div-more">보유 <b>${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</b> · 주당 배당 <b>${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</b>/년 · <span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span> <b>${(x.d.yldNum||0).toFixed(2)}%</b> · <span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span> <b>${x.g!=null?`<span style="${cbUpDn(x.g)}">${x.g>=0?'+':''}${x.g.toFixed(1)}%</span>`:`<span data-tip="${cbEsc(x.growth.status==='insufficient'? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`: '배당 원본 이력을 아직 확보하지 못했습니다.')}">자료 없음</span>`}</b> · <span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span> <b>${cbEsc(x.d.exDiv||'—')}</b></div>`:''}
+          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')}<i class="cb-div-caret" aria-hidden="true">${open?'▾':'▸'}</i></span>          ${open?`<div class="cb-div-more">보유 <b>${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</b> · 주당 배당 <b>${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</b>/년 · <span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span> <b>${(x.d.yldNum||0).toFixed(2)}%</b> · <span data-tip="배당 이력 기준 주당 배당금 연평균 성장률(CAGR)">배당성장</span> <b>${x.g!=null?`<span style="${cbUpDn(x.g)}">${x.g>=0?'+':''}${x.g.toFixed(1)}%</span>`:`<span data-tip="${cbEsc(x.growth.status==='insufficient'? `원본 배당 이력 ${x.growth.events}건 확보. 완결연도 ${x.growth.years}개로 성장률 산출에는 2개 이상이 필요합니다.`: '배당 원본 이력을 아직 확보하지 못했습니다.')}">자료 없음</span>`}</b> · <span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span> <b>${cbEsc(x.d.exDiv||'—')}</b></div>`:''}
         </div>`;}).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
     <div class="cb-panel cb-div-upcoming-card">
@@ -409,18 +411,18 @@ function cbRenderDiv(){
       <div class="cb-div-upcoming-total"><span>예상 수입 합계</span><b>${cbDisp(upcomingDividendTotal)}</b></div>
       <div class="cb-div-upcoming-list">
         ${upcomingDividendShown.map(x=>{
-          const label=[x.ticker,x.title].filter(Boolean).join(' · ');
+          const label=(x.us?x.ticker:x.title)||x.ticker||x.title, full=[x.ticker,x.title].filter(Boolean).join(' · ');
           return `<div class="cb-div-upcoming-row">
             <div class="cb-div-upcoming-date${x.exact?'':' is-estimated'}">${cbEsc(x.dateLabel)}</div>
             <div class="cb-div-upcoming-main">
-              <span class="cb-div-upcoming-name cb-tip-block" data-overflow-tip="${cbEsc(label)}" data-overflow-watch>${cbEsc(label)}</span>
+              <span class="cb-div-upcoming-name" title="${cbEsc(full)}">${cbEsc(label)}</span>
               <span>${ownerF?'':cbEsc(x.owner)+' · '}${cbDisp(x.amount)}</span>
             </div>
           </div>`;
         }).join('') || '<div class="cb-insight-empty">향후 90일 내 예상 배당이 없습니다.</div>'}
       </div>
       ${upcomingDividends.length>upcomingDividendShown.length?`<div class="cb-insight-more">외 ${upcomingDividends.length-upcomingDividendShown.length}건</div>`:''}
-      <div class="cb-div-upcoming-note">과거 지급 패턴과 현재 보유량 기준의 세전 추정입니다. 확정 공시 일정이 아니며 실제 지급일·금액은 달라질 수 있습니다. ‘월 예정’은 기간과 겹치는 달을 포함하므로 일부는 90일 밖에 지급될 수 있습니다.</div>
+      <ul class="cb-div-upcoming-note"><li>과거 지급 패턴 × 현재 보유량 기준 세전 추정</li><li>확정 공시가 아니라 실제 날짜·금액은 다를 수 있음</li><li>‘월 예정’은 일부가 90일 밖일 수 있음</li></ul>
     </div>
     </div>
     ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('dividend',year):''}`;
