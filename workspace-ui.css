@@ -517,7 +517,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
    그 폭 아래에서는 배분 카드를 표 아래로 내린다. */
 @media(max-width:1559px){.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr)}}
 /* 화면 다듬기(2026-11-11) — 헤더 설명 문구는 '…'로 자르지 않고 두 줄까지 보여 준다(휴대폰은 기존 ⓘ 토글 그대로) */
-@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
+@media(min-width:769px){#page-head .page-heading-line #main-title-sub{white-space:normal;text-wrap:balance;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}}
 /* 목표 화면 상단 세 카드 — 값 줄을 카드 바닥에 맞춘다. 현금 안전판 카드만 입력 줄이 있어, 위에서부터 쌓으면
    옆 두 카드는 값 아래가 비고 세 값의 높이도 어긋났다 */
 .fin-goal-context b{margin-top:auto;padding-top:6px}
@@ -1130,8 +1130,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 계좌 칸이 두 줄이므로 종목도 이름 / 티커 두 줄 — 한 줄이면 티커가 이름 폭을 먹어 긴 ETF 이름이 잘린다. */
 .cb-family-asset .cb-asset-inline{flex-direction:column;align-items:flex-start;gap:0;line-height:1.35}
 /* 구성원 비교(2026-11-18) — 표에 '계좌' 칸이 생겨 1420px 미만에서는 옆 카드(자산군 구성)와 나란히 두면 평가손익·수익률이
-   가로 스크롤로 밀린다. 그 폭에서는 카드를 표 위 가로 띠로 올린다(배당 '향후 90일 일정'과 같은 방식). 1420px 이상은 오른쪽 sticky(style.css). */
-@media(min-width:769px) and (max-width:1419px){
+   가로 스크롤로 밀린다. 그 폭에서는 카드를 표 위 가로 띠로 올린다(배당 '향후 90일 일정'과 같은 방식). 1600px 이상은 오른쪽 sticky(style.css). */
+@media(min-width:769px) and (max-width:1599px){
   .cb-family-detail-grid{grid-template-columns:minmax(0,1fr)}
   .cb-family-mix-card{order:-1}
   .cb-family-mix-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
@@ -1448,3 +1448,13 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-dash-pop-list>div{padding-top:6px!important;padding-bottom:6px!important;font-size:var(--fs-body)!important}
 .cb-dash-pop-empty{padding:16px;text-align:center;color:var(--dim)}
 .cb-dash-pop-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
+/* ===== 글자 줄바꿈·빈 칸 정리(2026-11-23, 사용자 요청 '한쪽으로 치우쳐 여백이 어색한 것') =====
+   한국어는 낱말 중간('자 / 녀1', '아 / 닙니다')에서 끊지 않고(keep-all), 그래도 넘치는 긴 글자만 끊는다(break-word —
+   anywhere 와 달리 칸의 최소 폭을 줄이지 않는다). 마지막 줄에 한두 글자만 남지 않게 text-wrap:pretty. */
+body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
+/* 데이터 상태 '상태 해석' 5칸 — 2열 격자에서 마지막 하나가 반쪽만 차지해 옆이 비었다. */
+.fin-guidance>p:last-child:nth-child(odd){grid-column:1/-1}
+/* 목표 카드 — 3열 격자에 2개면 셋째 칸이, 4개면 둘째 줄 두 칸이 빈다. 2·4개는 2열로. */
+@media(min-width:1101px){
+  .fin-goal-grid:has(>:nth-child(2):last-child),.fin-goal-grid:has(>:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+}

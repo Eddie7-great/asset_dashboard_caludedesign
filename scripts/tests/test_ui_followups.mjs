@@ -330,7 +330,7 @@ assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{d
 assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
-assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
+assert.match(styleSource, /@media \(min-width:1420px\)\{\s*\.cb-dca-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}[\s\S]*@media \(min-width:1600px\)\{\s*\.cb-family-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
 assert.match(styleSource, /@media \(min-width:1400px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 320px\}/, '배당 표(8칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
 assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
 assert.match(workspaceSource, /@media\(max-width:1399px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')

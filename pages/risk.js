@@ -202,9 +202,8 @@ function cbRenderRisk(){
               ${foot?`<div class="cb-risk-foot">${foot}</div>`:''}
             </div>`;
   };
-  const okNames=okCards.map(e=>cbEsc(e.title||e.card.title)).join(' · ');
   const okFold=okCards.length?`<details class="cb-risk-ok-fold"${_cbRiskOkOpen||!mainCards.length?' open':''} ontoggle="cbRiskOkToggle(this.open)">
-        <summary><b>양호 ${okCards.length}개</b><span>${okNames}</span><em aria-hidden="true"><i class="is-closed">펼치기 ▾</i><i class="is-open">접기 ▴</i></em></summary>
+        <summary><b>양호 ${okCards.length}개</b><span>문제없는 점검 항목 · 이름과 값은 펼쳐서 확인</span><em aria-hidden="true"><i class="is-closed">펼치기 ▾</i><i class="is-open">접기 ▴</i></em></summary>
         <ul class="cb-risk-ok-list">${okCards.map(cbRiskOkRowHtml).join('')}</ul>
       </details>`:'';
   el.innerHTML = `

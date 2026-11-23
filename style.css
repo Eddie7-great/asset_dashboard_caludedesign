@@ -1213,7 +1213,11 @@
 
     }
     @media (min-width:1420px){
-      .cb-family-detail-grid,.cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 280px}
+      .cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 280px}
+    }
+    /* 구성원 비교 표(9칸)는 1440px 에서 옆 카드와 나란히 두면 수익률 칸이 잘렸다(2026-11-23) — 1600px 부터 옆에 둔다. */
+    @media (min-width:1600px){
+      .cb-family-detail-grid{grid-template-columns:minmax(0,1fr) 280px}
       /* 넓은 화면에서는 긴 표를 따라 내려오도록 sticky — sticky 는 행 높이로 늘어나면 동작하지 않으므로 위쪽 정렬을 유지한다. */
       .cb-family-mix-card{position:sticky;top:0;align-self:start}
     }
