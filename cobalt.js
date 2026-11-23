@@ -36,13 +36,17 @@ const CB_PERF_TFS = ['5D','1M','3M','6M','YTD','1Y'];
 const CB_PERF_TF_LABEL = { '5D':'최근 5일','1M':'최근 1개월','3M':'최근 3개월','6M':'최근 6개월','YTD':'연초 이후','1Y':'최근 1년' };
 
 // ───────────────────────── 상수 (시안 팔레트) ─────────────────────────
+// 자산군 색(2026-11-23 개편) — 다섯 색이 라이트·다크 모두에서 서로 구별되도록 색 차이 검증 도구로 맞춘 한 벌이다.
+// 예전 금(#d4b24a)↔가상화폐(#f2a33c), 한국 주식(#4ecdc4)↔현금(#56c596)은 색이 정상인 사람도 헷갈리는 수준이었다.
+// 소유주 색(ownerColors, core/data.js)과 함께 바꿀 때는 docs/invariants.md 의 색 절을 같이 고친다.
 const CB_CLS = {
-  crypto:{label:'가상화폐', color:'#f2a33c'},
-  us:    {label:'미국 주식', color:'#5b9bff'},
-  kr:    {label:'한국 주식', color:'#4ecdc4'},
-  jp:    {label:'일본 주식', color:'#c084fc'},
-  gold:  {label:'금',       color:'#d4b24a'},
-  cash:  {label:'현금',     color:'#56c596'},
+  crypto:{label:'가상화폐', color:'#ea5a2a'},
+  us:    {label:'미국 주식', color:'#2a78d6'},
+  kr:    {label:'한국 주식', color:'#1baf7a'},
+  jp:    {label:'일본 주식', color:'#b844a6'},
+  gold:  {label:'금',       color:'#d6a300'},
+  // 현금은 투자가 아닌 대기 자금이라 무채색이다. 예전 초록(#56c596)은 한국 주식 청록과 거의 같은 색이었다.
+  cash:  {label:'현금',     color:'#98a2b3'},
 };
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
@@ -867,7 +871,7 @@ function cbRiskInsights(ownerFilter, baseRisk){
   return [
     {
       id:'etf-overlap', title:'ETF 중복 노출률', value:overlapUnknown?'—':overlapPct.toFixed(1)+'%',
-      detail:overlapUnknown?(overlapPending?'구성종목 확인 중':'구성종목 미조회 · 판정 보류'):(overlapPct>0?`간접 중복 ${cbDisp(overlapVal)}`:'직접·간접 중복 없음'),
+      detail:overlapUnknown?(overlapPending?'구성종목 확인 중':'구성종목을 받지 못함 · 확인 필요'):(overlapPct>0?`간접 중복 ${cbDisp(overlapVal)}`:'직접·간접 중복 없음'),
       tone:overlapUnknown?(overlapPending?'var(--lab)':warn):toneHigh(overlapPct,5,15),
       meter:overlapUnknown?null:{value:overlapPct,warnAt:5,badAt:15,max:30},
       tip:'직접 보유한 개별 회사와 보유 ETF 구성종목이 겹쳐 추가된 간접 보유분을 투자자산으로 나눈 비중입니다. 직접 보유가 없는 회사는 여기에 잡히지 않으므로 ETF 간 중복도를 함께 보세요.',
@@ -936,24 +940,37 @@ function cbRiskInsights(ownerFilter, baseRisk){
 // 리스크 기준 게이지 — 양호·주의·위험 3구간 띠 위에 현재 값까지 채운 막대.
 // 구간 경계는 카드 판정(mk / toneHigh·toneLow)에 쓴 기준값 그대로다. 값이 없으면(판정 보류) 그리지 않는다.
 // invert: 값이 '작을수록' 위험한 지표(현금 비중·자산군 수·실효 종목 수). unit: 표시 단위.
+// 리스크 카드 게이지(2026-11-23 개편, 사용자 결정) — 회색 한 줄 + 판정 기준 눈금 두 개(숫자) + 지금 값 동그라미(판정색).
+// 예전에는 16개 카드 모두 초록·노랑·분홍 구간 바탕 위에 색 막대를 덮어, 화면 전체가 알록달록하고 '어디까지 안전한지'가 오히려 안 보였다.
+// 이제 색은 판정 배지와 동그라미에만 쓴다. 기준값은 판정에 쓴 같은 숫자(warnAt·badAt)이고, 방향(낮을수록/높을수록 안전)을 글자로 적는다.
 function cbRiskMeterHtml(m, unit, color){
   if(!m||!Number.isFinite(Number(m.value))||!(m.max>0)) return '';
   const u=unit==null?'%':unit;
   const clamp=v=>Math.max(0,Math.min(100,v/m.max*100));
-  const lo=clamp(Math.min(m.warnAt,m.badAt)), hi=clamp(Math.max(m.warnAt,m.badAt));
-  const zones=m.invert
-    ? [['bad',0,lo],['warn',lo,hi],['good',hi,100]]
-    : [['good',0,lo],['warn',lo,hi],['bad',hi,100]];
   const fmt=v=>(Math.round(v*10)/10).toLocaleString()+u;
   const v=Number(m.value);
   const desc=m.invert
     ? `현재 ${fmt(v)} · ${fmt(m.warnAt)} 미만 주의 · ${fmt(m.badAt)} 미만 위험`
     : `현재 ${fmt(v)} · ${fmt(m.warnAt)} 초과 주의 · ${fmt(m.badAt)} 초과 위험`;
-  return `<div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
-    + zones.filter(z=>z[2]>z[1]).map(z=>`<span class="cb-meter-zone ${z[0]}" style="left:${z[1].toFixed(2)}%;width:${(z[2]-z[1]).toFixed(2)}%"></span>`).join('')
-    + `<span class="cb-meter-fill" style="width:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span>`
-    // 현재 값 위치 표식 — 채운 길이만으로는 구간 경계와의 거리가 잘 안 읽혀 세로 눈금을 더한다
-    + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%"></span></div>`;
+  // 눈금 글자는 막대 아래. 끝에 붙은 눈금은 글자를 안쪽으로 맞추고, 두 눈금이 가까우면(14% 미만) 글자 하나로 합친다
+  // — 따로 적으면 '22%32%' 처럼 겹친다. 정확한 기준은 aria-label·말풍선(desc)에 그대로 있다.
+  const lab=(pos,text,kind)=>{
+    const edge=pos<8?' is-start':(pos>92?' is-end':'');
+    return `<span class="cb-meter-tick-lab ${kind}${edge}" style="left:${pos.toFixed(2)}%">${cbEsc(text)}</span>`;
+  };
+  const pw=clamp(m.warnAt), pb=clamp(m.badAt);
+  const tickLine=(pos,kind)=>`<span class="cb-meter-tick ${kind}" style="left:${pos.toFixed(2)}%"></span>`;
+  let ticks=tickLine(pw,'warn')+tickLine(pb,'bad');
+  if(Math.abs(pw-pb)<14){
+    const mid=Math.max(20,Math.min(80,(pw+pb)/2));
+    ticks+=lab(mid,`${fmt(m.warnAt)} · ${fmt(m.badAt)}`,'pair');
+  } else {
+    ticks+=lab(pw,fmt(m.warnAt),'warn')+lab(pb,fmt(m.badAt),'bad');
+  }
+  return `<div class="cb-meter-wrap"><div class="cb-meter" role="img" aria-label="${cbEsc(desc)}" data-tip="${cbEsc(desc)}">`
+    + ticks
+    + `<span class="cb-meter-mark" style="left:${clamp(v).toFixed(2)}%;background:${color||'var(--acc)'}"></span></div>`
+    + `<span class="cb-meter-dir">${m.invert?'높을수록 안전':'낮을수록 안전'}</span></div>`;
 }
 
 // 통화 구성 100% 누적 막대 — 외화(USD·JPY·AUD·기타)를 왼쪽부터 쌓고 원화는 회색으로 끝에 둔다.
@@ -1061,9 +1078,9 @@ function cbMultiLineSvg(seriesArr, w, h){
     s._end = { x:xy[xy.length-1].x, y:xy[xy.length-1].y };
     const dimmed = !!s.dim;
     const op = dimmed ? 0.16 : (s.bold ? 1 : 0.85);
-    // 렌더 애니메이션: 실선(벤치마크)은 드로잉, 점선(소유주)은 목표 불투명도까지 페이드 인
-    const anim = s.isBench ? 'class="cb-line-draw" pathLength="1"' : `class="cb-line-fade" style="--o:${op}"`;
-    out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.bold?2.8:1.8}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}" ${s.dash?'stroke-dasharray="5 5"':''} ${anim}></path>`;
+    // 렌더 애니메이션: 실선은 드로잉, 점선(KOSPI)은 목표 불투명도까지 페이드 인(드로잉이 점선 간격을 덮어쓰므로)
+    const anim = !s.dash ? 'class="cb-line-draw" pathLength="1"' : `class="cb-line-fade" style="--o:${op}"`;
+    out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.bold?2.6:1.6}" stroke-linejoin="round" stroke-linecap="round" opacity="${op}" ${s.dash?'stroke-dasharray="5 5"':''} ${anim}></path>`;
   });
   // 선 끝 이름표 — 범례를 오가며 색을 맞춰 보지 않아도 어느 선이 누구인지 바로 읽힌다.
   const ends = valid.filter(s=>s._end && s.label);
@@ -1144,7 +1161,8 @@ function cbTrendChartHtml(pts){
   const md=p=>{const [,m,dd]=p.date.split('-'); return `${+m}/${+dd}`;};
   const xs=[[0,'is-first'],[mid,''],[pts.length-1,'is-last']].filter((x,n,a)=>a.findIndex(y=>y[0]===x[0])===n);
   return `<span class="cb-trend-chart">`
-    +`<span class="cb-trend-y" aria-hidden="true">${ticks.map(v=>`<span style="top:${yPct(v).toFixed(2)}%">${cbAmtAxisLab(v,step)}</span>`).join('')}</span>`
+    // 눈금 칸 폭은 가장 긴 눈금 글자가 정한다(보이지 않는 자리 잡기 글자) — 글자는 그래프 밖 왼쪽 칸에 선다.
+    +`<span class="cb-trend-y" aria-hidden="true"><b class="cb-trend-y-sizer">${ticks.map(v=>cbAmtAxisLab(v,step)).sort((a,b)=>b.length-a.length)[0]||''}</b>${ticks.map(v=>`<span style="top:${yPct(v).toFixed(2)}%">${cbAmtAxisLab(v,step)}</span>`).join('')}</span>`
     +`<span class="cb-trend-plot"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">`
     +ticks.map(v=>`<line x1="0" x2="100" y1="${yPct(v).toFixed(2)}" y2="${yPct(v).toFixed(2)}" class="cb-trend-grid" vector-effect="non-scaling-stroke"/>`).join('')
     +`<path d="${d}L100,100L0,100Z" class="cb-trend-area"/><path d="${d}" class="cb-trend-line" vector-effect="non-scaling-stroke"/></svg>`

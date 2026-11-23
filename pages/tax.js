@@ -167,70 +167,78 @@ function cbTaxChartSvg(w,h,list,when){
         wn=(typeof cssVar==='function'?cssVar('--warn','#d97706'):'#d97706'),
         acc3=(typeof cssVar==='function'?cssVar('--acc3','#7c3aed'):'#7c3aed'),
         dn=(typeof cssVar==='function'?cssVar('--dn','#cf3d5c'):'#cf3d5c');
-  // 한 칸에 겹쳐 그린다(사용자 결정 2026-11-17). 막대(그 달 실현손익)는 왼쪽 눈금, 해외 누적선과 기본공제선은 오른쪽 눈금이다.
-  // 월별 금액과 누적 금액은 크기가 달라 한 눈금을 쓰면 막대가 납작해진다 — 두 눈금의 0 선과 가로줄을 같은 높이에 맞춘다.
-  // 선은 세금을 정하는 해외 누적 하나만 그린다. 전체·국내 누적과 예상 세액은 마우스 설명에만 남긴다(선이 늘면 다시 안 읽힌다).
-  const padL=64, padR=76, padT=30, padB=24;
-  const plotW=w-padL-padR, plotH=h-padT-padB;
-  const xMid=m=>padL+(m-0.5)/12*plotW;
+  // 한 카드 안에 위·아래 두 줄로 나눠 그린다(사용자 결정 2026-11-23 — 예전 2026-11-17 '한 칸 겹치기'를 대신한다).
+  // 겹쳐 그리면 눈금이 두 개(왼쪽=월별, 오른쪽=누적)라 공제선(오른쪽 250만)이 왼쪽 +125만 높이에 놓여 막대와 비교되는 착시가 생겼다.
+  // 위 줄 = 해외 누적손익 vs 기본공제(계단선 — 누적은 매도한 달에만 바뀌므로 곡선으로 잇지 않는다. 곡선은 0 아래로 파이는 없는 값을 그렸다),
+  // 아래 줄 = 월별 실현손익 막대(국내·해외). 두 줄이 같은 1~12월 가로 위치를 쓰고 눈금은 각자 하나다.
+  // 선은 세금을 정하는 해외 누적 하나만 그린다. 전체·국내 누적과 예상 세액은 마우스 설명에만 남긴다.
+  const padL=70, padR=24, gapMid=34;
+  const plotW=w-padL-padR;
+  const xMid=m=>padL+(m-0.5)/12*plotW, xL=m=>padL+(m-1)/12*plotW, xR=m=>padL+m/12*plotW;
+  const top1=30, avail=h-top1-gapMid-24, h1=Math.round(avail*0.55), bot1=top1+h1, top2=bot1+gapMid, bot2=h-24;
   let out='';
   const fgnProfitVals=maxM?cum.slice(1,maxM+1).map(c=>c.fgnProfit):[0];
-  const axes=[
-    // 눈금 라벨이 만 원 단위라 바닥을 4만 원으로 둔다 — 기록이 없을 때 '+0만, +0만…'이 반복되지 않게(2026-11-23).
-    {pos:Math.max(40000,...vals.filter(v=>v>0)), neg:Math.max(0,...vals.filter(v=>v<0).map(v=>-v))},
-    {pos:Math.max(DED*1.15,1,...fgnProfitVals.filter(v=>v>0)), neg:Math.max(0,...fgnProfitVals.filter(v=>v<0).map(v=>-v))},
-  ];
-  axes.forEach(a=>{ a.step=cbNiceStep(a.pos/4); });
-  let nUp=Math.max(...axes.map(a=>Math.ceil(a.pos/a.step))), nDown=Math.max(...axes.map(a=>Math.ceil(a.neg/a.step)));
-  if(nDown>4){ // 손실이 이익보다 훨씬 큰 해 — 아래쪽을 기준으로 눈금을 다시 잡는다
-    axes.forEach(a=>{ a.step=cbNiceStep(Math.max(a.pos,a.neg)/4); });
-    nUp=Math.max(1,...axes.map(a=>Math.ceil(a.pos/a.step))); nDown=Math.max(...axes.map(a=>Math.ceil(a.neg/a.step)));
-  }
-  const unitH=plotH/(nUp+nDown), y0=padT+nUp*unitH;
-  const YB=v=>y0-(v/axes[0].step)*unitH, YC=v=>y0-(v/axes[1].step)*unitH;
-  for(let k=-nDown;k<=nUp;k++){
-    const yy=y0-k*unitH;
-    out+=`<line x1="${padL}" x2="${w-padR}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" style="stroke:${k===0?'var(--bd2)':'var(--grid)'}" stroke-width="${k===0?1.4:1}"></line>`;
-    out+=`<text x="${padL-6}" y="${(yy+4).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(k*axes[0].step)}</text>`;
-    out+=`<text class="cb-tax-axis-right" x="${w-padR+7}" y="${(yy+4).toFixed(1)}" style="fill:var(--acc)" font-size="12" text-anchor="start">${cbTaxAxisLab(k*axes[1].step)}</text>`;
-  }
-  out+=`<text x="${padL}" y="${padT-12}" style="fill:var(--mut)" font-size="12" font-weight="700">월별 실현손익 (막대 · 왼쪽 눈금)</text>`;
-  out+=`<text x="${w-padR}" y="${padT-12}" style="fill:var(--acc)" font-size="12" font-weight="700" text-anchor="end">해외 누적손익 (선 · 오른쪽 눈금)</text>`;
-  // 월별 막대 (국내 → 해외 순)
-  const bw=(plotW/12)/2-5;
-  for(let m=1;m<=12;m++){
-    const xf=padL+(m-1)/12*plotW+5;
-    [['d','#4ecdc4',0],['f','var(--acc)',1]].forEach(cfg=>{
-      const v=agg[m+'-'+cfg[0]]||0; if(!v) return;
-      const yTop=YB(Math.max(0,v)), yBot=YB(Math.min(0,v));
-      out+=`<rect x="${(xf+cfg[2]*(bw+3)).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,yBot-yTop).toFixed(1)}" rx="2" style="fill:${cfg[1]}" opacity=".7"></rect>`;
-    });
-    out+=`<text x="${xMid(m).toFixed(1)}" y="${h-6}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m}월</text>`;
-  }
-  // 해외 누적선 + 기본공제선
+  // 눈금 하나로 한 줄을 그린다 — 양수 바닥(minPos)은 기록이 없을 때 같은 라벨이 반복되지 않게 한다.
+  const panel=(vs,minPos,yTop,yBot)=>{
+    const pos=Math.max(minPos,...vs.filter(v=>v>0)), neg=Math.max(0,...vs.filter(v=>v<0).map(v=>-v));
+    const step=cbNiceStep(Math.max(pos,neg)/4);
+    const nUp=Math.max(1,Math.ceil(pos/step)), nDown=Math.ceil(neg/step);
+    const unitH=(yBot-yTop)/(nUp+nDown), y0=yTop+nUp*unitH;
+    for(let k=-nDown;k<=nUp;k++){
+      const yy=y0-k*unitH;
+      out+=`<line x1="${padL}" x2="${w-padR}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" style="stroke:${k===0?'var(--bd2)':'var(--grid)'}" stroke-width="${k===0?1.4:1}"></line>`;
+      out+=`<text x="${padL-6}" y="${(yy+4).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${cbTaxAxisLab(k*step)}</text>`;
+    }
+    return v=>y0-(v/step)*unitH;
+  };
+  // ① 위 줄 — 해외 누적손익 vs 기본공제
+  out+=`<text x="${padL}" y="${top1-12}" style="fill:var(--tx)" font-size="12" font-weight="700">① 해외 누적 실현손익 vs 기본공제 <tspan style="fill:var(--lab)" font-weight="400">· 계단선 — 매도한 달에만 바뀝니다</tspan></text>`;
+  const YC=panel(fgnProfitVals,DED*1.2,top1,bot1);
   const yd=YC(DED);
   out+=`<line x1="${padL}" x2="${w-padR}" y1="${yd.toFixed(1)}" y2="${yd.toFixed(1)}" stroke="${wn}" stroke-width="1.8" stroke-dasharray="7 5"></line>`;
   out+=`<text x="${padL+6}" y="${(yd-6).toFixed(1)}" fill="${wn}" font-size="12" font-weight="700">1인당 해외 기본공제 ${cbKrw(DED)}</text>`;
   if(maxM>=1){
-    const fgnPts=[]; for(let m=1;m<=maxM;m++) fgnPts.push({x:xMid(m), y:YC(cum[m].fgnProfit)});
-    // 공제선을 넘은 부분만 칠한다 — 선 아래 면을 공제선 위쪽 영역으로 잘라 낸다.
-    if(fgnPts.length>1 && Math.max(...fgnProfitVals)>DED){
-      const clipId='cb-tax-over-'+Math.round(w)+'-'+Math.round(h);
-      out+=`<clipPath id="${clipId}"><rect x="${padL}" y="${padT}" width="${plotW}" height="${Math.max(0,yd-padT).toFixed(1)}"></rect></clipPath>`;
-      out+=`<path d="${cbSmoothPath(fgnPts)} L${fgnPts[fgnPts.length-1].x.toFixed(1)},${yd.toFixed(1)} L${fgnPts[0].x.toFixed(1)},${yd.toFixed(1)} Z" fill="${wn}" opacity=".2" clip-path="url(#${clipId})"></path>`;
+    const fgnColor=CB_CLS.us.color;
+    // 계단: 그 달 칸 전체에 그 달 말 누적값을 그리고 다음 달 경계에서 수직으로 바뀐다.
+    let step='';
+    for(let m=1;m<=maxM;m++){
+      const yy=YC(cum[m].fgnProfit).toFixed(1);
+      step+= m===1 ? `M${xL(1).toFixed(1)},${yy}` : ` V${yy}`;
+      step+=` H${xR(m).toFixed(1)}`;
     }
-    out+=`<path d="${cbSmoothPath(fgnPts)}" fill="none" stroke="var(--acc)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"></path>`;
-    fgnPts.forEach(p=>{ out+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="var(--acc)"></circle>`; });
-    // 끝점 이름표 — 마지막 등록 월의 누적 금액
-    const last=fgnPts[fgnPts.length-1], lastV=cum[maxM].fgnProfit;
-    const ly=Math.max(padT+12, last.y-10);
-    out+=`<text class="cb-tax-end-label" x="${Math.min(w-padR-4,last.x+8).toFixed(1)}" y="${ly.toFixed(1)}" fill="var(--acc)" font-size="12" font-weight="800" text-anchor="${last.x+8>w-padR-70?'end':'start'}">누적 ${(lastV>0?'+':'')+cbKrw(lastV)}</text>`;
+    // 공제선을 넘은 부분만 칠한다 — 계단 아래 면을 공제선 위쪽 영역으로 잘라 낸다.
+    if(Math.max(...fgnProfitVals)>DED){
+      const clipId='cb-tax-over-'+Math.round(w)+'-'+Math.round(h);
+      out+=`<clipPath id="${clipId}"><rect x="${padL}" y="${top1}" width="${plotW}" height="${Math.max(0,yd-top1).toFixed(1)}"></rect></clipPath>`;
+      out+=`<path d="${step} V${yd.toFixed(1)} H${xL(1).toFixed(1)} Z" fill="${wn}" opacity=".2" clip-path="url(#${clipId})"></path>`;
+    }
+    out+=`<path class="cb-tax-cum-step" d="${step}" fill="none" stroke="${fgnColor}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"></path>`;
+    // 점은 해외 매도가 있었던 달에만 — 값이 바뀐 곳
+    for(let m=1;m<=maxM;m++) if(agg[m+'-f']) out+=`<circle cx="${xMid(m).toFixed(1)}" cy="${YC(cum[m].fgnProfit).toFixed(1)}" r="3.6" fill="${fgnColor}"></circle>`;
+    // 끝점 이름표 — 마지막 등록 월의 누적 금액(공제 초과분 함께)
+    const lastV=cum[maxM].fgnProfit, lx=xR(maxM), lyv=YC(lastV);
+    const overTxt=lastV>DED?` · 공제 ${cbKrw(lastV-DED)} 초과`:'';
+    const anchorEnd=lx>w-padR-220;
+    out+=`<text class="cb-tax-end-label" x="${(anchorEnd?lx-4:lx+6).toFixed(1)}" y="${Math.max(top1+12,lyv-8).toFixed(1)}" style="fill:var(--tx)" font-size="12" font-weight="800" text-anchor="${anchorEnd?'end':'start'}">누적 ${(lastV>0?'+':'')+cbKrw(lastV)}${overTxt}</text>`;
+  }
+  // ② 아래 줄 — 월별 실현손익 막대 (국내 → 해외 순)
+  out+=`<text x="${padL}" y="${top2-12}" style="fill:var(--tx)" font-size="12" font-weight="700">② 월별 실현손익 <tspan style="fill:var(--lab)" font-weight="400">· 그 달에 확정된 손익</tspan></text>`;
+  const YB=panel(vals,40000,top2,bot2);
+  const bw=(plotW/12)/2-5;
+  for(let m=1;m<=12;m++){
+    const xf=xL(m)+5;
+    [['d',CB_CLS.kr.color,0],['f',CB_CLS.us.color,1]].forEach(cfg=>{
+      const v=agg[m+'-'+cfg[0]]||0; if(!v) return;
+      const yTop=YB(Math.max(0,v)), yBot=YB(Math.min(0,v));
+      out+=`<rect x="${(xf+cfg[2]*(bw+3)).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,yBot-yTop).toFixed(1)}" rx="2" style="fill:${cfg[1]}"></rect>`;
+    });
+    out+=`<text x="${xMid(m).toFixed(1)}" y="${h-6}" style="fill:var(--lab)" font-size="12" text-anchor="middle">${m}월</text>`;
   }
   // hover/클릭 히트영역 — hover 시 월 음영, 클릭 시 하단 내역 필터
   for(let m=1;m<=12;m++){
     const x0=padL+(m-1)/12*plotW;
     const monthLabel=`${m}월 실현손익 필터${_cbTaxMonthFilter===m?' 선택됨':''}. 국내 ${cbKrw(agg[m+'-d']||0)}, 해외 ${cbKrw(agg[m+'-f']||0)}, 누적 예상 세액 ${cbKrw(cum[m].tax)}`;
-    out+=`<rect class="cb-tax-month-hit" x="${x0.toFixed(1)}" y="${padT}" width="${(plotW/12).toFixed(1)}" height="${h-padT-padB}" fill="${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.style.fill='var(--accSoft)'" onblur="this.style.fill='${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}'" onmousemove="this.style.fill='var(--accSoft)';cbTaxHover(event,${m})" onmouseleave="this.style.fill='${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}';cbTaxHide()" onclick="cbTaxMonthPick(${m})"></rect>`;
+    out+=`<rect class="cb-tax-month-hit" x="${x0.toFixed(1)}" y="${top1}" width="${(plotW/12).toFixed(1)}" height="${bot2-top1}" fill="${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.style.fill='var(--accSoft)'" onblur="this.style.fill='${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}'" onmousemove="this.style.fill='var(--accSoft)';cbTaxHover(event,${m})" onmouseleave="this.style.fill='${_cbTaxMonthFilter===m?'var(--accSoft)':'transparent'}';cbTaxHide()" onclick="cbTaxMonthPick(${m})"></rect>`;
   }
   // 균일 스케일(meet) + width:100%/height:auto 로 종횡비 유지 → 텍스트가 가로로 늘어나지 않는다.
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto" role="group" aria-label="월별 실현손익과 소유주별 누적 예상 세액. 각 월을 선택하면 해당 내역을 필터합니다."><title>월별 실현손익과 소유주별 누적 예상 세액</title>${out}</svg>`;
@@ -247,8 +255,8 @@ function cbTaxHover(ev, m){
   const line=(lab,val,style='')=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;padding:1.5px 0">
     <span style="color:var(--mut)">${lab}</span><span class="cb-num" style="font-weight:700;${style}">${val}</span></div>`;
   t.innerHTML = `<div class="cb-tip-fit"><div style="font-size:var(--fs-cap);color:var(--lab);margin-bottom:5px;font-weight:700">${m}월 실현손익 · 누적 추이</div>
-    ${line('<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:#4ecdc4"></span>국내주식</span>', (r.dom>0?'+':'')+cbKrw(r.dom), cbUpDn(r.dom))}
-    ${line('<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:var(--acc)"></span>해외주식</span>', (r.fgn>0?'+':'')+cbKrw(r.fgn), cbUpDn(r.fgn))}
+    ${line('<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:'+CB_CLS.kr.color+'"></span>국내주식</span>', (r.dom>0?'+':'')+cbKrw(r.dom), cbUpDn(r.dom))}
+    ${line('<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:'+CB_CLS.us.color+'"></span>해외주식</span>', (r.fgn>0?'+':'')+cbKrw(r.fgn), cbUpDn(r.fgn))}
     <div style="border-top:1px solid var(--bd);margin:5px 0 4px"></div>
     ${line('국내 누적손익', (r.cumDomProfit>0?'+':'')+cbKrw(r.cumDomProfit), cbUpDn(r.cumDomProfit))}
     ${line('해외 누적손익', (r.cumFgnProfit>0?'+':'')+cbKrw(r.cumFgnProfit), cbUpDn(r.cumFgnProfit))}
@@ -359,7 +367,7 @@ function cbRenderTax(){
         </div>
         <div style="font-size:var(--fs-cap);color:var(--dim);padding-top:8px;line-height:1.5">해외 예상 ${cbKrw(genDue)}<br>ISA 연간 현금흐름 참고 ${cbKrw(isaDue)}<br>${taxBreakdown||'과세 대상 기록 없음'}<br>해외주식 신고 ${parseInt(year)+1}년 5월</div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--acc)">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:${CB_CLS.us.color}">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 해외주식 <span style="color:var(--dim);font-weight:500">· 양도소득세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genFgn>0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
@@ -377,7 +385,7 @@ function cbRenderTax(){
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
         <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:#4ecdc4">
+      <div class="cb-panel cb-tax-summary-card" style="--card-tone:${CB_CLS.kr.color}">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span class="cb-tax-card-sub">소액주주 비과세</span></div>
         <div style="display:flex;flex-direction:column;gap:5px;flex:1">
           ${row2('실현손익 합계', (genDom>0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
@@ -411,12 +419,12 @@ function cbRenderTax(){
     <div class="cb-panel" style="margin-top:12px;padding:16px 18px 10px">
       <div style="display:flex;gap:14px;margin-bottom:8px;font-size:var(--fs-cap);color:var(--mut);flex-wrap:wrap">
         <span class="cb-panel-title"><span data-tip="달에 마우스를 올리면 국내·전체 누적과 예상 세액까지 보입니다. 달을 누르면(Enter) 아래 내역이 그 달만 보입니다.">${year}년 월별 실현손익 · 누적 추이</span> <span style="color:var(--dim)">· 달을 누르면 내역 필터</span></span>
-        <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><span style="width:10px;height:10px;border-radius:2px;background:#4ecdc4"></span>국내주식</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--acc)"></span>해외주식</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:var(--acc)"></span>해외 누적손익</span>
+        <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><span style="width:10px;height:10px;border-radius:2px;background:${CB_CLS.kr.color}"></span>국내주식</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${CB_CLS.us.color}"></span>해외주식</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;border-radius:2px;background:${CB_CLS.us.color}"></span>해외 누적손익</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:0;border-top:2px dashed var(--warn)"></span>해외 기본공제</span>
       </div>
-      <div class="cb-chart-scroll">${cbTaxChartSvg(1120,330,list,year)}</div>
+      <div class="cb-chart-scroll">${cbTaxChartSvg(1120,420,list,year)}</div>
     </div>
     <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
     <div class="cb-tax-bottom-grid">

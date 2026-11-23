@@ -812,25 +812,47 @@ function renderCashFlow() {
   const emptyColspan = '8';
   document.getElementById('cf-table-body').innerHTML=html||`<tr><td colspan="${emptyColspan}" style="text-align:center;padding:20px">내역이 없습니다.</td></tr>`;
   const titleEl=document.getElementById('cf-widget-title-text');if(titleEl)titleEl.textContent=`수입/지출 구성 (${cfMonth}월)`;
-  if(window.cfDonutChartInst){
-    const incLabels=Object.keys(incomeByCat);const expLabels=Object.keys(expByCat);
-    const allLabels=[...incLabels,...expLabels];
-    const allData=[...incLabels.map(l=>incomeByCat[l]),...expLabels.map(l=>-expByCat[l])];
-    const allColors=[...incLabels.map(l=>cfColors[l]||cssVar('--up','#4ade80')),...expLabels.map(l=>cfColors[l]||cssVar('--dn','#fb7185'))];
-    window.cfDonutChartInst.data.labels=allLabels;
-    window.cfDonutChartInst.data.datasets[0].data=allData;
-    window.cfDonutChartInst.data.datasets[0].backgroundColor=allColors;
-    // 막대(카테고리) 수만큼 차트 높이를 준다 — 높이가 모자라면 이름표가 겹치거나 빠진다. 폭 규칙은 CSS(.cf-comp-chart)에 있다.
-    window.cfDonutChartInst.canvas?.parentNode?.style.setProperty('--cf-bars',String(Math.max(1,allLabels.length)));
-    window.cfDonutChartInst.resize();
-    window.cfDonutChartInst.update();
-  }
+  const compEl=document.getElementById('cf-comp-list');
+  if(compEl)compEl.innerHTML=cfCompositionHtml(incomeByCat,expByCat,tIn,tOut);
   const flowEl=document.getElementById('cf-couple-flow');
   if(flowEl)flowEl.innerHTML=cfCoupleFlowHtml(cfYear,cfMonth);
   const sumEl=document.getElementById('cf-month-summary');
   if(sumEl)sumEl.innerHTML=cfMonthSummaryHtml(tIn,tOut,expByCat);
   updateCfTrendChart();
   if(_cfSection==='fixed')renderFixedCostView();
+}
+
+// '수입/지출 구성'(2026-11-23 개편) — 예전에는 수입·지출을 한 축의 Chart.js 가로 막대로 그려서
+// 월급 막대 하나가 폭을 다 차지하고 지출 막대가 손톱만 했고, 눈금은 '₩5.0백만' 같은 낯선 단위였다.
+// 이제 수입은 위 한 줄 숫자, 막대는 지출만 큰 순서로 그리고 금액(만 단위)·비율을 글자로 적는다.
+// 이미 계산된 incomeByCat·expByCat 만 받는다(새 계산 없음). 색은 고정비 분포와 같은 cfColors.
+function cfShortWon(v){
+  const a=Math.abs(Math.round(v)), sign=v<0?'-':'';
+  if(a>=100000000){ const e=Math.floor(a/100000000), m=Math.round((a%100000000)/10000); return sign+e+'억'+(m?' '+m.toLocaleString()+'만':''); }
+  if(a>=10000) return sign+Math.round(a/10000).toLocaleString()+'만';
+  return sign+'₩'+a.toLocaleString();
+}
+function cfCompositionHtml(incomeByCat, expByCat, tIn, tOut){
+  const won=v=>'₩'+Math.round(v).toLocaleString();
+  const savingCats=(typeof FIN_SAVING_CATS!=='undefined')?FIN_SAVING_CATS:['저축/투자'];
+  const inc=Object.entries(incomeByCat||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const exp=Object.entries(expByCat||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!inc.length&&!exp.length) return '<div class="cf-comp-empty">이 달에 기록된 수입·지출이 없습니다.</div>';
+  const incTxt=inc.slice(0,3).map(([c,v])=>`${_cfEsc(c)} ${cfShortWon(v)}`).join(' · ')+(inc.length>3?` 외 ${inc.length-3}`:'');
+  const head=`<div class="cf-comp-head"><span>수입 <b class="c-up" title="${won(tIn)}">${cfShortWon(tIn)}</b>${incTxt?` <small>${incTxt}</small>`:''}</span>`
+    +`<span>지출 <b title="${won(tOut)}">${cfShortWon(tOut)}</b></span></div>`;
+  if(!exp.length) return head+'<div class="cf-comp-empty">이 달에 기록된 지출이 없습니다.</div>';
+  const max=exp[0][1];
+  const rows=exp.map(([c,v])=>{
+    const saving=savingCats.includes(c);
+    const pct=tOut>0?v/tOut*100:0;
+    return `<div class="cf-comp-row${saving?' is-saving':''}" title="${_cfEsc(c)} ${won(v)} · 지출의 ${pct.toFixed(1)}%${saving?' · 자산 이동(소비 아님)':''}">`
+      +`<span class="cf-comp-name">${_cfEsc(c)}</span>`
+      +`<span class="cf-comp-track"><i style="width:${(v/max*100).toFixed(1)}%;background:${cfColors[c]||'var(--lab)'}"></i></span>`
+      +`<b class="cf-comp-amt">${cfShortWon(v)}</b><span class="cf-comp-pct">${pct<1?'<1':Math.round(pct)}%</span></div>`;
+  }).join('');
+  const note=exp.some(([c])=>savingCats.includes(c))?'<div class="cf-comp-note">빗금 막대(저축/투자)는 자산으로 옮겨 간 돈이라 소비가 아닙니다.</div>':'';
+  return head+'<div class="cf-comp-sub">지출 — 큰 순서</div>'+rows+note;
 }
 
 // 선택한 달의 요약 — 이미 계산된 값만 쓴다(새 계산 없음).

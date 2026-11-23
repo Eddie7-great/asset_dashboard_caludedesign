@@ -29,7 +29,7 @@
       --acct-gen:#5b7fbf;--acct-isa:#2f9e8f;--acct-pen:#b7791f;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
-      --up:#178a52;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
+      --up:#178a52;--div-bar:#3f63c9;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
       --grid:#e6eaf2;
       --tipbg:#18213a;--tiptx:#f8fafc;--tipbd:#31405e
     }
@@ -162,7 +162,7 @@
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#c2c8d2;--t3:#a9b0bc;
-      --up:#34d399;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
+      --up:#34d399;--div-bar:#7d9bf0;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
       --grid:#2a2f39;
       --tipbg:#f4f7fb;--tiptx:#111827;--tipbd:#ffffff;
       --side-bg:#08090c;--side-border:#1f232b;--side-tx:#e7e9ee;--side-mut:#c2c8d2;--side-dim:#a9b0bc;
@@ -1109,11 +1109,6 @@
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
 /* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */
 .cb-meter{position:relative;height:var(--bar-h);margin-top:8px;border-radius:var(--r-sm);background:var(--inner);overflow:hidden;flex-shrink:0}
-.cb-meter-zone{position:absolute;top:0;bottom:0}
-.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 16%,transparent)}
-.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 24%,transparent)}
-.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 22%,transparent)}
-.cb-meter-fill{position:absolute;left:0;top:1px;bottom:1px;border-radius:0 3px 3px 0;min-width:0}
 /* 통화 구성 막대(cbFxMixHtml). 색은 CVD 검증을 통과한 범주 팔레트(라이트·다크 각각 validate_palette 통과). */
 .cb-fx-mix{--fx-usd:#2a78d6;--fx-jpy:#eb6834;--fx-aud:#1baf7a;--fx-other:#eda100;--fx-krw:var(--bd2);margin-top:8px}
 [data-theme="dark"] .cb-fx-mix{--fx-usd:#3987e5;--fx-jpy:#d95926;--fx-aud:#199e70;--fx-other:#c98500}

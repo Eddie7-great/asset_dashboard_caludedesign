@@ -317,6 +317,9 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .holdings-tabs-mobile+.cb-mobile-holdings{margin-top:0}
 
 /* ===== 휴대폰 화면 다듬기 (2026-11-02) ===== */
+/* 그래프 안내 문구 — 마우스가 있는 기기는 '가리키면', 터치 기기는 '누르면'(2026-11-23) */
+.cb-hint-touch{display:none}
+@media (hover:none){.cb-hint-mouse{display:none}.cb-hint-touch{display:inline}}
 /* 비중 분석 휴대폰 목록 제목 — 다른 카드 제목과 같은 모양 */
 .bubble-weight-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
 .bubble-weight-title small{margin-left:6px;font-size:var(--fs-cap);font-weight:500;color:var(--lab)}
@@ -901,7 +904,18 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 현금 흐름 '수입/지출 구성': 막대(카테고리) 수만큼 높이를 준다 — 높이가 모자라면 Chart.js 가 이름표를 건너뛴다.
    넘치는 만큼은 오른쪽 열(.cf-chart-column)이 스크롤한다. 휴대폰은 기존 240px 규칙이 덮는다. */
 .cf-comp-panel{flex:2 0 auto;min-height:0}
-.cf-comp-chart{flex:1 0 calc(var(--cf-bars,6)*20px + 34px);min-height:0}
+.cf-comp-list{flex:1 0 auto;min-height:0;font-size:var(--fs-body)}
+/* 수입/지출 구성(2026-11-23) — 수입 한 줄 + 지출 큰 순서 막대. 금액·비율을 글자로 적는다. */
+.cf-comp-head{display:flex;flex-wrap:wrap;gap:4px 18px;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--bd)}
+.cf-comp-head b{font-weight:800;margin-left:4px}.cf-comp-head small{margin-left:6px;font-size:var(--fs-cap);color:var(--lab)}
+.cf-comp-sub{font-size:var(--fs-cap);color:var(--lab);font-weight:700;margin:2px 0 4px}
+.cf-comp-row{display:grid;grid-template-columns:minmax(64px,auto) minmax(60px,1fr) 64px 36px;align-items:center;gap:8px;padding:3px 0}
+.cf-comp-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2)}
+.cf-comp-track{height:var(--bar-h-lg,12px);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.cf-comp-track i{display:block;height:100%;border-radius:var(--r-sm)}
+.cf-comp-row.is-saving .cf-comp-track i{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 3px,transparent 3px 7px)}
+.cf-comp-amt{text-align:right;font-variant-numeric:tabular-nums}.cf-comp-pct{text-align:right;color:var(--lab);font-size:var(--fs-cap);font-variant-numeric:tabular-nums}
+.cf-comp-note,.cf-comp-empty{font-size:var(--fs-cap);color:var(--lab);margin-top:6px}
 .cf-trend-panel{flex:1 0 220px;min-height:0}
 /* 보유 목록 두 줄 행 — 윗줄 이름·증권사·주기, 아랫줄 티커·계좌·회당 금액. 한 줄에 이어 쓰면 'TIGER 미…'로 잘렸다. */
 #view-holdings .holdings-inline-cell.holdings-asset-cell{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:1px;align-items:center;white-space:nowrap}
@@ -978,17 +992,19 @@ button,input,select,textarea{font-family:var(--font-ui)}
 }
 /* 리스크 게이지: 구간 색을 진하게 하고(양호·주의·위험이 한눈에 갈리게) 현재 값 위치에 위아래로 튀어나온 눈금을 단다.
    눈금이 막대 밖으로 나오도록 overflow 를 풀고, 양 끝 구간의 모서리는 직접 둥글린다. 높이는 --bar-h 그대로. */
-.cb-meter{overflow:visible}
-.cb-meter-zone.good{background:color-mix(in srgb,var(--up) 26%,transparent)}
-.cb-meter-zone.warn{background:color-mix(in srgb,var(--warn) 36%,transparent)}
-.cb-meter-zone.bad{background:color-mix(in srgb,var(--dn) 32%,transparent)}
-.cb-meter-zone:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
-.cb-meter-zone:nth-last-child(3){border-radius:0 var(--r-sm) var(--r-sm) 0}
-.cb-meter-fill{border-radius:var(--r-sm)}
-.cb-meter-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--tx)}
+/* 리스크 게이지(2026-11-23) — 회색 한 줄 + 기준 눈금 두 개 + 지금 값 동그라미. 구간 바탕색을 칠하지 않는다. */
+.cb-meter-wrap{position:relative;margin-top:8px;padding-bottom:38px;flex-shrink:0}
+.cb-meter{overflow:visible;margin-top:0;background:var(--inner);box-shadow:inset 0 0 0 1px var(--bd)}
+.cb-meter-tick{position:absolute;top:-3px;bottom:-3px;width:1px;margin-left:-.5px;background:var(--lab)}
+.cb-meter-tick.bad{width:2px;margin-left:-1px}
+.cb-meter-tick-lab{position:absolute;top:calc(100% + 8px);transform:translateX(-50%);font-size:var(--fs-micro);line-height:1.2;color:var(--lab);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-meter-tick-lab.is-start{transform:none}
+.cb-meter-tick-lab.is-end{transform:translateX(-100%)}
+.cb-meter-mark{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid var(--glass,#fff);box-shadow:0 0 0 1px var(--bd2);z-index:1}
+.cb-meter-dir{position:absolute;right:0;bottom:0;font-size:var(--fs-micro);line-height:1.2;color:var(--lab)}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
-.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--up) 0 2px,color-mix(in srgb,var(--up) 28%,transparent) 2px 4px)}
+.cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--div-bar) 0 2px,color-mix(in srgb,var(--div-bar) 28%,transparent) 2px 4px)}
 /* 성과 화면 카드·범례 — 예전 인라인 고정 스타일을 옮긴 것. 값에 따라 바뀌는 윗선 색·선택 강조·흐림·손익 색만 인라인에 남긴다. */
 .cb-perf-card{min-width:0;padding:12px 14px;border-top:3px solid var(--bd);cursor:pointer;transition:opacity .2s,box-shadow .2s}
 .cb-perf-card-name{display:flex;align-items:center;gap:7px;font-size:var(--fs-cap);color:var(--mut)}
@@ -1297,14 +1313,16 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-dash-trend-sub{font-size:var(--fs-cap);color:var(--mut)}
 /* 30일 그래프 — 남는 높이를 채우고(flex:1) 왼쪽 금액 눈금·아래 날짜를 둔다. 글자는 HTML 이라 늘어나지 않는다. */
 /* 금액 눈금은 그림 안 왼쪽, 각 눈금선 바로 위에 얹는다 — 좁은 카드에서 '1억 2,500만' 같은 라벨이 그림 폭을 먹지 않게. */
-.cb-trend-chart{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto;margin:24px 4px 6px 0;min-height:150px}
-.cb-trend-y{position:relative;grid-row:1;grid-column:1;z-index:1;pointer-events:none}
-.cb-trend-y>span{position:absolute;left:0;transform:translateY(-100%);padding:0 4px 1px 0;border-radius:var(--r-sm);background:color-mix(in srgb,var(--panelSolid) 78%,transparent);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;font-variant-numeric:tabular-nums}
-.cb-trend-plot{position:relative;grid-row:1;grid-column:1}
+.cb-trend-chart{flex:1 1 auto;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto;column-gap:8px;margin:12px 4px 6px 0;min-height:150px}
+/* 눈금 글자는 그래프 왼쪽 여백 칸에 둔다(2026-11-23) — 예전에는 그래프 안쪽에 떠 있어 선과 겹치는 날은 둘 다 읽히지 않았다. */
+.cb-trend-y{position:relative;grid-row:1;grid-column:1;pointer-events:none}
+.cb-trend-y-sizer{display:block;height:0;overflow:hidden;visibility:hidden;font-size:var(--fs-cap);font-weight:400;white-space:nowrap}
+.cb-trend-y>span{position:absolute;right:0;transform:translateY(-50%);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-trend-plot{position:relative;grid-row:1;grid-column:2}
 .cb-trend-plot>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .cb-trend-grid{stroke:var(--grid);stroke-width:1}
 .cb-trend-dot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--panelSolid)}
-.cb-trend-x{position:relative;grid-column:1;height:18px;margin-top:4px}
+.cb-trend-x{position:relative;grid-column:2;height:18px;margin-top:4px}
 .cb-trend-x>span{position:absolute;top:0;transform:translateX(-50%);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap}
 .cb-trend-x>span.is-first{transform:none}.cb-trend-x>span.is-last{transform:translateX(-100%)}
 .cb-trend-line{fill:none;stroke:var(--acc);stroke-width:2}

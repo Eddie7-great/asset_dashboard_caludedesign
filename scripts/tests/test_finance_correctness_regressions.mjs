@@ -28,6 +28,7 @@ function extractFunction(source, name) {
 
 // ── 양도세: 공제는 가구 전체 한 번이 아니라 소유주별 적용 ─────────────
 const taxContext = {
+  CB_CLS: { kr:{color:'#1baf7a'}, us:{color:'#2a78d6'} },
   window: {},
   _taxRuleValue: (_path, fallback) => fallback,
   cssVar: (_key, fallback) => fallback,

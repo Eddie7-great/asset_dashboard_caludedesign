@@ -244,9 +244,9 @@ function getFilteredAssets(owner) {
 }
 
 // 기본 팔레트 — 소유주/차트 색상
-const ownerColors = {'전체':'#4ecdc4','본인':'#5b9bff','아내':'#f2a33c','자녀1':'#4ade80','아버지':'#c084fc'};
-// 벤치마크 차트 전용 소유주 색상: 아내(#f2a33c)가 KOSPI 라인(주황)과, 자녀1(#4ade80)이 S&P 라인(녹색)과 겹치므로 분리
-const BENCH_OWNER_COLORS = { ...ownerColors, '아내': '#f472b6', '자녀1': '#4ecdc4' };
+const ownerColors = {'전체':'#7d8799','본인':'#2a78d6','아내':'#eb6834','자녀1':'#1baf7a','아버지':'#b844a6'};
+// 소유주 색은 모든 화면이 이 한 벌을 쓴다(성과 그래프 포함). 성과 그래프의 비교 지수는 회색이라 소유주 색과 겹치지 않는다.
+// 예전 BENCH_OWNER_COLORS 는 성과 그래프에서만 아내·자녀1 색을 바꿔 화면마다 색이 달랐다 — 다시 만들지 않는다.
 
 // 소유주 목록 (단일 소스). OWNERS = 실제 소유주 4인, ALL_OWNERS = '전체' 포함
 const OWNERS = ['본인','아내','자녀1','아버지'];

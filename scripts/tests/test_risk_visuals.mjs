@@ -15,18 +15,24 @@ vm.runInContext(source.slice(start, end), ctx)
 // ── 게이지: 높을수록 위험 ──────────────────────────────────────
 {
   const html = ctx.cbRiskMeterHtml({ value: 13.2, warnAt: 20, badAt: 30, max: 100 }, '%', 'var(--up)')
-  assert.match(html, /cb-meter-zone good" style="left:0\.00%;width:20\.00%/, '0~주의 기준은 양호 구간')
-  assert.match(html, /cb-meter-zone warn" style="left:20\.00%;width:10\.00%/, '주의~위험 기준은 주의 구간')
-  assert.match(html, /cb-meter-zone bad" style="left:30\.00%;width:70\.00%/, '위험 기준 이후는 위험 구간')
-  assert.match(html, /cb-meter-fill" style="width:13\.20%;background:var\(--up\)/, '현재 값까지 채움')
-  assert.match(html, /cb-meter-mark" style="left:13\.20%"/, '현재 값 위치에 세로 표식')
+  // 2026-11-23: 색 구간 세 칸을 없애고 회색 바탕 위 기준 눈금 두 개 + 현재 값 점 + 방향 글자로 단순화했다.
+  assert.doesNotMatch(html, /cb-meter-zone|cb-meter-fill/, '색 구간·채움 막대는 그리지 않는다')
+  assert.match(html, /cb-meter-tick warn" style="left:20\.00%"[\s\S]*cb-meter-tick bad" style="left:30\.00%"/, '주의·위험 기준 눈금')
+  assert.match(html, /cb-meter-tick-lab pair" style="left:25\.00%">20% · 30%</, '두 눈금이 가까우면 글자 하나로 합쳐 겹치지 않게')
+  const wide = ctx.cbRiskMeterHtml({ value: 50, warnAt: 45, badAt: 70, max: 100 }, '%', 'x')
+  assert.match(wide, /cb-meter-tick-lab warn" style="left:45\.00%">45%<[\s\S]*cb-meter-tick-lab bad" style="left:70\.00%">70%</, '멀면 눈금마다 값')
+  const edge = ctx.cbRiskMeterHtml({ value: 1, warnAt: 3, badAt: 98, max: 100 }, '%', 'x')
+  assert.match(edge, /tick-lab warn is-start"[\s\S]*tick-lab bad is-end"/, '끝에 붙은 눈금 글자는 막대 안쪽으로 맞춘다')
+  assert.match(html, /cb-meter-mark" style="left:13\.20%;background:var\(--up\)"/, '현재 값 위치에 판정 색 점')
+  assert.match(html, /cb-meter-dir">낮을수록 안전</, '어느 쪽이 안전한지 글자로 적음')
   assert.match(html, /aria-label="현재 13\.2% · 20% 초과 주의 · 30% 초과 위험"/, '색 없이도 기준을 읽을 수 있게 설명')
 }
 // ── 게이지: 낮을수록 위험(현금 비중 등) ─────────────────────────
 {
   const html = ctx.cbRiskMeterHtml({ value: 13.2, warnAt: 5, badAt: 3, invert: true, max: 10 }, '%', 'x')
-  assert.match(html, /zone bad" style="left:0\.00%;width:30\.00%[\s\S]*zone warn" style="left:30\.00%;width:20\.00%[\s\S]*zone good" style="left:50\.00%;width:50\.00%/, '낮을수록 위험이면 구간 순서가 뒤집힌다')
-  assert.match(html, /cb-meter-fill" style="width:100\.00%/, '눈금 상한을 넘는 값은 끝에서 멈춘다')
+  assert.match(html, /cb-meter-tick warn" style="left:50\.00%"[\s\S]*cb-meter-tick bad" style="left:30\.00%"/, '낮을수록 위험이어도 눈금은 같은 축 위치')
+  assert.match(html, /cb-meter-mark" style="left:100\.00%/, '눈금 상한을 넘는 값은 끝에서 멈춘다')
+  assert.match(html, /cb-meter-dir">높을수록 안전</, '낮을수록 위험이면 방향 글자가 뒤집힌다')
   assert.match(html, /5% 미만 주의 · 3% 미만 위험/, '낮을수록 위험인 기준 설명')
 }
 assert.equal(ctx.cbRiskMeterHtml(null), '', '판정 보류(meter 없음)면 그리지 않는다')

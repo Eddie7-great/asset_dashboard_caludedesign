@@ -21,16 +21,24 @@ function cbVerifyPerfOwnersOnOpen(){
       if (_cobaltActive==='perf2') cbRenderPerf();
     });
 }
+// 비교 지수 색 — 테마와 상관없이 읽히는 회색 두 단계. 소유주 색(ownerColors)과 겹치지 않는다.
+const CB_PERF_BENCH_COLOR = { 'S&P 500':'#9aa3b5', 'KOSPI':'#7d8799' };
+// 범례·카드·설명 상자의 선 모양 견본(그래프의 선 종류와 같다)
+function cbPerfSwatch(e, w){
+  return e.dash
+    ? `<span style="width:${w}px;height:0;border-top:2px dashed ${e.color};flex-shrink:0"></span>`
+    : `<span style="width:${w}px;height:${e.isBench?2:3}px;border-radius:2px;background:${e.color};flex-shrink:0"></span>`;
+}
 function cbRenderPerf(){
   const el = document.getElementById('cb-perf2'); if(!el) return;
   const fmtR = v => v==null ? '—' : (v>=0?'+':'')+Number(v).toFixed(1)+'%';
   const csR = v => v==null ? 'color:var(--lab)' : cbUpDn(v);
-  const oc = (typeof BENCH_OWNER_COLORS!=='undefined') ? BENCH_OWNER_COLORS : {};
   if (CB_PERF_TFS.indexOf(_cbPerfTf)<0) _cbPerfTf='1Y';
+  // 주인공은 가족이다 — 소유주는 앱 공통 소유주 색의 굵은 실선, 비교 지수는 회색으로 뒤에 둔다(KOSPI 는 점선으로 S&P 와 구분).
   const entities = [
-    ...OWNERS.map(o=>({key:o,label:o,color:oc[o]||cbOwnerColor(o),isBench:false,bold:false})),
-    {key:'S&P 500',label:'S&P 500',color:'#4ade80',isBench:true},
-    {key:'KOSPI',label:'KOSPI',color:'#f2a33c',isBench:true},
+    ...OWNERS.map(o=>({key:o,label:o,color:cbOwnerColor(o),isBench:false,dash:false})),
+    {key:'S&P 500',label:'S&P 500',color:CB_PERF_BENCH_COLOR['S&P 500'],isBench:true,dash:false},
+    {key:'KOSPI',label:'KOSPI',color:CB_PERF_BENCH_COLOR.KOSPI,isBench:true,dash:true},
   ];
   const tf = _cbPerfTf;
   const sel = benchData[tf] || {labels:[],data:{}};
@@ -39,15 +47,13 @@ function cbRenderPerf(){
   const selKey = _cbPerfSel;
   const cards = entities.map(e=>({ ...e, ret: cbLastVal(sel.data[e.key]) }));
   // 클릭 강조: 선택된 소유주/벤치마크 라인은 굵게, 나머지는 흐리게
-  // 선 종류: 벤치마크(S&P 500 / KOSPI) = 실선, 소유주 포트폴리오 = 점선
+  // 선 종류: 소유주 = 굵은 실선, S&P 500 = 가는 회색 실선, KOSPI = 가는 회색 점선
   const seriesArr = entities.map(e=>({ data:(sel.data[e.key]||[]), color:e.color, isBench:!!e.isBench, label:e.label,
-    bold: !e.isBench || e.key===selKey, dash:!e.isBench, dim: !!(selKey && e.key!==selKey) }));
-  // 범례·카드·표의 색 스와치도 선 종류를 그대로 반영 (소유주 = 점선, 벤치마크 = 실선)
-  const swatch = (e, w) => e.isBench
-    ? `<span style="width:${w}px;height:3px;border-radius:2px;background:${e.color};flex-shrink:0"></span>`
-    : `<span style="width:${w}px;height:0;border-top:2px dashed ${e.color};flex-shrink:0"></span>`;
+    bold: !e.isBench || e.key===selKey, dash:!!e.dash, dim: !!(selKey && e.key!==selKey) }));
+  // 범례·카드·표의 색 스와치도 선 종류를 그대로 반영
+  const swatch = (e, w) => cbPerfSwatch(e, w);
   // 차트 hover 데이터 (body 레벨 고정 툴팁 — 위젯 overflow 로 잘리지 않음)
-  window._cbPerfHover = { labels: sel.labels||[], entities: entities.map(e=>({key:e.key,label:e.label,color:e.color,isBench:!!e.isBench})), data: sel.data||{} };
+  window._cbPerfHover = { labels: sel.labels||[], entities: entities.map(e=>({key:e.key,label:e.label,color:e.color,isBench:!!e.isBench,dash:!!e.dash})), data: sel.data||{} };
   // MDD (Max Drawdown): 선택 기간 시리즈에서 고점 대비 최대 낙폭
   const mddOf = arr => { let peak=1, mdd=0, seen=false;
     (arr||[]).forEach(v=>{ if(v==null) return; seen=true; const x=1+v/100; if(x>peak) peak=x; const dd=x/peak-1; if(dd<mdd) mdd=dd; });
@@ -90,7 +96,7 @@ function cbRenderPerf(){
     <div class="cb-panel cb-perf-chart-panel">
       <div class="cb-perf-legend">
         ${entities.map(p=>`<span class="cb-perf-legend-item" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')"${selKey&&selKey!==p.key?' style="opacity:.4"':''}>${swatch(p,13)}${cbEsc(p.label)}</span>`).join('')}
-        <span class="cb-perf-legend-hint">카드/범례 클릭 시 해당 라인 강조 · 그래프에 마우스를 올리면 상세 수익률</span>
+        <span class="cb-perf-legend-hint">카드/범례 클릭 시 해당 라인 강조 · 그래프를 <span class="cb-hint-mouse">가리키면</span><span class="cb-hint-touch">누르면</span> 그날 수익률</span>
       </div>
       <!-- 휴대폰은 줄이는 대신 옆으로 밀어 본다(.cb-chart-scroll + .cb-perf-plot 최소 폭) — 1100 좌표계를 390px 에 줄이면 눈금·이름표가 4px 가 된다 -->
       <div class="cb-chart-scroll"><div class="cb-perf-plot">
@@ -132,6 +138,14 @@ function cbRenderPerf(){
       </div>
       <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
+  cbScrollChartsToLatest(el);
+}
+// 휴대폰은 그래프를 옆으로 밀어 본다 — 처음에는 가장 궁금한 최신 구간(오른쪽 끝, 선 끝 이름표)을 보여 준다.
+// 넓은 화면은 넘치지 않으므로(scrollWidth == clientWidth) 아무 일도 하지 않는다.
+function cbScrollChartsToLatest(root){
+  (root||document).querySelectorAll('.cb-chart-scroll').forEach(box=>{
+    if (box.scrollWidth > box.clientWidth + 1) box.scrollLeft = box.scrollWidth;
+  });
 }
 function cbPerfTf(t){ _cbPerfTf = t; cbRenderPerf(); cbRestoreFilterFocus('cb-head-widgets','data-perf-tf',t); }
 // 소유주/벤치마크 카드·범례·표 행 클릭 → 해당 라인 강조 (재클릭 시 해제)
@@ -158,9 +172,7 @@ function cbPerfHover(ev, idx){
   const body = d.entities.map(e=>{
     const v = (d.data[e.key]||[])[idx];
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;padding:1.5px 0">
-      <span style="display:flex;align-items:center;gap:5px;color:var(--mut)">${e.isBench
-        ? `<span style="width:13px;height:3px;border-radius:2px;background:${e.color};flex-shrink:0"></span>`
-        : `<span style="width:13px;height:0;border-top:2px dashed ${e.color};flex-shrink:0"></span>`}${cbEsc(e.label)}</span>
+      <span style="display:flex;align-items:center;gap:5px;color:var(--mut)">${cbPerfSwatch(e,13)}${cbEsc(e.label)}</span>
       <span class="cb-num" style="font-weight:700;${v==null?'color:var(--lab)':cbUpDn(v)}">${v==null?'—':(v>=0?'+':'')+Number(v).toFixed(1)+'%'}</span></div>`;
   }).join('');
   t.innerHTML = `<div style="font-size:var(--fs-cap);color:var(--lab);margin-bottom:5px;font-weight:700">${cbEsc(d.labels[idx]||'')}</div>${body}`;

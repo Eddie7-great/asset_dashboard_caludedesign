@@ -294,7 +294,7 @@ Tailwind류의 명시적 스케일 토큰은 없고, 각 컴포넌트마다 `rem
 | 레이아웃 그리드 | `style.css:246`(`.layout`), `:296`(`.content-area`), `:1101-1103`(`.cb-scroll`/`.cb-panel`) |
 | 모바일 반응형 전면 규칙 | `style.css:1332-`(768px 이하 전용 블록) |
 | 폰트 로드 | `index.html:9` |
-| 소유주/차트 팔레트 | `script.js`의 `ownerColors`, `BENCH_OWNER_COLORS`, `cfColors` |
+| 소유주/차트 팔레트 | `script.js`의 `ownerColors`(core/data.js), `CB_CLS`(cobalt.js), `cfColors` |
 | 사이드바/메뉴 마크업 | `index.html:34-107` |
 | 헤더(`#page-head`) 마크업 | `index.html:109-144` |
 | 테마 전환 로직 | `script.js`의 `setTheme()` / `isDarkTheme()` |
