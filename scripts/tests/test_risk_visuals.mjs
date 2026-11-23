@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
-const source = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+const source = readSource('cobalt.js')
 const start = source.indexOf('// 리스크 기준 게이지')
 const end = source.indexOf('// ───────────────────────── SVG 빌더')
 assert.ok(start > -1 && end > start, '시각화 블록을 찾지 못함')

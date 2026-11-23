@@ -7,8 +7,9 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
-const source = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
+const source = readSource('script.js')
 
 function extractFunction(name) {
   const asyncStart = source.indexOf(`async function ${name}(`)

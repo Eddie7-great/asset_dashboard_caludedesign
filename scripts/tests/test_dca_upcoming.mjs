@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
-const cobalt = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8');
-const read = (f) => fs.readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+const cobalt = readSource('cobalt.js');
+const read = (f) => readSource(f);
 const pick = (name) => cobalt.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
 const ctx = vm.createContext({});
 vm.runInContext([

@@ -3,10 +3,11 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
 const rulesSource = fs.readFileSync(new URL('../../tax-rules.js', import.meta.url), 'utf8')
-const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
-const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+const scriptSource = readSource('script.js')
+const cobaltSource = readSource('cobalt.js')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const workflowSource = fs.readFileSync(new URL('../../.github/workflows/tax-rule-watch.yml', import.meta.url), 'utf8')
 const checkerSource = fs.readFileSync(new URL('../check-tax-rule-sources.mjs', import.meta.url), 'utf8')

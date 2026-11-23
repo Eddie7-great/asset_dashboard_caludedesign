@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
-const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
+const scriptSource = readSource('script.js')
 const kvSource = fs.readFileSync(new URL('../../api/kv.ts', import.meta.url), 'utf8')
 const authSource = fs.readFileSync(new URL('../../api/auth.ts', import.meta.url), 'utf8')
 const authHelperSource = fs.readFileSync(new URL('../../api/_auth.js', import.meta.url), 'utf8')

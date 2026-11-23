@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
-const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
-const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+const scriptSource = readSource('script.js')
+const cobaltSource = readSource('cobalt.js')
 const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
 
 function extractFunction(source, name) {

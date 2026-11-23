@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {load} from 'cheerio';
+import { readSource } from './_source.mjs'
 const ctx=vm.createContext({console,Date,Map,Set,window:{},cbStrip:t=>String(t||'').replace(/\.(KS|KQ)$/,'')});
 vm.runInContext(fs.readFileSync('etf-explorer.js','utf8'),ctx);
 const s=(holdings,extra={})=>({name:'Fund',asOf:'2026-09-07',source:'provider',coverage:'full',holdings,...extra});
@@ -117,7 +118,7 @@ assert.equal(vm.runInContext('_etfSelected',toggleContext),null,'A second click 
 toggleContext.etfOwner('본인');toggleContext.etfOwner('본인');
 assert.equal(vm.runInContext('_etfOwner',toggleContext),'전체');
 assert.equal(JSON.stringify({portfolio,data}),saved,'Exposure exploration does not mutate financial records or published snapshots');
-const cobalt=fs.readFileSync('cobalt.js','utf8');
+const cobalt=readSource('cobalt.js');
 const loader=cobalt.slice(cobalt.indexOf('let _cbEtfPromise='),cobalt.indexOf('\nfunction cbIsEtf('));
 let requests=[],fail=false,remoteFail=false;
 const good={etfs:{F:current}};
@@ -161,7 +162,7 @@ assert.match(explorerSource,/etfWeightSum\(q\.rows\)>100\?' 합계가 100%를 �
 // ── 직접 보유 판정은 새 필터와 겹침 카드가 공유하는 하나뿐이다 ──────────
 // 예전에는 cbLookThrough 와 etfExposure 가 같은 판정을 각자 인라인으로 갖고 있었다.
 // 새로 생기는 두 곳(체크박스·겹침 카드)은 cbDirectStockMap 하나만 쓴다.
-const cobaltSrc=fs.readFileSync('cobalt.js','utf8');
+const cobaltSrc=readSource('cobalt.js');
 const directCtx=vm.createContext({
   Map,
   cbStrip:t=>String(t||'').toUpperCase().replace(/\.(KS|KQ|T)$/,''),

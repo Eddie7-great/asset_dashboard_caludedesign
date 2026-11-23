@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-const source=fs.readFileSync('script.js','utf8');
+import { readSource } from './_source.mjs'
+const source=readSource('script.js');
 const fn=source.slice(source.indexOf('function renderBubbleChart(mode)'),source.indexOf('let _bubbleDrilledSector'));
 let rendered;
 const container={classList:{toggle(){}},getBoundingClientRect:()=>({width:0,height:0}),querySelector:()=>null};

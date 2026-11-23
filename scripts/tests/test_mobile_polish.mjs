@@ -1,9 +1,10 @@
 // 휴대폰 화면 다듬기(2026-11-02): 비중 목록 숫자 대비, ETF 요약 라벨·값 줄, 적립식 남은 매수 카드.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const script = fs.readFileSync(new URL('script.js', root), 'utf8');
+const script = readSource('script.js');
 const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
 
 // 비중 분석 휴대폰 목록: 비중 숫자는 본문 글자색 — 막대 색(연한 파스텔)을 글자에 쓰면 흰 바탕에서 안 읽힌다

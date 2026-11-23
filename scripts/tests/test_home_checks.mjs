@@ -2,8 +2,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
-const cobalt = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8');
+const cobalt = readSource('cobalt.js');
 const src = cobalt.match(/let _cdashChecks=\[\];\nfunction cbDashChecks[\s\S]*?\nfunction cbDashCheckGo\(n\)\{[^\n]*\}/)[0];
 
 function run({ rows = [], ta = null, pending = 0, status = [] }) {

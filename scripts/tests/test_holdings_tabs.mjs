@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const script = fs.readFileSync(new URL('script.js', root), 'utf8');
+const script = readSource('script.js');
 const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
 const html = fs.readFileSync(new URL('index.html', root), 'utf8');
 const nav = fs.readFileSync(new URL('navigation.js', root), 'utf8');
@@ -72,7 +73,7 @@ console.log('ok - holdings tabs');
 {
   const fs2 = await import('node:fs');
   const root2 = new URL('../../', import.meta.url);
-  const s2 = fs2.readFileSync(new URL('script.js', root2), 'utf8');
+  const s2 = readSource('script.js');
   const w2 = fs2.readFileSync(new URL('workspace-ui.css', root2), 'utf8');
   if (!/<div class="holdings-card"><div class="holdings-head">\$\{tabs\}\$\{toolbar\}<\/div>\$\{html\}<\/div>/.test(s2)) throw new Error('탭과 도구가 한 머리줄에 있어야 한다');
   if (!/\.holdings-head\{display:flex;flex-wrap:wrap;align-items:center;[^}]*border-bottom/.test(w2)) throw new Error('머리줄이 밑줄을 가진다');

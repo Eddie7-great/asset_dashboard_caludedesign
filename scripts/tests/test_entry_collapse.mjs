@@ -1,10 +1,11 @@
 // 입력 폼 접기: 현금 흐름·목표 입력 폼은 버튼·수정 시에만 펴고, 저장 로직은 그대로다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
 const html = fs.readFileSync(new URL('index.html', root), 'utf8');
-const script = fs.readFileSync(new URL('script.js', root), 'utf8');
+const script = readSource('script.js');
 const finance = fs.readFileSync(new URL('finance.js', root), 'utf8');
 const style = fs.readFileSync(new URL('style.css', root), 'utf8');
 
