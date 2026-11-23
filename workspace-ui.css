@@ -385,6 +385,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cal-list{display:flex;flex-direction:column;margin-top:8px;flex:1 1 auto;min-height:160px;contain:size;position:relative;overflow-y:auto}
 .cal-list-row{display:grid;grid-template-columns:104px 96px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cal-list-when{color:var(--mut);font-size:var(--fs-cap)}
+.cal-daily-row{background:var(--acc-soft);border-radius:var(--r-md);padding-left:8px;padding-right:8px;border-bottom:0;margin-bottom:4px}
 .cal-list-title{min-width:0;overflow-wrap:anywhere}
 .cal-list-title>small{margin-left:6px;color:var(--lab)}
 @media(max-width:1100px){.cal-layout{grid-template-columns:minmax(0,1fr)}.acct-kind-grid,.cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-list{contain:none;max-height:520px}}
@@ -574,6 +575,37 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .rep-goals p{margin:6px 0 0;font:500 var(--fs-cap) var(--font-num);color:var(--lab);font-variant-numeric:tabular-nums}
 /* 무엇이 달라졌나 — 새로 넣거나 뺀 돈 / 값이 오르내린 몫, 종목별 변화 목록, 연간 달별 건수 띠 */
 .rep-split{display:grid;gap:10px;margin:4px 0 14px}
+/* 넣은 돈 vs 값이 오른 몫(2026-11-23) — 연간 결산 장·성과 투자자산 추이 카드 공용(reportFlowChartHtml) */
+.rep-flow{--flow-gain:var(--up);--flow-loss:var(--dn);width:100%}
+.rep-flow-sums{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.rep-flow-sums>span{color:var(--lab);font-size:var(--fs-card)}
+.rep-flow-sum{border:1px solid var(--bd);border-radius:var(--r-md);padding:6px 12px;min-width:120px}
+.rep-flow-sum>small{display:block;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-sum>b{font-size:var(--fs-card);font-weight:800}
+.rep-flow-sum>em{display:block;font-style:normal;font-size:var(--fs-cap);color:var(--lab)}
+.rep-flow-sum.is-in>b{color:var(--flow-in)}.rep-flow-sum.is-gain>b{color:var(--flow-gain)}.rep-flow-sum.is-loss>b{color:var(--flow-loss)}
+.rep-flow-chart{display:flex;gap:6px;height:180px;border-bottom:0}
+.rep-flow.is-compact .rep-flow-chart{height:120px}
+.rep-flow-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center}
+.rep-flow-up{height:var(--flow-up);width:62%;max-width:56px;display:flex;flex-direction:column-reverse;border-bottom:1px solid var(--bd2)}
+.rep-flow-dn{height:var(--flow-dn);width:62%;max-width:56px;display:flex;flex-direction:column}
+.rep-flow-col.is-none .rep-flow-up{height:var(--flow-up)}
+.rep-flow-seg{display:block;flex:0 0 auto;width:100%}
+.rep-flow-seg.is-in{background:var(--flow-in)}.rep-flow-seg.is-out{background:color-mix(in srgb,var(--flow-loss) 55%,transparent)}
+.rep-flow-seg.is-gain{background:var(--flow-gain)}.rep-flow-seg.is-loss{background:var(--flow-loss)}
+.rep-flow-seg.is-none{height:40%;background:repeating-linear-gradient(45deg,var(--bd2) 0 3px,transparent 3px 7px);border-radius:var(--r-sm) var(--r-sm) 0 0}
+.rep-flow-up>.rep-flow-seg:last-child{border-radius:var(--r-sm) var(--r-sm) 0 0}
+.rep-flow-dn>.rep-flow-seg:last-child{border-radius:0 0 var(--r-sm) var(--r-sm)}
+.rep-flow-col.is-live .rep-flow-seg:not(.is-none){opacity:.72}
+.rep-flow-labels{display:flex;gap:6px;margin-top:4px}
+.rep-flow-labels>span{flex:1 1 0;min-width:0;text-align:center;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:var(--fs-cap);color:var(--mut)}
+.rep-flow-legend i{display:inline-block;width:10px;height:10px;border-radius:var(--r-sm);margin-right:5px;vertical-align:-1px}
+.rep-flow-legend i.is-in{background:var(--flow-in)}.rep-flow-legend i.is-gain{background:var(--flow-gain)}.rep-flow-legend i.is-loss{background:var(--flow-loss)}
+.rep-flow-legend i.is-none{background:repeating-linear-gradient(45deg,var(--bd2) 0 2px,transparent 2px 5px)}
+.fin-flow-block{margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)}
+.fin-flow-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fin-flow-head>b{font-size:var(--fs-body)}.fin-flow-head>span{font-size:var(--fs-cap);color:var(--mut)}
 .rep-split-row{display:grid;grid-template-columns:120px minmax(0,1fr) 130px;gap:10px;align-items:center;font-size:var(--fs-body)}
 .rep-split-row>i{display:block;height:var(--bar-h-lg);border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 9%,transparent);overflow:hidden}
 .rep-split-row>i::after{content:"";display:block;width:var(--p);height:100%;border-radius:var(--r-sm);background:var(--up)}

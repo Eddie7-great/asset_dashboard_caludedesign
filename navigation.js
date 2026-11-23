@@ -4,17 +4,18 @@ const APP_NAV = [
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
   {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
-  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['dca2','적립식 매수'],['sim2','투자 시뮬레이터']]},
+  {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
   {menu:'tax2',title:'세금·증여',views:[['tax2','실현손익·세금'],['gift2','가족 증여']]},
   {menu:'report2',title:'결산 리포트',views:[['report2','결산']]},
 ];
 // 페이지 통폐합(2026-11-19): 세부 메뉴에 따로 없는 화면이 속한 세부 메뉴. 화면 id·#view= 주소는 그대로라 옛 링크도 열린다.
-const NAV_HOST = {acct2:'holdings', fam2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
+// 적립식 매수(dca2)는 2026-11-23 투자 계획에서 보유 목록의 넷째 보기로 옮겼다(사용자 결정) — 조회 화면과 수정하는 곳(보유 목록 적립식 칸)을 한 메뉴에 둔다.
+const NAV_HOST = {acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
 // 한 세부 메뉴 안의 보기 전환(같은 보유·같은 결산을 묶음만 바꿔 본다) — 머리줄 아래 오른쪽 밑줄형 줄(#view-mode-bar).
 // 현금 흐름의 월별·고정비·일정은 머리줄의 #cf-header-tabs 가 맡는다.
 const NAV_MODES = {
-  holdings:[['holdings','종목별'],['acct2','계좌별'],['fam2','구성원별']],
+  holdings:[['holdings','종목별'],['acct2','계좌별'],['fam2','구성원별'],['dca2','적립식']],
   bubble:[['bubble','비중 지도'],['etf2','ETF 속 종목']],
   report2:[['report2','월간'],['reporty','연간']],
 };

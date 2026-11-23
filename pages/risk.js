@@ -89,13 +89,53 @@ function cbLookThroughPanel(ownerFilter){
 function cbRiskVerdict(entry){
   const V={bad:{key:'bad',label:'경고',rank:0},warn:{key:'warn',label:'주의',rank:1},ok:{key:'ok',label:'양호',rank:2},hold:{key:'hold',label:'보류',rank:3}};
   const c=entry&&entry.card||{};
-  if(entry&&entry.kind==='primary') return c.lvl===2?V.bad:c.lvl===1?V.warn:V.ok;
+  // 단일 종목 집중도가 ETF 구성 미확인으로 '확인 필요'를 단 경우는 양호가 아니라 보류다(양호 묶음에 접혀 숨지 않게).
+  if(entry&&entry.kind==='primary') return c.lvl===2?V.bad:c.lvl===1?V.warn:c.status==='확인 필요'?V.hold:V.ok;
   const t=String(c.tone||'');
   if(t.includes('--dn')) return V.bad;
   if(t.includes('--warn')) return V.warn;
   if(t.includes('--up')) return V.ok;
   return V.hold;
 }
+
+// 같은 것을 두 번 재던 카드 세 쌍을 한 장으로 합친다(2026-11-23, 사용자 결정). 판정 기준·점수·계산은 그대로이고 화면에서만 묶는다.
+// host = 남는 카드(규칙 카드는 제목, 보조 진단은 id), sub = 그 안에 한 줄로 들어가는 카드.
+const CB_RISK_MERGE=[
+  {host:'섹터 집중도', sub:'top2-sectors', label:'상위 2개 합계'},
+  {host:'환노출 (원화 기준)', sub:'fx-shock', label:'환율 −10% 시'},
+  {host:'etf-overlap', sub:'etf-cross-overlap', label:'ETF끼리 겹침', title:'ETF 겹침', hostLabel:'직접 보유 종목과 겹침'},
+];
+let _cbRiskOkOpen=false;   // '양호' 묶음 펼침 — 화면을 옮기면 접힌다(cbResetViewState)
+function cbRiskEntryKey(entry){ return entry.kind==='primary'?entry.card.title:entry.card.id; }
+// 합친 카드의 판정: 경고·주의가 하나라도 있으면 그중 나쁜 것, 아니면 보류가 있으면 보류(양호로 덮지 않는다), 둘 다 양호면 양호.
+function cbRiskMergeVerdict(list){
+  const real=list.filter(v=>v&&(v.key==='bad'||v.key==='warn')).sort((a,b)=>a.rank-b.rank);
+  if(real.length) return real[0];
+  return list.find(v=>v&&v.key==='hold')||list[0];
+}
+// entries 는 verdict 가 붙은 카드 목록. host 에 sub 를 붙이고 sub 는 목록에서 뺀다(둘 중 하나가 없으면 그대로 둔다).
+function cbRiskMergeEntries(entries){
+  const byKey=new Map(entries.map(e=>[cbRiskEntryKey(e),e])), drop=new Set();
+  CB_RISK_MERGE.forEach(m=>{
+    const h=byKey.get(m.host), sub=byKey.get(m.sub);
+    if(!h||!sub) return;
+    h.subs=(h.subs||[]).concat([{...sub,label:m.label}]);
+    if(m.title) h.title=m.title;
+    if(m.hostLabel) h.hostLabel=m.hostLabel;
+    h.verdict=cbRiskMergeVerdict([h.verdict,sub.verdict]);
+    drop.add(sub);
+  });
+  return entries.filter(e=>!drop.has(e));
+}
+function cbRiskSubHtml(sub){
+  const c=sub.card;
+  return `<div class="cb-risk-sub" style="--risk-tone:${c.tone}">
+      <div class="cb-risk-sub-head"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${cbEsc(sub.label)}</span><b class="cb-num">${cbEsc(c.value)}</b><span class="cb-risk-verdict is-${sub.verdict.key}">${sub.verdict.label}</span></div>
+      ${cbRiskMeterHtml(c.meter,'%',c.tone)}
+      <small>${cbEsc(c.detail)}</small>
+    </div>`;
+}
+function cbRiskOkToggle(open){ _cbRiskOkOpen=!!open; }
 
 function cbRenderRisk(){
   const el = document.getElementById('cb-risk2'); if(!el) return;
@@ -111,9 +151,40 @@ function cbRenderRisk(){
     ...insights.slice(row*2,row*2+2).map(card=>({kind:'insight',card})),
   ]).flat()
     // 확인할 것이 먼저 — 경고 → 주의 → 양호 → 보류 순. 같은 단계 안에서는 기존 교차 순서를 유지한다.
-    .map((entry,idx)=>({...entry,idx,verdict:cbRiskVerdict(entry)}))
+    .map((entry,idx)=>({...entry,idx,verdict:cbRiskVerdict(entry)}));
+  // 겹치는 세 쌍을 합친 뒤(16→13장) 확인할 것 → 양호 순. 양호 카드는 아래 접힘 묶음으로 보낸다.
+  const mergedCards=cbRiskMergeEntries(riskGridCards)
     .sort((a,b)=>a.verdict.rank-b.verdict.rank||a.idx-b.idx);
+  const okCards=mergedCards.filter(e=>e.verdict.key==='ok'), mainCards=mergedCards.filter(e=>e.verdict.key!=='ok');
   cbSetHead('규칙 기반 자동 점검', cbOwnerBtns(_cbRiskOwner,'cbRiskOwner'));
+  const cardHtml=entry=>{
+          const card=entry.card, subs=(entry.subs||[]).map(cbRiskSubHtml).join('');
+          if(entry.kind==='insight') return `
+            <div class="cb-panel cb-risk-insight-card${subs?' has-sub':''}" style="--risk-tone:${card.tone}">
+              <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(entry.title||card.title)}</div><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div>
+              ${entry.hostLabel?`<div class="cb-risk-host-label">${cbEsc(entry.hostLabel)}</div>`:''}
+              <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
+              ${cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)}
+              <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
+                <span data-overflow-watch>${cbEsc(card.detail)}</span>
+              </div>${subs}
+            </div>`;
+          const c=card;
+          return `
+            <div class="cb-panel cb-risk-primary-card${subs?' has-sub':''}">
+              <div class="cb-risk-primary-head">
+                <div class="cb-risk-primary-title"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${c.title}</span><span style="background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
+                <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
+              </div>
+              <div class="cb-risk-primary-message">${cbSentenceHtml(c.msg)}</div>
+              ${c.fxMix?cbFxMixHtml(c.fxMix,c.meter):cbRiskMeterHtml(c.meter, c.title==='자산군 분산'?'개':'%', c.color)}${subs}
+            </div>`;
+  };
+  const okNames=okCards.map(e=>cbEsc(e.title||e.card.title)).join(' · ');
+  const okFold=okCards.length?`<details class="cb-risk-ok-fold"${_cbRiskOkOpen||!mainCards.length?' open':''} ontoggle="cbRiskOkToggle(this.open)">
+        <summary><b>양호 ${okCards.length}개</b><span>${okNames}</span><em aria-hidden="true"><i class="is-closed">펼치기 ▾</i><i class="is-open">접기 ▴</i></em></summary>
+        <div class="cb-risk-card-grid">${okCards.map(cardHtml).join('')}</div>
+      </details>`:'';
   el.innerHTML = `
     <div class="cb-risk-overview">
       <div class="cb-panel cb-risk-score-card">
@@ -133,29 +204,9 @@ function cbRenderRisk(){
           <div style="display:flex;justify-content:space-between;font-size:var(--fs-cap)"><span style="color:var(--mut)">현금 비중</span><span style="font-weight:700">${r.cashPct.toFixed(1)}%</span></div>
         </div>
       </div>
-      <div class="cb-risk-card-grid">
-        ${riskGridCards.map(entry=>{
-          const card=entry.card;
-          if(entry.kind==='insight') return `
-            <div class="cb-panel cb-risk-insight-card" style="--risk-tone:${card.tone}">
-              <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div>
-              <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
-              ${cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)}
-              <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">
-                <span data-overflow-watch>${cbEsc(card.detail)}</span>
-              </div>
-            </div>`;
-          const c=card;
-          return `
-            <div class="cb-panel cb-risk-primary-card">
-              <div class="cb-risk-primary-head">
-                <div class="cb-risk-primary-title"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${c.title}</span><span style="background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
-                <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
-              </div>
-              <div class="cb-risk-primary-message">${cbSentenceHtml(c.msg)}</div>
-              ${c.fxMix?cbFxMixHtml(c.fxMix,c.meter):cbRiskMeterHtml(c.meter, c.title==='자산군 분산'?'개':'%', c.color)}
-            </div>`;
-        }).join('')}
+      <div class="cb-risk-cards-col">
+        ${mainCards.length?`<div class="cb-risk-card-grid">${mainCards.map(cardHtml).join('')}</div>`:''}
+        ${okFold}
       </div>
     </div>
     ${cbLookThroughPanel(ownerF)}`;

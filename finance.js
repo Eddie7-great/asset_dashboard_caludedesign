@@ -411,8 +411,18 @@ function finInvestTrendCard(){
     </div>`:''}
     ${finNwCoverageNote(cov)}
     ${finNwChartSvg(series,1100,200)}
+    ${typeof finInvestFlowHtml==='function'?finInvestFlowHtml(ownerF):''}
     <small class="fin-callout">주식·ETF·가상화폐·금·현금 평가액 합계입니다. 부동산·부채는 포함하지 않습니다 · 증감에는 시세 변동과 추가 입금이 함께 섞여 있어 수익률이 아닙니다 · 기록은 앱을 연 날과 매일 자동 기록 배치(평일·주말 KST 16:40)가 남깁니다</small>
   </div>`;
+}
+
+// 투자자산 추이 카드 아래 '넣은 돈 vs 값이 오른 몫'(2026-11-23, 사용자 결정) — 최근 6개월, 월말 기록 기준.
+// 계산은 결산 리포트의 reportFlowSeries(= 월간 결산 '무엇이 달라졌나')를 그대로 쓴다. 위 그래프의 기간 버튼과는 별개다.
+function finInvestFlowHtml(ownerF){
+  if(typeof reportFlowSeries!=='function'||typeof reportTimeline!=='function') return '';
+  const todayKey=finLocalDateKey(new Date());
+  const series=reportFlowSeries(reportTimeline(ownerF,todayKey),ownerF,reportLastYms(todayKey,6));
+  return `<div class="fin-flow-block"><div class="fin-flow-head"><b>넣은 돈과 값이 오른 몫</b><span>최근 6개월 · 월말 기록 기준 · 위 기간 버튼과 별개</span></div>${reportFlowChartHtml(series,{compact:true})}</div>`;
 }
 
 function finGoalCurrent(g){

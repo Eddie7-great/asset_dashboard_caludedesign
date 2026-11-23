@@ -29,7 +29,7 @@
       --acct-gen:#5b7fbf;--acct-isa:#2f9e8f;--acct-pen:#b7791f;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
-      --up:#178a52;--div-bar:#3f63c9;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
+      --up:#178a52;--div-bar:#3f63c9;--flow-in:#3f63c9;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
       --grid:#e6eaf2;
       --tipbg:#18213a;--tiptx:#f8fafc;--tipbd:#31405e
     }
@@ -162,7 +162,7 @@
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#c2c8d2;--t3:#a9b0bc;
-      --up:#34d399;--div-bar:#7d9bf0;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
+      --up:#34d399;--div-bar:#7d9bf0;--flow-in:#7d9bf0;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
       --grid:#2a2f39;
       --tipbg:#f4f7fb;--tiptx:#111827;--tipbd:#ffffff;
       --side-bg:#08090c;--side-border:#1f232b;--side-tx:#e7e9ee;--side-mut:#c2c8d2;--side-dim:#a9b0bc;
@@ -947,6 +947,26 @@
     .cb-line-fade{opacity:0;animation:cbLineFade .9s ease .25s forwards}
     .cb-tax-bottom-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(270px,.85fr);gap:12px;margin-top:12px;align-items:stretch}
     .cb-tax-saving-panel{display:flex;flex-direction:column}
+    /* 연말 절세 체크 · 연금계좌 세액공제 (2026-11-23) */
+    .cb-tax-ts{margin-top:12px;padding:15px 18px}
+    .cb-tax-ts-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .cb-tax-ts-dday{font-size:var(--fs-body);color:var(--acc);font-weight:700}
+    .cb-tax-ts-list{display:flex;flex-direction:column}
+    .cb-tax-ts-row{display:grid;grid-template-columns:minmax(80px,.7fr) minmax(120px,1fr) minmax(120px,1fr) minmax(240px,2.6fr) minmax(110px,.9fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}
+    .cb-tax-ts-row:first-child{border-top:0}
+    .cb-tax-ts-field,.cb-tax-ts-val{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .cb-tax-ts-field small,.cb-tax-ts-val small{font-size:var(--fs-cap);color:var(--lab)}
+    .cb-tax-ts-field input{width:100%;box-sizing:border-box;height:32px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--inner);color:var(--tx)}
+    .cb-tax-ts-meter{display:flex;flex-direction:column;gap:6px;min-width:0}
+    .cb-tax-ts-meter small{font-size:var(--fs-cap);color:var(--t2)}
+    .cb-tax-ts-bar{position:relative;height:var(--bar-h-lg);background:var(--inner-bg);border-radius:var(--r-sm);overflow:hidden}
+    .cb-tax-ts-bar>i{position:absolute;left:0;top:0;bottom:0;background:var(--acc);border-radius:var(--r-sm)}
+    .cb-tax-ts-bar>em{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--tx);opacity:.55}
+    .cb-tax-ts-done{color:var(--up);font-weight:700}
+    .cb-tax-ts-over{color:var(--warn)}
+    .cb-tax-ts-note{margin:10px 0 0;font-size:var(--fs-cap);color:var(--lab);line-height:1.5}
+    @media (max-width:1280px){.cb-tax-ts-row{grid-template-columns:minmax(80px,.7fr) minmax(110px,1fr) minmax(110px,1fr) minmax(110px,1fr) auto}.cb-tax-ts-meter{grid-column:1/-1;grid-row:2}}
+    @media (max-width:768px){.cb-tax-ts-row{grid-template-columns:1fr 1fr}.cb-tax-ts-owner{grid-column:1/-1}.cb-tax-ts-meter{grid-column:1/-1;grid-row:auto}}
     .cb-tax-actions{display:inline-flex;align-items:center;justify-content:center;gap:2px;flex-shrink:0}
     .cb-tax-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
     .cb-tax-head-grid{width:46px;display:inline-grid;grid-template-columns:22px 22px;gap:2px;align-items:center;justify-items:center}
@@ -1105,6 +1125,23 @@
     .cb-risk-verdict.is-bad{color:var(--dn);background:color-mix(in srgb,var(--dn) 15%,transparent)}
     .cb-risk-verdict.is-hold{color:var(--lab);background:var(--inner)}
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:var(--fs-micro);font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
+    /* 리스크 카드 합치기·양호 접기(2026-11-23) — 합친 카드의 둘째 줄과 '양호 N개' 묶음 */
+    .cb-risk-cards-col{min-width:0;display:flex;flex-direction:column;gap:8px}
+    .cb-risk-cards-col>.cb-risk-card-grid{grid-auto-rows:auto}
+    .cb-risk-host-label{margin-top:4px;font-size:var(--fs-cap);color:var(--mut)}
+    .cb-risk-sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
+    .cb-risk-sub-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);color:var(--mut)}
+    .cb-risk-sub-head>b{margin-left:auto;color:var(--risk-tone);font-size:var(--fs-body);font-weight:800;white-space:nowrap}
+    .cb-risk-sub>small{display:block;margin-top:2px;font-size:var(--fs-cap);color:var(--lab)}
+    .cb-risk-ok-fold{border:1px dashed var(--bd2);border-radius:var(--r-md)}
+    .cb-risk-ok-fold>summary{display:flex;align-items:baseline;gap:10px;padding:10px 14px;cursor:pointer;list-style:none;font-size:var(--fs-body);color:var(--mut)}
+    .cb-risk-ok-fold>summary::-webkit-details-marker{display:none}
+    .cb-risk-ok-fold>summary>b{color:var(--up);white-space:nowrap}
+    .cb-risk-ok-fold>summary>span{flex:1;min-width:0}
+    .cb-risk-ok-fold>summary>em{font-style:normal;color:var(--acc);white-space:nowrap}
+    .cb-risk-ok-fold>summary>em>i{font-style:normal}
+    .cb-risk-ok-fold:not([open])>summary .is-open,.cb-risk-ok-fold[open]>summary .is-closed{display:none}
+    .cb-risk-ok-fold>.cb-risk-card-grid{padding:0 10px 10px}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:var(--font-num);font-size:clamp(15px,1.15vw,18px);font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
 /* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */

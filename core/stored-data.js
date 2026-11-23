@@ -308,6 +308,25 @@ function _normalizeTargetAlloc(value){
   });
   return {groups,threshold:_safeStoredNumber(value.threshold,{min:1,max:20,fallback:5})};
 }
+// 연말 절세 체크(2026-11-23, 사용자 결정) — 소유주별 그해 연금저축·퇴직연금(IRP)·ISA 납입 합계(사람이 입력).
+// {years:{'2026':{'본인':{pension,irp,isa}}}}. 알 수 없는 소유주·연도·음수는 버린다. 최근 10개 연도만 둔다.
+function _normalizeTaxSaving(value){
+  const src=value&&typeof value==='object'&&!Array.isArray(value)&&value.years&&typeof value.years==='object'&&!Array.isArray(value.years)?value.years:null;
+  if(!src) return null;
+  const owners=typeof OWNERS!=='undefined'?OWNERS:['본인','아내','자녀1','아버지'];
+  const years={};
+  Object.keys(src).filter(y=>/^\d{4}$/.test(y)).sort().slice(-10).forEach(y=>{
+    const byOwner=src[y]; if(!byOwner||typeof byOwner!=='object'||Array.isArray(byOwner)) return;
+    const out={};
+    owners.forEach(o=>{
+      const r=byOwner[o]; if(!r||typeof r!=='object'||Array.isArray(r)) return;
+      const row={pension:_safeStoredNumber(r.pension,{min:0,max:10_000_000_000}),irp:_safeStoredNumber(r.irp,{min:0,max:10_000_000_000}),isa:_safeStoredNumber(r.isa,{min:0,max:10_000_000_000})};
+      if(row.pension||row.irp||row.isa) out[o]=row;
+    });
+    if(Object.keys(out).length) years[y]=out;
+  });
+  return Object.keys(years).length?{years}:null;
+}
 function _normalizeGiftActual(value){
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const normalizeAmounts=items=>Array.from({length:4},(_,index)=>

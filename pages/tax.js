@@ -416,6 +416,7 @@ function cbRenderTax(){
     </div>
     ${taxSummary.legacy?`<div class="cb-panel" role="note" style="margin-top:10px;padding:10px 13px;border-left:3px solid var(--warn);font-size:var(--fs-cap);color:var(--mut);line-height:1.55"><b style="color:var(--warn)">소유주 미지정 기록 별도 추정</b> · 해외 일반 ${cbKrw(taxSummary.legacy.genFgn)}, ISA ${cbKrw(taxSummary.legacy.isaNet)}, 예상세액 ${cbKrw(taxSummary.legacyDue)}. 어느 사람의 공제를 사용했는지 알 수 없어 하나의 별도 버킷으로 계산했습니다. 기록을 수정해 실제 소유주를 지정하세요.</div>`:''}
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
+    ${cbTaxSavingPanelHtml(year)}
     <div class="cb-panel" style="margin-top:12px;padding:16px 18px 10px">
       <div style="display:flex;gap:14px;margin-bottom:8px;font-size:var(--fs-cap);color:var(--mut);flex-wrap:wrap">
         <span class="cb-panel-title"><span data-tip="달에 마우스를 올리면 국내·전체 누적과 예상 세액까지 보입니다. 달을 누르면(Enter) 아래 내역이 그 달만 보입니다.">${year}년 월별 실현손익 · 누적 추이</span> <span style="color:var(--dim)">· 달을 누르면 내역 필터</span></span>
@@ -500,7 +501,74 @@ function cbRenderTax(){
         <div style="font-size:var(--fs-cap);color:var(--dim);line-height:1.55;margin-top:auto;padding-top:12px">손실 상계 후보는 해외 일반계좌의 현재 평가손실만 표시합니다. 실제 매도 전 수수료·환율·세법 적용 여부를 확인하세요.</div>
       </div>
     </div>
-    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('capitalGains',year):''}`;
+    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('capitalGains',year):''}
+    ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('taxSaving',year):''}`;
+}
+// ── 연말 절세 체크(2026-11-23, 사용자 결정) ──
+// 연금저축·퇴직연금(IRP) 세액공제 대상 납입 한도를 얼마나 채웠는지. 한도는 tax-rules.js(pensionCredit) 한 곳에서만 읽고,
+// 납입액은 사람이 입력한다(앱은 계좌별 올해 납입을 모른다). 공제율·환급액은 계산하지 않는다. ISA 는 납입액만 적는다(한도 규칙 없음).
+// 순수 함수: 연금저축은 자기 한도까지만, 합산은 합산 한도까지만 공제 대상. 남은 여력 = 합산 한도 − 공제 대상(연금저축은 자기 한도 안에서).
+function cbPensionCreditPlan(pension, irp, caps){
+  const p=Math.max(0,Number(pension)||0), r=Math.max(0,Number(irp)||0);
+  const capP=Math.max(0,Number(caps&&caps.pension)||0), capT=Math.max(0,Number(caps&&caps.total)||0);
+  const pCredit=Math.min(p,capP), credited=Math.min(pCredit+r,capT), left=Math.max(0,capT-credited);
+  return {credited,left,pensionRoom:Math.min(Math.max(0,capP-p),left),irpRoom:left,
+    overPension:Math.max(0,p-capP),overTotal:Math.max(0,pCredit+r-capT),pct:capT>0?credited/capT*100:0};
+}
+function cbTaxSavingOwners(year){
+  if(_cbTaxOwner!=='전체') return [_cbTaxOwner];
+  const saved=Object.keys(((window._taxSaving||{}).years||{})[year]||{});
+  const withAcc=(pfolioData||[]).filter(i=>i&&(Number(i.qty)||0)>0&&['ISA','연금'].includes(getAccountDivTaxInfo(i.acc).type)).map(i=>i.owner);
+  const set=new Set(['본인','아내',...withAcc,...saved]);
+  return OWNERS.filter(o=>set.has(o));
+}
+function cbTaxSavingRow(year, owner){ return ((((window._taxSaving||{}).years||{})[year]||{})[owner])||{pension:0,irp:0,isa:0}; }
+function cbTaxSavingPanelHtml(year){
+  const capP=_taxRuleValue('pensionCredit.pensionSavingsCapKrw',null,year), capT=_taxRuleValue('pensionCredit.combinedCapKrw',null,year);
+  const now=new Date(), thisYear=String(now.getFullYear())===String(year);
+  const dec31=new Date(Number(year),11,31), daysLeft=Math.ceil((dec31-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
+  const mobile=typeof isMobileLayout==='function'&&isMobileLayout();
+  const money=v=>cbKrw(v);
+  const head=`<div class="cb-tax-ts-head"><span class="cb-panel-title"><span data-tip="연금저축은 연 ${capP!=null?money(capP):'—'}까지, 연금저축과 퇴직연금(IRP 등)을 합쳐 연 ${capT!=null?money(capT):'—'}까지 세액공제 대상입니다. 그해 12월 31일까지 넣은 돈만 칩니다. 납입액은 증권사 앱에서 확인해 적어 주세요.">연말 절세 체크 · 연금계좌 세액공제</span></span>${thisYear&&daysLeft>=0?`<b class="cb-tax-ts-dday">${daysLeft===0?'오늘 마감':`12월 31일까지 ${daysLeft}일`}</b>`:''}</div>`;
+  if(capP==null||capT==null) return `<div class="cb-panel cb-tax-ts">${head}<p class="cb-tax-ts-note">${cbEsc(year)}년은 검증된 한도 규칙이 없어 표시하지 않습니다.</p></div>`;
+  const rows=cbTaxSavingOwners(year).map(owner=>{
+    const v=cbTaxSavingRow(year,owner), plan=cbPensionCreditPlan(v.pension,v.irp,{pension:capP,total:capT});
+    const ok=encodeURIComponent(owner);
+    const input=(k,label,val)=>mobile?`<span class="cb-tax-ts-val"><small>${label}</small><b class="cb-num">${money(val)}</b></span>`
+      :`<label class="cb-tax-ts-field"><small>${label}</small><input type="text" inputmode="numeric" data-ts-owner="${cbEsc(owner)}" data-ts-key="${k}" value="${val?Number(val).toLocaleString('ko-KR'):''}" placeholder="0" aria-label="${cbEsc(owner)} ${year}년 ${label} 납입액(원)"></label>`;
+    const room=plan.left<=0?'<span class="cb-tax-ts-done">공제 대상 한도를 모두 채웠습니다</span>'
+      :`남은 여력 <b class="cb-num">${money(plan.left)}</b> · 연금저축으로는 최대 ${money(plan.pensionRoom)}`;
+    const over=[plan.overPension>0?`연금저축 ${money(plan.overPension)}은 연금저축 한도 밖`:'',plan.overTotal>0?`합산 ${money(plan.overTotal)}은 합산 한도 밖`:''].filter(Boolean).join(' · ');
+    return `<div class="cb-tax-ts-row">
+      <span class="cb-tax-ts-owner">${cbOwnerTag(owner)}</span>
+      ${input('pension','연금저축',v.pension)}${input('irp','퇴직연금(IRP)',v.irp)}
+      <div class="cb-tax-ts-meter"><div class="cb-tax-ts-bar" role="img" aria-label="${cbEsc(owner)} 공제 대상 ${money(plan.credited)} / ${money(capT)}"><i style="width:${Math.min(100,plan.pct).toFixed(1)}%"></i><em style="left:${(capP/capT*100).toFixed(1)}%" title="연금저축 한도 ${money(capP)}"></em></div>
+        <small><b class="cb-num">${money(plan.credited)}</b> / ${money(capT)} · ${room}${over?` · <span class="cb-tax-ts-over">${over}</span>`:''}</small></div>
+      ${input('isa','ISA(참고)',v.isa)}
+      ${mobile?'':`<button type="button" class="cb-btn cb-tax-ts-save" data-ts-save="${cbEsc(owner)}" onclick="cbTaxSavingSave(decodeURIComponent('${ok}'),'${cbEsc(year)}')">저장</button>`}
+    </div>`;
+  }).join('');
+  return `<div class="cb-panel cb-tax-ts">${head}
+    <div class="cb-tax-ts-list">${rows}</div>
+    <p class="cb-tax-ts-note">막대의 세로선은 연금저축 한도(${money(capP)}), 끝은 합산 한도(${money(capT)})입니다. 세액공제율과 환급액은 소득에 따라 달라 계산하지 않습니다. ISA 는 납입액만 적어 둡니다.</p>
+    ${mobile&&typeof finMobileNote==='function'?finMobileNote('연금계좌 납입액 입력'):''}
+  </div>`;
+}
+async function cbTaxSavingSave(owner, year){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  if(window._kvLoadState?.ext!=='ready'){ showSaveError('재무 기록을 불러온 뒤에 저장할 수 있습니다.'); return; }
+  if(!OWNERS.includes(owner)||!/^\d{4}$/.test(String(year))) return;
+  const read=k=>{ const el=[...document.querySelectorAll('[data-ts-owner][data-ts-key]')].find(x=>x.dataset.tsOwner===owner&&x.dataset.tsKey===k); return el?String(el.value||'').replace(/[,\s]/g,''):'0'; };
+  const raw={pension:read('pension'),irp:read('irp'),isa:read('isa')};
+  if(Object.values(raw).some(v=>v!==''&&!(/^\d+$/.test(v)))){ showSaveError('납입액은 0 이상의 원 단위 숫자로 적어 주세요.'); return; }
+  const row={pension:Number(raw.pension)||0,irp:Number(raw.irp)||0,isa:Number(raw.isa)||0};
+  const next=JSON.parse(JSON.stringify(window._taxSaving||{years:{}}));
+  next.years=next.years||{}; next.years[year]=next.years[year]||{};
+  if(row.pension||row.irp||row.isa) next.years[year][owner]=row; else delete next.years[year][owner];
+  window._taxSaving=_normalizeTaxSaving(next);
+  await saveExtDataToKV();   // 실패하면 저장 경로가 마지막 원격 상태로 되돌리고 다시 그린다
+  cbRenderTax();
+  cbRestoreFilterFocus('cb-tax2','data-ts-save',owner);
 }
 function cbTaxYear(y){ _cbTaxYear = y; cbRenderTax(); }
 // 소유주 탭 — 요약 카드·차트·내역이 모두 list 파생이라 필터만 바꾸면 전부 갱신된다
