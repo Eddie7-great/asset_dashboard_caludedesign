@@ -76,7 +76,7 @@ const dividendContext = {
   _cbDivMonthFilter: null,
 }
 vm.createContext(dividendContext)
-for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivCalendarSvg']) {
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivShortWon', 'cbDivCalendarSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), dividendContext)
 }
 const dividendList = [
@@ -102,7 +102,16 @@ const divSvg = dividendContext.cbDivCalendarSvg(divCal.monthAmt, divCal.monthDet
 }
 assert.match(divSvg, /onmousemove="cbDivBarHover\(event,0\)"/, '배당 막대에 종목별 상세 호버 연결')
 assert.match(divSvg, /onclick="cbDivMonthPick\(0\)"/, '배당 막대 클릭을 월별 종목 필터에 연결')
-assert.match(divSvg, />₩300<\/text>/, '막대 위 금액을 1원 단위 원화로 표시')
+// 2026-11-23: 막대 위 금액은 가장 큰 달 하나만 짧게(정확한 금액은 말풍선), 색은 배당 전용 토큰.
+assert.match(divSvg, />최대 300원<\/text>/, '가장 큰 달 막대 위에만 짧은 금액')
+{
+  const amt = [0, 120000, 0, 265000, 0, 80000, 0, 0, 0, 0, 0, 0]
+  const svg = dividendContext.cbDivCalendarSvg(amt, Array.from({ length: 12 }, () => []), 1100, 300)
+  assert.equal((svg.match(/font-weight="700" text-anchor="middle">/g) || []).length, 1, '금액 글자는 한 개뿐')
+  assert.match(svg, />최대 26\.5만<\/text>/, '만 단위 짧은 금액')
+}
+assert.match(cobaltSource, /cssVar\('--div-bar'/, '배당 막대는 손익색(--up)이 아닌 배당 전용 색')
+assert.match(fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8'), /--div-bar:#3f63c9[\s\S]*--div-bar:#7d9bf0/, '라이트·다크 배당 막대 색 토큰')
 
 const cashContext = {
   cfDeletedKeys: [],
@@ -205,11 +214,14 @@ assert.match(scriptSource, /item\.qty \* epsVal \* \(RATES\[info\.cur\|\|item\.c
 assert.match(cobaltSource, /onclick="cbTaxMonthPick\(\$\{m\}\)"/, '양도소득세 월별 그래프 클릭을 하단 내역 필터에 연결')
 assert.match(cobaltSource, /onmousemove="this\.style\.fill='var\(--accSoft\)'/, '양도소득세 그래프 호버 월 강조')
 assert.match(cobaltSource, /cum\[m\]=\{fgn:cf, isa:ci, domProfit:cpDom, fgnProfit:cpFgn, profit:cp, tax\}/, '양도소득세 누적손익을 국내·해외·전체로 분리 집계')
-assert.match(cobaltSource, /fgnPts\.push\(\{x:xMid\(m\), y:YC\(cum\[m\]\.fgnProfit\)\}\)/, '양도소득세 그래프에 겹치는 선은 해외 누적 하나')
+assert.match(cobaltSource, /class="cb-tax-cum-step" d="\$\{step\}"/, '양도소득세 그래프의 선은 해외 누적 계단선 하나')
 assert.doesNotMatch(cobaltSource, /cumulativeLine\(|label:'예상 세액'|전체 누적손익<\/span>/, '전체·국내 누적선과 예상 세액선은 그림에 그리지 않는다(설명 상자에만)')
 assert.match(cobaltSource, /국내 누적손익', \(r\.cumDomProfit[\s\S]*누적 예상 세액', cbKrw\(r\.tax\)/, '그림에서 뺀 두 값은 마우스 설명 상자에 남긴다')
-assert.match(cobaltSource, /const YB=v=>y0-\(v\/axes\[0\]\.step\)\*unitH, YC=v=>y0-\(v\/axes\[1\]\.step\)\*unitH;/, '한 칸에 겹친다 — 막대는 왼쪽 눈금, 누적선은 오른쪽 눈금, 0 선은 같은 높이')
-assert.match(cobaltSource, /class="cb-tax-axis-right"[\s\S]*월별 실현손익 \(막대 · 왼쪽 눈금\)[\s\S]*해외 누적손익 \(선 · 오른쪽 눈금\)/, '두 눈금이 무엇을 재는지 그림 위에 적는다')
+// 2026-11-23 사용자 결정: 한 칸 두 눈금 겹치기를 두 줄로 나눴다 — 위 ① 해외 누적 vs 공제, 아래 ② 월별 막대, 줄마다 눈금 하나.
+assert.match(cobaltSource, /const YC=panel\(fgnProfitVals,DED\*1\.2,top1,bot1\);/, '위 줄은 해외 누적손익 눈금')
+assert.match(cobaltSource, /const YB=panel\(vals,40000,top2,bot2\);/, '아래 줄은 월별 실현손익 눈금(양수 바닥 4만 원)')
+assert.doesNotMatch(cobaltSource, /cb-tax-axis-right/, '오른쪽 두 번째 눈금은 없다')
+assert.match(cobaltSource, /① 해외 누적 실현손익 vs 기본공제[\s\S]*② 월별 실현손익/, '두 줄이 무엇을 재는지 줄마다 제목으로 적는다')
 assert.match(cobaltSource, /clip-path="url\(#\$\{clipId\}\)"/, '공제선을 넘은 구간만 면으로 칠한다')
 assert.match(cobaltSource, /<div class="cb-tip-fit">[\s\S]*<div class="cb-tip-note">/, '설명 상자의 각주는 폭을 정하지 않는다')
 assert.match(workspaceSource, /\.cb-tip-note\{width:0;min-width:100%/, '각주는 줄 폭 안에서 줄바꿈')
@@ -228,7 +240,7 @@ assert.equal(taxAxisContext.cbAmtAxisLab(115_000_000, 5_000_000), '1억 1,500만
 assert.equal(taxAxisContext.cbAmtAxisLab(110_000_000, 10_000_000), '1.1억', '1,000만 간격이면 소수 한 자리 억')
 assert.equal(taxAxisContext.cbAmtAxisLab(200_000_000, 5_000_000), '2억', '딱 떨어지는 억은 그대로')
 assert.doesNotMatch(financeSource + extractFunction(cobaltSource, 'cbGiftChildChartSvg') + extractFunction(cobaltSource, 'cbGiftSpouseChartSvg') + extractFunction(cobaltSource, 'cbDivAxisLab') + simulatorSource, /cbTaxAxisLab/, '금액 그래프는 손익용 눈금 함수(cbTaxAxisLab)를 빌려 쓰지 않음')
-assert.match(cobaltSource, /const last=fgnPts\[fgnPts\.length-1\], lastV=cum\[maxM\]\.fgnProfit;[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
+assert.match(cobaltSource, /const lastV=cum\[maxM\]\.fgnProfit, lx=xR\(maxM\)[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
 assert.match(cobaltSource, /해외 기본공제 사용률[\s\S]*잔여 공제/, '양도소득세 상단에 기본공제 사용률 위젯 추가')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
 assert.match(styleSource, /\.cb-dividend-tip\{width:max-content;max-width:min\(760px,calc\(100vw - 24px\)\)\}/, '배당 월별 툴팁 폭은 종목명 길이를 따른다(고정 최소 폭 없음)')
@@ -267,8 +279,8 @@ assert.match(cobaltSource, /const label=\[ownerF\?'':x\.i\.owner, x\.title\|\|'�
 assert.match(cobaltSource, /cb-div-summary-title[\s\S]*배당성장률[\s\S]*cb-div-history-status[\s\S]*산출 \$\{gList\.length\}\/\$\{list\.length\} · 원본 \$\{rawHistoryList\.length\}\/\$\{list\.length\}/, '배당성장률 산출 수와 원본 이력 확보 수를 분리해 표시')
 assert.match(scriptSource, /const DIV_HIST_CACHE_VERSION = 3[\s\S]*const missingExpected = expectedDividendKeys\.filter[\s\S]*const missingRetryDue = missingExpected\.length>0 && age>=86400000[\s\S]*obj\.version===DIV_HIST_CACHE_VERSION[\s\S]*version:DIV_HIST_CACHE_VERSION/, '누락 이력은 하루 뒤 재검증하고 정상 이력 캐시는 버전·7일 기준으로 재사용')
 assert.match(priceApiSource, /const symbols = krMatch[\s\S]*`\$\{krMatch\[1\]\}\.KS`,`\$\{krMatch\[1\]\}\.KQ`[\s\S]*for \(const sym of symbols\)/, '국내 배당 이력은 코스피 조회 실패 시 코스닥 심볼로 재조회')
-assert.match(cobaltSource, /cbTaxChartSvg\(1120,330,list,year\)/, '양도소득세 차트는 화면 폭에 가까운 좌표계로 그려 글자가 12px 아래로 줄지 않는다')
-assert.match(cobaltSource, /const padL=64, padR=76, padT=30, padB=24;/, '양도소득세 차트 여백 — 오른쪽 눈금 글자가 들어갈 폭')
+assert.match(cobaltSource, /cbTaxChartSvg\(1120,420,list,year\)/, '양도소득세 차트는 화면 폭에 가까운 좌표계로 그려 글자가 12px 아래로 줄지 않는다')
+assert.match(cobaltSource, /const padL=70, padR=24, gapMid=34;/, '양도소득세 차트 여백 — 두 줄 모두 왼쪽 눈금 하나라 오른쪽은 좁게')
 const divGrowthContext = {
   window: {
     _divHistoryRawCache: {
@@ -383,7 +395,7 @@ assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax
 // 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 열의 첫
 // 카드(수입/지출 구성) 하단에 붙는다 — 총수입/지출/순현금흐름이 두 위젯에 중복
 // 표시되던 것을 없앴고, 차트 열이 그 행까지 통째로 차지해 세로 폭이 커진다.
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-couple-flow" class="glass-panel cf-flow-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cfDonutChart"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
+assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-couple-flow" class="glass-panel cf-flow-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cf-comp-list"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
 assert.doesNotMatch(indexSource, /id="cf-tot-in"|id="cf-tot-out"|id="cf-tot-net"/, '차트 카드의 총수입·총지출·순현금흐름 중복 표시를 없앤다 — cfMonthSummaryHtml 이 유일한 출처')
 assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:3[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/4[\s\S]*\.cf-flow-panel\{grid-column:1;grid-row:2/, '차트 열이 입력부·부부 흐름·내역 세 행 높이를 모두 차지한다')
 assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
@@ -780,7 +792,7 @@ assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-al
   assert.equal(ctx.cbUpDn(-1), 'color:var(--dn)')
 }
 assert.doesNotMatch(cobaltSource, />=0\?'\+':''\)\+cbKrw\(/, '세금 카드의 0원에 + 를 붙이지 않는다')
-assert.match(cobaltSource, /pos:Math\.max\(40000,\.\.\.vals\.filter/, '빈 세금 그래프 왼쪽 눈금이 +0만을 반복하지 않게 바닥값')
+assert.match(cobaltSource, /const pos=Math\.max\(minPos,\.\.\.vs\.filter\(v=>v>0\)\)[\s\S]*const YB=panel\(vals,40000,/, '빈 세금 그래프 눈금이 +0만을 반복하지 않게 바닥값(월별 줄 4만 원)')
 {
   const tbl = financeSource.slice(financeSource.indexOf('<div class="fin-rebal-table">'), financeSource.indexOf('<small class="fin-disclaimer">조정액은'))
   assert.match(tbl, /const out=Math\.abs\(x\.drift\)>ta\.threshold/, '범위 밖 판정은 막대 차트와 같은 > 기준')

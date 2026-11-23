@@ -272,7 +272,7 @@ function switchView(viewId, btn) {
     resetFixedCostForm();
     switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }
-  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true)).catch(e=>console.warn('[autoAddDividendCashFlow]',e));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfDonutChartInst)window.cfDonutChartInst.resize();if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
+  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true)).catch(e=>console.warn('[autoAddDividendCashFlow]',e));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
   if (viewId==='holdings'){
     const hOwner = currentOwner;
     _holdingsBrokerFilter = '전체';

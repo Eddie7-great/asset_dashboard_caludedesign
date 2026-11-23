@@ -18,6 +18,13 @@ function cbDivAxisLab(v){
   if (Math.abs(v)>=10000) return cbAmtAxisLab(v);
   return Math.round(v/1000).toLocaleString('ko-KR')+'천';
 }
+// 막대 위 짧은 금액: 26.5만 · 1.2억 · 8,000원
+function cbDivShortWon(v){
+  const n=Number(v)||0, a=Math.abs(n);
+  if(a>=1e8) return (Math.round(n/1e7)/10).toLocaleString('ko-KR')+'억';
+  if(a>=1e4) return (Math.round(n/1e3)/10).toLocaleString('ko-KR')+'만';
+  return Math.round(n).toLocaleString('ko-KR')+'원';
+}
 function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
   if (!detailMaps[monthIndex] || !(amount>0)) return;
   const owner = item.i?.owner || '미지정';
@@ -180,7 +187,10 @@ function cbDivBarHide(){
 // nowMonth: 올해 예상 그래프일 때 이번 달 번호(0~11). 이번 달부터 남은 달은 빗금으로 그린다 — 단, 올해 값은
 // 12달 모두 '과거 지급 패턴 × 현재 보유'의 추정이므로 지난 달을 '받은 금액'이라고 부르지 않는다. -1 이면 구분하지 않는다.
 function cbDivCalendarSvg(monthAmt, monthDetails, w, h, nowMonth=-1){
-  const upC = (typeof cssVar==='function'?cssVar('--up','#178a52'):'#178a52');
+  // 막대 색은 배당 전용 토큰(--div-bar) — 손익·상태색(--up)과 뜻을 섞지 않는다(사용자 결정 2026-11-23).
+  const upC = (typeof cssVar==='function'?cssVar('--div-bar','#3f63c9'):'#3f63c9');
+  // 막대 위 금액은 가장 큰 달 하나(+선택한 달)만 — 12개를 모두 적으면 글자가 막대보다 눈에 띈다. 정확한 금액은 말풍선.
+  const peakM = monthAmt.reduce((best,v,i)=>(Number(v)||0)>(Number(monthAmt[best])||0)?i:best, 0);
   const maxRaw = Math.max(...monthAmt, 1);
   const step = cbNiceStep(maxRaw/4);
   const maxV = Math.max(step, Math.ceil(maxRaw/step)*step);
@@ -198,7 +208,7 @@ function cbDivCalendarSvg(monthAmt, monthDetails, w, h, nowMonth=-1){
       const dimmed=_cbDivMonthFilter!=null&&!selected;
       const monthLabel=`${m+1}월 배당 ${cbKrw(v)}${selected?', 선택됨':''}. 선택하면 해당 월 종목 내역을 표시합니다.`;
       out+=`<rect x="${(xc-bw/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${(padT+plotH-yTop).toFixed(1)}" rx="3" fill="${nowMonth>=0&&m>=nowMonth?'url(#cb-div-hatch)':upC}" opacity="${dimmed?'0.32':'0.88'}" stroke="${selected?'var(--tx)':'transparent'}" stroke-width="${selected?'2':'0'}" style="cursor:pointer" tabindex="0" focusable="true" role="button" aria-label="${cbEsc(monthLabel)}" onfocus="this.setAttribute('stroke','var(--tx)');this.setAttribute('stroke-width','2')" onblur="this.setAttribute('stroke','${selected?'var(--tx)':'transparent'}');this.setAttribute('stroke-width','${selected?'2':'0'}')" onmousemove="cbDivBarHover(event,${m})" onmouseleave="cbDivBarHide()" onclick="cbDivMonthPick(${m})"></rect>`;
-      out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--up)" font-size="12" font-weight="700" text-anchor="middle">${cbKrw(v)}</text>`;
+      if(m===peakM||selected) out+=`<text x="${xc.toFixed(1)}" y="${(yTop-5).toFixed(1)}" style="fill:var(--tx)" font-size="12" font-weight="700" text-anchor="middle">${m===peakM?'최대 ':''}${cbDivShortWon(v)}</text>`;
     }
     out+=m===nowMonth
       ? `<text x="${xc.toFixed(1)}" y="${h-8}" style="fill:var(--acc)" font-size="12" font-weight="800" text-anchor="middle">${m+1}월 · 이번 달</text>`

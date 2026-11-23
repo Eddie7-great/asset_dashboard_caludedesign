@@ -451,7 +451,6 @@ function switchCashFlowSection(section, btn) {
   });
   if (_cfSection === 'fixed') renderFixedCostView();
   else requestAnimationFrame(()=>{
-    if(window.cfDonutChartInst) window.cfDonutChartInst.resize();
     if(window.cfTrendChartInst) window.cfTrendChartInst.resize();
   });
 }
