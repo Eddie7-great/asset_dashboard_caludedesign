@@ -149,6 +149,14 @@ function cbRiskSubHtml(sub){
       <small>${cbEsc(c.detail)}</small>
     </div>`;
 }
+// 양호 카드는 펼쳐도 게이지 없이 '이름 · 값 · 한 줄 설명' 목록이다(사용자 결정 2026-11-23 — 카드 7장은 난잡했다).
+// 값·설명은 카드에 있던 것 그대로이고 합친 부 카드는 '라벨 값'으로 뒤에 붙인다.
+function cbRiskOkRowHtml(entry){
+  const c=entry.card, insight=entry.kind==='insight';
+  const title=entry.title||c.title, value=insight?c.value:c.valFmt, msg=insight?c.detail:c.msg, tip=c.tip;
+  const subs=(entry.subs||[]).map(s=>`<span class="cb-risk-ok-sub">${cbEsc(s.label)} <b class="cb-num">${cbEsc(s.card.value)}</b></span>`).join('');
+  return `<li><span class="cb-risk-ok-name"${tip?` data-tip="${cbEsc(tip)}"`:''}>${cbEsc(title)}</span><b class="cb-risk-ok-val cb-num">${cbEsc(value)}</b><span class="cb-risk-ok-msg" data-overflow-tip="${cbEsc(String(msg||'').replace(/<[^>]*>/g,''))}"><span data-overflow-watch>${cbEsc(String(msg||'').replace(/<[^>]*>/g,''))}${subs}</span></span></li>`;
+}
 function cbRiskOkToggle(open){ _cbRiskOkOpen=!!open; }
 
 function cbRenderRisk(){
@@ -197,7 +205,7 @@ function cbRenderRisk(){
   const okNames=okCards.map(e=>cbEsc(e.title||e.card.title)).join(' · ');
   const okFold=okCards.length?`<details class="cb-risk-ok-fold"${_cbRiskOkOpen||!mainCards.length?' open':''} ontoggle="cbRiskOkToggle(this.open)">
         <summary><b>양호 ${okCards.length}개</b><span>${okNames}</span><em aria-hidden="true"><i class="is-closed">펼치기 ▾</i><i class="is-open">접기 ▴</i></em></summary>
-        <div class="cb-risk-card-grid">${cbRiskFillGrid(okCards,cardHtml)}</div>
+        <ul class="cb-risk-ok-list">${okCards.map(cbRiskOkRowHtml).join('')}</ul>
       </details>`:'';
   el.innerHTML = `
     <div class="cb-risk-overview">

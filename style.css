@@ -1147,7 +1147,15 @@
     .cb-risk-ok-fold>summary>em{font-style:normal;color:var(--acc);white-space:nowrap}
     .cb-risk-ok-fold>summary>em>i{font-style:normal}
     .cb-risk-ok-fold:not([open])>summary .is-open,.cb-risk-ok-fold[open]>summary .is-closed{display:none}
-    .cb-risk-ok-fold>.cb-risk-card-grid{padding:0 10px 10px}
+    .cb-risk-ok-fold[open]>summary>span{visibility:hidden;height:0;overflow:hidden}
+    .cb-risk-ok-list{list-style:none;margin:0;padding:0 14px 8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
+    .cb-risk-ok-list>li{display:grid;grid-template-columns:minmax(120px,max-content) 72px minmax(0,1fr);gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--bd);font-size:var(--fs-body)}
+    .cb-risk-ok-name{font-weight:700;color:var(--tx)}
+    .cb-risk-ok-val{color:var(--up);text-align:right;font-weight:700}
+    .cb-risk-ok-msg{color:var(--mut);font-size:var(--fs-cap);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cb-risk-ok-sub{margin-left:8px;color:var(--lab)}
+    @media (max-width:1200px){.cb-risk-ok-list{grid-template-columns:1fr}}
+    @media (max-width:720px){.cb-risk-ok-list>li{grid-template-columns:1fr auto}.cb-risk-ok-msg{grid-column:1/-1;white-space:normal}}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:var(--font-num);font-size:clamp(15px,1.15vw,18px);font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
 /* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */
