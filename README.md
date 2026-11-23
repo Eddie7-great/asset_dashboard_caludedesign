@@ -103,6 +103,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `backtest.js` / `simulator.js` / `etf-explorer.js` — 백테스트·추가 투자 배분·은퇴 자금 예상·ETF 탐색. 모두 Cobalt 가 렌더할 때까지 함수만 정의합니다
 - `workspace-pages.js` — 계좌별 보기·일정·결산 리포트 화면(조회 전용)
 - `workspace-ui.css` / `etf-explorer.css` — `style.css` 뒤에 로드되어 통합 워크스페이스와 ETF 탐색 레이아웃을 덮어씁니다
+- `core/*.js` + `script.js` — 예전 `script.js`(약 7,900줄)를 내용 그대로 14조각으로 이어 자른 것. 데이터·배당·자동이체·보유 목록·현금 흐름·시세·로그인·트리맵·KV·서버 연동 순이며, 이 순서대로 로드합니다
 - `pages/*.js` — 화면별 렌더러(성과·구성원별·리스크·배당·증여·세금·적립식). `cobalt.js` 보다 먼저 로드하며 함수·상태 선언만 둡니다
 - `cobalt.js` — 공통 헬퍼·홈 화면 + 라우터. `switchView`/`changeOwner`/`saveAssetsToKV`/`fetchDivData` 등을 감싸 재렌더와 데이터 신선도 기록을 통합
 - `style.css` — 디자인 토큰(`:root`=기본, `[data-theme="light"]`, `[data-theme="dark"]`) + 시안 토큰 별칭(`--tx`, `--panel`, `--accSoft` 등)
@@ -111,7 +112,7 @@ npm run check:tax-rules:remote   # 공식 법령·국세청 페이지까지 실�
 - `docs/invariants.md` — **건드리면 안 되는 것.** 실제로 사고가 났던 자리와 그 증상, `npm test` 로는 확인되지 않는 영역(워크플로·모바일 레이아웃·CDN 실패·터치)을 정리했습니다. 수정 작업을 맡기기 전에 이 문서를 먼저 읽게 하세요
 - `scripts/tests/` — 회귀 테스트. `npm test` 가 전체 게이트(문법 검사 → `tsc --noEmit` → Node 테스트 → Python 테스트)를 돌리고, GitHub Actions(`품질 검사`)가 push·PR 마다 같은 명령을 실행합니다. 개별 실행은 `node scripts/tests/<file>.mjs`
 
-> 스크립트 로드 순서는 `tax-rules.js` → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `workspace-pages.js` → `pages/*.js`(화면별 렌더러) → `cobalt.js` 로 고정입니다.
+> 스크립트 로드 순서는 `tax-rules.js` → `core/*.js`(13개) → `script.js` → `finance.js` → `navigation.js` → `backtest.js` → `simulator.js` → `etf-explorer.js` → `workspace-pages.js` → `pages/*.js`(화면별 렌더러) → `cobalt.js` 로 고정입니다.
 > `cobalt.js`가 `CB_VIEWS`에서 다른 파일의 렌더 함수를 참조하고 전역 함수들을 감싸기 때문에 마지막에 와야 합니다. 스타일시트는 `style.css` → `workspace-ui.css` → `etf-explorer.css` 순입니다.
 
 자세한 개발 규칙은 `CLAUDE.md`(기계가 읽는 판본)와 `docs/invariants.md`(사람이 읽는 판본)를 참고하세요.
