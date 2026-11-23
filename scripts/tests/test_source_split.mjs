@@ -85,4 +85,49 @@ for (const [file, fns] of Object.entries(moved)) {
   }
 }
 
+// script.js 조각(core/*.js)은 cobalt.js 조각과 달리 '로드 때 실행되는 코드'가 함수도 부른다(let cfData = _normalizeCfRows(…) 등).
+// 한 파일일 때는 function 선언이 파일 전체로 끌어올려져 뒤에 적힌 함수도 불렸지만, 나누면 뒤 파일의 함수는 아직 없다.
+// 그래서 이 조각들은 let/const 뿐 아니라 function·var 이름까지 '뒤 파일 것을 로드 때 쓰지 않는다'를 확인한다.
+const allNames = (sf) => {
+  const out = []
+  for (const st of sf.statements) {
+    if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) && st.name) out.push(st.name.text)
+    else if (ts.isVariableStatement(st)) for (const d of st.declarationList.declarations) if (ts.isIdentifier(d.name)) out.push(d.name.text)
+  }
+  return out
+}
+const loadTimeRefs = (sf) => {
+  const ids = new Set()
+  const walk = (node) => {
+    if (ts.isFunctionLike(node)) return
+    if (ts.isIdentifier(node)) {
+      const p = node.parent
+      const isMemberName = p && ((ts.isPropertyAccessExpression(p) && p.name === node) || (ts.isPropertyAssignment(p) && p.name === node))
+      if (!isMemberName) ids.add(node.text)
+    }
+    ts.forEachChild(node, walk)
+  }
+  for (const st of sf.statements) if (!ts.isFunctionDeclaration(st)) walk(st)
+  return ids
+}
+{
+  const parts = SOURCE_PARTS['script.js']
+  const sfs = parts.map(parse)
+  sfs.forEach((sf, i) => {
+    const mine = new Set(sfs.slice(0, i + 1).flatMap(allNames))
+    const later = new Set(sfs.slice(i + 1).flatMap(allNames).filter(n => !mine.has(n)))
+    const bad = [...loadTimeRefs(sf)].filter(n => later.has(n))
+    assert.deepEqual(bad, [], `${parts[i]} 가 로드 때 뒤 조각의 이름을 쓴다: ${bad.join(', ')}`)
+  })
+  // 함수 이름도 두 조각에 겹치지 않는다(겹치면 뒤 것이 앞 것을 조용히 덮는다).
+  const seen = new Map()
+  sfs.forEach((sf, i) => allNames(sf).forEach(n => {
+    assert.ok(!seen.has(n), `${n} 가 ${seen.get(n)} 와 ${parts[i]} 에 함께 선언돼 있다`)
+    seen.set(n, parts[i])
+  }))
+  // core/ 의 파일은 빠짐없이 등록돼 있어야 한다.
+  const coreFiles = fs.readdirSync(new URL('../../core/', import.meta.url)).filter(n => n.endsWith('.js')).map(n => 'core/' + n)
+  for (const f of coreFiles) assert.ok(parts.includes(f), `${f} 가 _source.mjs 에 없다`)
+}
+
 console.log('PASS 화면별 파일 나누기: 로드 순서·이름 충돌·로드 때 참조')

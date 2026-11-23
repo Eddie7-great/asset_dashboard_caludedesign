@@ -69,9 +69,18 @@ def extract_js_function(source, name):
     raise AssertionError('%s 함수의 끝을 찾지 못함' % name)
 
 
+def read_js_source(name):
+    """나눈 소스(scripts/tests/_source.mjs 의 SOURCE_PARTS)를 원래 한 파일처럼 이어 읽는다."""
+    import re
+    spec = open(os.path.join(HERE, '_source.mjs'), encoding='utf-8').read()
+    m = re.search(r"'%s':\s*\[(.*?)\]" % re.escape(name), spec, re.S)
+    parts = re.findall(r"'([^']+\.js)'", m.group(1)) if m else [name]
+    return '\n'.join(open(os.path.join(ROOT, p), encoding='utf-8').read() for p in parts)
+
+
 def js_entry():
     """script.js의 updateNetWorthSnapshot을 같은 입력으로 실행한 결과."""
-    script_js = open(os.path.join(ROOT, 'script.js'), encoding='utf-8').read()
+    script_js = read_js_source('script.js')
     parts = [extract_js_function(script_js, n)
              for n in ('filterByOwner', 'getFilteredAssets', '_cfLocalDateKey', 'updateNetWorthSnapshot')]
     harness = """
