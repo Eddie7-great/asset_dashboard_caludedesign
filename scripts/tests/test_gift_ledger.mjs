@@ -175,4 +175,25 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.match(script, /isGift:item\.type!=='수입'&&\(item\.isGift===true\|\|item\.giftKind==='child'\|\|item\.giftKind==='spouse'\),/, '저장값 정리가 표식을 지킨다');
   assert.match(pick(script, 'editFixedCost'), /o\.dataset\.temp='1'/, "목록에 없는 카테고리('저축/투자')를 수정하다 '기타'로 바꾸지 않는다");
 }
+// 2026-11-23: '증여 한눈에' 표 — 값은 cbGiftPrior·cbGiftDeductionReview 그대로, 판정 보류면 남은 공제·초과를 쓰지 않는다
+{
+  const sctx = vm.createContext({ cbOwnerTag: o => `<i>${o}</i>`, cbEsc: v => String(v), cbKrw: n => '₩' + Math.round(n).toLocaleString('en-US') });
+  vm.runInContext(pick(cobalt, 'cbGiftSummaryRowHtml'), sctx); vm.runInContext(pick(cobalt, 'cbGiftSummaryHtml'), sctx);
+  vm.runInContext(pick(cobalt, 'cbGiftDeductionReview'), sctx);
+  const prior = { confirmed: true, asOf: '2026-11-23', amount: 10_500_000, amountKnown: true, fromLedger: true, count: 35 };
+  const ready = sctx.cbGiftSummaryRowHtml({ kind: 'child', owner: '자녀1', title: '자녀 증여', sub: 's', limit: 20_000_000, limitNote: '미성년', prior, review: sctx.cbGiftDeductionReview(prior, 15_534_263, 20_000_000), planned: 15_534_263 });
+  assert.match(ready, /₩10,500,000<\/b><small>기록장 35건 · 기준일 11-23/);
+  assert.match(ready, /남은 공제<\/span><b class="cb-num">₩9,500,000<\/b><small>한도의 47\.5% 남음/);
+  assert.match(ready, /is-warn">계획대로면 ₩6,034,263 초과/, '초과 금액은 cbGiftDeductionReview 의 excess');
+  assert.match(ready, /is-plan is-over/, '한도를 넘는 계획 부분은 경고 빗금');
+  assert.match(ready, /onclick="cbGiftTab\('child'\)"/, '줄을 누르면 그 탭');
+  const hold = { confirmed: false, asOf: '', amount: 0, amountKnown: false, fromLedger: true, count: 1 };
+  const held = sctx.cbGiftSummaryRowHtml({ kind: 'spouse', owner: '아내', title: '부부 증여', sub: 's', limit: 600_000_000, prior: hold, review: sctx.cbGiftDeductionReview(hold, 100_000_000, 600_000_000), planned: 100_000_000 });
+  assert.match(held, /<b class="is-hold">판정 보류<\/b>/);
+  assert.doesNotMatch(held, /남음<\/small>|초과/, '판정 보류면 남은 공제·초과를 쓰지 않는다');
+  assert.match(held, /기준일 미정/);
+  assert.equal(sctx.cbGiftSummaryHtml([]), '', '당사자가 아니면 표를 그리지 않는다');
+  assert.match(cobalt, /if \(typeof _cbGiftTab!=='undefined'\) _cbGiftTab='child';/, '화면을 옮기면 탭을 되돌린다');
+  assert.doesNotMatch(cobalt, /cb-gift-ledger-sums/, '기록장의 10년 합계 카드는 한눈에 표로 옮겼다(같은 합계를 세 번 보이지 않는다)');
+}
 console.log('PASS 증여 기록장');

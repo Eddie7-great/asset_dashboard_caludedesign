@@ -403,10 +403,6 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 
 /* 증여 기록장 (2026-11-10) — 가족 증여 화면 하단. 입력 폼·삭제 버튼은 휴대폰에서 숨기고 finMobileNote 가 이유를 알린다 */
 .cb-gift-ledger{margin-top:12px;padding:16px 18px}
-.cb-gift-ledger-sums{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-.cb-gift-ledger-sum{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
-.cb-gift-ledger-sum>span,.cb-gift-ledger-sum>small{font-size:var(--fs-cap);color:var(--lab)}
-.cb-gift-ledger-sum>b{font-size:var(--fs-title)}
 .cb-gift-ledger-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:12px}
 .cb-gift-ledger-form>label{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-cap);font-weight:600;color:var(--lab);flex:0 1 150px;min-width:0}
 .cb-gift-ledger-form>label.cb-gift-ledger-memo{flex:1 1 200px}
@@ -1173,6 +1169,55 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .trade-pl-match{color:var(--warn)}
 
 /* 자동이체를 증여로 연결(2026-11-18 3차, 가족 증여 기록장) */
+.cb-gift-summary{margin-bottom:12px;padding:16px 18px}
+.cb-gift-sum-desc{color:var(--dim);font-weight:500}
+.cb-gift-sum-head,.cb-gift-sum-row{display:grid;grid-template-columns:minmax(140px,170px) minmax(220px,1fr) repeat(3,minmax(140px,170px));gap:18px;align-items:center}
+.cb-gift-sum-head{padding:10px 0 8px;font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-sum-head>span:nth-child(n+3){text-align:right}
+.cb-gift-sum-head em{display:block;font-style:normal;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-gift-sum-head em i{display:inline-block;width:12px;height:8px;border-radius:var(--r-sm);margin:0 4px 0 6px;vertical-align:middle}
+.cb-gift-sum-head em i:first-child{margin-left:0}
+.cb-gift-sum-head em i.is-limit{width:2px;height:12px;border-radius:0}
+.cb-gift-sum-row{padding:14px 6px;margin:0 -6px;border-top:1px solid var(--bd);border-radius:var(--r-md);cursor:pointer}
+.cb-gift-sum-row:hover{background:var(--hover)}
+.cb-gift-sum-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cb-gift-sum-who>b{font-size:var(--fs-card)}
+.cb-gift-sum-who>small,.cb-gift-sum-num>small,.cb-gift-sum-scale{font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-sum-num{display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right;min-width:0}
+.cb-gift-sum-num>b{font-size:var(--fs-card);font-variant-numeric:tabular-nums}
+.cb-gift-sum-num>b.is-hold{color:var(--lab)}
+.cb-gift-sum-lab{display:none;font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-sum-bar{position:relative;height:12px;border-radius:var(--r-md);background:var(--inner)}
+.cb-gift-sum-bar>i{position:absolute;top:0;bottom:0;border-radius:var(--r-md)}
+.cb-gift-sum-bar>i.is-used,.cb-gift-sum-head i.is-used{background:var(--t2)}
+.cb-gift-sum-bar.is-hold>i.is-used{background:var(--lab)}
+.cb-gift-sum-bar>i.is-plan,.cb-gift-sum-head i.is-plan{background:repeating-linear-gradient(135deg,var(--lab) 0 3px,transparent 3px 7px)}
+.cb-gift-sum-bar>i.is-plan.is-over{background:repeating-linear-gradient(135deg,var(--warn) 0 3px,transparent 3px 7px)}
+.cb-gift-sum-bar>.is-limit,.cb-gift-sum-head i.is-limit{background:var(--tx)}
+.cb-gift-sum-bar>.is-limit{position:absolute;top:-4px;bottom:-4px;width:2px;transform:translateX(-1px)}
+.cb-gift-sum-scale{display:flex;justify-content:space-between;margin-top:6px}
+.cb-gift-sum-chip{font-size:var(--fs-cap);font-weight:700;padding:2px 8px;border-radius:var(--r-md);white-space:nowrap}
+.cb-gift-sum-chip.is-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.cb-gift-sum-chip.is-ok{color:var(--up);background:color-mix(in srgb,var(--up) 12%,transparent)}
+.cb-gift-sum-chip.is-hold{color:var(--lab);background:var(--inner)}
+.cb-gift-sum-foot{margin:10px 0 0;font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-detail-panel{margin-bottom:12px}
+.cb-gift-tabs{justify-content:flex-start}
+.cb-gift-detail-title{font-size:var(--fs-card);font-weight:700;margin-bottom:8px}
+.cb-gift-detail-sub{font-size:var(--fs-cap);color:var(--lab);margin-bottom:12px}
+.cb-gift-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start}
+.cb-gift-detail>div{margin-top:0!important}
+.cb-gift-detail-total{margin-top:12px;font-size:var(--fs-cap);color:var(--lab)}
+.cb-gift-detail-total>b{color:var(--tx);font-size:var(--fs-body);margin-left:4px}
+@media (max-width:1100px){.cb-gift-detail{grid-template-columns:1fr;gap:12px}}
+@media (max-width:1180px){
+  .cb-gift-sum-head{display:none}
+  .cb-gift-sum-row{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:10px}
+  .cb-gift-sum-who,.cb-gift-sum-gauge{grid-column:1/-1}
+  .cb-gift-sum-num{align-items:flex-start;text-align:left}
+  .cb-gift-sum-lab{display:block}
+}
+@media (max-width:768px){.cb-gift-sum-row{grid-template-columns:1fr}.cb-gift-sum-row>*{grid-column:1/-1}}
 .cb-gift-link{margin:10px 0;border:1px solid var(--bd);border-radius:var(--r-md);padding:8px 12px}
 .cb-gift-link>summary{cursor:pointer;font-size:var(--fs-body);font-weight:700}
 .cb-gift-link>summary>span{font-weight:500;font-size:var(--fs-cap);color:var(--lab)}

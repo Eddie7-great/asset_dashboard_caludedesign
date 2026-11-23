@@ -323,7 +323,7 @@ assert.match(scriptSource, /if \(typeof cbDashPopClose === 'function'\) cbDashPo
 assert.match(extractFunction(cobaltSource, 'cbResetViewState'), /_cdashAllocOpen=null; _cdashSecOpen=null;/, '다른 화면으로 가면 창을 닫는다')
 assert.doesNotMatch(cobaltSource, /cb-sector-open/, '카드 안 펼침 목록은 없앴다')
 // 모바일에서 화면 밖으로 밀려 잘리던 레이아웃 — 인라인 폭 제약을 클래스로 빼 미디어쿼리가 닿게 한다.
-assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel">/, '증여 패널의 min-width 를 CSS 로 이관')
+assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel[ "]/, '증여 패널의 min-width 를 CSS 로 이관')
 assert.match(styleSource, /@media \(max-width:768px\)[\s\S]*\.cb-gift-panel\{min-width:0;flex-basis:100%\}/, '모바일에서 증여 패널을 한 줄에 하나씩 (금액 잘림 방지)')
 assert.match(cobaltSource, /<div class="cb-lt-row">[\s\S]*class="cb-lt-name"[\s\S]*class="cb-lt-bar"/, '종목 집중도 행을 클래스로 노출')
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{display:none\}/, '좁은 화면에서는 룩스루 직접/ETF 칸을 숨겨 잘림 방지')
@@ -682,8 +682,8 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.doesNotMatch(cobaltSource + fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8'), /AssetAllocation3D|allocation-3d|cb-allocation-visual/, '입체 도넛(비중 왜곡)은 없앴다')
   assert.match(cobaltSource, /cbTreemapLayout\(secs\.map[\s\S]*?color:'var\(--acc\)',mix:12\+40\*Math\.sqrt\(t\.x0\.v\/maxV\)/, '섹터 타일은 한 색이고 비중이 클수록 진하다(2026-11-18 2차)')
   assert.match(cobaltSource, /role="button" tabindex="0" aria-haspopup="dialog" data-sec-n="\$\{t\.n\}" onclick="cbDashSecToggle\(\$\{t\.n\}\)"/, '섹터 칸을 누르면 그 섹터 종목 창(키보드도)')
-  assert.match(cobaltSource, /\$\{childPvT>0\?childBody:giftEmptyNote\}\s*\$\{giftEditBox\('child',childSettings,!\(childPvT>0\)\)\}/, '가족 증여: 결과 → 계획 수정(접힘) 순서, 금액 0 이면 안내')
-  assert.match(cobaltSource, /\$\{spouseT>0\?spouseBody:giftEmptyNote\}/, '금액이 0 인 부부 계획은 빈 그래프 대신 안내')
+  assert.match(cobaltSource, /\$\{childPvT>0\?`<div class="cb-gift-detail">\$\{childBody\}<\/div>`:giftEmptyNote\}[\s\S]*?\$\{giftEditBox\('child',childSettings,!\(childPvT>0\)\)\}/, '가족 증여: 결과 → 계획 수정(접힘) 순서, 금액 0 이면 안내')
+  assert.match(cobaltSource, /\$\{spouseT>0\?`<div class="cb-gift-detail">\$\{spouseBody\}<\/div>`:giftEmptyNote\}/, '금액이 0 인 부부 계획은 빈 그래프 대신 안내')
   assert.match(cobaltSource, /ontoggle="_cbGiftEditOpen\.\$\{kind\}=this\.open"/, "'계획 수정' 펼침 상태는 재렌더에도 유지")
 }
 
