@@ -48,7 +48,7 @@ function navPrepare(id){
     // 레거시 화면(보유 목록·현금 흐름)은 들어올 때 소유주를 '전체'로 되돌린다 — 이어 준 소유주는 한 번 지키게 표식을 남긴다.
     if(id==='holdings'||id==='bubble'){currentOwner=owner;_navKeepOwner=true;}
     if(id==='bubble')_bubbleOwner=owner;
-    if(id==='cashflow'){_cfOwner=owner;_navKeepOwner=true;}
+    if(id==='cashflow'){_cfOwner=CF_OWNERS.includes(owner)?owner:'전체';_navKeepOwner=true;} // 현금 흐름은 부부(본인·아내)만 다룬다
     if(id==='fam2')_famKey=owner==='전체'?'all':owner;
     if(id==='etf2')_etfOwner=owner;
     if(id==='plan2'||id==='rebal2')_finPlanOwner=owner;

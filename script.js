@@ -839,6 +839,9 @@ function _normalizeCfRows(rows){
     const giftRecId=_boundedStoredText(item.giftRecId,60);
     if(giftRecId)row.giftRecId=giftRecId;
     if(item.giftBackfill===true)row.giftBackfill=true;
+    // 부부 송금(2026-11-23): 아내 → 본인 송금 한 건이 만드는 줄(in·out)과 아내 지출 추정 줄(est). 같은 달 묶음 키는 xferMonth
+    const xferMonth=String(item.xferMonth||'');
+    if(/^\d{4}-\d{2}$/.test(xferMonth)&&['in','out','est'].includes(item.xferRole)){row.xferMonth=xferMonth;row.xferRole=item.xferRole;}
     return row;
   }).filter(Boolean);
 }
@@ -1142,7 +1145,7 @@ function rememberCfDeletion(item){
   }
   return key;
 }
-const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572'};
+const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572','부부 송금':'#94a3c8','아내 지출(추정)':'#f2a33c'};
 // 자동이체 등록 데이터: {id, owner, type, cat, desc, amt, cycle, dayOfWeek, dayOfMonth,
 // isFixedCost:true|false|undefined(기존 데이터 검토 필요), startMonth, endMonth, lastApplied}
 let autoTransferData = [];
@@ -1624,8 +1627,7 @@ function _nextFixedCostDate(at, fromDate=new Date()) {
 }
 
 function _fixedCostOwnerMatches(at) {
-  if (_cfOwner === '전체') return true;
-  return at.owner === _cfOwner;
+  return cfInScope(at && at.owner);
 }
 
 function _fixedCostIncomeForMonth(y,m) {
@@ -1634,7 +1636,7 @@ function _fixedCostIncomeForMonth(y,m) {
   cfData.forEach(item=>{
     const d=new Date(item.date);
     if(d.getFullYear()!==y||d.getMonth()+1!==m||item.type!=='수입') return;
-    if(_cfOwner!=='전체'&&item.owner!==_cfOwner) return;
+    if(!cfRowCounts(item)) return;
     income+=Number(item.amt)||0;
     if(item.atId) materializedIds.add(item.atId);
   });
@@ -1716,7 +1718,7 @@ function renderFixedCostView() {
   const ratioNote=document.getElementById('cf-fixed-ratio-note');if(ratioNote)ratioNote.textContent=income>0?`이번 달 수입 ₩${Math.round(income).toLocaleString()} 기준`:'이번 달 수입 내역이 없습니다';
   const nextEl=document.getElementById('cf-fixed-next');if(nextEl)nextEl.textContent=next?`₩${Math.round(_effectiveAutoTransferAmt(next.at,next.date.getFullYear(),next.date.getMonth()+1)).toLocaleString()}`:'-';
   const nextNote=document.getElementById('cf-fixed-next-note');if(nextNote)nextNote.textContent=next?`${next.date.getMonth()+1}월 ${next.date.getDate()}일 · ${next.at.owner||'미지정'} · ${next.at.desc}`:'예정된 결제가 없습니다';
-  const monthNote=document.getElementById('cf-fixed-monthly-note');if(monthNote)monthNote.textContent=`${_cfOwner==='전체'?'가구 전체':_cfOwner} · ${included.length}개 항목`;
+  const monthNote=document.getElementById('cf-fixed-monthly-note');if(monthNote)monthNote.textContent=`${cfScopeLabel()} · ${included.length}개 항목`;
   const review=document.getElementById('cf-fixed-review-note');if(review)review.textContent=pending.length?`기존 자동이체 ${pending.length}건은 소유주와 고정비 여부를 확인해야 합계에 반영됩니다.`:'분류가 완료된 고정비만 합산합니다.';
   const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
   const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
@@ -4030,6 +4032,221 @@ let _cfOwner = '전체';
 let _cfSection = 'monthly';
 let _cfShowExcluded = false;
 
+// ── 부부 현금 흐름(2026-11-23, 사용자 결정) ──
+// 현금 흐름 화면은 맞벌이 부부(본인·아내)만 다룬다. 자녀1·아버지 기록은 지우지 않고(결산 리포트 배당 장이 쓴다)
+// 이 화면에서만 뺀다. '전체' 탭은 화면에 '부부 합계'로 보인다(내부 값은 '전체' 그대로 — 다른 화면과 소유주를 잇는다).
+// 아내는 월급을 받아 쓰고 남은 돈을 본인에게 보낸다. 아내의 지출 내역은 모르므로 송금 한 건을 기록하면 세 줄이 생긴다:
+//   in  — 본인 수입 '부부 송금' (사용자가 적은 금액·날짜, 이 묶음의 기준)
+//   out — 아내 지출 '부부 송금' (in 과 같은 금액·날짜)
+//   est — 아내 지출 '아내 지출(추정)' = 아내 수입(배당 제외) − 아내가 따로 기록한 지출 − 보낸 돈 (0 미만이면 줄 없음)
+// in·out 은 집 안에서 통장만 옮긴 돈이라 부부 합계에서는 세지 않고, 본인·아내 탭에서만 센다. 두 줄의 합이 0 이라
+// 순현금흐름을 쓰는 다른 계산(순자산 브리지 등)은 그대로 맞고, est 가 아내 월급만큼 남은 돈이 부풀지 않게 막는다.
+const CF_OWNERS = ['본인','아내'];
+const CF_XFER_FROM = '아내', CF_XFER_TO = '본인';
+const CF_XFER_CAT = '부부 송금';
+const CF_XFER_EST_CAT = '아내 지출(추정)';
+function cfInScope(owner){ return _cfOwner==='전체' ? CF_OWNERS.includes(owner) : owner===_cfOwner; }
+function cfScopeLabel(){ return _cfOwner==='전체' ? '부부 합계' : _cfOwner; }
+function cfIsXferMove(item){ return !!item && (item.xferRole==='in'||item.xferRole==='out'); }
+// 이 탭의 합계에 넣는 줄인가 — 소유주 범위 안이고, 부부 합계에서는 송금(in·out)을 뺀다
+function cfRowCounts(item, owner=_cfOwner){
+  if(!item) return false;
+  const inScope = owner==='전체' ? CF_OWNERS.includes(item.owner) : item.owner===owner;
+  if(!inScope) return false;
+  return !(owner==='전체' && cfIsXferMove(item));
+}
+function _cfRowYm(item){
+  if(!item) return '';
+  if(item.date==='미정'&&item.divKey){const p=item.divKey.split('_');const y=parseInt(p[p.length-2]),m=parseInt(p[p.length-1]);return y&&m?`${y}-${String(m).padStart(2,'0')}`:'';}
+  return /^\d{4}-\d{2}/.test(String(item.date||'')) ? String(item.date).slice(0,7) : '';
+}
+// 한 달의 자동이체 가상 금액(이미 기록된 달·건너뛴 달·종료 뒤는 뺀다) — renderCashFlow 의 예정 줄과 같은 규칙
+function _cfAutoTransferMonthTotals(y, m, ownerOk){
+  let atIn=0, atOut=0;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const ymKey = y+'-'+String(m).padStart(2,'0');
+  (typeof autoTransferData!=='undefined'?autoTransferData:[]).forEach(at=>{
+    if (!(at.amt || at.loan) || !at.cycle) return;
+    if (!ownerOk(at.owner)) return;
+    const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
+    if (!monthlyCycle&&at.startMonth) {
+      const [sy, sm] = at.startMonth.split('-').map(Number);
+      if (y < sy || (y === sy && m < sm)) return;
+    }
+    if (!monthlyCycle&&at.endMonth) {
+      const [ey, em] = at.endMonth.split('-').map(Number);
+      if (y > ey || (y === ey && m > em)) return;
+    }
+    if (!monthlyCycle&&Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
+    const hasMaterialized = cfData.some(item=>{
+      const idate=new Date(item.date);
+      return idate.getFullYear()===y && idate.getMonth()+1===m && item.atId===at.id;
+    });
+    if (hasMaterialized) return;
+    const hasLegacy = cfData.some(item=>{
+      const idate=new Date(item.date);
+      return idate.getFullYear()===y && idate.getMonth()+1===m &&
+        item.isAuto===true && item.atId==null &&
+        typeof item.desc==='string' && item.desc.includes(at.desc);
+    });
+    if (hasLegacy) return;
+    let times = 0;
+    if (monthlyCycle) times=_autoTransferMonthlyOccurrences(at,y,m).length;
+    else if (at.cycle==='weekly') times=Math.floor(daysInMonth/7);
+    else if (at.cycle==='daily') times=daysInMonth;
+    const total = _effectiveAutoTransferAmt(at, y, m) * times;
+    if (at.type==='수입') atIn+=total; else atOut+=total;
+  });
+  return {atIn, atOut};
+}
+// 한 사람의 한 달 — 기록된 줄 + 자동이체 예정. 송금·추정 줄은 따로 센다.
+function cfPersonMonth(owner, ym){
+  const [y,m]=ym.split('-').map(Number);
+  const r={owner,income:0,dividend:0,expense:0,xferIn:0,xferOut:0,est:0,xferDate:''};
+  cfData.forEach(item=>{
+    if(!item||item.owner!==owner||_cfRowYm(item)!==ym) return;
+    const amt=Number(item.amt)||0;
+    if(item.xferRole==='in'){r.xferIn+=amt;r.xferDate=item.date;return;}
+    if(item.xferRole==='out'){r.xferOut+=amt;r.xferDate=item.date;return;}
+    if(item.xferRole==='est'){r.est+=amt;return;}
+    if(item.type==='수입'){ if(item.cat==='배당금') r.dividend+=amt; else r.income+=amt; }
+    else r.expense+=amt;
+  });
+  const at=_cfAutoTransferMonthTotals(y,m,o=>o===owner);
+  r.income+=at.atIn; r.expense+=at.atOut;
+  return r;
+}
+// 아내 지출 추정액 — 배당은 증권 계좌에 남으므로 빼고 계산한다
+function cfSpouseEstimate(ym, sent){
+  const w=cfPersonMonth(CF_XFER_FROM, ym);
+  return Math.max(0, Math.round(w.income - w.expense - (Number(sent)||0)));
+}
+// 송금 묶음을 맞춘다: in 줄이 기준. out·est 를 만들거나 고치고, in 이 없는 out·est 는 지운다. 바뀐 것이 있으면 true.
+function cfSpouseSync(){
+  if(typeof cfData==='undefined'||!Array.isArray(cfData)) return false;
+  let changed=false;
+  const ins=new Map();
+  cfData.forEach(c=>{ if(c&&c.xferRole==='in'&&!ins.has(c.xferMonth)) ins.set(c.xferMonth,c); });
+  for(let k=cfData.length-1;k>=0;k--){
+    const c=cfData[k];
+    if(!c||!c.xferRole) continue;
+    const head=ins.get(c.xferMonth);
+    if(!head || (c.xferRole==='in'&&c!==head)){ cfData.splice(k,1); changed=true; }
+  }
+  ins.forEach((head,ym)=>{
+    const amt=Number(head.amt)||0;
+    let out=cfData.find(c=>c.xferRole==='out'&&c.xferMonth===ym);
+    if(!out){ out={date:head.date,type:'지출',cat:CF_XFER_CAT,desc:`${CF_XFER_TO}에게 송금(남은 돈)`,amt,owner:CF_XFER_FROM,xferMonth:ym,xferRole:'out'}; cfData.push(out); changed=true; }
+    else if(out.amt!==amt||out.date!==head.date||out.owner!==CF_XFER_FROM){ out.amt=amt; out.date=head.date; out.owner=CF_XFER_FROM; changed=true; }
+    const estAmt=cfSpouseEstimate(ym, amt);
+    const ei=cfData.findIndex(c=>c.xferRole==='est'&&c.xferMonth===ym);
+    if(estAmt<=0){ if(ei>-1){ cfData.splice(ei,1); changed=true; } }
+    else if(ei<0){ cfData.push({date:head.date,type:'지출',cat:CF_XFER_EST_CAT,desc:'월급 − 보낸 돈 (지출 내역 미기록)',amt:estAmt,owner:CF_XFER_FROM,xferMonth:ym,xferRole:'est'}); changed=true; }
+    else { const e=cfData[ei]; if(e.amt!==estAmt||e.date!==head.date){ e.amt=estAmt; e.date=head.date; changed=true; } }
+  });
+  return changed;
+}
+// 화면 렌더 전에 맞추고, 바뀌었으면 저장(재무 기록을 다 읽은 뒤에만).
+// 저장이 실패하면 saveExtDataToKV 가 되돌린 뒤 이 화면을 다시 그리고, 그 렌더가 다시 맞추고 저장하면 끝없이 돈다 —
+// 저장 중에는 다시 저장하지 않고, 한 번 실패하면 이 세션에서는 자동 저장을 멈춘다(사용자 저장 때 함께 실린다).
+let _cfSpouseSaveBusy=false, _cfSpouseSaveFailed=false;
+function cfSpouseSyncAndSave(){
+  if(!cfSpouseSync()) return false;
+  saveCfData();
+  if(_cfSpouseSaveBusy||_cfSpouseSaveFailed) return true;
+  if(window._kvLoadState?.ext!=='ready' || typeof saveExtDataToKV!=='function') return true;
+  _cfSpouseSaveBusy=true;
+  Promise.resolve(saveExtDataToKV()).then(r=>{ if(r&&r.ok===false) _cfSpouseSaveFailed=true; })
+    .catch(()=>{ _cfSpouseSaveFailed=true; }).finally(()=>{ _cfSpouseSaveBusy=false; });
+  return true;
+}
+let _cfXferEditYm = '';
+let _cfXferFormOpen = false;
+function cfXferOpen(ym){
+  if (isMobileLayout()) return; // 모바일은 조회 전용
+  const curYm=`${cfYear}-${String(cfMonth).padStart(2,'0')}`;
+  const target=ym||curYm;
+  const head=cfData.find(c=>c.xferRole==='in'&&c.xferMonth===target);
+  _cfXferEditYm=head?target:'';
+  _cfXferFormOpen=true;
+  if(head){ const [y,m]=target.split('-').map(Number); cfYear=y; cfMonth=m; }
+  renderCashFlow();
+  const dateEl=document.getElementById('cf-xfer-date'), amtEl=document.getElementById('cf-xfer-amt');
+  if(dateEl) dateEl.value=head?head.date:(curYm===_cfMonthKey()?_cfLocalDateKey(new Date()):`${curYm}-25`);
+  if(amtEl){ amtEl.value=head?Number(head.amt).toLocaleString():''; amtEl.focus(); }
+}
+function cfXferClose(){ _cfXferFormOpen=false; _cfXferEditYm=''; renderCashFlow(); }
+function cfXferSave(){
+  if (isMobileLayout()) return;
+  const date=document.getElementById('cf-xfer-date')?.value||'';
+  const amt=parseInt(String(document.getElementById('cf-xfer-amt')?.value||'').replace(/,/g,''),10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ alert('송금한 날짜를 입력하세요.'); return; }
+  if(!(amt>0)){ alert('받은 금액을 입력하세요.'); return; }
+  const ym=date.slice(0,7);
+  const other=cfData.find(c=>c.xferRole==='in'&&c.xferMonth===ym);
+  if(other && ym!==_cfXferEditYm && !confirm(`${Number(ym.slice(5))}월 송금 기록이 이미 있습니다. 새 값으로 바꿀까요?`)) return;
+  // 고치면서 달을 옮겼으면 예전 달 묶음을 지운다(sync 가 out·est 도 함께 정리)
+  if(_cfXferEditYm && _cfXferEditYm!==ym){ for(let k=cfData.length-1;k>=0;k--){ if(cfData[k].xferMonth===_cfXferEditYm) cfData.splice(k,1); } }
+  const head=cfData.find(c=>c.xferRole==='in'&&c.xferMonth===ym);
+  if(head){ head.date=date; head.amt=amt; }
+  else cfData.push({date,type:'수입',cat:CF_XFER_CAT,desc:`${CF_XFER_FROM}가 보낸 남은 돈`,amt,owner:CF_XFER_TO,xferMonth:ym,xferRole:'in'});
+  cfSpouseSync();
+  _cfXferFormOpen=false; _cfXferEditYm='';
+  cfYear=Number(ym.slice(0,4)); cfMonth=Number(ym.slice(5,7));
+  saveCfData(); renderCashFlow(); saveExtDataToKV();
+}
+async function cfXferDelete(ym){
+  if (isMobileLayout()) return;
+  if(!confirm(`${Number(ym.slice(5))}월 부부 송금 기록을 지울까요? (아내 지출 추정 줄도 함께 지워집니다)`)) return;
+  for(let k=cfData.length-1;k>=0;k--){ if(cfData[k].xferMonth===ym) cfData.splice(k,1); }
+  _cfXferFormOpen=false; _cfXferEditYm='';
+  saveCfData(); renderCashFlow(); await saveExtDataToKV();
+}
+// 이 달 부부 돈의 흐름 카드 — cfPersonMonth 값만 그린다(합계는 오른쪽 요약과 같은 규칙)
+function cfCoupleFlowHtml(y, m){
+  const ym=`${y}-${String(m).padStart(2,'0')}`;
+  const me=cfPersonMonth(CF_XFER_TO, ym), wife=cfPersonMonth(CF_XFER_FROM, ym);
+  const won=v=>'₩'+Math.round(Math.abs(v)).toLocaleString();
+  const sg=(v,neg)=>v?`${neg?'-':'+'}${won(v)}`:'₩0';
+  const sent=me.xferIn;
+  const recorded=sent>0;
+  const step=(label,val,cls='',extra='')=>`<div class="cf-flow-step${extra}"><span>${label}</span><b class="${cls}">${val}</b></div>`;
+  const wifeLeft=wife.income+wife.dividend-wife.expense-wife.xferOut-wife.est;
+  const meLeft=me.income+me.dividend+me.xferIn-me.expense;
+  const wifeLane=`<div class="cf-flow-lane"><div class="cf-flow-who"><i style="background:${ownerColors[CF_XFER_FROM]}"></i>${CF_XFER_FROM}</div>`
+    + step('월급 등 수입',sg(wife.income),'c-up')
+    + (wife.expense?step('따로 기록한 지출',sg(wife.expense,true),'c-dn'):'')
+    + (recorded
+      ? step(`${CF_XFER_TO}에게 보낸 남은 돈 <small>${_cfEsc(String(wife.xferDate||'').slice(5).replace('-','/'))}</small>`,sg(wife.xferOut,true),'c-dn',' is-xfer')
+        + step('쓴 돈 <small data-tip="지출 내역을 따로 적지 않으므로 월급에서 보낸 돈을 뺀 값을 아내 지출로 봅니다.">추정</small>',sg(wife.est,true),'c-dn')
+      : `<div class="cf-flow-step is-missing"><span>${CF_XFER_TO}에게 보낸 돈</span><b>미기록</b></div>`)
+    + (wife.dividend?step('배당 <small>증권 계좌에 남음</small>',sg(wife.dividend),'c-up'):'')
+    + `<div class="cf-flow-step is-total"><span>${CF_XFER_FROM} 쪽에 남은 돈</span><b>${won(wifeLeft)}</b></div></div>`;
+  const meLane=`<div class="cf-flow-lane"><div class="cf-flow-who"><i style="background:${ownerColors[CF_XFER_TO]}"></i>${CF_XFER_TO}</div>`
+    + step('월급 등 수입',sg(me.income),'c-up')
+    + step(`${CF_XFER_FROM}에게서 받은 돈`,recorded?sg(sent):'미기록',recorded?'c-up':'',recorded?' is-xfer':' is-missing')
+    + (me.dividend?step('배당',sg(me.dividend),'c-up'):'')
+    + step('지출',sg(me.expense,true),'c-dn')
+    + `<div class="cf-flow-step is-total"><span>${CF_XFER_TO} 쪽에 남은 돈</span><b class="${meLeft>=0?'c-up':'c-dn'}">${meLeft<0?'-':''}${won(meLeft)}</b></div></div>`;
+  const total=meLeft+wifeLeft;
+  const actions=isMobileLayout()?'':(recorded
+    ? `<button type="button" class="cf-xfer-btn" onclick="cfXferOpen('${ym}')">송금 수정</button>`
+    : `<button type="button" class="cf-xfer-btn" onclick="cfXferOpen()">⇄ 송금 기록</button>`);
+  const form=(_cfXferFormOpen&&!isMobileLayout())
+    ? `<div class="cf-xfer-form"><span class="cf-xfer-form-title">${CF_XFER_FROM} → ${CF_XFER_TO} 송금</span>`
+      + `<label>날짜 <input type="date" id="cf-xfer-date" class="form-input" data-no-comma="1"></label>`
+      + `<label>받은 금액 <input type="text" id="cf-xfer-amt" class="form-input" inputmode="numeric" placeholder="0"></label>`
+      + `<button type="button" class="btn-submit" onclick="cfXferSave()">저장</button>`
+      + (_cfXferEditYm?`<button type="button" class="cf-xfer-btn" onclick="cfXferDelete('${_cfXferEditYm}')">삭제</button>`:'')
+      + `<button type="button" class="cf-xfer-btn" onclick="cfXferClose()">취소</button></div>`
+    : '';
+  return `<div class="cb-label f-between cf-flow-head"><span>${m}월 우리 집 돈의 흐름</span>${actions}</div>`
+    + form
+    + `<div class="cf-flow">${wifeLane}<div class="cf-flow-arrow" aria-hidden="true"><i>➜</i>송금</div>${meLane}</div>`
+    + `<div class="cf-flow-foot">부부 합계 남은 돈 <b class="${total>=0?'c-up':'c-dn'}">${total<0?'-':''}${won(total)}</b>`
+    + `<span>송금은 집 안에서 통장만 옮긴 돈이라 부부 합계에서는 빼고 셉니다.${recorded?'':' 송금을 기록하기 전까지는 아내 월급 전체가 남은 돈으로 잡힙니다.'}</span></div>`;
+}
+
 function setCfOwner(owner, btn) {
   _cfOwner = owner;
   document.querySelectorAll('[id^="cf-owner-"]').forEach(b => b.classList.remove('active'));
@@ -4046,7 +4263,7 @@ function renderCfDivPanel() {
   if (!el) return;
   const year = String(cfYear);
   if (!window.divHistory || !window.divHistory[year]) { el.innerHTML = ''; el.style.display = 'none'; return; }
-  const owners = _cfOwner === '전체' ? OWNERS : [_cfOwner];
+  const owners = _cfOwner === '전체' ? CF_OWNERS : [_cfOwner];
   const monthly = Array(12).fill(0);
   owners.forEach(ow => {
     const od = window.divHistory[year][ow];
@@ -4070,7 +4287,7 @@ function renderCfDivPanel() {
     </div>`;
   }).join('');
   el.innerHTML = `
-    <div class="card-title" style="margin-bottom:6px">${_cfOwner === '전체' ? '전체' : _cfOwner} ${year}년 배당 수입 <span style="font-size:var(--fs-cap);font-weight:normal;color:var(--acc)">₩${Math.round(total).toLocaleString()}</span></div>
+    <div class="card-title" style="margin-bottom:6px">${cfScopeLabel()} ${year}년 배당 수입 <span style="font-size:var(--fs-cap);font-weight:normal;color:var(--acc)">₩${Math.round(total).toLocaleString()}</span></div>
     <div style="display:flex;gap:2px;align-items:flex-end;padding:4px 0">${bars}</div>`;
 }
 
@@ -4454,6 +4671,7 @@ function addCashFlow() {
 }
 async function deleteCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
+  if(cfData[idx]&&cfData[idx].xferRole) return cfXferDelete(cfData[idx].xferMonth);
   if(confirm('내역을 삭제하시겠습니까?')){
     const item=cfData[idx];
     rememberCfDeletion(item);
@@ -4465,6 +4683,7 @@ async function deleteCF(idx){
 }
 function editCF(idx){
   if (isMobileLayout()) return; // 모바일은 조회 전용
+  if(cfData[idx]&&cfData[idx].xferRole) return cfXferOpen(cfData[idx].xferMonth);
   cfShowEntry(); // 접힌 폼을 펴서 수정 값을 보여 준다
 
   const item=cfData[idx];document.getElementById('cf-edit-index').value=idx;
@@ -4501,55 +4720,12 @@ document.addEventListener('mousedown', (e) => {
 function updateCfTrendChart() {
   let labels=[],netData=[],bgColors=[];
   window.cfTrendDetails={in:[],out:[]};
-  // 자동이체에서 월별 예상 금액 계산 헬퍼 (startMonth 이전 / endMonth 이후 / skipMonths / 실체화 항목 제외)
-  function calcAutoTransferForMonth(y, m) {
-    let atIn=0, atOut=0;
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const ymKey = y+'-'+String(m).padStart(2,'0');
-    autoTransferData.forEach(at=>{
-      if (!(at.amt || at.loan) || !at.cycle) return;
-      if (_cfOwner!=='전체' && at.owner!==_cfOwner) return;
-      const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
-      // 등록 시작 월 이전이면 제외 (4월 등록 시 3월 이전엔 포함되지 않음)
-      if (!monthlyCycle&&at.startMonth) {
-        const [sy, sm] = at.startMonth.split('-').map(Number);
-        if (y < sy || (y === sy && m < sm)) return;
-      }
-      // 취소 종료 월 이후에도 제외
-      if (!monthlyCycle&&at.endMonth) {
-        const [ey, em] = at.endMonth.split('-').map(Number);
-        if (y > ey || (y === ey && m > em)) return;
-      }
-      // 해당 월 단건 skip
-      if (!monthlyCycle&&Array.isArray(at.skipMonths) && at.skipMonths.includes(ymKey)) return;
-      // 이미 cfData에 atId로 실체화된 항목이 있으면 가상 금액 제외 (cfData 합계에 이미 포함됨)
-      const hasMaterialized = cfData.some(item=>{
-        const idate=new Date(item.date);
-        return idate.getFullYear()===y && idate.getMonth()+1===m && item.atId===at.id;
-      });
-      if (hasMaterialized) return;
-      // 레거시 [자동] desc 중복 방지
-      const hasLegacy = cfData.some(item=>{
-        const idate=new Date(item.date);
-        return idate.getFullYear()===y && idate.getMonth()+1===m &&
-          item.isAuto===true && item.atId==null &&
-          typeof item.desc==='string' && item.desc.includes(at.desc);
-      });
-      if (hasLegacy) return;
-      let times = 0;
-      if (monthlyCycle) times=_autoTransferMonthlyOccurrences(at,y,m).length;
-      else if (at.cycle==='weekly') times=Math.floor(daysInMonth/7);
-      else if (at.cycle==='daily') times=daysInMonth;
-      const effAmt = _effectiveAutoTransferAmt(at, y, m);
-      const total = effAmt * times;
-      if (at.type==='수입') atIn+=total; else atOut+=total;
-    });
-    return {atIn, atOut};
-  }
+  // 자동이체 월별 예상 금액 — 실체화·skip·종료 이후 제외 규칙은 _cfAutoTransferMonthTotals 한 곳
+  const calcAutoTransferForMonth=(y,m)=>_cfAutoTransferMonthTotals(y,m,cfInScope);
   for(let i=5;i>=0;i--){
     let d=new Date(cfYear,cfMonth-1-i,1);let y=d.getFullYear();let m=d.getMonth()+1;
     labels.push(m + '월');let mIn=0,mOut=0;
-    cfData.forEach(item=>{let idate=new Date(item.date);if(idate.getFullYear()===y&&idate.getMonth()+1===m&&(_cfOwner==='전체'||item.owner===_cfOwner)){if(item.type==='수입')mIn+=item.amt;else mOut+=item.amt;}});
+    cfData.forEach(item=>{let idate=new Date(item.date);if(idate.getFullYear()===y&&idate.getMonth()+1===m&&cfRowCounts(item)){if(item.type==='수입')mIn+=item.amt;else mOut+=item.amt;}});
     // 자동이체 예상금액 포함 (실체화된 항목/skip/종료 이후는 calcAutoTransferForMonth에서 이미 제외됨)
     const atAmts = calcAutoTransferForMonth(y, m);
     mIn+=atAmts.atIn; mOut+=atAmts.atOut;
@@ -4559,6 +4735,7 @@ function updateCfTrendChart() {
 }
 
 function renderCashFlow() {
+  cfSpouseSyncAndSave();
   document.getElementById('cf-sel-year').value=cfYear;document.getElementById('cf-sel-month').value=cfMonth;
   // 소유주 열은 항상 표시 — 모드 전환 시 컬럼 폭이 재계산되며 인접 셀과 글자가 겹치는 현상 방지
   const thOwner = document.getElementById('cf-th-owner');
@@ -4568,11 +4745,23 @@ function renderCashFlow() {
     const d=new Date(i.date);return d.getFullYear()===cfYear&&(d.getMonth()+1)===cfMonth;
   });
   // owner 필터: owner 필드가 있는 항목만 해당 소유주로 필터링 (기존 항목은 owner 없으면 전체에 표시)
-  const f=allMonth.filter(i=>_cfOwner==='전체'?true:i.owner===_cfOwner).sort((a,b)=>{if(a.date==='미정')return 1;if(b.date==='미정')return -1;return new Date(b.date)-new Date(a.date);});
+  // 부부 범위만 보인다. 부부 합계에서 송금은 본인 쪽 한 줄만 '합계 제외'로 보이고 아내 쪽 줄은 숨긴다.
+  const f=allMonth.filter(i=>cfInScope(i.owner)&&!(_cfOwner==='전체'&&i.xferRole==='out')).sort((a,b)=>{if(a.date==='미정')return 1;if(b.date==='미정')return -1;return new Date(b.date)-new Date(a.date);});
   let html='',tIn=0,tOut=0,expByCat=Object.create(null),incomeByCat=Object.create(null);
   f.forEach(i=>{
     const realIdx=cfData.findIndex(x=>x===i);
     const amount=Number(i.amt)||0;
+    if(i.xferRole){
+      // 송금 묶음 줄 — 수정·삭제는 송금 기록 창 하나로 한다
+      const moving=cfIsXferMove(i), excluded=!cfRowCounts(i);
+      if(!excluded){ if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;} }
+      const sgn=excluded?'':(i.type==='수입'?'+':'-'), col=excluded?'var(--t3)':(i.type==='수입'?'var(--up)':'var(--dn)');
+      const typeCell=moving?`<span class="cf-xfer-tag">송금</span>`:`<span style="color:var(--dn);font-weight:700">지출</span>`;
+      const who=moving&&excluded?'부부':(i.owner||'-');
+      const desc=_cfEsc(i.desc)+(excluded?' <small style="color:var(--t3)">(합계 제외)</small>':(i.xferRole==='est'?' <small style="color:var(--t3)">(추정)</small>':''));
+      html+=`<tr class="${excluded?'cf-row-muted':''}"><td class="text-left">${_cfEsc(i.date.substring(5).replace('-','/'))}</td><td class="text-left">${typeCell}</td><td class="text-left"><span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">${_cfEsc(who)}</span></td><td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left">${desc}</td><td style="color:${col}" class="text-right">${sgn}₩${amount.toLocaleString()}</td><td class="text-right"><span style="font-size:var(--fs-cap);color:var(--t3)">매월 기록</span></td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="부부 송금 수정" onclick="cfXferOpen('${_cfEsc(i.xferMonth)}')">✎</button><button class="btn-action" type="button" aria-label="부부 송금 삭제" onclick="cfXferDelete('${_cfEsc(i.xferMonth)}')">✕</button></td></tr>`;
+      return;
+    }
     if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;}
     let cls=i.type==='수입'?'var(--up)':'var(--dn)',sign=i.type==='수입'?'+':'-';
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
@@ -4585,7 +4774,7 @@ function renderCashFlow() {
   const ymKey=cfYear+'-'+String(cfMonth).padStart(2,'0');
   autoTransferData.forEach(at=>{
     if(!(at.amt||at.loan)||!at.cycle)return;
-    if(_cfOwner!=='전체'&&at.owner!==_cfOwner)return;
+    if(!cfInScope(at.owner))return;
     const monthlyCycle=['monthly','month-end','month-start'].includes(at.cycle);
     const monthlyOccurrences=monthlyCycle?_autoTransferMonthlyOccurrences(at,cfYear,cfMonth):[];
     if(monthlyCycle&&!monthlyOccurrences.length)return;
@@ -4660,6 +4849,8 @@ function renderCashFlow() {
     window.cfDonutChartInst.resize();
     window.cfDonutChartInst.update();
   }
+  const flowEl=document.getElementById('cf-couple-flow');
+  if(flowEl)flowEl.innerHTML=cfCoupleFlowHtml(cfYear,cfMonth);
   const sumEl=document.getElementById('cf-month-summary');
   if(sumEl)sumEl.innerHTML=cfMonthSummaryHtml(tIn,tOut,expByCat);
   updateCfTrendChart();
@@ -4676,7 +4867,7 @@ function cfMonthSummaryHtml(tIn, tOut, expByCat){
   const net = tIn - tOut;
   const kept = tIn - (tOut - savingOut);                 // 소득 - 소비지출
   const rate = tIn>0 ? kept/tIn*100 : null;
-  const scope = _cfOwner==='전체' ? '가구 전체' : _cfOwner;
+  const scope = cfScopeLabel();
   const won = v => (v<0?'-₩':'₩') + Math.abs(Math.round(v)).toLocaleString();
   const fx = (typeof finMonthlyFixedCost==='function')
     ? finMonthlyFixedCost(_cfOwner==='전체'?null:_cfOwner) : {pendingCount:0,pendingMonthly:0};

@@ -12,7 +12,7 @@ const style = fs.readFileSync(new URL('style.css', root), 'utf8');
 // 현금 흐름 — 버튼 줄 + 기본으로 접힌 폼(같은 입력란·같은 저장 버튼을 감쌀 뿐)
 assert.match(html, /class="cf-entry-bar"[\s\S]*cfOpenEntry\('in'\)[\s\S]*cfOpenEntry\('out'\)[\s\S]*cfOpenEntry\('auto'\)[\s\S]*<div id="cf-entry-body" hidden>[\s\S]*id="btn-cf-submit" onclick="submitCfEntry\(\)"[\s\S]*<\/div>\s*<!-- 자동이체 목록/);
 assert.match(script, /function cfOpenEntry\(kind\)\{\n\s*if \(isMobileLayout\(\)\) return;[\s\S]*resetCfForm\(\)[\s\S]*cfmode-auto':'cfmode-oneshot'[\s\S]*toggleCfMode\(\)[\s\S]*cfShowEntry\(\)/, '버튼은 편집 상태를 비우고 방식·유형을 맞춘 뒤 폼을 편다');
-assert.match(script, /function editCF\(idx\)\{\n\s*if \(isMobileLayout\(\)\) return;[^\n]*\n\s*cfShowEntry\(\);/, '수정하면 접힌 폼이 자동으로 펴진다');
+assert.match(script, /function editCF\(idx\)\{\n\s*if \(isMobileLayout\(\)\) return;[^\n]*\n(?:\s*if\(cfData\[idx\]&&cfData\[idx\]\.xferRole\) return cfXferOpen\([^\n]*\n)?\s*cfShowEntry\(\);/, '수정하면 접힌 폼이 자동으로 펴진다');
 assert.match(script, /function cfCloseEntry\(\)\{[\s\S]*resetCfForm\(\)[\s\S]*body\.hidden=true/, '닫기는 편집 상태도 해제한다');
 
 // 목표 — 수정 중이거나, 추가를 눌렀거나, 목표가 하나도 없을 때만 폼을 그린다

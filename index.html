@@ -118,11 +118,10 @@
         <button id="cf-section-tab-cal" class="cf-section-tab" type="button" role="tab" aria-selected="false" aria-controls="cb-cal2" onclick="cfSectionTab('cal')">일정</button>
       </div>
       <div id="cf-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
-        <button class="owner-btn active" id="cf-owner-전체" onclick="setCfOwner('전체',this)">전체</button>
+        <!-- 현금 흐름은 맞벌이 부부만 다룬다(2026-11-23, 사용자 결정) — 자녀1·아버지 탭 없음, '전체'는 '부부 합계'로 보인다 -->
+        <button class="owner-btn active" id="cf-owner-전체" onclick="setCfOwner('전체',this)">부부 합계</button>
         <button class="owner-btn" id="cf-owner-본인" onclick="setCfOwner('본인',this)">본인</button>
         <button class="owner-btn" id="cf-owner-아내" onclick="setCfOwner('아내',this)">아내</button>
-        <button class="owner-btn" id="cf-owner-자녀1" onclick="setCfOwner('자녀1',this)">자녀1</button>
-        <button class="owner-btn" id="cf-owner-아버지" onclick="setCfOwner('아버지',this)">아버지</button>
       </div>
       <div id="bubble-owner-bar" style="display:none;gap:3px;flex-wrap:wrap;margin-left:auto">
         <button class="owner-btn active" id="sunburst-owner-전체" onclick="setBubbleOwnerX('전체',this)">전체</button>
@@ -203,7 +202,7 @@
             </div>
             <div class="form-row cf-entry-form" style="margin-bottom:8px;align-items:flex-end">
               <input type="hidden" id="cf-edit-index" value="-1">
-              <div class="form-group f-col cf-entry-owner"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
+              <div class="form-group f-col cf-entry-owner"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option></select></div>
               <!-- 날짜 (일회성만) -->
               <div class="form-group f-col cf-entry-date" id="cf-date-group"><label class="form-label">날짜</label><input type="date" id="cf-date" class="form-input"></div>
               <!-- 주기 (자동이체만, 초기 숨김) -->
@@ -228,9 +227,11 @@
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
             <div id="at-list-section" style="display:none!important"><tbody id="at-table-body" style="display:none"></tbody></div>
         </div>
+        <!-- 부부 돈의 흐름: 아내 월급 → 남은 돈 송금 → 본인 → 최종 남은 돈 (cfCoupleFlowHtml) -->
+        <div id="cf-couple-flow" class="glass-panel cf-flow-panel" aria-live="polite"></div>
         <div class="glass-panel cf-detail-panel">
             <div class="cb-label f-between" style="margin-bottom:10px">
-              <span>상세 내역 리스트 (전체)</span>
+              <span>상세 내역 리스트</span>
               <div class="f-row" style="gap:6px">
                 <select id="cf-sel-year" class="cb-input" onchange="changeCfDate()"></select>
                 <select id="cf-sel-month" class="cb-input" onchange="changeCfDate()"></select>
@@ -281,7 +282,7 @@
           <div class="cb-label f-between"><span id="cf-fixed-form-title">고정비 등록</span><button id="cf-fixed-cancel" class="btn-action" type="button" style="display:none" onclick="resetFixedCostForm()">취소</button></div>
           <div class="cf-fixed-form">
             <input type="hidden" id="cf-fixed-edit-id" value="">
-            <div class="form-group f-col"><label class="form-label" for="cf-fixed-owner">소유주</label><select id="cf-fixed-owner" class="form-input"><option>본인</option><option>아내</option><option>자녀1</option><option>아버지</option></select></div>
+            <div class="form-group f-col"><label class="form-label" for="cf-fixed-owner">소유주</label><select id="cf-fixed-owner" class="form-input"><option>본인</option><option>아내</option></select></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-cat">카테고리</label><select id="cf-fixed-cat" class="form-input" onchange="toggleFixedCostLoanFields()"><option>주거/통신</option><option>관리비</option><option>대출납입금</option><option>교육</option><option>교통/차량</option><option>의료/건강</option><option>문화/생활</option><option>식비</option><option>세금</option><option>기타</option></select></div>
             <div class="form-group f-col cf-fixed-desc-field"><label class="form-label" for="cf-fixed-desc">항목</label><input id="cf-fixed-desc" class="form-input" type="text" placeholder="예: 월세, 보험료, 구독료"></div>
             <div class="form-group f-col"><label class="form-label" for="cf-fixed-amt">금액</label><input id="cf-fixed-amt" class="form-input" type="text" inputmode="numeric" placeholder="0" oninput="handleAmtInput(this)"></div>
