@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const read=name=>readFileSync(new URL('../../'+name,import.meta.url),'utf8');
+import { readSource } from './_source.mjs'
+const read=name=>readSource(name);
 const html=read('index.html'),navigation=read('navigation.js'),sim=read('simulator.js');
 const defaults={crypto:5,us:35,kr:25,jp:5,gold:10,cash:20};
 const ctx=vm.createContext({FIN_DEFAULT_TARGET:defaults});

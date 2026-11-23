@@ -12,10 +12,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readSource } from './_source.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '..', '..')
-const read = (n) => readFileSync(resolve(root, n), 'utf8')
+const read = (n) => readSource(n)
 
 const RENDER_FILES = ['cobalt.js', 'finance.js', 'script.js']
 

@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const cobalt = read('cobalt.js'), script = read('script.js'), ws = read('workspace-ui.css');
 const pick = (src, name) => { const m = src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`)); assert.ok(m, name); return m[0]; };
 const plain = v => JSON.parse(JSON.stringify(v));

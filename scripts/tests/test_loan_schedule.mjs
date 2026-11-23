@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
+const read = (f) => readSource(f);
 const script = read('script.js'), html = read('index.html'), css = read('workspace-ui.css');
 
 // 함수 본문을 중괄호 짝으로 잘라 온다(한 줄짜리 함수도 된다)

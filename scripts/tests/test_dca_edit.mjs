@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const script = read('script.js'), cobalt = read('cobalt.js'), html = read('index.html'), ws = read('workspace-ui.css');
 function grab(src, name) {
   const at = src.indexOf(`function ${name}(`);
@@ -46,8 +47,10 @@ assert.doesNotMatch(base.getDcaMergedCellHtml({ grp: '현금', dca: false }, 3),
 assert.equal((script.match(/<td class="dca-cell">\$\{getDcaMergedCellHtml\(i,_mobileHoldings\?null:pIdx\)\}<\/td>/g) || []).length, 3, '주식·가상화폐·금 표가 모두 인덱스를 넘긴다(휴대폰 제외)');
 
 // ── 설정 창: 기본값·검사·저장 ──
-const start = cobalt.indexOf('let _dcaBusy=false;');
-const end = cobalt.indexOf('// 창 바깥(어두운 바탕)을 누르면 닫는다 — 안에서 누른 채 끌고 나온 경우는 닫지 않는다(매수·매도 창과 같은 방식).');
+// 적립식 저장 가드·설정 창 구역은 pages/dca.js 의 끝까지다(2026-11-23 화면별 파일로 나눔).
+const dcaFile = read('pages/dca.js');
+const start = dcaFile.indexOf('let _dcaBusy=false;');
+const end = dcaFile.length;
 assert.ok(start > 0 && end > start);
 function el(id, extra = {}) { const cls = new Set(); const attrs = {}; return { id, value: '', checked: false, hidden: false, textContent: '', innerHTML: '', options: [],
   classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) }, setAttribute: (k, v) => { attrs[k] = String(v); }, getAttribute: k => attrs[k], focus() {}, ...extra }; }
@@ -67,7 +70,7 @@ function makeCtx({ items, mobile = false, ready = true, save = async () => ({ ok
   });
   vm.runInContext(labelConst, ctx);
   for (const n of ['dcaHasRule', 'dcaState', 'dcaFractionalUs']) vm.runInContext(grab(script, n), ctx);
-  vm.runInContext(cobalt.slice(start, end).replace(/^const /gm, 'var ').replace(/^let /gm, 'var '), ctx);
+  vm.runInContext(dcaFile.slice(start, end).replace(/^const /gm, 'var ').replace(/^let /gm, 'var '), ctx);
   return { ctx, els, dows, calls };
 }
 {

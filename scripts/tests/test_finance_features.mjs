@@ -4,10 +4,11 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import { load } from 'cheerio'
+import { readSource } from './_source.mjs'
 
 const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
-const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
-const scriptSource = fs.readFileSync(new URL('../../script.js', import.meta.url), 'utf8')
+const cobaltSource = readSource('cobalt.js')
+const scriptSource = readSource('script.js')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 

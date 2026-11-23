@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const script = fs.readFileSync(new URL('script.js', root), 'utf8');
+const script = readSource('script.js');
 const style = fs.readFileSync(new URL('style.css', root), 'utf8');
 const ws = fs.readFileSync(new URL('workspace-ui.css', root), 'utf8');
 

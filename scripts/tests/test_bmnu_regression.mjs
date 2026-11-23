@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
-const source = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8');
+const source = readSource('cobalt.js');
 
 function extractFunction(name) {
   const start = source.indexOf(`function ${name}(`);

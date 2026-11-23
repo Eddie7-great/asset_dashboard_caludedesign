@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { readSource } from './_source.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..', '..');
 const html = readFileSync(resolve(root, 'index.html'), 'utf8');
 const css = readFileSync(resolve(root, 'style.css'), 'utf8');
-const cobalt = readFileSync(resolve(root, 'cobalt.js'), 'utf8');
-const script = readFileSync(resolve(root, 'script.js'), 'utf8');
+const cobalt = readSource('cobalt.js');
+const script = readSource('script.js');
 const finance = readFileSync(resolve(root, 'finance.js'), 'utf8');
 
 assert.match(html, /<form\b[^>]*id="login-form"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="login-title"[^>]*aria-busy="false"[^>]*onsubmit=/);

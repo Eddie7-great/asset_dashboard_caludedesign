@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const style = read('style.css'), ws = read('workspace-ui.css'), cobalt = read('cobalt.js'), script = read('script.js'), html = read('index.html');
 
 // 토큰: 이즈 아웃/이즈 인·시간·간격

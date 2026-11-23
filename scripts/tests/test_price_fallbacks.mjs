@@ -9,10 +9,11 @@ import vm from 'node:vm'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { readSource } from './_source.mjs'
 
 const require = createRequire(import.meta.url)
 const rootUrl = new URL('../../', import.meta.url)
-const read = f => fs.readFileSync(new URL(f, rootUrl), 'utf8')
+const read = f => readSource(f)
 const authHelper = require(fileURLToPath(new URL('../../api/_auth.js', import.meta.url)))
 const quiet = { log() {}, warn() {}, error() {} }
 const recorder = () => ({

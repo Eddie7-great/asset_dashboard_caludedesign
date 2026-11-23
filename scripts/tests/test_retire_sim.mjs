@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const sim = fs.readFileSync(new URL('../../simulator.js', import.meta.url), 'utf8');
-const cobalt = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8');
+const cobalt = readSource('cobalt.js');
 const ctx = vm.createContext({ Math, Number });
 vm.runInContext(sim.match(/function retCalculate\(input\)\{[\s\S]*?\n\}/)[0], ctx);
 const calc = o => ctx.retCalculate({ age: 40, retireAge: 60, endAge: 90, current: 0, monthly: 0, ret: 0, infl: 0, ...o });

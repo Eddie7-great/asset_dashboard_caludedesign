@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readSource } from './_source.mjs'
 
-const read = f => fs.readFileSync(new URL('../../' + f, import.meta.url), 'utf8')
+const read = f => readSource(f)
 const script = read('script.js'), finance = read('finance.js'), backtest = read('backtest.js'), style = read('style.css'), index = read('index.html')
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`)
