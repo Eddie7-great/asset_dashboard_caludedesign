@@ -256,7 +256,7 @@ function cbRenderCalendar(){
   const dailyRow=g=>`<div class="cal-list-row cal-daily-row">
       <span class="cal-list-when">매일 · ${g.count}회</span>
       <span class="cal-kind dca"><i></i>매일 적립</span>
-      <span class="cal-list-title">${cbEsc(g.title)}<small>${cbEsc(g.owner)} · 회당 ${cbDisp(g.per)}</small></span>
+      <span class="cal-list-title">${cbEsc(g.title)}<small>${cbEsc(g.owner)}</small><small class="cal-daily-per">회당 ${cbDisp(g.per)}</small></span>
       <b class="cb-num">−${cbDisp(g.amount)}</b>
     </div>`;
   const listRows=_calDay==null?dailyRules.map(dailyRow).join('')+shown.map(row).join(''):shown.map(row).join('');
