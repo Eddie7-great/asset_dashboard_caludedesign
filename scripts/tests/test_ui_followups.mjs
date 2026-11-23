@@ -205,7 +205,13 @@ assert.match(cobaltSource, /const trend=cbInvestTrend\(window\._netWorthHistory,
   assert.ok(Math.abs(t.change - 3.6) < 1e-9 && Math.abs(t.pct - 0.036) < 1e-9)
   assert.equal(tCtx.cbInvestTrend(hist, '본인', today).change, -10, '소유주별 기록')
   assert.equal(tCtx.cbInvestTrend([hist[2]], null, today), null, '기록이 하나면 그리지 않는다')
+  // 홈 30일 그래프 hover: 마우스 x 에 가장 가까운 날을 고른다
+  vm.runInContext(extractFunction(cobaltSource, 'cbTrendIdx'), tCtx)
+  const hp = [{ x: 0 }, { x: 50 }, { x: 100 }]
+  assert.deepEqual([tCtx.cbTrendIdx(hp, 0.1), tCtx.cbTrendIdx(hp, 0.3), tCtx.cbTrendIdx(hp, 0.9), tCtx.cbTrendIdx([], 0.5)], [0, 1, 2, -1], 'hover 는 가장 가까운 날')
 }
+assert.match(cobaltSource, /class="cb-trend-plot" onmousemove="cbTrendHover\(event\)" onmouseleave="cbTrendHover\(null\)"/, '홈 30일 그래프에 마우스를 올리면 날짜·금액 설명')
+assert.match(cobaltSource, /function cbTrendHover[\s\S]*전날보다[\s\S]*cbDisp\(p\.v\)|function cbTrendHover[\s\S]*cbDisp\(p\.v\)[\s\S]*전날보다/, 'hover 상자: 날짜·금액·전날 대비·첫날 대비(금액 가리기 따르는 cbDisp)')
 assert.match(styleSource, /\.cb-dash-insight-grid\{display:grid;grid-template-columns:minmax\(240px,1\.12fr\)[\s\S]*minmax\(205px,.74fr\)[\s\S]*minmax\(235px,.88fr\)/, '대시보드 자산 배분·섹터 위젯은 넓히고 TOP5 폭은 축소')
 assert.match(cobaltSource, /if \(id==='divm'\) cbVerifyDividendDataOnOpen\(\)/, '배당 관리 페이지 진입 때마다 데이터 캐시 검증')
 assert.match(scriptSource, /divCacheTickers_[\s\S]*tickers\.every\(t=>verified\.includes\(t\)\)/, '현재 보유 티커가 일일 배당 캐시에 모두 검증됐는지 확인')

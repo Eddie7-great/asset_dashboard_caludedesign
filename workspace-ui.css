@@ -1421,6 +1421,14 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-trend-x>span{position:absolute;top:0;transform:translateX(-50%);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap}
 .cb-trend-x>span.is-first{transform:none}.cb-trend-x>span.is-last{transform:translateX(-100%)}
 .cb-trend-line{fill:none;stroke:var(--acc);stroke-width:2}
+.cb-trend-plot{cursor:crosshair}
+.cb-trend-guide{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--bd2);pointer-events:none}
+.cb-trend-hdot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--panelSolid);pointer-events:none}
+.cb-trend-tip{position:absolute;top:4px;margin-left:12px;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--panelSolid);box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:var(--fs-cap);color:var(--t2);white-space:nowrap;pointer-events:none;z-index:2}
+.cb-trend-tip.is-flip{margin-left:-12px;transform:translateX(-100%)}.cb-trend-tip.is-low{top:auto;bottom:4px}
+.cb-trend-tip>em{font-style:normal;color:var(--lab)}
+.cb-trend-tip>b{font-size:var(--fs-body);color:var(--tx)}
+.cb-trend-guide[hidden],.cb-trend-hdot[hidden],.cb-trend-tip[hidden]{display:none}
 .cb-trend-area{fill:color-mix(in srgb,var(--acc) 12%,transparent)}
 .cb-dash-trend-note{font-size:var(--fs-cap);color:var(--dim)}
 /* 결산 표지 핵심 숫자(2026-11-23) */
