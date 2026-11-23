@@ -84,6 +84,7 @@
 .fin-trend-tabs{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .fin-trend-tabs .owner-tabs{display:inline-flex;gap:3px;flex-wrap:wrap}
 .fin-trend-tabs-sep{width:1px;align-self:stretch;min-height:19px;background:var(--grid);flex:0 0 auto}
+.fin-trend-tf-label{color:var(--lab);font-size:var(--fs-cap);font-weight:600;white-space:nowrap}
 .fin-cash-target{display:flex;align-items:center;gap:6px;flex:none;font-size:var(--fs-micro);color:var(--mut)}
 .fin-cash-target label{white-space:nowrap}
 .fin-cash-target input{width:58px;min-width:0;padding:3px 6px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner-bg);color:var(--t1);font-size:var(--fs-micro);font-family:var(--font-num)}
@@ -266,6 +267,12 @@
     .footer-btn{width:100%;padding:8px 10px;border-radius:var(--r-md);border:1px solid var(--border-dark);background:var(--acc-soft);color:var(--t1);font-family:inherit;font-weight:700;font-size:var(--fs-cap);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
     .footer-btn:hover{background:var(--acc-soft2)}
     .footer-btn.active{background:var(--acc-soft2);border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+    .sidebar-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .sidebar-tools .footer-btn{flex-direction:column;gap:3px;padding:7px 2px;min-height:52px;line-height:1.2}
+    .footer-btn-ico{display:inline-flex}.footer-btn-ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+    .footer-btn-label{font-size:var(--fs-cap);font-weight:700;text-align:center;word-break:keep-all}
+    /* 금액 가리기 켜짐 = 눈에 사선 */
+    .footer-ico-slash{display:none}#sidebar-privacy-btn.active .footer-ico-slash{display:inline}
     body.amount-privacy input[inputmode="numeric"],
     body.amount-privacy input[inputmode="decimal"]{-webkit-text-security:disc}
     body.amount-privacy canvas,
@@ -381,6 +388,9 @@
     #view-holdings .mgmt-head-label{grid-column:2}
     #view-holdings .holdings-actions{display:inline-flex;align-items:center;justify-content:center;gap:2px}
     #view-holdings .holdings-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
+    /* 삭제 버튼은 평소 회색 — 줄마다 빨간 ✕ 가 늘어서면 경고처럼 보인다. 손을 대거나 키보드로 고를 때만 빨강 */
+    #view-holdings .holdings-actions .holdings-del{color:var(--lab)}
+    #view-holdings .holdings-actions .holdings-del:hover,#view-holdings .holdings-actions .holdings-del:focus-visible{color:var(--dn)}
     #view-holdings .holdings-broker-filter-inline{max-width:100%;flex-wrap:wrap}
     #view-holdings .holdings-broker-filter-inline select{max-width:230px}
     #owner-tabs-container.holdings-owner-tabs{margin-left:auto!important;margin-right:0!important;padding-left:12px}
@@ -1082,6 +1092,12 @@
     .cb-risk-primary-value{font-family:var(--font-num);font-size:var(--fs-card);font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-primary-message{margin-top:3px;color:var(--mut);font-size:var(--fs-micro);line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-card{min-width:0;min-height:80px;padding:9px 11px;display:flex;flex-direction:column}
+    .cb-risk-insight-head{min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+    .cb-risk-verdict{flex-shrink:0;padding:1px 8px;border-radius:var(--r-lg);font-size:var(--fs-micro);font-weight:800;line-height:1.35;white-space:nowrap}
+    .cb-risk-verdict.is-ok{color:var(--up);background:var(--upSoft)}
+    .cb-risk-verdict.is-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}
+    .cb-risk-verdict.is-bad{color:var(--dn);background:color-mix(in srgb,var(--dn) 15%,transparent)}
+    .cb-risk-verdict.is-hold{color:var(--lab);background:var(--inner)}
     .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:var(--fs-micro);font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
     .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:var(--font-num);font-size:clamp(15px,1.15vw,18px);font-weight:800;line-height:1.25;white-space:nowrap}
     .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
@@ -1211,7 +1227,8 @@
       /* 드로어 푸터: 새로고침·화면 전환·금액 가리기 버튼을 한 줄에 배치 */
       .sidebar-footer{flex-direction:row!important;flex-wrap:wrap;gap:8px}
       .sidebar-footer>div:first-child{flex:1 1 100%}
-      .sidebar-footer .footer-btn{flex:1 1 calc(33.333% - 6px);min-width:0;width:auto;padding:10px 4px;gap:5px}
+      .sidebar-footer .sidebar-tools{flex:1 1 100%}
+      .sidebar-footer .footer-btn{min-width:0;width:auto;padding:10px 4px;gap:5px}
       .sidebar-footer>div:last-child{flex:1 1 100%}
       .content-area{height:100%;width:100%;max-width:100%;box-sizing:border-box;padding:0 0 16px;overflow-x:hidden}
       .hamburger-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;

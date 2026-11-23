@@ -298,7 +298,7 @@ assert.match(cobaltSource, /return allocateDividendTax\(entries,CB_FIN_INCOME_TH
 assert.match(cobaltSource, /const incomeKRW = netBasis \? netKRW : grossKRW/, '표시 기준에 따라 카드·캘린더·표가 같은 값을 사용')
 assert.match(cobaltSource, /지급 이력 기반/, '과거 캘린더는 현재 보유수량 환산임을 오해하지 않게 표시')
 assert.match(cobaltSource, /입력된 일반계좌 배당 기준 금융소득 근접도/, '소유주별 부분 금융소득 게이지 제공')
-assert.match(cobaltSource, /소급 적용\(백캐스트\)/, '성과 비교가 백캐스트임을 헤더에 표기')
+assert.match(cobaltSource, /지금 보유 종목을 그 기간 내내 들고 있었다고 가정/, '성과 비교가 백캐스트(소급 가정)임을 헤더에 쉬운 말로 표기')
 assert.match(scriptSource, /function divHistoryYears\(\)/, '배당 이력 연도를 실행 시점 기준으로 계산')
 assert.match(scriptSource, /async function autoAddDividendCashFlow[\s\S]*allocateDividendTax\(annualLots\)[\s\S]*await saveExtDataToKV\(\)/, '자동 현금흐름도 공통 연간 세금 엔진과 원격 저장 사용')
 assert.match(scriptSource, /function _normalizePyDividendInfo[\s\S]*annualDps\/payoutCount/, 'Python 연간 DPS를 회당 지급액으로 정규화')

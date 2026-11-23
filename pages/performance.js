@@ -73,7 +73,7 @@ function cbRenderPerf(){
 
   // 소제목·기간 버튼은 메인 제목 라인(글로벌 헤더)으로
   cbSetHead(
-    `${CB_PERF_TF_LABEL[tf]} · 시작점 0% 정규화 · <span data-tip="S&P 500(^GSPC)·KOSPI(^KS11) 실지수 대비 소유주별 포트폴리오 수익률. 전일 확정 종가 기준입니다.">전일 종가 기준</span> · <span data-tip="지금 보유한 종목과 비중을 기간 시작일부터 그대로 들고 있었다고 가정해 되짚은 값입니다. 기간 중 매수·매도 시점은 반영되지 않으므로 실제 실현 수익률과 다릅니다. 실제로 기록된 금액 추이는 아래 &lsquo;투자자산 추이&rsquo; 카드에서 확인하세요."><b>소급 적용(백캐스트)</b></span>`,
+    `${CB_PERF_TF_LABEL[tf]} · 기간 첫날을 0%로 맞춤 · <span data-tip="S&P 500(^GSPC)·KOSPI(^KS11) 실지수 대비 소유주별 포트폴리오 수익률. 전일 확정 종가 기준입니다.">전일 종가 기준</span> · <span data-tip="지금 보유한 종목과 비중을 기간 시작일부터 그대로 들고 있었다고 가정해 되짚은 값입니다. 기간 중 매수·매도 시점은 반영되지 않으므로 실제 실현 수익률과 다릅니다. 실제로 기록된 금액 추이는 아래 &lsquo;투자자산 추이&rsquo; 카드에서 확인하세요."><b>지금 보유 종목을 그 기간 내내 들고 있었다고 가정</b></span>`,
     `<div class="owner-tabs" style="display:inline-flex;gap:3px;flex-wrap:wrap">
       ${CB_PERF_TFS.map(t=>`<button class="owner-btn${t===tf?' active':''}" data-perf-tf="${t}" onclick="cbPerfTf('${t}')" aria-pressed="${t===tf}">${t}</button>`).join('')}
     </div>`

@@ -405,8 +405,17 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-gift-ledger-row>:nth-child(3){text-align:right}
 .cb-gift-ledger-memo-cell{min-width:0;overflow-wrap:anywhere;color:var(--mut)}
 .cb-gift-ledger-row .is-in{color:var(--tx);font-weight:600}.cb-gift-ledger-row .is-out{color:var(--lab)}
+.cb-gift-year{border-bottom:1px solid var(--bd)}
+.cb-gift-year>summary{display:flex;align-items:baseline;gap:10px;min-width:600px;padding:10px 4px;cursor:pointer;list-style:none;font-size:var(--fs-body);font-weight:700}
+.cb-gift-year>summary::-webkit-details-marker{display:none}
+.cb-gift-year>summary::before{content:'▸';color:var(--lab);font-size:var(--fs-cap)}
+.cb-gift-year[open]>summary::before{content:'▾'}
+.cb-gift-year>summary small{color:var(--dim);font-weight:500;font-size:var(--fs-cap)}
+.cb-gift-year>summary:hover{background:var(--hover)}
+.cb-gift-year>.cb-gift-ledger-row:last-child{border-bottom:0}
+.cb-gift-ledger-row.is-auto{background:var(--inner)}
 .cb-gift-ledger-foot{margin:12px 0 0;font-size:var(--fs-cap);line-height:1.6;color:var(--dim)}
-@media(max-width:768px){.cb-gift-ledger-form,.cb-gift-ledger-row>:last-child{display:none}.cb-gift-ledger-row{grid-template-columns:96px 76px 120px minmax(100px,1fr) 64px;min-width:520px}}
+@media(max-width:768px){.cb-gift-ledger-form,.cb-gift-ledger-row>:last-child{display:none}.cb-gift-ledger-row{grid-template-columns:96px 76px 120px minmax(100px,1fr) 64px;min-width:520px}.cb-gift-year>summary{min-width:520px}}
 
 /* 내보내기(CSV) (2026-11-10) — 데이터 상태 화면 하단 */
 .fin-export{margin-top:12px}
@@ -898,7 +907,14 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .holdings-weight{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:3px;font-size:var(--fs-cap);font-weight:600;color:var(--mut);white-space:nowrap}
 .holdings-weight>.home-weight-bar{width:44px;margin-right:0}
 /* 배당 종목 표 — 모든 칸이 minmax(최소,fr) 로 남는 폭을 나눠 갖는 격자. 최소 폭 합계(약 1000px)는 1366px 화면의 표 폭 안에 든다. */
-.cb-div-head,.cb-div-row{display:grid;grid-template-columns:58px 26px minmax(122px,2.2fr) minmax(92px,1fr) minmax(80px,.8fr) minmax(66px,.6fr) minmax(76px,.7fr) minmax(60px,.55fr) minmax(64px,.55fr) minmax(54px,.5fr) minmax(64px,.55fr) minmax(40px,.4fr) minmax(84px,.8fr);column-gap:8px;align-items:center}
+/* 배당 종목 표는 자주 보는 8칸(소유주·국기·종목·연간 수입·배당세·배당 비중·내 매입가 대비·주기)이다(2026-11-23).
+   예전 13칸은 1440px 에서 머리글끼리 붙었다 — 나머지 다섯 값은 줄을 누르면 아래(.cb-div-more)에 나온다. */
+.cb-div-head,.cb-div-row{display:grid;grid-template-columns:58px 26px minmax(150px,2.6fr) minmax(104px,1fr) minmax(92px,.9fr) minmax(76px,.7fr) minmax(100px,.8fr) minmax(76px,.6fr);column-gap:10px;align-items:center}
+.cb-div-row[role="button"]{cursor:pointer}
+.cb-div-row[role="button"]:hover,.cb-div-row.is-open{background:var(--hover)}
+.cb-div-caret{font-style:normal;color:var(--dim);margin-left:2px}
+.cb-div-more{grid-column:1/-1;margin:8px 0 2px 84px;padding:8px 12px;border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-cap);color:var(--mut);line-height:1.7}
+.cb-div-more b{color:var(--tx);font-weight:700}
 .cb-div-head{padding:7px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
 .cb-div-row{padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cb-div-head>*,.cb-div-row>*{min-width:0}
@@ -917,8 +933,9 @@ button,input,select,textarea{font-family:var(--font-ui)}
   .cb-div-upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:18px}
 }
 @media(max-width:768px){
-  /* 휴대폰은 보조 칸(.cb-mobile-secondary)을 숨기므로 남는 6칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게 */
-  .cb-div-head,.cb-div-row{grid-template-columns:52px 24px minmax(120px,1fr) 88px 60px 56px}
+  /* 휴대폰은 보조 칸(.cb-mobile-secondary)을 숨기므로 남는 5칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게 */
+  .cb-div-head,.cb-div-row{grid-template-columns:52px 24px minmax(120px,1fr) 88px 60px}
+  .cb-div-more{margin-left:0}
   .cb-div-upcoming-list{grid-template-columns:minmax(0,1fr)}
 }
 /* 배당 상단: TOP 3 카드가 숫자 카드 줄에 못 들어가는 폭(1760px 미만)에서는 아랫줄 전체를 쓰고 세 종목을 가로로 놓는다.

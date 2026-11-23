@@ -1596,6 +1596,7 @@ function cbResetViewState(){
   if (typeof _cbTaxHold!=='undefined') _cbTaxHold=null;   // 실현손익 '보유 반영' 선택 — 다른 화면에 갔다 오면 다시 고른다
   if (typeof _calDay!=='undefined') _calDay=null;
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
+  if (typeof _cbDivOpen!=='undefined') _cbDivOpen=new Set();   // 배당 표 펼친 줄
   _cdashShowAll=false;   // 홈 보유 표 펼침
   _cbTableSort={};
   if (typeof _sortState!=='undefined') _sortState={};   // 보유 목록 표 정렬(script.js)
@@ -1697,7 +1698,7 @@ fetchDivData = async function(...args){
   let r;
   try{ r=await _cbOrigFetchDivData(...args); }
   catch(e){ r={ok:false,error:e?.message||'배당 데이터 조회 실패'}; }
-  if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','배당 데이터 API',r?.ok===true,r?.ok?(r.detail||`${r?.count??Object.keys(window._divDataCache||{}).length}개 티커 캐시`):(r?.error||'조회 실패'));
+  if(typeof finMarkFresh==='function') finMarkFresh('dividends','배당 데이터','KRX · Yahoo · 네이버 증권',r?.ok===true,r?.ok?(r.detail||`${r?.count??Object.keys(window._divDataCache||{}).length}개 티커 캐시`):(r?.error||'조회 실패'));
   cbRerender();
   return r;
 };
@@ -1724,7 +1725,7 @@ liveRefresh = async function(...args){
   try{ r=await _cbOrigLiveRefresh(...args); }
   catch(e){ r={ok:false,error:e?.message||'시세 조회 실패'}; }
   const stale=Number(r?.stale??(pfolioData||[]).filter(i=>i&&i._priceStale).length);
-  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',r?.ok===true,r?.ok?(r.detail||'등록 자산 최신 상태'):(r?.error||(stale?`${stale}개 최신 확인 필요`:'조회 실패')));
+  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','국내 네이버 직전 종가 · 해외 Yahoo · 코인 업비트',r?.ok===true,r?.ok?(r.detail||'등록 자산 최신 상태'):(r?.error||(stale?`${stale}개 최신 확인 필요`:'조회 실패')));
   return r;
 };
 const _cbOrigRefreshPyData = refreshPyData;
@@ -1732,7 +1733,7 @@ refreshPyData = async function(...args){
   let r;
   try{ r=await _cbOrigRefreshPyData(...args); }
   catch(e){ r={ok:false,error:e?.message||'환율·금 시세 조회 실패'}; }
-  if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','Yahoo Finance · COMEX',r?.ok===true,r?.ok?(r.detail||'환율·금 시세 로드'):(r?.error||r?.detail||'조회 실패'));
+  if(typeof finMarkFresh==='function') finMarkFresh('rates','환율·금 시세','네이버(하나은행 고시) · KRX 금시장',r?.ok===true,r?.ok?(r.detail||'환율·금 시세 로드'):(r?.error||r?.detail||'조회 실패'));
   return r;
 };
 

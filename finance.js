@@ -323,11 +323,13 @@ function finNwChartSvg(series,w,h){
   const step=cbNiceStep(span*1.2/6);   // 눈금 6단계 — 4단계는 한 칸이 너무 굵어 금액을 읽기 어려웠다
   const rawLo=Math.floor((mn-span*0.1)/step)*step;
   const lo=mn>=0?Math.max(0,rawLo):rawLo, hi=Math.ceil((mx+span*0.1)/step)*step;
-  const padL=CB_LINE_PAD.l, padR=CB_LINE_PAD.r, plotW=w-padL-padR;
+  const yTicks=cbAxisTicks(lo,hi,step);
+  // 왼쪽 여백은 가장 긴 눈금 라벨에 맞춘다(1억 넘는 5백만 단위 눈금 '1억 2,500만'이 잘리지 않게).
+  const padL=cbAmtAxisPad(yTicks, CB_LINE_PAD.l), padR=CB_LINE_PAD.r, plotW=w-padL-padR;
   const y=v=>h-8-((v-lo)/((hi-lo)||1))*(h-16);
   const dx=plotW/(series.length-1);
   // 금액 축이라 + 를 붙이지 않는다(cbAmtAxisLab). 눈금선·라벨은 금액 그래프 공통 뼈대를 쓴다.
-  const grid=cbAmtGridSvg(cbAxisTicks(lo,hi,step), y, padL, w-padR);
+  const grid=cbAmtGridSvg(yTicks, y, padL, w-padR);
   const pts=series.map((p,i)=>({x:padL+i*dx, y:y(p.v)}));
   const line=cbSmoothPath(pts);
   const up=series[series.length-1].v>=series[0].v;
@@ -399,7 +401,7 @@ function finInvestTrendCard(){
   return `<div class="cb-panel fin-section" style="margin-top:12px">
     <div class="fin-section-head">
       <span>투자자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope} · <span data-tip="위 수익률 차트와 달리 소급 가정이 없습니다. 매일 기록된 실제 평가액이라 그 사이의 매수·매도·입금이 그대로 반영됩니다.">실제 기록 금액</span></span></span>
-      <div class="fin-trend-tabs"><div class="owner-tabs" role="group" aria-label="소유주 선택">${ownerBtns}</div><span class="fin-trend-tabs-sep" aria-hidden="true"></span><div class="owner-tabs" role="group" aria-label="기간 선택">${tfBtns}</div></div>
+      <div class="fin-trend-tabs"><div class="owner-tabs" role="group" aria-label="소유주 선택">${ownerBtns}</div><span class="fin-trend-tabs-sep" aria-hidden="true"></span><span class="fin-trend-tf-label" aria-hidden="true">이 그래프 기간</span><div class="owner-tabs" role="group" aria-label="이 그래프 기간">${tfBtns}</div></div>
     </div>
     ${st?`<div class="fin-nw-stats">
       <div><small>기간 증감</small><b class="${st.change>=0?'up':'down'}">${cbSignDisp(st.change)}${st.pct!=null?` <em>${(st.pct>=0?'+':'')+st.pct.toFixed(1)}%</em>`:''}</b></div>
@@ -636,7 +638,17 @@ function finGoalRows(now=new Date()){
   });
 }
 function finGoalChip(st){ return `<em class="fin-goal-chip is-${st.key}">${cbEsc(st.label)}</em>`; }
-function finGoalDday(row){ return row.days==null?'기한 미정':(row.days>=0?'D-'+row.days.toLocaleString():'기한 경과'); }
+// 남은 기간 — 1년 미만은 D-day, 그보다 멀면 'N년 M개월 남음'(D-2,655 는 얼마나 먼지 바로 안 읽힌다).
+function finGoalDday(row, now=new Date()){
+  if(row.days==null) return '기한 미정';
+  if(row.days<0) return '기한 경과';
+  if(row.days<365||!row.due||typeof row.due.getFullYear!=='function') return 'D-'+row.days.toLocaleString();
+  const d=row.due;
+  let months=(d.getFullYear()-now.getFullYear())*12+(d.getMonth()-now.getMonth());
+  if(d.getDate()<now.getDate()) months--;
+  const y=Math.floor(months/12), m=months%12;
+  return `${y}년${m?` ${m}개월`:''} 남음`;
+}
 // 목표별 진행 비교 — 목표마다 한 줄, 달성률 낮은 순. 막대 끝이 그 목표의 목표 금액이다.
 // (예전 '목표 연결 자산군' 도넛은 여러 목표가 같은 자산에 연결되면 금액을 겹쳐 더해 합계가 실제 자산보다 컸다.)
 function finGoalProgressCard(rows){
@@ -672,8 +684,8 @@ function finGoalTimelineCard(rows,now=new Date()){
     axis=`<div class="fin-goal-axis" aria-hidden="true"><span class="fin-goal-axis-end is-start">오늘</span><span class="fin-goal-axis-end is-end">${ym(new Date(end))}</span>${ticks}${future.map((r,i)=>`<i class="fin-goal-axis-dot is-${r.st.key}" style="left:${at(r.due.getTime())}%">${i+1}</i>`).join('')}</div>`;
   }
   const item=(r,mark,when,cls)=>`<li><span class="fin-goal-tl-mark is-${cls||r.st.key}">${mark}</span><span class="fin-goal-tl-name">${cbEsc(r.g.name)}</span><span class="fin-goal-tl-when">${when}</span><b>${r.pct.toFixed(0)}%</b></li>`;
-  return `<div class="cb-panel fin-goal-timeline"><div class="fin-section-head"><span>목표 일정</span><small>${future.length?`가장 가까운 목표 ${finGoalDday(future[0])}`:'앞으로의 목표일이 없습니다'}</small></div>
-    ${axis}<ol class="fin-goal-tl-list">${future.map((r,i)=>item(r,i+1,`${ym(r.due)} · ${finGoalDday(r)}`)).join('')}${past.map(r=>item(r,'!',`${ym(r.due)} · 기한 경과`,'past')).join('')}${open.map(r=>item(r,'–','기한 미정','open')).join('')}</ol></div>`;
+  return `<div class="cb-panel fin-goal-timeline"><div class="fin-section-head"><span>목표 일정</span><small>${future.length?`가장 가까운 목표 ${finGoalDday(future[0],now)}`:'앞으로의 목표일이 없습니다'}</small></div>
+    ${axis}<ol class="fin-goal-tl-list">${future.map((r,i)=>item(r,i+1,`${ym(r.due)} · ${finGoalDday(r,now)}`)).join('')}${past.map(r=>item(r,'!',`${ym(r.due)} · 기한 경과`,'past')).join('')}${open.map(r=>item(r,'–','기한 미정','open')).join('')}</ol></div>`;
 }
 function finGoalCardHtml(r){
   const g=r.g, st=r.st, safeId=cbEsc(String(g.id||''));
@@ -765,15 +777,17 @@ function finDataStatusRows(){
   const defaults={
     assets:{label:'투자자산 원장',source:'Vercel KV'},
     ext:{label:'재무계획·현금흐름',source:'Vercel KV'},
-    prices:{label:'시장 시세',source:'시장별 시세 API'},
-    dividends:{label:'배당 데이터',source:'배당 데이터 API'},
-    rates:{label:'환율·금 시세',source:'Yahoo Finance · COMEX'},
+    prices:{label:'시장 시세',source:'국내 네이버 직전 종가 · 해외 Yahoo · 코인 업비트'},
+    dividends:{label:'배당 데이터',source:'KRX · Yahoo · 네이버 증권'},
+    rates:{label:'환율·금 시세',source:'네이버(하나은행 고시) · KRX 금시장'},
     benchmark:{label:'성과 벤치마크',source:'시장 지수 데이터'}
   };
   return Object.entries(defaults).map(([key,meta])=>{
     const explicit=window._dataFreshness[key];
     const has=explicit&&typeof explicit==='object';
     const row={key,...meta,ok:false,detail:'아직 확인하지 않음',...(has?explicit:{})};
+    // 출처 이름은 지금 코드의 정의를 쓴다 — KV 에 남은 예전 기록의 출처(예: 'Yahoo Finance · COMEX')가 따라오지 않게.
+    row.source=meta.source;
     // 과거 성공 기록이 남아 있어도 현재 시세가 누락된 자산이 있으면 정상으로 표시하지 않는다.
     // 조회 기록이 없더라도 시세가 빈 자산이 실재하면 '확인 전'이 아니라 '확인 필요'다.
     const staleKnown=key==='prices'&&stale>0;

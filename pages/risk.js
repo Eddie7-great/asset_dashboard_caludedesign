@@ -84,6 +84,19 @@ function cbLookThroughPanel(ownerFilter){
     </div>`;
 }
 
+// 카드마다 판정 한 단어 — 새 기준을 만들지 않는다. 규칙 카드는 mk() 의 lvl, 보조 진단은
+// toneHigh·toneLow 가 고른 색(--up/--warn/--dn)을 그대로 읽고, 그 밖(--lab, 구성종목 확인 전)은 판정 보류다.
+function cbRiskVerdict(entry){
+  const V={bad:{key:'bad',label:'경고',rank:0},warn:{key:'warn',label:'주의',rank:1},ok:{key:'ok',label:'양호',rank:2},hold:{key:'hold',label:'보류',rank:3}};
+  const c=entry&&entry.card||{};
+  if(entry&&entry.kind==='primary') return c.lvl===2?V.bad:c.lvl===1?V.warn:V.ok;
+  const t=String(c.tone||'');
+  if(t.includes('--dn')) return V.bad;
+  if(t.includes('--warn')) return V.warn;
+  if(t.includes('--up')) return V.ok;
+  return V.hold;
+}
+
 function cbRenderRisk(){
   const el = document.getElementById('cb-risk2'); if(!el) return;
   cbEnsureEtfHoldings();
@@ -96,7 +109,10 @@ function cbRenderRisk(){
   const riskGridCards=Array.from({length:gridRows},(_,row)=>[
     ...r.cards.slice(row*2,row*2+2).map(card=>({kind:'primary',card})),
     ...insights.slice(row*2,row*2+2).map(card=>({kind:'insight',card})),
-  ]).flat();
+  ]).flat()
+    // 확인할 것이 먼저 — 경고 → 주의 → 양호 → 보류 순. 같은 단계 안에서는 기존 교차 순서를 유지한다.
+    .map((entry,idx)=>({...entry,idx,verdict:cbRiskVerdict(entry)}))
+    .sort((a,b)=>a.verdict.rank-b.verdict.rank||a.idx-b.idx);
   cbSetHead('규칙 기반 자동 점검', cbOwnerBtns(_cbRiskOwner,'cbRiskOwner'));
   el.innerHTML = `
     <div class="cb-risk-overview">
@@ -122,7 +138,7 @@ function cbRenderRisk(){
           const card=entry.card;
           if(entry.kind==='insight') return `
             <div class="cb-panel cb-risk-insight-card" style="--risk-tone:${card.tone}">
-              <div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div>
+              <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(card.title)}</div><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div>
               <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
               ${cbRiskMeterHtml(card.meter, card.id==='effective-holdings'?'개':'%', card.tone)}
               <div class="cb-risk-insight-detail cb-tip-block" data-overflow-tip="${cbEsc(card.detail)}">

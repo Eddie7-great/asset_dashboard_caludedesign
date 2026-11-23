@@ -218,6 +218,31 @@ function cbGiftDelRecord(id){
   if(typeof confirm==='function'&&!confirm('이 증여 기록을 삭제할까요?')) return;
   list.splice(i,1); cbGiftSyncCashflow(); cbGiftSave();
 }
+// 기록장 표 — 해마다 접는 묶음(올해만 펼침)이고, 같은 자동이체가 한 해에 만든 줄은 한 줄로 접는다.
+// 금액은 기록을 그대로 더할 뿐이다(10년 합계는 위 cbGiftLedgerSum 이 따로 계산한다).
+function cbGiftLedgerYearsHtml(rows,LABEL,inWindow,today){
+  const years=[...new Set(rows.map(r=>String(r.date).slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+  const thisYear=String(today).slice(0,4), openDefault=years.includes(thisYear)?thisYear:years[0];
+  const head='<div class="cb-gift-ledger-row is-head"><span>증여일</span><span>구분</span><span>금액</span><span>메모</span><span>10년 기간</span><span></span></div>';
+  const windowCell=list=>{ const n=list.filter(inWindow).length;
+    return n===list.length?'<span class="is-in">기간 안</span>':n===0?'<span class="is-out">기간 밖</span>':`<span class="is-in">일부 ${n}건</span>`; };
+  const manualRow=r=>`<div class="cb-gift-ledger-row"><span class="cb-num">${cbEsc(r.date)}</span><span>${LABEL[r.kind]}</span><b class="cb-num">${cbKrw(r.amt)}</b><span class="cb-gift-ledger-memo-cell">${cbEsc(r.memo||'—')}</span>${windowCell([r])}<span><button type="button" class="btn-action cb-gift-ledger-del" aria-label="${cbEsc(r.date)} ${cbEsc(cbKrw(r.amt))} 기록 삭제" onclick="cbGiftDelRecord('${cbEsc(r.id)}')">✕</button></span></div>`;
+  const autoRow=list=>{ const first=list[list.length-1].date, last=list[0].date, sum=list.reduce((s,r)=>s+(Number(r.amt)||0),0);
+    return `<div class="cb-gift-ledger-row is-auto"><span class="cb-num">${cbEsc(first.slice(5))} ~ ${cbEsc(last.slice(5))}</span><span>${LABEL[list[0].kind]}</span><b class="cb-num">${cbKrw(sum)}</b><span class="cb-gift-ledger-memo-cell">${cbEsc(list[0].memo||'—')} · ${list.length}회</span>${windowCell(list)}<span><em class="cb-gift-auto-tag" data-tip="증여로 연결한 자동이체에서 만든 기록 ${list.length}건을 한 줄로 묶었습니다. 위 '자동이체를 증여로 연결'에서 해제하면 사라집니다.">자동</em></span></div>`; };
+  return `<div class="cb-gift-ledger-table">${years.map(y=>{
+    const ys=rows.filter(r=>String(r.date).startsWith(y));
+    const autoGroups=new Map(), lines=[];
+    ys.forEach(r=>{
+      if(!r.auto){ lines.push({date:r.date,html:manualRow(r)}); return; }
+      const k=`${r.atId}|${r.kind}`;
+      if(!autoGroups.has(k)){ autoGroups.set(k,[]); lines.push({date:r.date,group:k}); }
+      autoGroups.get(k).push(r);
+    });
+    const sum=ys.reduce((s,r)=>s+(Number(r.amt)||0),0);
+    const open=Object.prototype.hasOwnProperty.call(_cbGiftYearOpen,y)?_cbGiftYearOpen[y]:y===openDefault;
+    return `<details class="cb-gift-year"${open?' open':''} ontoggle="_cbGiftYearOpen['${y}']=this.open"><summary><span>${y}년</span><b class="cb-num">${cbKrw(sum)}</b><small>${ys.length}건</small></summary>${head}${lines.map(l=>l.html||autoRow(autoGroups.get(l.group))).join('')}</details>`;
+  }).join('')}</div>`;
+}
 function cbGiftLedgerHtml(scope){
   const kinds=[scope.child?'child':null,scope.spouse?'spouse':null].filter(Boolean);
   if(!kinds.length) return '';
@@ -241,8 +266,7 @@ function cbGiftLedgerHtml(scope){
       </div>
       ${cbGiftTransferLinkHtml(kinds)}
       ${typeof finMobileNote==='function'?finMobileNote('증여 기록'):''}
-      ${rows.length?`<div class="cb-gift-ledger-table"><div class="cb-gift-ledger-row is-head"><span>증여일</span><span>구분</span><span>금액</span><span>메모</span><span>10년 기간</span><span></span></div>
-        ${rows.map(r=>`<div class="cb-gift-ledger-row"><span class="cb-num">${cbEsc(r.date)}</span><span>${LABEL[r.kind]}</span><b class="cb-num">${cbKrw(r.amt)}</b><span class="cb-gift-ledger-memo-cell">${cbEsc(r.memo||'—')}</span><span class="${inWindow(r)?'is-in':'is-out'}">${inWindow(r)?'기간 안':'기간 밖'}</span><span>${r.auto?'<em class="cb-gift-auto-tag" data-tip="증여로 연결한 자동이체에서 만든 기록입니다. 위 \'자동이체를 증여로 연결\'에서 해제하면 사라집니다.">자동</em>':`<button type="button" class="btn-action cb-gift-ledger-del" aria-label="${cbEsc(r.date)} ${cbEsc(cbKrw(r.amt))} 기록 삭제" onclick="cbGiftDelRecord('${cbEsc(r.id)}')">✕</button>`}</span></div>`).join('')}</div>`
+      ${rows.length?cbGiftLedgerYearsHtml(rows,LABEL,inWindow,today)
         :'<div class="fin-empty">아직 기록이 없습니다. 지금까지 한 증여를 날짜와 금액으로 적어 두면 10년 합계를 자동으로 더합니다.</div>'}
       <p class="cb-gift-ledger-foot">합계는 입력한 금액을 확인 기준일 하나에 대해 단순히 더한 값입니다(기준일을 정하지 않았으면 오늘 기준). 증여일마다의 10년 기간을 각각 판정하지 않으며, 증여 당시 재산 평가액·증여세·신고 기한은 계산하지 않습니다. 같은 증여자에게서 받은 것만 적어 주세요.</p>
     </div>`;
@@ -624,4 +648,5 @@ function cbGiftSpouseHover(ev, k){
 }
 function cbGiftHide(){ const t = document.getElementById('cb-perf-tip'); if(t) t.style.display = 'none'; }
 
+let _cbGiftYearOpen = {}; // 증여 기록장 연도 묶음 펼침 — 기본은 올해만 펼친다
 let _cbGiftEditOpen = { child:false, spouse:false }; // '계획 수정' 펼침 상태 — 입력 뒤 재렌더에도 접히지 않게 메모리에만 둔다

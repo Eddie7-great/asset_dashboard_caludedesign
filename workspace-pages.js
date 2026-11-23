@@ -544,6 +544,20 @@ function reportCoverStats(cur,prev,adjacent,ownerF,todayKey,live){
   if(goals.length) out.push(cell('목표 진행',`${goals.length}개 중 ${goals.filter(g=>g.target>0&&g.now>=g.target).length}개 달성`,'가구 전체'));
   return `<div class="rep-cover-stats">${out.join('')}</div>`;
 }
+// 연간 표지 핵심 숫자(2026-11-23) — 월간 표지(reportCoverStats)와 같은 방식으로 뒤 장의 값만 꺼낸다:
+// 연말(오늘) 투자자산 = last.v, 연초 대비 = last.v - start.v('한 해 동안 얼마나 늘었나' 장과 같은 두 점),
+// 올해 배당 = reportDividendYear 의 12달 합(끝난 달 기록 + 남은 달 예상, 배당 장과 같은 값), 실현손익 = reportRealizedYear.
+function reportYearCoverStats(year,start,last,base,ongoing,ownerF,todayKey){
+  const cell=(k,v,sub,style)=>`<div><small>${k}</small><b class="cb-num"${style?` style="${style}"`:''}>${v}</b>${sub?`<em>${sub}</em>`:''}</div>`;
+  const out=[cell(ongoing?'오늘 투자자산':'연말 투자자산',cbDisp(last.v))];
+  if(start&&start!==last){ const d=last.v-start.v; out.push(cell(base?'연초 대비':reportYmLabel(start.ym)+' 대비',cbSignDisp(d),'입금 포함 · 수익률 아님',cbGainStyle(d,false))); }
+  const dv=reportDividendYear(year,ownerF,todayKey), vals=dv.months.filter(m=>m.v!=null);
+  if(vals.length){ const est=vals.some(m=>m.kind==='est'), rec=vals.some(m=>m.kind==='rec');
+    out.push(cell(est&&!rec?'올해 배당(예상)':'올해 배당',cbDisp(vals.reduce((t,m)=>t+(Number(m.v)||0),0)),est&&rec?'기록 + 남은 달 예상':(est?'세후 추정':'현금 흐름 기록'))); }
+  const rz=reportRealizedYear(year,ownerF);
+  if(rz.count) out.push(cell('실현손익',cbSignDisp(rz.sum),`매도 확정 ${rz.count}건`,cbGainStyle(rz.sum,false)));
+  return `<div class="rep-cover-stats">${out.join('')}</div>`;
+}
 // ── 월간 ──
 function cbRenderReport(){
   const el=document.getElementById('cb-report2'); if(!el) return;
@@ -613,7 +627,7 @@ function cbRenderReportYear(){
   const basis=ongoing?`<span class="rep-badge is-now">${lastM}월까지 · 진행 중</span>`:`<span class="rep-badge">${lastM}월 ${Number(last.date.slice(8))}일 종가 기준</span>`;
   const pages=[];
   pages.push(`<section class="rep-page rep-cover" data-rep-page="표지"><div class="rep-inner"><p class="rep-kicker">${who} · 연간 결산</p><h1>${year}년</h1>
-    <p>${ongoing?`아직 끝나지 않은 해라 ${lastM}월까지의 기록으로 보여 줍니다.`:`${year}년 ${lastM}월 말 기록까지의 한 해입니다.`} 기록이 있는 달은 ${inYear.length}개입니다.</p><p class="rep-scroll-hint" aria-hidden="true">아래로 스크롤하면 다음 장으로 넘어갑니다</p></div></section>`);
+    <p>${ongoing?`아직 끝나지 않은 해라 ${lastM}월까지의 기록으로 보여 줍니다.`:`${year}년 ${lastM}월 말 기록까지의 한 해입니다.`} 기록이 있는 달은 ${inYear.length}개입니다.</p>${reportYearCoverStats(year,start,last,base,ongoing,ownerF,todayKey)}<p class="rep-scroll-hint" aria-hidden="true">아래로 스크롤하면 다음 장으로 넘어갑니다</p></div></section>`);
   let no=1, flip=false;
   const byM=new Map(inYear.map(m=>[Number(m.ym.slice(5)),m])), mx=Math.max(1,...inYear.map(m=>m.v));
   const grew=last.v-start.v;
