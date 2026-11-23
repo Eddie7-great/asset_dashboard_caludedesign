@@ -287,8 +287,20 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cb-dca-upcoming-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
 .cb-dca-upcoming-head small{font-size:var(--fs-cap);color:var(--lab)}
 /* 10일치라 칸이 많아도 줄바꿈한다 — 옆으로 미는 스크롤바를 만들지 않는다 */
-.cb-dca-upcoming-list{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
-.cb-dca-upcoming-list li{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:112px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
+/* 10일을 모두 같은 폭의 칸으로 — 예정이 있는 날만 칸을 칠하고 빈 날은 '—'. 카드 폭을 끝까지 채운다(2026-11-23). */
+.cb-dca-upcoming-list{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin:0;padding:0;list-style:none}
+.cb-dca-upcoming-list li{display:flex;flex-direction:column;gap:5px;min-width:0;padding:10px 10px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner)}
+.cb-dca-upcoming-list li.is-empty{background:transparent;border-style:dashed}
+.cb-dca-upcoming-list li.is-empty b{color:var(--lab);font-weight:600}
+.cb-dca-upcoming-list li.is-weekend b span{color:var(--dim)}
+.cb-dca-upcoming-list li.is-hit{border-color:color-mix(in srgb,var(--acc) 40%,var(--bd))}
+.cb-dca-upcoming-list b small{display:block;margin-top:2px;font-size:var(--fs-cap);font-weight:600;color:var(--acc)}
+.cb-dca-upcoming-none{margin-top:auto;font-size:var(--fs-cap);color:var(--dim)}
+.cb-dca-upcoming-item{min-width:0}
+.cb-dca-upcoming-item{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:1100px){.cb-dca-upcoming-list{grid-template-columns:repeat(5,minmax(0,1fr))}}
+/* 휴대폰은 빈 날을 숨기고 예정일만 두 칸씩 */
+@media(max-width:768px){.cb-dca-upcoming-list{grid-template-columns:repeat(2,minmax(0,1fr))}.cb-dca-upcoming-list li.is-empty{display:none}}
 .cb-dca-upcoming-list b{font-size:var(--fs-body)}
 .cb-dca-upcoming-list b span{font-weight:500;color:var(--lab)}
 .cb-dca-upcoming-item{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
@@ -912,7 +924,9 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-div-head,.cb-div-row{display:grid;grid-template-columns:58px 26px minmax(150px,2.6fr) minmax(104px,1fr) minmax(92px,.9fr) minmax(76px,.7fr) minmax(100px,.8fr) minmax(76px,.6fr);column-gap:10px;align-items:center}
 .cb-div-row[role="button"]{cursor:pointer}
 .cb-div-row[role="button"]:hover,.cb-div-row.is-open{background:var(--hover)}
-.cb-div-caret{font-style:normal;color:var(--dim);margin-left:2px}
+/* 펼침 표시(▸)는 정렬 화살표처럼 칸 밖 여백에 건다 — 글자 뒤에 붙이면 '분기'가 머리글 '주기'보다 왼쪽에서 끝났다. */
+.cb-div-row>span:has(>.cb-div-caret){position:relative}
+.cb-div-caret{position:absolute;left:calc(100% + 3px);top:50%;transform:translateY(-50%);font-style:normal;color:var(--dim)}
 .cb-div-more{grid-column:1/-1;margin:8px 0 2px 84px;padding:8px 12px;border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-cap);color:var(--mut);line-height:1.7}
 .cb-div-more b{color:var(--tx);font-weight:700}
 .cb-div-head{padding:7px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
@@ -927,8 +941,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-div-row>.cb-div-c-flag,.cb-div-row>.cb-div-c-asset{display:flex;align-items:center}
 .cb-div-row>.cb-div-c-yoc{font-weight:800;color:var(--up)}
 .cb-div-row>.cb-div-c-ex{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 1760px 미만: 향후 90일 일정은 표 위 가로 띠로(긴 표 아래에 두면 보이지 않는다). */
-@media(max-width:1759px){
+/* 1400px 미만: 향후 90일 일정은 표 위 가로 띠로(긴 표 아래에 두면 보이지 않는다). */
+@media(max-width:1399px){
   .cb-div-detail-grid>.cb-div-upcoming-card{order:-1}
   .cb-div-upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:18px}
 }
@@ -1050,12 +1064,12 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-acct-name>.fin-tree-kind{margin-right:5px}
 /* 구성원 비교 표 — 클래스 격자(인라인 고정 폭·flex:1 을 쓰지 않는다) */
 .cb-family-table{min-width:820px}
-.cb-family-head,.cb-family-row{display:grid;grid-template-columns:58px minmax(92px,.8fr) minmax(170px,2.4fr) minmax(60px,.55fr) minmax(76px,.65fr) minmax(76px,.65fr) minmax(96px,.85fr) minmax(92px,.8fr) minmax(52px,.5fr);column-gap:8px;align-items:center;padding:7px 9px}
+.cb-family-head,.cb-family-row{display:grid;grid-template-columns:58px minmax(92px,.8fr) minmax(170px,2.4fr) minmax(60px,.55fr) minmax(76px,.65fr) minmax(76px,.65fr) minmax(96px,.85fr) minmax(92px,.8fr) minmax(58px,.5fr);column-gap:14px;align-items:center;padding:7px 9px}
 .cb-family-head{border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
 .cb-family-head>*,.cb-family-row>*{min-width:0}
 .cb-family-head>.r,.cb-family-row>.r{text-align:right}
 .cb-family-row>.cap{font-size:var(--fs-cap)}
-.cb-family-row>.b{font-weight:700}
+.cb-family-row>.b{font-weight:700;font-size:var(--fs-body)}
 .cb-family-row>.sb{font-weight:600}
 .cb-family-asset{display:flex;align-items:center;gap:8px;min-width:0}
 /* 계좌 칸이 두 줄이므로 종목도 이름 / 티커 두 줄 — 한 줄이면 티커가 이름 폭을 먹어 긴 ETF 이름이 잘린다. */
@@ -1094,10 +1108,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-tile:hover{box-shadow:inset 0 0 0 1.5px var(--panelSolid),inset 0 0 0 3px var(--tx)}
 .cb-tile.is-sec{cursor:pointer}
 .cb-tile.is-open{box-shadow:inset 0 0 0 1.5px var(--panelSolid),inset 0 0 0 3px var(--acc)}
-.cb-sector-open{margin-top:8px;padding-top:6px;border-top:1px solid var(--bd)}
-.cb-sector-open-head{display:flex;align-items:center;gap:6px;padding:0 4px 4px;font-size:var(--fs-cap);color:var(--mut)}
-.cb-sector-open-head>b{color:var(--tx)}
-.cb-sector-open-head>.cb-btn{margin-left:auto;height:26px;min-height:26px;padding:0 9px;font-size:var(--fs-cap)}
 /* 수익률 × 평가손익 점 그림 — 예전 수익률·손실률 TOP 5 두 카드 자리 */
 /* 2026-11-18 3차 — 홈 화면 */
 /* 스크롤 영역(.cb-scroll·홈 보유 표)은 위치 기준(position:relative)이다. 기준이 없으면 안쪽의 화면 낭독용 글자(.sr-only,
@@ -1279,12 +1289,24 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-contrib-row.is-up>b{color:var(--up)}.cb-contrib-row.is-dn>b{color:var(--dn)}
 .cb-contrib-row>b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-contrib-sep{height:1px;background:var(--bd);margin:1px 0}
+.cb-contrib-short{font-size:var(--fs-cap);color:var(--dim)}
 .cb-contrib-foot{margin-top:auto;padding-top:10px;font-size:var(--fs-cap);color:var(--dim)}
 .cb-dash-trend-card{text-align:left;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--bd);gap:4px}
 .cb-dash-trend-card:hover{border-color:var(--bd2)}
 .cb-dash-trend-value{margin-top:8px;font-size:var(--fs-kpi);font-weight:800;color:var(--tx)}
 .cb-dash-trend-sub{font-size:var(--fs-cap);color:var(--mut)}
-.cb-trend-spark{display:block;width:100%;height:110px;margin-top:auto;padding-top:10px}
+/* 30일 그래프 — 남는 높이를 채우고(flex:1) 왼쪽 금액 눈금·아래 날짜를 둔다. 글자는 HTML 이라 늘어나지 않는다. */
+/* 금액 눈금은 그림 안 왼쪽, 각 눈금선 바로 위에 얹는다 — 좁은 카드에서 '1억 2,500만' 같은 라벨이 그림 폭을 먹지 않게. */
+.cb-trend-chart{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto;margin:24px 4px 6px 0;min-height:150px}
+.cb-trend-y{position:relative;grid-row:1;grid-column:1;z-index:1;pointer-events:none}
+.cb-trend-y>span{position:absolute;left:0;transform:translateY(-100%);padding:0 4px 1px 0;border-radius:var(--r-sm);background:color-mix(in srgb,var(--panelSolid) 78%,transparent);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-trend-plot{position:relative;grid-row:1;grid-column:1}
+.cb-trend-plot>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.cb-trend-grid{stroke:var(--grid);stroke-width:1}
+.cb-trend-dot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--panelSolid)}
+.cb-trend-x{position:relative;grid-column:1;height:18px;margin-top:4px}
+.cb-trend-x>span{position:absolute;top:0;transform:translateX(-50%);font-size:var(--fs-cap);color:var(--lab);white-space:nowrap}
+.cb-trend-x>span.is-first{transform:none}.cb-trend-x>span.is-last{transform:translateX(-100%)}
 .cb-trend-line{fill:none;stroke:var(--acc);stroke-width:2}
 .cb-trend-area{fill:color-mix(in srgb,var(--acc) 12%,transparent)}
 .cb-dash-trend-note{font-size:var(--fs-cap);color:var(--dim)}
@@ -1294,3 +1316,24 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .rep-cover-stats small{font-size:var(--fs-cap);color:var(--lab)}
 .rep-cover-stats b{font-size:var(--fs-kpi);font-weight:800;color:var(--tx);white-space:nowrap}
 .rep-cover-stats em{font-style:normal;font-size:var(--fs-cap);color:var(--dim)}
+
+/* 내역 표 머리글 정렬(2026-11-23) — 오른쪽 정렬 칸은 '칼럼명 글자 끝 = 값 끝'이다. 예전에는 머리글 오른쪽 여백(14px·11px)이
+   값 칸 여백(8px·4px)보다 커서 칼럼명이 값보다 6~7px 왼쪽에서 끝났다. 여백을 값 칸과 같게 두고 화살표는 칸 경계 밖 여백에 건다. */
+#view-holdings .pt-table th.sortable:not(.text-left){padding-right:8px}
+#view-holdings .pt-table th.sortable:not(.text-left)::after{right:-5px}
+@media(min-width:769px) and (max-width:1519px){
+  #view-holdings .pt-table th.sortable:not(.text-left){padding-right:4px}
+  #view-holdings .pt-table th.sortable:not(.text-left)::after{right:-8px}
+}
+
+/* 홈 자산군·섹터 종목 창(2026-11-23) — 같은 .modal-overlay 를 쓰고 내용만 목록이다. */
+.cb-dash-pop{width:min(440px,92vw);max-height:min(560px,82vh);display:flex;flex-direction:column;padding:18px 18px 14px}
+.cb-dash-pop-head{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--bd)}
+.cb-dash-pop-head>i{width:10px;height:10px;border-radius:50%;flex:none}
+.cb-dash-pop-head>b{font-size:var(--fs-card);color:var(--tx)}
+.cb-dash-pop-head>span{font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.cb-dash-pop-close{margin-left:auto;min-width:36px;min-height:36px}
+.cb-dash-pop-list{flex:1 1 auto;overflow-y:auto;margin:6px -10px 0 -18px;padding:2px 10px 2px 0}
+.cb-dash-pop-list>div{padding-top:6px!important;padding-bottom:6px!important;font-size:var(--fs-body)!important}
+.cb-dash-pop-empty{padding:16px;text-align:center;color:var(--dim)}
+.cb-dash-pop-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}

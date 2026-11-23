@@ -183,9 +183,11 @@ assert.match(cobaltSource, /const trend=cbInvestTrend\(window\._netWorthHistory,
   assert.equal(tCtx.cbTreemapLayout([{ a: 0 }, { a: -3 }], 0, 0, 10, 10).length, 0, '0·음수 값은 칸을 만들지 않는다')
   const r = (title, gain) => ({ title, gain })
   const cr = tCtx.cbContribRank([r('A', 60), r('B', 20), r('C', 9), r('D', 8), r('E', 7), r('F', 6), r('L1', -15), r('L2', -5), r('L3', -4), r('L4', -1), r('Z', 0)])
-  assert.deepEqual(Array.from(cr.gains, x => x.title), ['A', 'B', 'C', 'D', 'E'], '이익 상위 5')
-  assert.deepEqual(Array.from(cr.losses, x => x.title), ['L1', 'L2', 'L3'], '손실 상위 3(큰 손실부터)')
-  assert.equal(cr.more, 2, '나머지 개수(0 은 세지 않는다)')
+  assert.deepEqual(Array.from(cr.gains, x => x.title), ['A', 'B', 'C', 'D', 'E', 'F'], '이익 상위 6')
+  assert.deepEqual(Array.from(cr.losses, x => x.title), ['L1', 'L2', 'L3', 'L4'], '손실도 같은 수(최대 6, 큰 손실부터)')
+  assert.equal(cr.more, 0, '나머지 개수(0 은 세지 않는다)')
+  const cr3 = tCtx.cbContribRank([r('A', 60), r('B', 20), r('C', 9), r('L1', -15), r('L2', -5), r('L3', -4), r('L4', -1)], 2)
+  assert.deepEqual([cr3.gains.length, cr3.losses.length, cr3.more], [2, 2, 3], '이익·손실 같은 수(사용자 결정)')
   assert.equal(cr.max, 60, '막대 기준 = 보이는 것 중 최대 |손익|')
   const today = new Date('2026-11-23T03:00:00Z')
   const hist = [{ date: '2026-10-01', portfolio: 1 }, { date: '2026-10-25', portfolio: 100, portfolioByOwner: { 본인: 60 } }, { date: '2026-11-22', portfolio: 103.6, portfolioByOwner: { 본인: 50 } }, { date: '2026-11-10', portfolio: 101 }]
@@ -300,8 +302,14 @@ assert.match(styleSource, /\.cb-fam-card-grid\{display:grid;grid-template-column
 assert.match(styleSource, /@media \(max-width: 1080px\)\{\s*\.cb-fam-card-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}/, '중간 폭에서는 3열')
 assert.match(styleSource, /@media \(max-width: 720px\)\{\s*\.cb-fam-card-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/, '좁은 화면에서는 2열로 내려 금액 잘림 방지')
 // 대시보드 아코디언은 아래 표와 같은 병합 목록을 써야 종목 수가 어긋나지 않는다.
-assert.match(cobaltSource, /mergedByVal\.filter\(r=>r\.cls===c\.key\)/, '자산 배분 펼침 목록도 다계좌 병합 후 목록 사용')
-assert.match(cobaltSource, /const items=open \? mergedByVal\.filter/, '섹터 펼침 목록도 다계좌 병합 후 목록 사용')
+assert.match(cobaltSource, /items:mergedByVal\.filter\(r=>r\.cls===allocSel\.key\)/, '자산 배분 종목 창도 다계좌 병합 후 목록 사용')
+assert.match(cobaltSource, /: sec \? \{[^\n]*items:mergedByVal\.filter/, '섹터 종목 창도 다계좌 병합 후 목록 사용')
+// 홈 자산군·섹터 종목은 카드 안에서 펼치지 않고 창으로 띄운다 — 바깥 클릭(누른 채 끌고 나온 경우 제외)·Esc·닫기로 닫고, 화면을 옮기면 닫힌다.
+assert.match(cobaltSource, /e\.target\.id==='cb-dash-pop';\},true\);\n\s*document\.addEventListener\('click',e=>\{if\(e\.target&&e\.target\.id==='cb-dash-pop'&&_cdashPopDown\)cbDashPopClose\(\)/, '바깥 클릭으로 닫기(끌고 나온 경우 제외)')
+assert.match(cobaltSource, /role="dialog" aria-modal="true" aria-labelledby="cb-dash-pop-title"/)
+assert.match(scriptSource, /if \(typeof cbDashPopClose === 'function'\) cbDashPopClose\(\);/, 'Esc 로 닫는다')
+assert.match(extractFunction(cobaltSource, 'cbResetViewState'), /_cdashAllocOpen=null; _cdashSecOpen=null;/, '다른 화면으로 가면 창을 닫는다')
+assert.doesNotMatch(cobaltSource, /cb-sector-open/, '카드 안 펼침 목록은 없앴다')
 // 모바일에서 화면 밖으로 밀려 잘리던 레이아웃 — 인라인 폭 제약을 클래스로 빼 미디어쿼리가 닿게 한다.
 assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel">/, '증여 패널의 min-width 를 CSS 로 이관')
 assert.match(styleSource, /@media \(max-width:768px\)[\s\S]*\.cb-gift-panel\{min-width:0;flex-basis:100%\}/, '모바일에서 증여 패널을 한 줄에 하나씩 (금액 잘림 방지)')
@@ -311,9 +319,9 @@ assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocati
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{[\s\S]*cb-family-detail-grid[\s\S]*cb-dca-detail-grid[\s\S]*280px/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
-assert.match(styleSource, /@media \(min-width:1760px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 290px\}/, '배당 표(13칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
+assert.match(styleSource, /@media \(min-width:1400px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 320px\}/, '배당 표(8칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
 assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
-assert.match(workspaceSource, /@media\(max-width:1759px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
+assert.match(workspaceSource, /@media\(max-width:1399px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
 // 좁은 폭(1280~1599px)에서 이름이 잘리던 세 곳: 홈 자산 배분 목록(금액을 이름 아래로), 배당 표·홈 보유 표(티커를 이름 아래로)
 assert.match(workspaceSource, /@media\(min-width:769px\) and \(max-width:1439px\)\{\s*#cb-cdash \.cb-home-allocation-row\{grid-template-columns:9px minmax\(0,1fr\) 50px 11px;[\s\S]*?#cb-cdash \.cb-home-allocation-row>span:nth-child\(3\)\{grid-column:2;grid-row:2\}/, '홈 자산 배분: 1440px 미만에서는 금액을 이름 아래 줄로')
 assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.cb-div-row \.cb-asset-inline\{flex-direction:column;/, '배당 표: 1600px 미만에서는 티커를 이름 아래로')
@@ -485,7 +493,7 @@ assert.equal(dcaScheduleContext.cbDcaPerMonthKRW({
 assert.match(cobaltSource, /이번 달 남은 매수[\s\S]*remainingCount[\s\S]*remainingAmount[\s\S]*다음 매수[\s\S]*예상 수량/, 'DCA 상단 잔여 일정 위젯과 내역 신규 칼럼 추가')
 assert.match(cobaltSource, /예상 처리[\s\S]*cb-dca-timing-cell[\s\S]*x\.timing\.label[\s\S]*x\.timing\.note/, 'DCA 내역에 증권사별 예상 처리 시점 표시')
 assert.doesNotMatch(scriptSource, /i\.dcaLastExec\s*=|i\.qty\s*=\s*newTotalQty/, '페이지 로드시 DCA 체결일·보유수량을 임의 변경하지 않음')
-assert.match(styleSource, /\.cb-dca-summary-grid\{display:grid;grid-template-columns:repeat\(5/, 'DCA 상단 다섯 요약 위젯을 균등 배치')
+assert.match(styleSource, /\.cb-dca-summary-grid\{display:grid;grid-template-columns:minmax\(0,\.7fr\) repeat\(3,minmax\(0,1fr\)\) minmax\(0,1\.25fr\)/, 'DCA 상단 다섯 요약 위젯을 균등 배치')
 
 const riskInsightRows = [
   {
@@ -661,7 +669,7 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   assert.match(cobaltSource, /const allocBySize = alloc\.slice\(\)\.sort\(\(a,b\)=>b\.v-a\.v\)/, '도넛 조각과 목록은 같은 큰 순서')
   assert.doesNotMatch(cobaltSource + fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8'), /AssetAllocation3D|allocation-3d|cb-allocation-visual/, '입체 도넛(비중 왜곡)은 없앴다')
   assert.match(cobaltSource, /cbTreemapLayout\(secs\.map[\s\S]*?color:'var\(--acc\)',mix:12\+40\*Math\.sqrt\(t\.x0\.v\/maxV\)/, '섹터 타일은 한 색이고 비중이 클수록 진하다(2026-11-18 2차)')
-  assert.match(cobaltSource, /role="button" tabindex="0" aria-pressed="\$\{on\}" onclick="cbDashSecToggle\(\$\{t\.n\}\)"/, '섹터 칸을 누르면 그 섹터 종목 목록(키보드도)')
+  assert.match(cobaltSource, /role="button" tabindex="0" aria-haspopup="dialog" data-sec-n="\$\{t\.n\}" onclick="cbDashSecToggle\(\$\{t\.n\}\)"/, '섹터 칸을 누르면 그 섹터 종목 창(키보드도)')
   assert.match(cobaltSource, /\$\{childPvT>0\?childBody:giftEmptyNote\}\s*\$\{giftEditBox\('child',childSettings,!\(childPvT>0\)\)\}/, '가족 증여: 결과 → 계획 수정(접힘) 순서, 금액 0 이면 안내')
   assert.match(cobaltSource, /\$\{spouseT>0\?spouseBody:giftEmptyNote\}/, '금액이 0 인 부부 계획은 빈 그래프 대신 안내')
   assert.match(cobaltSource, /ontoggle="_cbGiftEditOpen\.\$\{kind\}=this\.open"/, "'계획 수정' 펼침 상태는 재렌더에도 유지")

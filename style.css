@@ -1028,13 +1028,17 @@
     /* 표 옆 카드의 제목 줄을 표 제목 줄(36px − 아래 여백 9px)과 같은 높이로 맞춰 두 제목이 한 줄에 선다. */
     .cb-family-mix-card>.cb-insight-title,.cb-div-upcoming-card>.cb-insight-title,.cb-dca-allocation-card>.cb-insight-title{display:flex;align-items:center;min-height:34px}
     .cb-family-mix-card,.cb-dca-allocation-card,.cb-div-upcoming-card{padding:14px 15px;min-width:0}
-    .cb-dca-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:10px}
+    /* 다섯 카드 — 짧은 '진행 중 규칙'은 좁게, 회수·금액이 한 줄인 '이번 달 남은 매수'는 넓게(2026-11-23). */
+    .cb-dca-summary-grid{display:grid;grid-template-columns:minmax(0,.7fr) repeat(3,minmax(0,1fr)) minmax(0,1.25fr);gap:12px}
     /* 라벨·값이 옆 카드와 같은 높이에서 시작하도록 위쪽 정렬(center 면 보조 줄이 있는 카드만 라벨이 올라간다). */
-.cb-dca-summary-card{min-height:82px;padding:12px 14px;display:flex;flex-direction:column;justify-content:flex-start;min-width:0}
-    .cb-dca-summary-label{font-size:var(--fs-micro);color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb-dca-summary-value{font-family:var(--font-num);font-size:var(--fs-title);font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-dca-summary-card{padding:14px 16px;display:flex;flex-direction:column;justify-content:flex-start;gap:6px;min-width:0}
+    .cb-dca-summary-label{font-size:var(--fs-body);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-dca-summary-value{font:800 var(--fs-kpi)/1.15 var(--font-num);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-dca-summary-value>span{font-size:var(--fs-body);color:var(--lab);margin-left:2px}
-    .cb-dca-summary-sub{font-size:var(--fs-micro);color:var(--mut);font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb-dca-summary-sub{font-size:var(--fs-cap);color:var(--lab);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* 이번 달 남은 매수 — 회수와 예정 금액을 한 줄에 나란히(사용자 결정 2026-11-23). */
+    .cb-dca-summary-amt{margin-left:10px;font-style:normal;font-size:var(--fs-card);font-weight:700;letter-spacing:0;color:var(--mut)}
+    @media(min-width:769px) and (max-width:1439px){.cb-dca-summary-value{font-size:var(--fs-title)}}
     .cb-dca-timing-cell{display:flex;flex-direction:column;justify-content:center;gap:1px;box-sizing:border-box;padding-left:8px;color:var(--mut);white-space:nowrap;line-height:1.2}
     .cb-dca-timing-cell b{font-size:var(--fs-micro);color:var(--txt);font-weight:700}
     .cb-dca-timing-cell small{font-size:var(--fs-micro);color:var(--dim);font-weight:600}
@@ -1071,7 +1075,9 @@
     .cb-div-upcoming-main{display:flex;flex-direction:column;gap:2px;min-width:0}
     .cb-div-upcoming-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-micro);font-weight:700}
     .cb-div-upcoming-main>span:last-child{color:var(--dim);font-size:var(--fs-micro)}
-    .cb-div-upcoming-note{margin-top:10px;color:var(--dim);font-size:var(--fs-micro);line-height:1.55}
+    .cb-div-upcoming-note{margin:10px 0 0;padding:0;list-style:none;color:var(--dim);font-size:var(--fs-micro);line-height:1.55}
+    .cb-div-upcoming-note>li{padding-left:10px;text-indent:-10px}
+    .cb-div-upcoming-note>li::before{content:'· '}
     .cb-tax-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:9px;align-items:stretch}
     .cb-tax-summary-card>:first-child::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;background:var(--card-tone,var(--acc))}
     .cb-tax-summary-card{padding:12px 11px;display:flex;flex-direction:column;min-width:0}
@@ -1165,9 +1171,10 @@
       /* 넓은 화면에서는 긴 표를 따라 내려오도록 sticky — sticky 는 행 높이로 늘어나면 동작하지 않으므로 위쪽 정렬을 유지한다. */
       .cb-family-mix-card{position:sticky;top:0;align-self:start}
     }
-    @media (min-width:1760px){
-      /* 표(13칸)가 한 줄에 다 들어가는 폭에서만 일정 카드를 오른쪽에 둔다 — 그보다 좁으면 표 위 가로 띠(workspace-ui.css) */
-      .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 290px}
+    @media (min-width:1400px){
+      /* 표(8칸)가 한 줄에 다 들어가는 폭에서 일정 카드를 오른쪽에 둔다 — 그보다 좁으면 표 위 가로 띠(workspace-ui.css).
+         표가 8칸으로 줄어 1760px → 1400px 로 낮추고 카드는 넓혔다(320px, 이름이 잘리지 않게). */
+      .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 320px}
       .cb-div-upcoming-card{position:sticky;top:0;align-self:start}
     }
     @media (max-width:1200px){
