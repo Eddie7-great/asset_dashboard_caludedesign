@@ -1665,6 +1665,7 @@ function cbResetViewState(){
   if (typeof _calDay!=='undefined') _calDay=null;
   if (typeof _acctOpen!=='undefined') _acctOpen=new Set();
   if (typeof _cbDivOpen!=='undefined') _cbDivOpen=new Set();   // 배당 표 펼친 줄
+  if (typeof _cbGiftTab!=='undefined') _cbGiftTab='child';   // 가족 증여 자세히 보기 탭
   _cdashShowAll=false;   // 홈 보유 표 펼침
   _cdashAllocOpen=null; _cdashSecOpen=null;   // 홈 자산군·섹터 종목 창
   _cbTableSort={};

@@ -153,11 +153,14 @@ function _normalizeAutoTransfers(rows){
       // 증여 연결(2026-11-18 3차): 가족 계좌로 보내는 지출 자동이체를 증여로 집계한다. giftFrom(YYYY-MM)부터의 이체만 센다.
       giftKind:item.giftKind==='child'||item.giftKind==='spouse'?item.giftKind:'',
       giftFrom:_isStoredDateKey(item.giftFrom,true)?String(item.giftFrom).slice(0,7):'',
+      // '증여 이체' 표식 — 가족 증여 화면의 연결 목록에 나타날 지출. 예전에 연결한 것(giftKind)은 표식이 있는 것으로 본다.
+      isGift:item.type!=='수입'&&(item.isGift===true||item.giftKind==='child'||item.giftKind==='spouse'),
       // 대출 상환 조건(2026-11-18 4차) — 있으면 매달 금액을 상환 일정이 정한다
       loan:_normalizeLoanTerms(item.loan),
     };
     if(row.isFixedCost===undefined)delete row.isFixedCost;
     if(!row.giftKind){delete row.giftKind;delete row.giftFrom;}
+    if(!row.isGift)delete row.isGift;
     if(!row.loan)delete row.loan;
     return row;
   }).filter(Boolean);

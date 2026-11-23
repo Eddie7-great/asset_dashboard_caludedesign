@@ -145,4 +145,55 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.deepEqual(after.map(c => c.date), ['2025-12-05'], '연결을 끊고 기록을 지우면 채운 줄만 사라지고 원래 현금 흐름 줄은 남는다');
   assert.match(script, /if\(item\.giftBackfill===true\)row\.giftBackfill=true;/, '현금 흐름 저장값이 연동 표식을 지킨다');
 }
+// 2026-11-23: 연결 목록은 '증여 이체'로 표시한 지출 자동이체만 보여 준다(관리비 같은 일반 지출이 섞이지 않게)
+{
+  const html = read('index.html');
+  const g = vm.createContext({ cbOwnerTag: o => `<i>${o}</i>`, cbEsc: v => String(v), cbKrw: n => '₩' + n, cbGiftFromPicker: () => '<span>from</span>' });
+  for (const n of ['_autoTransferIsGift', '_setAutoTransferGift']) vm.runInContext(pick(script, n), g);
+  vm.runInContext(pick(cobalt, 'cbGiftTransferLinkHtml'), g);
+  vm.runInContext("var autoTransferData=[{id:1,type:'지출',desc:'자녀1 계좌',amt:1,giftKind:'child',giftFrom:'2026-01'},{id:2,type:'지출',desc:'아내 계좌',amt:1,isGift:true},{id:3,type:'지출',desc:'관리비',amt:1},{id:4,type:'수입',desc:'용돈',amt:1,isGift:true}];", g);
+  const out = g.cbGiftTransferLinkHtml(['child', 'spouse']);
+  assert.match(out, /자녀1 계좌/, '예전에 연결한 것(giftKind)은 표식이 없어도 나온다');
+  assert.match(out, /아내 계좌/, "'증여 이체' 표식이 있는 지출은 나온다");
+  assert.doesNotMatch(out, /관리비/, '표식이 없는 지출은 나오지 않는다');
+  assert.doesNotMatch(out, /용돈/, '수입은 증여 이체가 아니다');
+  assert.equal((out.match(/class="cb-gift-link-row/g) || []).length, 2);
+  vm.runInContext('autoTransferData=[{id:3,type:"지출",desc:"관리비",amt:1}];', g);
+  assert.match(g.cbGiftTransferLinkHtml(['child']), /증여 이체로 표시한 자동이체가 없습니다[\s\S]*'증여 이체'에 체크/, '없으면 표시하는 방법을 안내한다');
+  // 표식을 끄면 연결도 함께 푼다 — 목록에서 사라진 이체가 기록장에 계속 더해지지 않게
+  const at = { type: '지출', isGift: true, giftKind: 'child', giftFrom: '2026-01' };
+  g._setAutoTransferGift(at, false);
+  assert.deepEqual(plain(at), { type: '지출' });
+  g._setAutoTransferGift(at, true); assert.equal(at.isGift, true);
+  const inc = { type: '수입' }; g._setAutoTransferGift(inc, true); assert.equal(inc.isGift, undefined, '수입에는 붙이지 않는다');
+  // 등록 폼 두 곳 + 고정비 표 버튼 + 저장값 정리
+  assert.match(html, /id="cf-gift-flag-group"[^\n]*?"><input type="checkbox" id="cf-gift-flag"> 증여 이체<\/label>/, '자동이체 등록 폼의 증여 이체 체크');
+  assert.match(html, /<input type="checkbox" id="cf-fixed-gift"> 증여 이체<\/label>\s*<button id="cf-fixed-submit"/, '고정비 등록 폼의 증여 이체 체크');
+  assert.match(pick(script, 'addAutoTransfer'), /const isGift = type==='지출' && !!document\.getElementById\('cf-gift-flag'\)\?\.checked;[\s\S]*if \(isGift\) at\.isGift = true;/);
+  assert.match(pick(script, 'submitFixedCost'), /_setAutoTransferGift\(existing,isGift\);[\s\S]*if\(isGift\) row\.isGift=true;/);
+  assert.match(pick(script, 'renderFixedCostView'), /onclick="toggleAutoTransferGift\(\$\{safeId\}\)"/, '이미 등록한 자동이체는 고정비 표의 증여 버튼으로 표시');
+  assert.match(script, /isGift:item\.type!=='수입'&&\(item\.isGift===true\|\|item\.giftKind==='child'\|\|item\.giftKind==='spouse'\),/, '저장값 정리가 표식을 지킨다');
+  assert.match(pick(script, 'editFixedCost'), /o\.dataset\.temp='1'/, "목록에 없는 카테고리('저축/투자')를 수정하다 '기타'로 바꾸지 않는다");
+}
+// 2026-11-23: '증여 한눈에' 표 — 값은 cbGiftPrior·cbGiftDeductionReview 그대로, 판정 보류면 남은 공제·초과를 쓰지 않는다
+{
+  const sctx = vm.createContext({ cbOwnerTag: o => `<i>${o}</i>`, cbEsc: v => String(v), cbKrw: n => '₩' + Math.round(n).toLocaleString('en-US') });
+  vm.runInContext(pick(cobalt, 'cbGiftSummaryRowHtml'), sctx); vm.runInContext(pick(cobalt, 'cbGiftSummaryHtml'), sctx);
+  vm.runInContext(pick(cobalt, 'cbGiftDeductionReview'), sctx);
+  const prior = { confirmed: true, asOf: '2026-11-23', amount: 10_500_000, amountKnown: true, fromLedger: true, count: 35 };
+  const ready = sctx.cbGiftSummaryRowHtml({ kind: 'child', owner: '자녀1', title: '자녀 증여', sub: 's', limit: 20_000_000, limitNote: '미성년', prior, review: sctx.cbGiftDeductionReview(prior, 15_534_263, 20_000_000), planned: 15_534_263 });
+  assert.match(ready, /₩10,500,000<\/b><small>기록장 35건 · 기준일 11-23/);
+  assert.match(ready, /남은 공제<\/span><b class="cb-num">₩9,500,000<\/b><small>한도의 47\.5% 남음/);
+  assert.match(ready, /is-warn">계획대로면 ₩6,034,263 초과/, '초과 금액은 cbGiftDeductionReview 의 excess');
+  assert.match(ready, /is-plan is-over/, '한도를 넘는 계획 부분은 경고 빗금');
+  assert.match(ready, /onclick="cbGiftTab\('child'\)"/, '줄을 누르면 그 탭');
+  const hold = { confirmed: false, asOf: '', amount: 0, amountKnown: false, fromLedger: true, count: 1 };
+  const held = sctx.cbGiftSummaryRowHtml({ kind: 'spouse', owner: '아내', title: '부부 증여', sub: 's', limit: 600_000_000, prior: hold, review: sctx.cbGiftDeductionReview(hold, 100_000_000, 600_000_000), planned: 100_000_000 });
+  assert.match(held, /<b class="is-hold">판정 보류<\/b>/);
+  assert.doesNotMatch(held, /남음<\/small>|초과/, '판정 보류면 남은 공제·초과를 쓰지 않는다');
+  assert.match(held, /기준일 미정/);
+  assert.equal(sctx.cbGiftSummaryHtml([]), '', '당사자가 아니면 표를 그리지 않는다');
+  assert.match(cobalt, /if \(typeof _cbGiftTab!=='undefined'\) _cbGiftTab='child';/, '화면을 옮기면 탭을 되돌린다');
+  assert.doesNotMatch(cobalt, /cb-gift-ledger-sums/, '기록장의 10년 합계 카드는 한눈에 표로 옮겼다(같은 합계를 세 번 보이지 않는다)');
+}
 console.log('PASS 증여 기록장');

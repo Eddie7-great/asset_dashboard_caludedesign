@@ -10,7 +10,7 @@
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="style.css?v=67">
-  <link rel="stylesheet" href="workspace-ui.css?v=18">
+  <link rel="stylesheet" href="workspace-ui.css?v=20">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -224,6 +224,7 @@
                 <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" inputmode="numeric">
               </div>
               <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
+              <label id="cf-gift-flag-group" class="cf-fixed-check" style="display:none" data-tip="가족 계좌로 보내는 이체라면 체크하세요. 세금·증여 > 가족 증여의 '자동이체를 증여로 연결' 목록에 이 항목만 나타납니다."><input type="checkbox" id="cf-gift-flag"> 증여 이체</label>
               <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()" style="margin-top:auto">저장</button>
             </div>
             </div>
@@ -303,6 +304,7 @@
               <div class="form-group f-col"><label class="form-label" for="cf-fixed-loan-y">첫 납입 월</label><div class="cf-fixed-loan-pair"><select id="cf-fixed-loan-y" class="form-input" onchange="fixedCostLoanPreview()"></select><select id="cf-fixed-loan-m" class="form-input" aria-label="첫 납입 월(월)" onchange="fixedCostLoanPreview()"></select></div></div>
               <p id="cf-fixed-loan-preview" class="cf-fixed-loan-preview" aria-live="polite"></p>
             </fieldset>
+            <label class="cf-fixed-check cf-fixed-gift-check" data-tip="가족 계좌로 보내는 이체라면 체크하세요. 가족 증여 화면의 연결 목록에 이 항목만 나타납니다."><input type="checkbox" id="cf-fixed-gift"> 증여 이체</label>
             <button id="cf-fixed-submit" class="btn-submit" type="button" onclick="submitFixedCost()">등록</button>
           </div>
         </div>
@@ -315,7 +317,7 @@
             </div>
             <div class="cf-fixed-table-wrap">
               <table id="cf-fixed-table" class="pt-table">
-                <colgroup><col style="width:90px"><col style="width:105px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:112px"></colgroup>
+                <colgroup><col style="width:90px"><col style="width:105px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:150px"></colgroup>
                 <thead><tr><th class="text-left">소유주</th><th class="text-left cf-fixed-secondary">카테고리</th><th class="text-left">항목</th><th class="text-left">결제 주기</th><th class="text-right">월 환산액</th><th class="text-right cf-fixed-secondary">연간 금액</th><th>관리</th></tr></thead>
                 <tbody id="cf-fixed-table-body"></tbody>
               </table>
@@ -602,8 +604,8 @@
 <script defer src="tax-rules.js?v=4"></script>
 <script defer src="core/data.js?v=1"></script>
 <script defer src="core/dividend.js?v=1"></script>
-<script defer src="core/stored-data.js?v=1"></script>
-<script defer src="core/transfers.js?v=1"></script>
+<script defer src="core/stored-data.js?v=2"></script>
+<script defer src="core/transfers.js?v=2"></script>
 <script defer src="core/ui-shell.js?v=1"></script>
 <script defer src="core/stock-search.js?v=1"></script>
 <script defer src="core/holdings.js?v=1"></script>
@@ -624,9 +626,9 @@
 <script defer src="pages/family.js?v=1"></script>
 <script defer src="pages/risk.js?v=2"></script>
 <script defer src="pages/dividend.js?v=3"></script>
-<script defer src="pages/gift.js?v=2"></script>
+<script defer src="pages/gift.js?v=4"></script>
 <script defer src="pages/tax.js?v=2"></script>
 <script defer src="pages/dca.js?v=2"></script>
-<script defer src="cobalt.js?v=49"></script>
+<script defer src="cobalt.js?v=50"></script>
 </body>
 </html>

@@ -171,18 +171,22 @@ function cbGiftFromPicker(at){
   const set=(yy,mm)=>`cbGiftLinkTransfer('${id}','from',${yy}+'-'+String(${mm}).padStart(2,'0'))`;
   return `<span class="cb-gift-link-from"><select class="cb-input cb-num" aria-label="증여 시작 연도" onchange="${set('this.value',`this.parentNode.querySelector('[data-gift-m]').value`)}">${years.map(k=>`<option value="${k}"${k===y?' selected':''}>${k}년</option>`).join('')}</select><select class="cb-input cb-num" data-gift-m aria-label="증여 시작 월" onchange="${set(`this.parentNode.querySelector('select').value`,'this.value')}">${Array.from({length:12},(_,i)=>i+1).map(k=>`<option value="${k}"${k===m?' selected':''}>${k}월</option>`).join('')}</select>부터</span>`;
 }
+// 연결 목록은 현금 흐름에서 '증여 이체'로 체크한 지출 자동이체만 보여 준다(_autoTransferIsGift — 예전에 연결한 것 포함).
+// 관리비·통신비 같은 일반 지출이 섞이지 않게 하려는 것이다. 표식은 자동이체 등록 폼·고정비 표의 '증여' 버튼에서 붙인다.
 function cbGiftTransferLinkHtml(kinds){
-  const list=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[]).filter(at=>at&&at.type==='지출');
-  if(!list.length) return '';
+  const isGift=typeof _autoTransferIsGift==='function'?_autoTransferIsGift:(at=>at&&at.type==='지출'&&(at.isGift===true||!!at.giftKind));
+  const list=(typeof autoTransferData!=='undefined'&&Array.isArray(autoTransferData)?autoTransferData:[]).filter(isGift);
   const LABEL={child:'자녀 증여',spouse:'부부 증여'};
+  const guide=`현금 흐름에서 자동이체를 등록할 때 '증여 이체'에 체크하거나, 고정비 관리 표의 '증여' 버튼을 누르면 여기에 나타납니다.`;
+  if(!list.length) return `<details class="cb-gift-link"><summary>자동이체를 증여로 연결 <span>· 증여 이체로 표시한 자동이체가 없습니다</span></summary><p class="cb-gift-link-empty">${guide}</p></details>`;
   const rows=list.slice().sort((a,b)=>(b.giftKind?1:0)-(a.giftKind?1:0)||String(a.desc||'').localeCompare(String(b.desc||''),'ko')).map(at=>`
     <div class="cb-gift-link-row${at.giftKind?' is-on':''}">
       <span class="cb-gift-link-name">${cbOwnerTag(at.owner)}<b>${cbEsc(at.desc||at.cat||'자동이체')}</b><small>${cbEsc(typeof _getCycleLabel==='function'?_getCycleLabel(at):'')} · ${cbKrw(typeof _effectiveAutoTransferAmt==='function'?_effectiveAutoTransferAmt(at,new Date().getFullYear(),new Date().getMonth()+1):(at.amt||0))}</small></span>
-      <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 연결" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
-        <option value="">증여 아님</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
+      <select class="cb-input" aria-label="${cbEsc(at.desc||'자동이체')} 증여 구분" onchange="cbGiftLinkTransfer('${cbEsc(at.id)}','kind',this.value)">
+        <option value="">구분 선택 (아직 안 셈)</option>${kinds.map(k=>`<option value="${k}"${at.giftKind===k?' selected':''}>${LABEL[k]}</option>`).join('')}</select>
       ${at.giftKind?cbGiftFromPicker(at):'<span></span>'}
     </div>`).join('');
-  return `<details class="cb-gift-link"${list.some(at=>at.giftKind)?' open':''}><summary>자동이체를 증여로 연결 <span>· 가족 계좌로 매달 보내는 이체를 고르면 이체일마다 기록장에 자동으로 더합니다</span></summary>${rows}</details>`;
+  return `<details class="cb-gift-link" open><summary>자동이체를 증여로 연결 <span>· 증여 이체로 표시한 ${list.length}건 · 구분을 고르면 이체일마다 기록장에 자동으로 더합니다</span></summary>${rows}<p class="cb-gift-link-empty">${guide}</p></details>`;
 }
 // 기준일의 10년 전 같은 날(2월 29일은 28일로). 이 날부터 기준일까지를 '이전 10년'으로 본다(양 끝 포함 — 넓게 잡는 쪽이 안전하다).
 function cbGiftWindowStart(asOf){
@@ -251,11 +255,8 @@ function cbGiftLedgerHtml(scope){
   const rows=cbGiftRecords().filter(r=>kinds.includes(r.kind));
   const asOfOf=kind=>cbGiftPrior(kind).asOf||today;
   const inWindow=r=>{ const asOf=asOfOf(r.kind); return r.date>=cbGiftWindowStart(asOf)&&r.date<=asOf; };
-  const sums=kinds.map(kind=>{ const asOf=asOfOf(kind), n=rows.filter(r=>r.kind===kind).length;
-    return `<div class="cb-gift-ledger-sum"><span>${LABEL[kind]} · ${cbEsc(asOf)} 이전 10년</span><b class="cb-num">${n?cbKrw(cbGiftLedgerSum(rows,kind,asOf)):'기록 없음'}</b><small>${n?`기록 ${n}건 중 기간 안 ${rows.filter(r=>r.kind===kind&&inWindow(r)).length}건`:'기록이 없으면 위에서 직접 입력한 합계를 씁니다'}</small></div>`; }).join('');
   return `<div class="cb-panel cb-gift-ledger">
       <div class="cb-panel-title"><span data-tip="실제로 한 증여를 건별로 적으면 확인 기준일 이전 10년 합계를 대신 더해 드립니다.">증여 기록장</span> <span style="color:var(--dim)">· 10년 합계를 자동으로 더합니다</span></div>
-      <div class="cb-gift-ledger-sums">${sums}</div>
       <div class="cb-gift-ledger-form" role="group" aria-label="증여 기록 추가">
         <label>증여일<input type="date" id="cb-gift-rec-date" class="cb-input cb-num" max="${today}" value="${today}"></label>
         <label>구분<select id="cb-gift-rec-kind" class="cb-input">${kinds.map(k=>`<option value="${k}">${LABEL[k]}</option>`).join('')}</select></label>
@@ -452,6 +453,51 @@ function cbGiftSpouseChartSvg(w,h){
 }
 
 // ── 렌더 ────────────────────────────────────────────────────
+// ── '증여 한눈에' 표(2026-11-23, 사용자 결정) ─────────────────────────
+// 받는 사람마다 한 줄: 공제 한도 대비 막대 · 최근 10년 증여 · 남은 공제 · 앞으로 10년 계획.
+// 새 판정을 만들지 않는다 — 값은 cbGiftPrior(기록장/직접 입력)·cbGiftDeductionReview(확인 체크·기준일·합계가 갖춰질 때만 ready)
+// 그대로다. 판정이 보류면 남은 공제·초과를 쓰지 않고 '판정 보류'라고만 적는다. 자녀·배우자 한도가 30배 달라
+// 한 그래프에 합치지 않고, 막대는 줄마다 자기 한도(세로선)를 기준으로 그린다.
+function cbGiftSummaryRowHtml(r){
+  const rv=r.review, ready=rv.ready===true;
+  const used=r.prior.amountKnown?Math.max(0,Number(r.prior.amount)||0):0;
+  const plan=Math.max(0,Number(r.planned)||0), limit=Math.max(1,Number(r.limit)||0);
+  const max=Math.max(limit,used+plan)*1.04, pct=v=>(v/max*100).toFixed(2);
+  const planIn=Math.max(0,Math.min(used+plan,limit)-used), overStart=Math.max(used,limit), over=Math.max(0,used+plan-overStart);
+  const bar=`<div class="cb-gift-sum-bar${ready?'':' is-hold'}" aria-hidden="true"><i class="is-used" style="width:${pct(used)}%"></i><i class="is-plan" style="left:${pct(used)}%;width:${pct(planIn)}%"></i>${over?`<i class="is-plan${ready?' is-over':''}" style="left:${pct(overStart)}%;width:${pct(over)}%"></i>`:''}<span class="is-limit" style="left:${pct(limit)}%"></span></div>
+    <div class="cb-gift-sum-scale"><span>₩0</span><span>한도 ${cbKrw(limit)}${r.limitNote?` (${cbEsc(r.limitNote)})`:''}</span></div>`;
+  const usedSub=r.prior.fromLedger?`기록장 ${r.prior.count}건 · 기준일 ${r.prior.asOf?cbEsc(r.prior.asOf.slice(5)):'미정'}`:(r.prior.amountKnown?'직접 입력한 합계':'아래 확인란에서 입력');
+  const remain=ready
+    ? `<b class="cb-num">${cbKrw(Math.max(0,limit-used))}</b><small>한도의 ${Math.max(0,(limit-used)/limit*100).toFixed(1)}% 남음</small>`
+    : `<b class="is-hold">판정 보류</b><small>아래 확인란을 채우면 계산</small>`;
+  const verdict=!ready?'<span class="cb-gift-sum-chip is-hold">판정 보류</span>'
+    :rv.excess>0?`<span class="cb-gift-sum-chip is-warn">계획대로면 ${cbKrw(rv.excess)} 초과</span>`
+    :`<span class="cb-gift-sum-chip is-ok">계획 포함 ${cbKrw(rv.remaining)} 남음</span>`;
+  return `<div class="cb-gift-sum-row" role="button" tabindex="0" aria-label="${cbEsc(r.title)} 자세히 보기" onclick="cbGiftTab('${r.kind}')">
+      <div class="cb-gift-sum-who">${cbOwnerTag(r.owner)}<b>${cbEsc(r.title)}</b><small>${cbEsc(r.sub)}</small></div>
+      <div class="cb-gift-sum-gauge">${bar}</div>
+      <div class="cb-gift-sum-num"><span class="cb-gift-sum-lab">최근 10년 증여</span>${r.prior.amountKnown?`<b class="cb-num">${cbKrw(used)}</b>`:'<b class="is-hold">미입력</b>'}<small>${usedSub}</small></div>
+      <div class="cb-gift-sum-num"><span class="cb-gift-sum-lab">남은 공제</span>${remain}</div>
+      <div class="cb-gift-sum-num"><span class="cb-gift-sum-lab">앞으로 10년 계획</span><b class="cb-num">${cbKrw(plan)}</b>${verdict}</div>
+    </div>`;
+}
+function cbGiftSummaryHtml(rows){
+  if(!rows.length) return '';
+  return `<div class="cb-panel cb-gift-summary">
+      <div class="cb-panel-title">증여 한눈에 <span class="cb-gift-sum-desc">· 받는 사람마다 최근 10년 공제를 얼마나 썼는지</span></div>
+      <div class="cb-gift-sum-head" aria-hidden="true"><span>받는 사람</span><span>공제 한도 대비 <em><i class="is-used"></i>최근 10년 증여 <i class="is-plan"></i>앞으로 10년 계획 <i class="is-limit"></i>한도</em></span><span>최근 10년 증여</span><span>남은 공제</span><span>앞으로 10년 계획</span></div>
+      ${rows.map(cbGiftSummaryRowHtml).join('')}
+      <p class="cb-gift-sum-foot">공제는 증여일마다 직전 10년 누계로 판단합니다. 이 표는 확인 기준일 하나에 대한 단순 합산 참고값이며 신고가 필요 없다는 판정이 아닙니다.</p>
+    </div>`;
+}
+// 자세히 보기 탭 — 화면 안 임시 상태(다른 화면으로 옮길 때 cbResetViewState 가 지운다)
+function cbGiftTab(kind){
+  if(kind!=='child'&&kind!=='spouse') return;
+  _cbGiftTab=kind;
+  cbRenderGift();
+  if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-gift2','data-gift-tab',kind);
+}
+
 function cbRenderGift(){
   const el = document.getElementById('cb-gift2'); if(!el) return;
   // 이미 연결해 둔 자동이체·적어 둔 기록이 현금 흐름에 빠져 있으면 채운다(재무 기록을 불러온 뒤에만, 바뀐 것이 있을 때만 저장).
@@ -489,10 +535,6 @@ function cbRenderGift(){
           : field('기준일 이전 10년 실제 증여 합계',moneyInput(prior.amountKnown?String(prior.amount):'',`cbGiftSetPrior('${kind}','amount',this.value)`))}
       </div>
     </div>`;
-  const reviewBox=(review,planLabel)=>review.ready
-    ? `<div role="status" style="margin-top:10px;padding:9px 11px;border-left:3px solid ${review.excess>0?'var(--warn)':'var(--up)'};background:var(--inner);font-size:var(--fs-cap);line-height:1.6;color:var(--mut)"><b style="color:${review.excess>0?'var(--warn)':'var(--up)'}">최근 10년 공제 검토</b> · 기존 ${cbKrw(review.prior)} + ${planLabel} ${cbKrw(review.planned)} = ${cbKrw(review.total)}<br>${review.excess>0?`공제액 단순 초과 ${cbKrw(review.excess)}`:`공제 잔여 추정 ${cbKrw(review.remaining)}`} · 신고가 필요 없다는 판정이 아니며 증여일별 10년 누계를 다시 확인해야 합니다.</div>`
-    : `<div role="status" style="margin-top:10px;padding:9px 11px;border-left:3px solid var(--warn);background:var(--inner);font-size:var(--fs-cap);line-height:1.6;color:var(--mut)"><b style="color:var(--warn)">판정 보류</b> · 확인 체크와 기준일, 최근 10년 실제 증여 합계가 갖춰져야 공제 잔여액을 계산합니다. 0원이어도 직접 확인 후 입력하세요.</div>`;
-
   // 구간 진행 행 (좌: 라벨/바, 우: 금액/부제)
   const segRow = (color, title, sub, mainVal, subVal, pct) => `
     <div style="padding:9px 0;border-bottom:1px solid var(--bd)">
@@ -563,46 +605,33 @@ function cbRenderGift(){
         </div>
 `;
 
+  // 화면 순서(2026-11-23, 사용자 결정): '증여 한눈에' 표 → 자녀/부부 탭 하나(구간 막대 | 그래프 → 계획 수정 → 실제 증여 확인란) → 기록장.
+  // 예전에는 자녀·부부 두 칸이 나란히 같은 구조를 반복했고, 남은 공제는 작은 주황 문단 안에 묻혀 있었다.
+  const kinds=[giftScope.child?'child':null,giftScope.spouse?'spouse':null].filter(Boolean);
+  const tab=kinds.includes(_cbGiftTab)?_cbGiftTab:kinds[0];
+  const sumRows=[];
+  if(giftScope.child) sumRows.push({kind:'child',owner:'자녀1',title:'자녀 증여',sub:`본인 → 자녀1 · 만 ${childAge}세`,limit:childLimit,limitNote:childAge<20?'미성년':'성년',prior:childPrior,review:childReview,planned:childCurrent?.pv||0});
+  if(giftScope.spouse) sumRows.push({kind:'spouse',owner:'아내',title:'부부 증여',sub:'본인 ↔ 아내',limit:CB_GIFT_SPOUSE_LIMIT,limitNote:'',prior:spousePrior,review:spouseReview,planned:spouse[0]?.total||0});
+  const TAB_LABEL={child:'자녀 증여 · 자녀1',spouse:'부부 증여 · 아내'};
+  const tabs=kinds.length>1?`<div class="sim-view-tabs cb-gift-tabs" role="group" aria-label="자세히 볼 증여">${kinds.map(k=>`<button type="button" class="cb-btn" data-gift-tab="${k}" aria-pressed="${k===tab}" onclick="cbGiftTab('${k}')">${TAB_LABEL[k]}</button>`).join('')}</div>`
+    :`<div class="cb-gift-detail-title">${TAB_LABEL[tab]||''}</div>`;
+  const detail=tab==='child'?`
+      <div class="cb-gift-detail-sub">연령대별 월 이체 계획 · 각 금액은 10년 계약을 가정한 현재가치(PV) · 연령대는 공제 갱신일이 아닙니다 · ${years}년 계획</div>
+      ${childPvT>0?`<div class="cb-gift-detail">${childBody}</div>`:giftEmptyNote}
+      <div class="cb-gift-detail-total">전체 계획 PV 단순합계 <b class="cb-num">${cbKrw(childPvT)}</b> <span data-tip="서로 다른 시점의 계획 현재가치를 합한 참고값이며 최근 10년 과세가액이 아닙니다.">(세액 판정 아님)</span></div>
+      ${giftEditBox('child',childSettings,!(childPvT>0))}
+      ${priorFields('child',childPrior)}`
+    :tab==='spouse'?`
+      <div class="cb-gift-detail-sub">10년 구간별 계획 총액 · 배우자 공제액 6억원 참고 · 계획 구간은 공제 갱신일이 아닙니다 · ${years}년 계획</div>
+      ${spouseT>0?`<div class="cb-gift-detail">${spouseBody}</div>`:giftEmptyNote}
+      <div class="cb-gift-detail-total">전체 계획 총액 <b class="cb-num">${cbKrw(spouseT)}</b> <span class="cb-gift-sum-desc">(여러 10년 구간 단순합계)</span></div>
+      ${giftEditBox('spouse',spouseSettings,!(spouseT>0))}
+      ${priorFields('spouse',spousePrior)}`:'';
+
   el.innerHTML = `
-    <div class="cb-gift-row">
-
-      ${giftScope.child||giftScope.spouse?'':`<div class="cb-panel cb-gift-panel cb-gift-empty" role="status">${cbEsc(_cbTaxOwner)} 님이 당사자인 증여 계획이 없습니다. 이 화면은 본인·아내 사이의 부부 증여와 본인이 자녀1에게 하는 자녀 증여만 다룹니다.</div>`}
-      ${!giftScope.child?'':`
-      <!-- ── 자녀 증여 ── -->
-      <div class="cb-panel cb-gift-panel">
-        <div style="font-size:var(--fs-card);font-weight:800">자녀 증여</div>
-        <div style="font-size:var(--fs-cap);color:var(--lab);margin-top:3px">각 증여일 이전 10년 누계 기준 · 미성년 2천만원·성년 5천만원 공제액 참고 · ${years}년 계획</div>
-
-
-        <div style="margin-top:14px;padding-top:13px;border-top:1px dashed var(--bd2);text-align:center">
-          <div style="font-size:var(--fs-cap);color:var(--lab)">전체 계획 PV 단순합계 <span data-tip="서로 다른 시점의 계획 현재가치를 합한 참고값이며 최근 10년 과세가액이 아닙니다.">(세액 판정 아님)</span></div>
-          <div style="${num};font-size:var(--fs-kpi);font-weight:800;margin-top:3px">${cbKrw(childPvT)}</div>
-        </div>
-        ${reviewBox(childReview,`${childAge}세 기준 향후 10년 계획 PV`)}
-        ${childPvT>0?childBody:giftEmptyNote}
-        ${giftEditBox('child',childSettings,!(childPvT>0))}
-        ${priorFields('child',childPrior)}
-
-
-      </div>`}
-      ${!giftScope.spouse?'':`
-      <!-- ── 부부 증여 ── -->
-      <div class="cb-panel cb-gift-panel">
-        <div style="font-size:var(--fs-card);font-weight:800">부부 증여</div>
-        <div style="font-size:var(--fs-cap);color:var(--lab);margin-top:3px">각 증여일 이전 10년 누계 기준 · 배우자 공제액 6억원 참고 · ${years}년 계획</div>
-
-
-        <div style="margin-top:14px;padding-top:13px;border-top:1px dashed var(--bd2);text-align:center">
-          <div style="font-size:var(--fs-cap);color:var(--lab)">전체 계획 총액 <span style="color:var(--dim)">(여러 10년 구간 단순합계)</span></div>
-          <div style="${num};font-size:var(--fs-kpi);font-weight:800;margin-top:3px">${cbKrw(spouseT)}</div>
-        </div>
-        ${reviewBox(spouseReview,'향후 첫 10년 계획')}
-        ${spouseT>0?spouseBody:giftEmptyNote}
-        ${giftEditBox('spouse',spouseSettings,!(spouseT>0))}
-        ${priorFields('spouse',spousePrior)}
-
-      </div>`}
-    </div>
+    ${giftScope.child||giftScope.spouse?'':`<div class="cb-gift-row"><div class="cb-panel cb-gift-panel cb-gift-empty" role="status">${cbEsc(_cbTaxOwner)} 님이 당사자인 증여 계획이 없습니다. 이 화면은 본인·아내 사이의 부부 증여와 본인이 자녀1에게 하는 자녀 증여만 다룹니다.</div></div>`}
+    ${cbGiftSummaryHtml(sumRows)}
+    ${tab?`<div class="cb-panel cb-gift-panel cb-gift-detail-panel">${tabs}${detail}</div>`:''}
     ${cbGiftLedgerHtml(giftScope)}
     <div style="font-size:var(--fs-cap);color:var(--dim);margin-top:10px;line-height:1.6">
       ※ 공제는 고정된 연령대·결혼 후 10년 구간마다 자동으로 새로 생기는 것이 아니라, 원칙적으로 각 증여일 이전 10년 동안 동일인에게 받은 증여를 합산해 검토합니다.
@@ -649,4 +678,5 @@ function cbGiftSpouseHover(ev, k){
 function cbGiftHide(){ const t = document.getElementById('cb-perf-tip'); if(t) t.style.display = 'none'; }
 
 let _cbGiftYearOpen = {}; // 증여 기록장 연도 묶음 펼침 — 기본은 올해만 펼친다
+let _cbGiftTab = 'child'; // 자세히 보기 탭(자녀/부부) — 다른 화면으로 옮기면 cbResetViewState 가 되돌린다
 let _cbGiftEditOpen = { child:false, spouse:false }; // '계획 수정' 펼침 상태 — 입력 뒤 재렌더에도 접히지 않게 메모리에만 둔다
