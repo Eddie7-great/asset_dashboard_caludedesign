@@ -108,6 +108,20 @@ const CB_RISK_MERGE=[
 let _cbRiskOkOpen=false;   // '양호' 묶음 펼침 — 화면을 옮기면 접힌다(cbResetViewState)
 function cbRiskEntryKey(entry){ return entry.kind==='primary'?entry.card.title:entry.card.id; }
 // 합친 카드의 판정: 경고·주의가 하나라도 있으면 그중 나쁜 것, 아니면 보류가 있으면 보류(양호로 덮지 않는다), 둘 다 양호면 양호.
+// 리스크 카드 격자에 빈 칸을 남기지 않는다(사용자 결정 2026-11-23). 넓은 화면은 12칸 격자에서
+// 한 줄 칸 수를 고른다 — 4·3 으로 나눠떨어지면 그 수, 아니면 4 이고 마지막 줄 카드가 남는 폭을 나눠 갖는다.
+// 돌려주는 값은 카드마다 12칸 중 차지하는 폭(3·4·6·12).
+function cbRiskFillSpans(n){
+  if(!(n>0)) return [];
+  const cols=n<=4?n:(n%4===0?4:(n%3===0?3:4));
+  const last=n%cols||cols;
+  return Array.from({length:n},(_,i)=>12/(i>=n-last?last:cols));
+}
+// 2칸 화면(1200px 이하)에서는 홀수 개일 때 마지막 카드가 한 줄을 다 쓴다.
+function cbRiskFillGrid(entries,cardHtml){
+  const spans=cbRiskFillSpans(entries.length), odd=entries.length%2===1;
+  return entries.map((e,i)=>cardHtml(e,` cb-risk-span-${spans[i]}${odd&&i===entries.length-1?' is-odd-last':''}`)).join('');
+}
 function cbRiskMergeVerdict(list){
   const real=list.filter(v=>v&&(v.key==='bad'||v.key==='warn')).sort((a,b)=>a.rank-b.rank);
   if(real.length) return real[0];
@@ -157,10 +171,10 @@ function cbRenderRisk(){
     .sort((a,b)=>a.verdict.rank-b.verdict.rank||a.idx-b.idx);
   const okCards=mergedCards.filter(e=>e.verdict.key==='ok'), mainCards=mergedCards.filter(e=>e.verdict.key!=='ok');
   cbSetHead('규칙 기반 자동 점검', cbOwnerBtns(_cbRiskOwner,'cbRiskOwner'));
-  const cardHtml=entry=>{
+  const cardHtml=(entry,fill='')=>{
           const card=entry.card, subs=(entry.subs||[]).map(cbRiskSubHtml).join('');
           if(entry.kind==='insight') return `
-            <div class="cb-panel cb-risk-insight-card${subs?' has-sub':''}" style="--risk-tone:${card.tone}">
+            <div class="cb-panel cb-risk-insight-card${subs?' has-sub':''}${fill}" style="--risk-tone:${card.tone}">
               <div class="cb-risk-insight-head"><div class="cb-risk-insight-title"${card.tip?` data-tip="${cbEsc(card.tip)}"`:''}>${cbEsc(entry.title||card.title)}</div><span class="cb-risk-verdict is-${entry.verdict.key}">${entry.verdict.label}</span></div>
               ${entry.hostLabel?`<div class="cb-risk-host-label">${cbEsc(entry.hostLabel)}</div>`:''}
               <div class="cb-risk-insight-value">${cbEsc(card.value)}</div>
@@ -171,7 +185,7 @@ function cbRenderRisk(){
             </div>`;
           const c=card;
           return `
-            <div class="cb-panel cb-risk-primary-card${subs?' has-sub':''}">
+            <div class="cb-panel cb-risk-primary-card${subs?' has-sub':''}${fill}">
               <div class="cb-risk-primary-head">
                 <div class="cb-risk-primary-title"><span${c.tip?` data-tip="${cbEsc(c.tip)}"`:''}>${c.title}</span><span style="background:${c.lvl===0?'var(--upSoft)':c.color+'26'};color:${c.color}">${c.status}</span></div>
                 <div class="cb-risk-primary-value" style="color:${c.color}">${c.valFmt}</div>
@@ -183,7 +197,7 @@ function cbRenderRisk(){
   const okNames=okCards.map(e=>cbEsc(e.title||e.card.title)).join(' · ');
   const okFold=okCards.length?`<details class="cb-risk-ok-fold"${_cbRiskOkOpen||!mainCards.length?' open':''} ontoggle="cbRiskOkToggle(this.open)">
         <summary><b>양호 ${okCards.length}개</b><span>${okNames}</span><em aria-hidden="true"><i class="is-closed">펼치기 ▾</i><i class="is-open">접기 ▴</i></em></summary>
-        <div class="cb-risk-card-grid">${okCards.map(cardHtml).join('')}</div>
+        <div class="cb-risk-card-grid">${cbRiskFillGrid(okCards,cardHtml)}</div>
       </details>`:'';
   el.innerHTML = `
     <div class="cb-risk-overview">
@@ -205,7 +219,7 @@ function cbRenderRisk(){
         </div>
       </div>
       <div class="cb-risk-cards-col">
-        ${mainCards.length?`<div class="cb-risk-card-grid">${mainCards.map(cardHtml).join('')}</div>`:''}
+        ${mainCards.length?`<div class="cb-risk-card-grid">${cbRiskFillGrid(mainCards,cardHtml)}</div>`:''}
         ${okFold}
       </div>
     </div>

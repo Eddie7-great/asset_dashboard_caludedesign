@@ -1128,6 +1128,12 @@
     /* 리스크 카드 합치기·양호 접기(2026-11-23) — 합친 카드의 둘째 줄과 '양호 N개' 묶음 */
     .cb-risk-cards-col{min-width:0;display:flex;flex-direction:column;gap:8px}
     .cb-risk-cards-col>.cb-risk-card-grid{grid-auto-rows:auto}
+    /* 빈 칸 없는 리스크 격자 — cbRiskFillSpans 가 카드마다 12칸 중 폭을 준다(2026-11-23) */
+    @media (min-width:1201px){
+      .cb-risk-card-grid{grid-template-columns:repeat(12,minmax(0,1fr))}
+      .cb-risk-span-3{grid-column:span 3}.cb-risk-span-4{grid-column:span 4}.cb-risk-span-6{grid-column:span 6}.cb-risk-span-12{grid-column:span 12}
+    }
+    @media (min-width:721px) and (max-width:1200px){.cb-risk-card-grid>.is-odd-last{grid-column:1/-1}}
     .cb-risk-host-label{margin-top:4px;font-size:var(--fs-cap);color:var(--mut)}
     .cb-risk-sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
     .cb-risk-sub-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);color:var(--mut)}

@@ -79,6 +79,19 @@ vm.runInContext(extractFunction(riskSource, 'cbRiskMergeVerdict'), context)
   assert.equal(V([mk('ok'), mk('hold')]), 'hold', '양호+보류면 보류(확정 아님)')
 }
 
+// 빈 칸 없는 리스크 격자(12칸 중 폭) — 줄마다 합이 12
+vm.runInContext(extractFunction(riskSource, 'cbRiskFillSpans'), context)
+{
+  const F = n => [...context.cbRiskFillSpans(n)]
+  assert.deepEqual(F(6), [4, 4, 4, 4, 4, 4], '6개는 3×2')
+  assert.deepEqual(F(8), [3, 3, 3, 3, 3, 3, 3, 3], '8개는 4×2')
+  assert.deepEqual(F(5), [3, 3, 3, 3, 12], '5개는 4 + 마지막 1개가 한 줄')
+  assert.deepEqual(F(7), [3, 3, 3, 3, 4, 4, 4], '7개는 4 + 3')
+  assert.deepEqual(F(2), [6, 6])
+  assert.deepEqual(F(0), [])
+  for (let n = 1; n <= 16; n++) assert.equal(F(n).reduce((a, b) => a + b, 0) % 12, 0, `${n}개: 빈 칸 없음`)
+}
+
 // ───────── ⑤ 연말 절세(연금계좌 세액공제) ─────────
 vm.runInContext(extractFunction(taxSource, 'cbPensionCreditPlan'), context)
 {
