@@ -4886,11 +4886,13 @@ async function manualRefresh(source='all') {
 }
 
 // 서버(api/price.ts·api/dashboard.py)는 요청당 티커 개수를 제한한다(MAX_TICKERS=25,
-// 벤치마크 포트폴리오는 20). 보유 종목이 상한을 넘으면 서버가 요청 '전체'를
+// 벤치마크 포트폴리오는 20, dashboard.py 배당(type=dividend)은 MAX_DIVIDEND_TICKERS=20).
+// 보유 종목이 상한을 넘으면 서버가 요청 '전체'를
 // too_many_tickers 로 거부해 시세·배당이 통째로 비고, 데이터 상태가 영구히 '확인 필요'가 된다.
 // 상한은 입력 검증(보안 통제)이라 올리지 않고, 클라이언트가 상한에 맞춰 나눠 보낸다.
 const API_TICKER_CHUNK = 25;
 const BENCH_TICKER_LIMIT = 20;
+const PY_DIVIDEND_TICKER_LIMIT = 20;
 function _chunkTickers(list, size = API_TICKER_CHUNK) {
   const out = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
@@ -7325,7 +7327,7 @@ async function fetchPyDividends() {
   // 국내 종목 배당 (pykrx 기반)
   if (krTickers.length) {
     try {
-      for (const chunk of _chunkTickers(krTickers)) {
+      for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
         const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
         if (d && d.success && d.result) {
           Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
@@ -7337,7 +7339,7 @@ async function fetchPyDividends() {
   // 해외 종목 배당 (yfinance 기반)
   if (foreignTickers.length) {
     try {
-      for (const chunk of _chunkTickers(foreignTickers)) {
+      for (const chunk of _chunkTickers(foreignTickers, PY_DIVIDEND_TICKER_LIMIT)) {
         const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
         if (d && d.success && d.result) {
           Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));

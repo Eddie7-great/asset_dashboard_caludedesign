@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 서버는 요청당 티커 수를 제한한다 (api/price.ts MAX_TICKERS=25, api/dashboard.py 벤치마크 p_tkrs=20).
+// 서버는 요청당 티커 수를 제한한다 (api/price.ts MAX_TICKERS=25, api/dashboard.py 벤치마크 p_tkrs=20·배당 20).
 // 클라이언트가 보유 종목 전량을 한 번에 보내면 요청이 통째로 거부돼 시세·배당·벤치마크가
 // 영구히 '확인 필요'로 남고 보유 종목이 가장 많은 소유주의 성과 라인이 사라진다.
 // 이 파일은 청크 분할·상위 N 절단·부분 실패 처리 계약을 고정한다.
@@ -55,6 +55,17 @@ function baseContext(extra = {}) {
 const CHUNK_DECL = source.slice(source.indexOf('const API_TICKER_CHUNK'), source.indexOf('async function liveRefresh('))
 assert.match(CHUNK_DECL, /const API_TICKER_CHUNK = 25/, '가격·배당 청크 크기는 서버 MAX_TICKERS(25)와 같아야 함')
 assert.match(CHUNK_DECL, /const BENCH_TICKER_LIMIT = 20/, '벤치마크 상한은 서버 p_tkrs 한도(20)와 같아야 함')
+// dashboard.py 배당(type=dividend) 상한은 MAX_DIVIDEND_TICKERS(20) — 25개씩 보내면 21~25개 묶음이
+// 통째로 400 이 돼 Python 배당 보완이 조용히 빈다. 두 파일의 값을 직접 대조한다.
+{
+  const pySource = fs.readFileSync(new URL('../../api/dashboard.py', import.meta.url), 'utf8')
+  const serverCap = Number((pySource.match(/^MAX_DIVIDEND_TICKERS = (\d+)$/m) || [])[1])
+  const clientCap = Number((CHUNK_DECL.match(/const PY_DIVIDEND_TICKER_LIMIT = (\d+);/) || [])[1])
+  assert.ok(serverCap > 0, 'dashboard.py 에 MAX_DIVIDEND_TICKERS 상수가 있어야 함')
+  assert.equal(clientCap, serverCap, 'PY_DIVIDEND_TICKER_LIMIT 은 dashboard.py MAX_DIVIDEND_TICKERS 와 같아야 함')
+  assert.match(pySource, /qtype == 'dividend':\n\s+data = get_dividends\(_parse_tickers\([^\n]*MAX_DIVIDEND_TICKERS\)\)/,
+    'type=dividend 는 MAX_DIVIDEND_TICKERS 로 검증해야 함')
+}
 
 // ─────────────────────────── _chunkTickers ───────────────────────────
 {
@@ -66,6 +77,27 @@ assert.match(CHUNK_DECL, /const BENCH_TICKER_LIMIT = 20/, '벤치마크 상한�
   assert.equal(chunks[1].length, 5, '나머지는 두 번째 청크')
   assert.ok(chunks.every(c => c.length <= 25), '어떤 청크도 서버 상한을 넘지 않는다')
   assert.equal(vm.runInContext('_chunkTickers([]).length', ctx), 0, '빈 목록은 빈 청크 배열')
+}
+
+// ─────────────── fetchPyDividends: dashboard.py 배당 상한(20)에 맞춰 나눈다 ───────────────
+{
+  const sent = []
+  const kr = Array.from({length:23}, (_, i) => String(100000 + i))   // 국내 23종목
+  const us = Array.from({length:22}, (_, i) => 'US' + i)              // 해외 22종목
+  const ctx = baseContext({
+    pfolioData: [...kr, ...us].map(tkr => ({ grp:'주식', qty:1, tkr })),
+    _pyFetch: async (params) => { sent.push(params.tickers.split(',')); return { success:true, result:{} } },
+    normDivTkr: t => t, DIV_INFO_DB: {}, _normalizePyDividendInfo: () => null,
+    syncDivHistory: noop, autoAddDividendCashFlow: async () => {}, changeOwner: noop, renderCashFlow: noop,
+    currentOwner: '전체',
+  })
+  ctx.window._divDataCache = {}
+  vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext(extractFunction('fetchPyDividends'), ctx)
+  await vm.runInContext('fetchPyDividends()', ctx)
+  assert.deepEqual(sent.map(c => c.length), [20, 3, 20, 2], '국내·해외 모두 20개씩 나눠 보낸다')
+  assert.ok(sent.every(c => c.length <= 20), '어떤 배당 묶음도 dashboard.py 상한(20)을 넘지 않는다')
+  assert.deepEqual(sent.flat().sort(), [...kr, ...us].sort(), '빠지거나 겹치는 종목이 없다')
 }
 
 // ─────────────────────────── liveRefresh ───────────────────────────
