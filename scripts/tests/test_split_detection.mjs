@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import { readSource } from './_source.mjs'
 
-const source = fs.readFileSync('script.js', 'utf8');
+const source = readSource('script.js');
 // _chunkTickers/API_TICKER_CHUNK는 분할 조회 청크에 필요한 의존 함수라 같이 뽑는다.
 const start = source.indexOf('const API_TICKER_CHUNK = 25;');
 const end = source.indexOf('// DCA는 증권사 외부 서비스이므로 이 앱에서 체결을 생성하지 않는다.');

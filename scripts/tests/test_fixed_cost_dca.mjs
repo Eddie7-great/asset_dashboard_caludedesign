@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
+const read = (f) => readSource(f);
 const script = read('script.js'), cobalt = read('cobalt.js'), finance = read('finance.js'), html = read('index.html'), css = read('workspace-ui.css');
 function grab(src, name) {
   const at = src.indexOf(`function ${name}(`);

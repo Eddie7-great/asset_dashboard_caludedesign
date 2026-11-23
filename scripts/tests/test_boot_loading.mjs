@@ -4,9 +4,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const html = read('index.html'), script = read('script.js'), cobalt = read('cobalt.js'), ws = read('workspace-ui.css'), style = read('style.css');
 
 // ── 마크업: 본문(.layout) 밖, 로그인 화면 뒤 ──

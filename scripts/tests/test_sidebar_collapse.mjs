@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
+const read = (f) => readSource(f);
 const html = read('index.html'), script = read('script.js'), ws = read('workspace-ui.css');
 
 assert.match(html, /<aside class="glass-panel menu-col" id="app-sidebar"/);

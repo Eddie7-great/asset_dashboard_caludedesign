@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
+const read = (f) => readSource(f);
 const pages = read('workspace-pages.js'), nav = read('navigation.js'), cobalt = read('cobalt.js');
 const html = read('index.html'), ws = read('workspace-ui.css'), script = read('script.js');
 

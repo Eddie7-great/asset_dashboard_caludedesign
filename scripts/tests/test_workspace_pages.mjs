@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const src = read('workspace-pages.js'), nav = read('navigation.js'), html = read('index.html'), cobalt = read('cobalt.js'), ws = read('workspace-ui.css');
 
 // 연결: 상위 메뉴는 8개(2026-11-11 결산 리포트 추가). 이 파일은 cobalt.js 보다 먼저 로드된다.

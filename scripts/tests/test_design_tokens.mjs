@@ -1,9 +1,10 @@
 // 규격 토큰(2026-11-11): 글자·굵기·글꼴·모서리·막대·버튼 값은 style.css :root 한 곳에서만 온다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = (f) => fs.readFileSync(new URL(f, root), 'utf8');
+const read = (f) => readSource(f);
 const style = read('style.css'), ws = read('workspace-ui.css'), etf = read('etf-explorer.css');
 const html = read('index.html'), finance = read('finance.js'), script = read('script.js');
 const allCss = style + ws + etf;

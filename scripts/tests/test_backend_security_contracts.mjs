@@ -6,6 +6,7 @@ import vm from 'node:vm'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { readSource } from './_source.mjs'
 
 const require = createRequire(import.meta.url)
 const rootUrl = new URL('../../', import.meta.url)
@@ -266,7 +267,7 @@ try {
     "git diff --quiet HEAD^ HEAD -- . ':(exclude)data/etf_holdings.json'",
     'ETF snapshot-only commits must not create another serverless deployment',
   )
-  const cobaltSource = fs.readFileSync(new URL('../../cobalt.js', import.meta.url), 'utf8')
+  const cobaltSource = readSource('cobalt.js')
   assert.match(cobaltSource, /raw\.githubusercontent\.com\/Eddie7-great\/asset_dashboard_caludedesign\/main\/data\/etf_holdings\.json/)
   assert.match(cobaltSource, /CB_ETF_SNAPSHOT_URLS[\s\S]*data\/etf_holdings\.json/,
     'The deployed snapshot remains the offline fallback when GitHub is unavailable')

@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { readSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
-const read = f => fs.readFileSync(new URL(f, root), 'utf8');
+const read = f => readSource(f);
 const nav = read('navigation.js'), html = read('index.html'), script = read('script.js'), ws = read('workspace-ui.css');
 
 // ── 표: 메뉴 8개 그대로, 세부 메뉴는 줄고 나머지 화면은 NAV_HOST 로 속한다 ──

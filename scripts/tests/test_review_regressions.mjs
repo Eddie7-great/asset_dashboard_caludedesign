@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import {load} from 'cheerio'
+import { readSource } from './_source.mjs'
 
-const script=fs.readFileSync(new URL('../../script.js',import.meta.url),'utf8')
-const cobalt=fs.readFileSync(new URL('../../cobalt.js',import.meta.url),'utf8')
+const script=readSource('script.js')
+const cobalt=readSource('cobalt.js')
 function fn(source,name) {
   const asyncStart=source.indexOf(`async function ${name}(`)
   const start=asyncStart<0?source.indexOf(`function ${name}(`):asyncStart
@@ -92,7 +93,7 @@ for(const scenario of ['top','unrelated-frame','cross-origin','valid','expired',
 {
   const CUR={KRW:{symbol:'₩',cashDecimals:0},USD:{symbol:'$',cashDecimals:2},JPY:{symbol:'¥',cashDecimals:0},AUD:{symbol:'A$',cashDecimals:2}}
   const ctx=vm.createContext({_cdashQ:'',_dispCur:'KRW',cbRate:()=>1,curMeta:c=>CUR[c]||CUR.KRW,curSymbol:c=>(CUR[c]||CUR.KRW).symbol})
-  vm.runInContext(fn(fs.readFileSync(new URL('../../script.js',import.meta.url),'utf8'),'escHtml'),ctx)
+  vm.runInContext(fn(readSource('script.js'),'escHtml'),ctx)
   for(const name of ['cbEsc','cbDisp','cbSignDisp','cbFmtNative','cbPct','cbUpDn','cbGainStyle','cbMobileHoldings'])vm.runInContext(fn(cobalt,name),ctx)
   const html=ctx.cbMobileHoldings([{title:'Long <ETF> & name',subTitle:'VOO',val:1000000,gainPct:null,gain:0,qty:4,avgNative:0,cl:{label:'미국 주식'},i:{owner:'본인',grp:'주식',cur:'USD',curP:250,costUnknown:true}}])
   const $=load(html)
