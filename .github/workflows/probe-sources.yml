@@ -12,22 +12,20 @@ jobs:
       - name: probe
         run: |
           UA="Mozilla/5.0"
+          getent hosts api.upbit.com || echo "no dns upbit"; getent hosts api.bithumb.com || echo "no dns bithumb"
           for u in \
-            "https://m.stock.naver.com/api/stock/005930/price?pageSize=3&page=1" \
-            "https://m.stock.naver.com/api/stock/360750/price?pageSize=3&page=1" \
-            "https://m.stock.naver.com/api/stock/0117V0/price?pageSize=3&page=1" \
-            "https://m.stock.naver.com/api/stock/005930/basic" \
-            "https://polling.finance.naver.com/api/realtime/domestic/stock/005930" \
-            "https://m.stock.naver.com/front-api/marketIndex/productDetail?category=exchange&reutersCode=FX_USDKRW" \
-            "https://m.stock.naver.com/front-api/marketIndex/prices?category=exchange&reutersCode=FX_USDKRW&page=1&pageSize=3" \
-            "https://m.stock.naver.com/front-api/marketIndex/prices?category=exchange&reutersCode=FX_JPYKRW&page=1&pageSize=2" \
-            "https://m.stock.naver.com/front-api/marketIndex/prices?category=exchange&reutersCode=FX_AUDKRW&page=1&pageSize=2" \
-            "https://m.stock.naver.com/front-api/marketIndex/productDetail?category=metals&reutersCode=M04020000" \
-            "https://m.stock.naver.com/front-api/marketIndex/prices?category=metals&reutersCode=M04020000&page=1&pageSize=3" \
-            "https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH" \
-            "https://api.upbit.com/v1/candles/days?market=KRW-BTC&count=2" ; do
+            "https://api.upbit.com/v1/ticker?markets=KRW-BTC" \
+            "https://api.bithumb.com/public/ticker/BTC_KRW" \
+            "https://m.stock.naver.com/front-api/crypto/otherExchange?nfTicker=BTC&excludeExchange=UPBIT" \
+            "https://m.stock.naver.com/front-api/crypto/top?exchangeType=UPBIT&sortType=top&pageSize=3" \
+            "https://m.stock.naver.com/front-api/marketIndex/productDetail?category=exchange&reutersCode=FX_JPYKRW" \
+            "https://m.stock.naver.com/front-api/marketIndex/productDetail?category=exchange&reutersCode=FX_AUDKRW" ; do
             echo "=================== $u"
-            curl -sS -m 20 -A "$UA" -H "Referer: https://m.stock.naver.com/" -w "\nHTTP %{http_code}\n" "$u" | head -c 2500
+            curl -sS -m 20 -A "$UA" -H "Referer: https://m.stock.naver.com/" -w "\nHTTP %{http_code}\n" "$u" | head -c 1500
             echo
           done
+          echo "=================== gold totalInfos"
+          curl -sS -m 20 -A "$UA" "https://m.stock.naver.com/front-api/marketIndex/productDetail?category=metals&reutersCode=M04020000" | python3 -c "import sys,json; d=json.load(sys.stdin)['result']; print(json.dumps({k:d.get(k) for k in ['closePrice','fluctuations','marketStatus','localTradedAt','marketIndexTotalInfos']},ensure_ascii=False))"
+          echo "=================== naver price list for after-close semantic (yesterday KOSDAQ etc)"
+          curl -sS -m 20 -A "$UA" "https://m.stock.naver.com/api/stock/035420/price?pageSize=10&page=1" | head -c 400; echo
           date -u
