@@ -71,7 +71,27 @@ assert.match(add, /isMobileLayout\(\)\) return;/, '모바일은 조회 전용');
 assert.match(add, /date>finLocalDateKey\(new Date\(\)\)/, '미래 날짜는 기록이 아니다');
 assert.match(del, /findIndex\(r=>r&&String\(r\.id\)===String\(id\)\)/, '삭제는 배열 순번이 아니라 id 로');
 assert.match(html, /finMobileNote\('증여 기록'\)/);
-assert.match(html, /cbEsc\(r\.memo\|\|'—'\)/, '메모는 이스케이프');
+const yearsSrc = pick(cobalt, 'cbGiftLedgerYearsHtml');
+assert.match(html, /cbGiftLedgerYearsHtml\(rows,LABEL,inWindow,today\)/, '기록장 표는 연도 묶음으로');
+assert.match(yearsSrc, /cbEsc\(r\.memo\|\|'—'\)/, '메모는 이스케이프');
+// 연도 묶음: 올해만 펼치고, 같은 자동이체가 한 해에 만든 줄은 한 줄(합계·횟수)로 접는다.
+{
+  const yctx = vm.createContext({ _cbGiftYearOpen: {}, cbEsc: s => String(s).replace(/</g, '&lt;'), cbKrw: n => '₩' + Number(n).toLocaleString('en-US') });
+  vm.runInContext(yearsSrc, yctx);
+  const rows = [
+    { id: 'at-1-2026-03-25', kind: 'child', date: '2026-03-25', amt: 100000, memo: '[자동이체] 적금', auto: true, atId: 1 },
+    { id: 'm1', kind: 'child', date: '2026-02-01', amt: 500000, memo: '<b>' },
+    { id: 'at-1-2026-02-25', kind: 'child', date: '2026-02-25', amt: 100000, memo: '[자동이체] 적금', auto: true, atId: 1 },
+    { id: 'at-1-2026-01-25', kind: 'child', date: '2026-01-25', amt: 100000, memo: '[자동이체] 적금', auto: true, atId: 1 },
+    { id: 'm0', kind: 'child', date: '2025-05-01', amt: 300000, memo: '' },
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  const out = yctx.cbGiftLedgerYearsHtml(rows, { child: '자녀 증여' }, () => true, '2026-11-23');
+  assert.match(out, /<details class="cb-gift-year" open[^>]*><summary><span>2026년<\/span><b class="cb-num">₩800,000<\/b><small>4건<\/small>/, '올해는 펼치고 합계·건수를 먼저');
+  assert.match(out, /<details class="cb-gift-year" ontoggle[^>]*><summary><span>2025년/, '지난 해는 접는다');
+  assert.equal((out.match(/is-auto/g) || []).length, 1, '같은 자동이체 3건은 한 줄');
+  assert.match(out, /01-25 ~ 03-25<\/span><span>자녀 증여<\/span><b class="cb-num">₩300,000<\/b>[\s\S]*?· 3회/, '묶은 줄은 기간·합계·횟수');
+  assert.match(out, /&lt;b>/, '손으로 적은 메모 이스케이프');
+}
 assert.match(html, /증여일마다의 10년 기간을 각각 판정하지 않으며/);
 assert.match(ws, /@media\(max-width:768px\)\{\.cb-gift-ledger-form,\.cb-gift-ledger-row>:last-child\{display:none\}/);
 assert.match(script, /targetAlloc:window\._targetAlloc\|\|null,balanceSheet:window\._balanceSheet\|\|null,giftActual:window\._giftActual\|\|null/, '저장 실패 되돌리기가 기록장을 포함');
@@ -99,7 +119,7 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.match(cobalt, /aria-label="증여 시작 연도"[\s\S]*aria-label="증여 시작 월"/, '시작 월은 연도·월 선택 목록(월 달력 입력은 직접 입력·과거 이동이 어렵다)')
   assert.doesNotMatch(cobalt, /cb-gift-link-from">부터<input type="month"/)
   assert.match(script, /giftKind:item\.giftKind==='child'\|\|item\.giftKind==='spouse'\?item\.giftKind:''/, '자동이체 저장값이 증여 연결을 지킨다');
-  assert.match(cobalt, /r\.auto\?'<em class="cb-gift-auto-tag"/, '자동 기록은 삭제 버튼 대신 자동 표시');
+  assert.match(cobalt, /if\(!r\.auto\)\{ lines\.push\(\{date:r\.date,html:manualRow\(r\)\}\)[\s\S]*?const autoRow=[\s\S]*?<em class="cb-gift-auto-tag"|const autoRow=[\s\S]*?<em class="cb-gift-auto-tag"[\s\S]*?if\(!r\.auto\)\{ lines\.push\(\{date:r\.date,html:manualRow\(r\)\}\)/, '자동 기록은 삭제 버튼 대신 자동 표시(손으로 적은 기록만 삭제 버튼)');
 }
 // 2026-11-18 4차: 증여 기록 → 현금 흐름 연동
 {

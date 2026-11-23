@@ -197,8 +197,6 @@ function _updateAmountPrivacyButton(){
     btn.classList.toggle('active', _amountPrivacyEnabled);
     btn.setAttribute('aria-pressed', String(_amountPrivacyEnabled));
     btn.title = _amountPrivacyEnabled ? '가려진 금액 다시 표시' : '공유할 때 화면의 금액 숨기기';
-    const icon = btn.querySelector('span[aria-hidden="true"]');
-    if (icon) icon.textContent = _amountPrivacyEnabled ? '◎' : '◉';
   }
   if (label) label.textContent = _amountPrivacyEnabled ? '금액 보이기' : '금액 가리기';
 }
@@ -2060,7 +2058,7 @@ function _layoutPreviewMode() {
 function _updateLayoutPreviewLabel() {
   const mode=_layoutPreviewMode();
   const label=document.getElementById('sidebar-layout-label');
-  if(label) label.textContent=(mode==='mobile'||(!mode&&isMobileLayout()))?'PC버전':'모바일버전';
+  if(label) label.textContent=(mode==='mobile'||(!mode&&isMobileLayout()))?'PC':'모바일';
 }
 function _layoutPreviewUrl(mode) {
   const url=new URL(location.href);
@@ -3467,7 +3465,7 @@ function renderPortfolio(owner, opts) {
         const pIdx=pfolioData.indexOf(i); // 중복 티커 대비 인덱스 기반
         let ownerTag=showOwner?`<td class="text-left holdings-owner-cell"><span class="holdings-owner"><span class="holdings-owner-dot" style="background:${ownerColors[i.owner]||'#8a97b0'}"></span>${holdingsEsc(i.owner||'미지정')}</span></td>`:'';
         const brokerCell=getHoldingsBrokerCellHtml(i);
-        let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 수정" onclick="event.stopPropagation();editItem('','',${pIdx})">✎</button><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 삭제" style="color:var(--dn)" onclick="event.stopPropagation();deleteItem('','',${pIdx})">✕</button></span>`;
+        let mgmtBtns=`<span class="holdings-actions"><button class="btn-action" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 수정" onclick="event.stopPropagation();editItem('','',${pIdx})">✎</button><button class="btn-action holdings-del" type="button" aria-label="${holdingsEsc(i.name||i.tkr||'자산')} 삭제" onclick="event.stopPropagation();deleteItem('','',${pIdx})">✕</button></span>`;
 
         if(grpName==='현금'){
           // [8] 현금: 정렬, 검정폰트, 클릭편집
@@ -5047,11 +5045,11 @@ async function manualRefresh(source='all') {
         // 새로고침과는 별개 작업이라 성공 판정(results)에는 넣지 않는다.
         checkSplitAdjustments(true);
       }
-      else markAssetBlocked('prices','시장 시세','시장별 시세 API');
+      else markAssetBlocked('prices','시장 시세','국내 네이버 직전 종가 · 해외 Yahoo · 코인 업비트');
     }
     if(wants('dividends')){
       if(assetsReady) results.dividends=await fetchDivData(true);
-      else markAssetBlocked('dividends','배당 데이터','배당 데이터 API');
+      else markAssetBlocked('dividends','배당 데이터','KRX · Yahoo · 네이버 증권');
     }
     if(wants('rates')) results.rates=await refreshPyData({includeDividends:source==='all'&&assetsResult?.ok&&extResult?.ok});
     if(wants('benchmark')){
@@ -7329,7 +7327,7 @@ async function refreshMarketPrices(){
   const domesticCoversAll=marketItems.length>0&&!hasForeign&&marketItems.every(i=>KR_CODE_RE.test(String(i.tkr||'').replace(/\.(KS|KQ)$/i,'').toUpperCase()));
   const ok=stale===0&&(primaryResponded||(domesticCoversAll&&domestic?.ok===true));
   const result={ok,stale,primary,domestic,detail:ok?'등록 자산 최신 상태':(stale?`${stale}개 최신 확인 필요`:(primary?.error||'시세 조회 실패'))};
-  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','시장별 시세 API',ok,result.detail);
+  if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','국내 네이버 직전 종가 · 해외 Yahoo · 코인 업비트',ok,result.detail);
   return result;
 }
 

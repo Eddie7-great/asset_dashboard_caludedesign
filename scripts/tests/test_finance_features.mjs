@@ -152,7 +152,7 @@ Object.assign(context, {
 })
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
-for (const name of ['cbAmtGridSvg', 'cbAxisTicks']) vm.runInContext(extractFunction(cobaltSource, name), context)
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbAmtAxisPad']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
 for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalAllocate', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
@@ -206,6 +206,15 @@ assert.equal(context.finGoalStatus(context.goalData[3], 1_000_000_000, goalNow).
 assert.equal(context.finGoalStatus(context.goalData[4], 1_000_000_000, goalNow).label, '기한 미정', '목표일이 없으면 판정하지 않는다')
 context.cbRenderPlan()
 const planHtml = elements['cb-plan2'].innerHTML
+{
+  const now = new context.Date(2026, 10, 23)
+  const mk = (y, m, d) => { const due = new context.Date(y, m - 1, d); return { due, days: Math.ceil((due - now) / 86400000) } }
+  assert.equal(context.finGoalDday(mk(2027, 3, 1), now), 'D-98', '1년 안쪽은 D-day')
+  assert.equal(context.finGoalDday(mk(2034, 2, 28), now), '7년 3개월 남음', '1년 넘으면 N년 M개월')
+  assert.equal(context.finGoalDday(mk(2028, 11, 23), now), '2년 남음', '개월이 0이면 년만')
+  assert.equal(context.finGoalDday({ days: null }, now), '기한 미정')
+  assert.equal(context.finGoalDday({ days: -3, due: now }, now), '기한 경과')
+}
 assert.match(planHtml, /목표별 진행 비교[\s\S]*fin-goal-compare-track[\s\S]*목표 일정[\s\S]*fin-goal-tl-list[\s\S]*fin-goal-card/, '진행 비교 → 일정 → 목표 카드 순서')
 assert.match(planHtml, /fin-goal-chip is-(ok|short|done|over|hold)/, '목표 카드에 속도 판정 배지')
 assert.match(planHtml, /수익률 0% 가정/, '속도 판정이 참고값이라는 문구 유지')

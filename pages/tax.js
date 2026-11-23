@@ -97,19 +97,35 @@ function cbTaxAxisLab(v){
 }
 // 금액(손익이 아닌 절대 금액) 눈금 — 양수에 + 를 붙이지 않는다. 손익 축(세금 그래프)만 cbTaxAxisLab 을 쓴다.
 // 예전에는 투자자산 추이·배당·증여 그래프가 cbTaxAxisLab 을 빌려 써서 '+3.6억'처럼 손익으로 읽혔다.
-function cbAmtAxisLab(v){
+// step(눈금 간격)이 0.1억(1,000만)으로 나눠떨어지지 않으면 '1억 500만'처럼 만 원까지 적는다 — 소수 한 자리 억으로만 적으면
+// 500만 간격 눈금이 1.05억·1.1억·1.15억 → '1.1억' 세 번으로 겹쳐 보였다(2026-11-23). step 을 모르면 값 자체로 판단한다.
+function cbAmtAxisLab(v, step){
   if (v===0) return '0';
   const a = Math.abs(v), sign = v<0 ? '−' : '';
-  if (a>=100000000) return sign+(a/100000000).toFixed(a%100000000?1:0)+'억';
+  if (a>=100000000) {
+    const eok = Math.floor(a/100000000), man = Math.round((a-eok*100000000)/10000);
+    if (man===0) return sign+eok+'억';
+    if (man===10000) return sign+(eok+1)+'억';
+    const fine = Number.isFinite(step)&&step>0 ? Math.round(step/10000)%1000!==0 : man%1000!==0;
+    return fine ? sign+eok+'억 '+man.toLocaleString('ko-KR')+'만' : sign+(a/100000000).toFixed(1)+'억';
+  }
   return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만';
 }
 // 금액 그래프 공통 뼈대: 가로 눈금선 + 왼쪽 금액 라벨. values = 눈금 값 배열, Y = 값→y 좌표, x1~x2 = 그림 영역 좌우.
+// 눈금 라벨이 들어갈 왼쪽 여백(px) — '1억 2,500만'처럼 긴 라벨이 잘리지 않게 글자 폭을 어림해 넓힌다(12px 글자: 한글 12 · 그 밖 7.5).
+function cbAmtAxisPad(values, min, fmt){
+  const lab = fmt || cbAmtAxisLab;
+  const step = values.length>1 ? Math.abs(values[1]-values[0]) : undefined;
+  const w = Math.max(0, ...values.map(v=>[...String(lab(v, step))].reduce((s,ch)=>s+(/[가-힣]/.test(ch)?12:ch===' '?3.5:7.5),0)));
+  return Math.max(min||0, Math.ceil(w+12));
+}
 function cbAmtGridSvg(values, Y, x1, x2, fmt){
   const lab = fmt || cbAmtAxisLab;
+  const step = values.length>1 ? Math.abs(values[1]-values[0]) : undefined;
   return values.map(v=>{
     const yy = Y(v);
     return `<line x1="${x1}" x2="${x2}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"></line>`
-      + `<text x="${x1-7}" y="${(yy+3.5).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${lab(v)}</text>`;
+      + `<text x="${x1-7}" y="${(yy+3.5).toFixed(1)}" style="fill:var(--lab)" font-size="12" text-anchor="end">${lab(v, step)}</text>`;
   }).join('');
 }
 // lo~hi 를 step 간격으로 나눈 눈금 값 배열(부동소수 오차로 마지막 눈금이 빠지지 않게 여유를 둔다).

@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=65">
-  <link rel="stylesheet" href="workspace-ui.css?v=16">
+  <link rel="stylesheet" href="style.css?v=66">
+  <link rel="stylesheet" href="workspace-ui.css?v=17">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -88,9 +88,12 @@
           <button class="side-seg-btn" id="theme-seg-dark" onclick="setTheme('dark')" aria-pressed="false">다크</button>
         </div>
       </div>
-      <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn">↻ <span style="font-size:var(--fs-cap);font-weight:700">새로고침</span></button>
-      <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span aria-hidden="true">▯</span><span id="sidebar-layout-label" style="font-size:var(--fs-cap);font-weight:700">모바일버전</span></button>
-      <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span aria-hidden="true">◉</span><span id="sidebar-privacy-label" style="font-size:var(--fs-cap);font-weight:700">금액 가리기</span></button>
+      <!-- 자주 쓰지 않는 도구 셋은 한 줄 3칸 — 세로로 쌓으면 노트북 높이에서 메뉴와 겹친다 -->
+      <div class="sidebar-tools" role="group" aria-label="화면 도구">
+        <button onclick="manualRefresh();" title="새로고침" id="sidebar-refresh-btn" class="footer-btn"><span class="footer-btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></span><span class="footer-btn-label">새로고침</span></button>
+        <button onclick="toggleAmountPrivacy();" title="공유할 때 화면의 금액 숨기기" id="sidebar-privacy-btn" class="footer-btn" aria-pressed="false"><span class="footer-btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/><path class="footer-ico-slash" d="M4 4l16 16"/></svg></span><span id="sidebar-privacy-label" class="footer-btn-label">금액 가리기</span></button>
+        <button onclick="toggleLayoutPreview();" title="화면 버전 전환" id="sidebar-layout-btn" class="footer-btn"><span class="footer-btn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></span><span id="sidebar-layout-label" class="footer-btn-label">모바일</span></button>
+      </div>
       <!-- 데이터 상태는 하루에 한 번 볼까 말까 한 화면이라 메뉴 대신 이 상태 줄에서 연다 -->
       <button id="menu-data2" class="footer-status-btn" onclick="switchView('data2',this)" title="데이터 출처·최근 확인 시각 보기">
         <span id="feed-dot" class="footer-status-dot"></span><span id="feed-note">시세 연동 대기</span><span class="footer-status-go">›</span>
@@ -597,20 +600,20 @@
 </div>
 
 <script defer src="tax-rules.js?v=4"></script>
-<script defer src="script.js?v=65"></script>
-<script defer src="finance.js?v=23"></script>
+<script defer src="script.js?v=66"></script>
+<script defer src="finance.js?v=24"></script>
 <script defer src="navigation.js?v=8"></script>
 <script defer src="backtest.js?v=5"></script>
 <script defer src="simulator.js?v=4"></script>
 <script defer src="etf-explorer.js?v=7"></script>
-<script defer src="workspace-pages.js?v=7"></script>
-<script defer src="pages/performance.js?v=1"></script>
+<script defer src="workspace-pages.js?v=8"></script>
+<script defer src="pages/performance.js?v=2"></script>
 <script defer src="pages/family.js?v=1"></script>
-<script defer src="pages/risk.js?v=1"></script>
-<script defer src="pages/dividend.js?v=1"></script>
-<script defer src="pages/gift.js?v=1"></script>
-<script defer src="pages/tax.js?v=1"></script>
+<script defer src="pages/risk.js?v=2"></script>
+<script defer src="pages/dividend.js?v=2"></script>
+<script defer src="pages/gift.js?v=2"></script>
+<script defer src="pages/tax.js?v=2"></script>
 <script defer src="pages/dca.js?v=1"></script>
-<script defer src="cobalt.js?v=47"></script>
+<script defer src="cobalt.js?v=48"></script>
 </body>
 </html>
