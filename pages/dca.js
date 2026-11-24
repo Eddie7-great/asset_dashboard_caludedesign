@@ -173,12 +173,13 @@ function cbRenderDca(){
     const ticker=cbStrip(x.i.tkr);
     const key=(x.i.owner||'—')+'::'+(ticker||x.r.title);
     const prev=dcaAllocMap.get(key)||{
-      owner:x.i.owner||'—',ticker,title:x.r.title||ticker||'—',amount:0
+      owner:x.i.owner||'—',ticker,title:x.r.title||ticker||'—',cls:x.r.cls,amount:0
     };
     prev.amount+=cbDcaPerMonthKRW(x.i);
     dcaAllocMap.set(key,prev);
   });
-  const dcaTopAlloc=Array.from(dcaAllocMap.values()).sort((a,b)=>b.amount-a.amount).slice(0,5);
+  // 월 환산 배분은 켜 둔 규칙 전부를 보인다(2026-11-24 사용자 요청 — 예전 TOP 5 는 나머지를 숨겼다).
+  const dcaAlloc=Array.from(dcaAllocMap.values()).sort((a,b)=>b.amount-a.amount);
   // 계획만 저장하며 실제 주문이나 보유수량은 변경하지 않는다.
   cbSetHead('적립식 매수 일정 · 조회 전용이며 규칙 등록·수정은 보유 목록의 적립식 칸에서 합니다 · 실제 체결은 증권사에서 확인하세요',
     cbOwnerBtns(_cbDcaOwner,'cbDcaOwner'));
@@ -248,12 +249,12 @@ function cbRenderDca(){
         </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">진행 중인 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 등록하거나 다시 켜세요.</div>'}
     </div>
     <div class="cb-panel cb-dca-allocation-card">
-      <div class="cb-insight-title">월 환산 매수 배분 TOP 5</div>
+      <div class="cb-insight-title">월 환산 매수 배분${dcaAlloc.length?` <span class="cb-dca-allocation-count">${dcaAlloc.length}종목</span>`:''}</div>
       <div class="cb-dca-allocation-total"><span>활성 규칙 월 합계</span><b>${cbDisp(monthly)}</b></div>
       <div class="cb-dca-allocation-list">
-        ${dcaTopAlloc.map((x,rank)=>{
+        ${dcaAlloc.map((x,rank)=>{
           const share=monthly>0?x.amount/monthly*100:0;
-          const label=[x.ticker,x.title].filter(Boolean).join(' · ');
+          const label=cbDcaAllocLabel(x);
           return `<div class="cb-dca-allocation-row">
             <div class="cb-dca-allocation-head">
               <span class="cb-dca-allocation-rank">${rank+1}</span>
@@ -267,6 +268,13 @@ function cbRenderDca(){
       </div>
     </div>
     </div>`;
+}
+// 배분 목록의 종목 이름 — 미국은 '티커 · 이름', 한국·일본은 '이름 · 티커'(2026-11-24 사용자 요청).
+// 한국·일본 티커는 숫자 코드라 이름이 먼저여야 읽힌다. 이름과 티커가 같으면 한 번만 쓴다.
+function cbDcaAllocLabel(x){
+  const t=String((x&&x.ticker)||''), n=String((x&&x.title)||'');
+  const parts=(x&&(x.cls==='kr'||x.cls==='jp'))?[n,t]:[t,n];
+  return parts.filter((v,k)=>v&&(k===0||v!==parts[0])).join(' · ')||'—';
 }
 function cbDcaOwner(o){ _cbDcaOwner=o; cbRenderDca(); }
 // 적립식 규칙 저장 가드 — 설정 창(cbDcaEditSave)이 쓴다. (적립식 매수 화면의 켜기/끄기 토글은 2026-11-20 8차에
@@ -390,4 +398,6 @@ async function cbDcaEditSave(){
 // 보유 목록(레거시 화면)은 저장 래퍼의 cbRerender 가 다시 그리지 않으므로 여기서 그린다.
 function cbDcaEditRefresh(){
   if(document.getElementById('view-holdings')?.classList.contains('active')&&typeof renderPortfolio==='function') renderPortfolio(currentOwner);
+  // 고정비 표의 적립식 줄(✎)에서 연 경우 — 고정비 합계를 다시 그린다
+  if(document.getElementById('view-cashflow')?.classList.contains('active')&&typeof renderFixedCostView==='function') renderFixedCostView();
 }
