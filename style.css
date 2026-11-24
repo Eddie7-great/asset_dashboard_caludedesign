@@ -1119,54 +1119,11 @@
     .cb-risk-score-card{width:auto;min-width:0;padding:14px 16px;display:flex;flex-direction:column;align-items:center}
     .cb-risk-priorities{width:100%;box-sizing:border-box}
     .cb-risk-priorities p{min-width:0;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-card-grid{min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-content:start}
-    .cb-risk-primary-card{min-width:0;padding:9px 11px}
-    .cb-risk-primary-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px}
-    .cb-risk-primary-title{min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:var(--fs-body);font-weight:700;line-height:1.35;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-primary-title>span:last-child{flex-shrink:0;padding:1px 8px;border-radius:var(--r-lg);font-size:var(--fs-micro);font-weight:800;white-space:nowrap}
-    .cb-risk-primary-value{font-family:var(--font-num);font-size:var(--fs-card);font-weight:800;line-height:1.25;white-space:nowrap}
-    .cb-risk-primary-message{margin-top:3px;color:var(--mut);font-size:var(--fs-micro);line-height:1.55;word-break:keep-all;overflow-wrap:break-word}
-    .cb-risk-insight-card{min-width:0;min-height:80px;padding:9px 11px;display:flex;flex-direction:column}
-    .cb-risk-insight-head{min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
     .cb-risk-verdict{flex-shrink:0;padding:1px 8px;border-radius:var(--r-lg);font-size:var(--fs-micro);font-weight:800;line-height:1.35;white-space:nowrap}
     .cb-risk-verdict.is-ok{color:var(--up);background:var(--upSoft)}
     .cb-risk-verdict.is-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}
     .cb-risk-verdict.is-bad{color:var(--dn);background:color-mix(in srgb,var(--dn) 15%,transparent)}
     .cb-risk-verdict.is-hold{color:var(--lab);background:var(--inner)}
-    .cb-risk-insight-title{min-width:0;color:var(--lab);font-size:var(--fs-micro);font-weight:800;line-height:1.35;letter-spacing:.035em;word-break:keep-all;overflow-wrap:break-word}
-    /* 리스크 카드 합치기·양호 접기(2026-11-23) — 합친 카드의 둘째 줄과 '양호 N개' 묶음 */
-    .cb-risk-cards-col{min-width:0;display:flex;flex-direction:column;gap:8px}
-    .cb-risk-cards-col>.cb-risk-card-grid{grid-auto-rows:auto}
-    /* 빈 칸 없는 리스크 격자 — cbRiskFillSpans 가 카드마다 12칸 중 폭을 준다(2026-11-23) */
-    @media (min-width:1201px){
-      .cb-risk-card-grid{grid-template-columns:repeat(12,minmax(0,1fr))}
-      .cb-risk-span-3{grid-column:span 3}.cb-risk-span-4{grid-column:span 4}.cb-risk-span-6{grid-column:span 6}.cb-risk-span-12{grid-column:span 12}
-    }
-    @media (min-width:721px) and (max-width:1200px){.cb-risk-card-grid>.is-odd-last{grid-column:1/-1}}
-    .cb-risk-host-label{margin-top:4px;font-size:var(--fs-cap);color:var(--mut)}
-    .cb-risk-sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
-    .cb-risk-sub-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);color:var(--mut)}
-    .cb-risk-sub-head>b{margin-left:auto;color:var(--risk-tone);font-size:var(--fs-body);font-weight:800;white-space:nowrap}
-    .cb-risk-sub>small{display:block;margin-top:2px;font-size:var(--fs-cap);color:var(--lab)}
-    .cb-risk-ok-fold{border:1px dashed var(--bd2);border-radius:var(--r-md)}
-    .cb-risk-ok-fold>summary{display:flex;align-items:baseline;gap:10px;padding:10px 14px;cursor:pointer;list-style:none;font-size:var(--fs-body);color:var(--mut)}
-    .cb-risk-ok-fold>summary::-webkit-details-marker{display:none}
-    .cb-risk-ok-fold>summary>b{color:var(--up);white-space:nowrap}
-    .cb-risk-ok-fold>summary>span{flex:1;min-width:0}
-    .cb-risk-ok-fold>summary>em{font-style:normal;color:var(--acc);white-space:nowrap}
-    .cb-risk-ok-fold>summary>em>i{font-style:normal}
-    .cb-risk-ok-fold:not([open])>summary .is-open,.cb-risk-ok-fold[open]>summary .is-closed{display:none}
-    .cb-risk-ok-fold[open]>summary>span{visibility:hidden;height:0;overflow:hidden}
-    .cb-risk-ok-list{list-style:none;margin:0;padding:0 14px 8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
-    .cb-risk-ok-list>li{display:grid;grid-template-columns:minmax(120px,max-content) 72px minmax(0,1fr);gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--bd);font-size:var(--fs-body)}
-    .cb-risk-ok-name{font-weight:700;color:var(--tx)}
-    .cb-risk-ok-val{color:var(--up);text-align:right;font-weight:700}
-    .cb-risk-ok-msg{color:var(--mut);font-size:var(--fs-cap);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .cb-risk-ok-sub{margin-left:8px;color:var(--lab)}
-    @media (max-width:1200px){.cb-risk-ok-list{grid-template-columns:1fr}}
-    @media (max-width:720px){.cb-risk-ok-list>li{grid-template-columns:1fr auto}.cb-risk-ok-msg{grid-column:1/-1;white-space:normal}}
-    .cb-risk-insight-value{margin-top:5px;color:var(--risk-tone);font-family:var(--font-num);font-size:clamp(15px,1.15vw,18px);font-weight:800;line-height:1.25;white-space:nowrap}
-    .cb-risk-insight-detail{min-width:0;margin-top:auto;padding-top:5px;color:var(--dim);font-size:var(--fs-micro);line-height:1.4}
 /* 리스크 기준 게이지(cbRiskMeterHtml): 옅은 3구간 띠 + 현재 값 막대. 색은 상태 토큰만 쓰고 글자에는 쓰지 않는다. */
 .cb-meter{position:relative;height:var(--bar-h);margin-top:8px;border-radius:var(--r-sm);background:var(--inner);overflow:hidden;flex-shrink:0}
 /* 통화 구성 막대(cbFxMixHtml). 색은 CVD 검증을 통과한 범주 팔레트(라이트·다크 각각 validate_palette 통과). */
@@ -1179,7 +1136,6 @@
 .cb-fx-legend{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:5px;font-size:var(--fs-micro);color:var(--mut);font-variant-numeric:tabular-nums}
 .cb-fx-legend>span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .cb-fx-legend .cb-fx-seg{width:8px;height:8px;border-radius:var(--r-sm)}
-    .cb-risk-insight-detail>span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 현금 안전판 목표 개월수 입력 — 유일한 조작 지점이라 카드 안에 둔다.
        인라인 폭을 주면 미디어쿼리가 덮지 못해 좁은 화면에서 카드를 넘친다. */
     /* 종목 집중도(ETF 룩스루) 행 — 고정 폭 합계가 542px 라 인라인으로 두면 좁은 화면에서
@@ -1246,7 +1202,6 @@
       .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-div-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       .cb-dca-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-      .cb-risk-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
 
     /* 패널 헤더 라벨 — 레거시 뷰(현금 흐름 등)에서도 동일 사용 */
@@ -1268,9 +1223,7 @@
       .cb-lt-name{width:96px}
       .cb-lt-bar{min-width:56px}
       .cb-lt-detail{display:none}
-      .cb-perf-detail-grid,.cb-dash-insight-grid,.cb-risk-card-grid{grid-template-columns:1fr}
-
-      .cb-risk-insight-card{min-height:76px}
+      .cb-perf-detail-grid,.cb-dash-insight-grid{grid-template-columns:1fr}
       /* 한눈에 보기: 히어로 지표 2열, 월별 막대는 값 라벨 없이 높이만으로 읽는다 */
       .fin-nw-chart-scroll{overflow-x:auto;overflow-y:hidden;padding:3px 0 7px;overscroll-behavior-inline:contain}
       .fin-nw-chart-canvas{min-width:680px}

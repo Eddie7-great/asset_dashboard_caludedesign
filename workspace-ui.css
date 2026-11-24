@@ -62,7 +62,7 @@
   .cb-dash-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;align-items:stretch}.cb-dash-contrib-card{padding:12px}
   .cb-dca-detail-grid{grid-template-columns:minmax(0,1fr) 260px}
   .cb-tax-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.cb-tax-summary-card{padding:10px 12px}
-  .cb-div-summary-card{min-height:70px;padding:10px 12px}.cb-risk-overview{grid-template-columns:300px minmax(0,1fr);gap:10px}.cb-risk-primary-card,.cb-risk-insight-card{padding:9px 10px;min-height:72px}.cb-risk-card-grid{gap:8px}
+  .cb-div-summary-card{min-height:70px;padding:10px 12px}.cb-risk-overview{grid-template-columns:300px minmax(0,1fr);gap:10px}
   .fin-form-grid{grid-template-columns:repeat(auto-fit,minmax(130px,160px));gap:9px}.fin-nw-stats{gap:7px;margin-bottom:8px}.fin-nw-stats>div{padding:7px 9px}
 }
 @media(min-width:769px) and (max-width:1179px){.cb-dash-insight-grid{gap:10px}}
@@ -177,13 +177,11 @@
 #cb-perf2 .cb-perf-detail-head{padding:6px 7px}.cb-perf-detail-note{margin-top:7px;font-size:var(--fs-micro);line-height:1.5}
 /* 점수 카드는 자기 내용 높이(2026-11-24, 사용자 요청) — 예전에는 오른쪽 카드 열 높이에 맞춰 늘어나 소유주 탭마다 높이가 618·508·537px 로
    바뀌고, 늘어난 만큼 '먼저 확인할 항목'과 아래 수치 사이가 크게 비었다. 넓은 화면에서는 스크롤해도 따라 내려온다(sticky). */
-.cb-risk-overview{align-items:start!important}.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0;align-self:start}
-@media(min-width:1101px){.cb-risk-score-card{position:sticky;top:0}}
+.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0}
 .cb-risk-priorities{align-self:stretch;margin:10px 0;font-size:var(--fs-micro);line-height:1.5}.cb-risk-priorities p{padding:5px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
 .fin-price-help p{font-size:var(--fs-micro);line-height:1.5;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-micro)}.fin-price-issues small{color:var(--lab)}
 @media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:6px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{min-width:0}#cf-input-panel .form-input{padding:7px 6px;font-size:var(--fs-micro)}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
 @media(max-width:768px){.etf-inspection-row{grid-template-columns:1fr auto}.etf-inspection-row>span{grid-column:1/-1}.cb-risk-priorities{margin:10px 0}}
-.cb-risk-card-grid{align-content:stretch;grid-auto-rows:1fr}
 
 
 
@@ -506,10 +504,9 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .cb-div-summary-value,.fin-data-hero strong,.sim-kpis b,.fin-goal-context b,.etf-exposure-total strong{font-size:var(--fs-title)}
 }
 /* 예전 작은 회색 제목(자간 넓은 10.5~12px)들도 같은 카드 제목 모양으로 — 현금 흐름 카드(.cb-label)·
-   재무 섹션 머리(.fin-section-head>span)·리스크 보조 진단(.cb-risk-insight-title) */
+   재무 섹션 머리(.fin-section-head>span) */
 .cb-label,.fin-section-head>span{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
 #cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
-.cb-risk-insight-title{font-size:var(--fs-body);letter-spacing:0;color:var(--tx);font-weight:700}
 /* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
 .sim-view-tabs,.view-mode-bar{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
 .sim-view-tabs>button.cb-btn,.view-mode-bar>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
@@ -1054,17 +1051,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-meter-dir{position:absolute;right:0;bottom:0;font-size:var(--fs-micro);line-height:1.2;color:var(--lab)}
 .cb-meter-wrap.is-left>.cb-meter-dir{right:auto;left:0}
 .cb-meter-wrap.is-top>.cb-meter-dir{bottom:auto;top:0}
-/* 리스크 카드: 머리줄(제목·판정 | 값) → 설명 → 바닥(게이지·부 카드). 두 종류 카드가 같은 자리에 같은 것을 둔다 */
-.cb-risk-primary-card,.cb-risk-insight-card{display:flex;flex-direction:column}
-/* 2026-11-24: 게이지를 카드 바닥으로 밀지 않는다 — 같은 줄의 키 큰 카드(부 카드 있음)에 맞춰 늘어난 카드에서 설명과 게이지 사이가
-   크게 벌어졌다. 설명 칸을 두 줄 높이로 잡아 한 줄짜리 설명 카드도 게이지가 옆 카드와 같은 높이에 오고, 남는 키는 카드 아래로 간다. */
-.cb-risk-foot{margin-top:2px}
-.cb-risk-primary-message,.cb-risk-insight-card>.cb-risk-insight-detail{min-height:calc(var(--fs-micro) * 1.55 * 2)}
-.cb-risk-insight-head{align-items:center}
-.cb-risk-insight-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.cb-risk-insight-head>.cb-risk-insight-value{margin-top:0;font-size:var(--fs-card);flex-shrink:0}
-.cb-risk-insight-card>.cb-risk-insight-detail{margin-top:3px;padding-top:0;color:var(--mut)}
-.cb-risk-primary-head{align-items:center}
 /* 배당 월별 막대 빗금 범례 — 그래프의 빗금(이번 달부터 남은 달)과 같은 모양 */
 .cb-div-hatch-legend{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
 .cb-div-hatch-legend>i{width:14px;height:10px;border-radius:var(--r-sm);background:repeating-linear-gradient(45deg,var(--div-bar) 0 2px,color-mix(in srgb,var(--div-bar) 28%,transparent) 2px 4px)}
@@ -1500,4 +1486,51 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 @media(min-width:1560px){
   .cb-dca-allocation-card{display:flex;flex-direction:column}
   .cb-dca-allocation-card>.cb-dca-allocation-list{flex:1 1 auto;min-height:200px;contain:size;overflow-y:auto;padding-right:4px}
+}
+
+/* 리스크 점검 항목 한 줄 목록(2026-11-24 사용자 결정 A안 수정) — 점수 카드와 목록 패널은 같은 고정 높이(--risk-h)다.
+   소유주 탭마다 높이가 바뀌지 않고, 목록 줄은 그 높이를 나눠 갖는다(grid-auto-rows:minmax(최소,1fr)). 줄이 많아 넘치면 목록만 스크롤.
+   점수 카드의 글자는 화면 폭에 따라 12~13px(--risk-fs), 넘치는 우선 항목은 숨긴다(목록에 같은 항목이 있다). */
+.cb-risk-overview{--risk-h:560px;align-items:stretch!important}
+.cb-risk-score-card,.cb-risk-list-panel{height:var(--risk-h);box-sizing:border-box;overflow:hidden}
+.cb-risk-score-card{--risk-fs:clamp(12px,0.85vw,13px)}
+.cb-risk-score-card .cb-risk-priorities{flex:1 1 auto;min-height:0;overflow:hidden;font-size:var(--risk-fs)}
+.cb-risk-list-panel{display:flex;flex-direction:column;padding:12px 16px;min-width:0}
+.cb-risk-list-title{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.cb-risk-list-title>b{font-size:var(--fs-card)}
+.cb-risk-counts{display:flex;gap:10px;font-size:var(--fs-cap);color:var(--lab)}
+.cb-risk-counts>.is-bad{color:var(--dn)}.cb-risk-counts>.is-warn{color:var(--warn)}.cb-risk-counts>.is-ok{color:var(--up)}
+.cb-risk-list-head,.cb-risk-row{display:grid;grid-template-columns:10px minmax(120px,150px) 46px 84px minmax(170px,1fr) minmax(200px,1.35fr);align-items:center;gap:12px}
+.cb-risk-list-head{padding:0 4px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--lab)}
+.cb-risk-list-head small{font-size:var(--fs-cap)}
+.cb-risk-list-head .r,.cb-risk-row-val{text-align:right}
+.cb-risk-list{flex:1 1 auto;min-height:0;display:grid;grid-auto-rows:minmax(min-content,1fr);overflow-y:auto}
+.cb-risk-row{padding:4px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.cb-risk-dot{width:9px;height:9px;border-radius:50%;background:var(--lab)}
+.cb-risk-row.is-bad .cb-risk-dot{background:var(--dn)}.cb-risk-row.is-warn .cb-risk-dot{background:var(--warn)}.cb-risk-row.is-ok .cb-risk-dot{background:var(--up)}
+.cb-risk-row-name{font-weight:700;color:var(--tx);min-width:0}
+.cb-risk-row>.cb-risk-verdict{justify-self:start}
+.cb-risk-row-val{font-weight:800;white-space:nowrap}
+.cb-risk-row-meter{min-width:0}
+.cb-risk-row-meter .cb-meter,.cb-risk-row-meter .cb-fx-mix,.cb-risk-row-meter .cb-meter-wrap{margin-top:0}
+.cb-risk-row-meter .cb-meter-wrap.is-top{padding-top:16px}
+.cb-risk-row-desc{min-width:0;font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
+.cb-risk-row-desc>span:first-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.cb-risk-sub{display:flex;align-items:center;gap:6px;margin-top:3px;color:var(--mut)}
+.cb-risk-sub>b{font-weight:800}
+.cb-risk-all-ok{flex:1;margin:0;padding:16px 4px;color:var(--mut);font-size:var(--fs-body)}
+.cb-risk-ok-line{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd2);font-size:var(--fs-cap)}
+.cb-risk-ok-line>b{color:var(--up);white-space:nowrap}
+.cb-risk-ok-line>ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.cb-risk-ok-chip{padding:3px 8px;border-radius:var(--r-sm);background:var(--inner);color:var(--mut)}
+.cb-risk-ok-chip>b{margin-left:3px;color:var(--tx)}
+/* 1440px 미만은 설명 칸을 줄 아래로 내리지 않고 게이지 칸을 줄인다. 1100px 이하는 한 단(점수 카드 위, 목록 아래)이고 높이를 풀어 준다. */
+@media(max-width:1439px){.cb-risk-overview{--risk-h:620px}
+  .cb-risk-list-head,.cb-risk-row{grid-template-columns:10px minmax(104px,124px) 44px 72px minmax(130px,1fr) minmax(170px,1.15fr);gap:10px}
+  .cb-risk-row .cb-meter-dir{display:none}   /* 좁으면 '낮을수록 안전'이 눈금 숫자에 붙는다 — 방향은 게이지 말풍선에 그대로 있다 */}
+@media(max-width:1100px){.cb-risk-score-card,.cb-risk-list-panel{height:auto}.cb-risk-list{overflow:visible}}
+@media(max-width:860px){
+  .cb-risk-list-head{display:none}
+  .cb-risk-row{grid-template-columns:10px minmax(0,1fr) auto auto;row-gap:6px;padding:8px 4px}
+  .cb-risk-row-meter,.cb-risk-row-desc{grid-column:2/-1}
 }

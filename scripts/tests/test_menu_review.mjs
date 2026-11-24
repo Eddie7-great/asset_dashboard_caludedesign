@@ -79,19 +79,37 @@ vm.runInContext(extractFunction(riskSource, 'cbRiskMergeVerdict'), context)
   assert.equal(V([mk('ok'), mk('hold')]), 'hold', '양호+보류면 보류(확정 아님)')
 }
 
-// 빈 칸 없는 리스크 격자(12칸 중 폭) — 줄마다 합이 12
-vm.runInContext(extractFunction(riskSource, 'cbRiskFillSpans'), context)
+// 리스크 점검 항목 한 줄 목록(2026-11-24 사용자 결정 A안 수정) — 카드 격자(cbRiskFillSpans)는 없앴다
+assert.doesNotMatch(riskSource, /cbRiskFillSpans|cbRiskFillGrid|cb-risk-card-grid|cb-risk-ok-fold/, '예전 카드 격자·양호 접기는 없앴다')
 {
-  const F = n => [...context.cbRiskFillSpans(n)]
-  assert.deepEqual(F(6), [4, 4, 4, 4, 4, 4], '6개는 3×2')
-  assert.deepEqual(F(8), [4, 4, 4, 4, 4, 4, 6, 6], '8개는 3 + 3 + 2 (한 줄 최대 3장)')
-  assert.deepEqual(F(5), [4, 4, 4, 6, 6], '5개는 3 + 2')
-  assert.deepEqual(F(7), [4, 4, 4, 6, 6, 6, 6], '7개는 3 + 2 + 2 — 혼자 한 줄을 쓰는 카드 없음')
-  assert.deepEqual(F(4), [6, 6, 6, 6], '4개는 2 + 2')
-  for (let n = 2; n <= 16; n++) assert.ok(!F(n).includes(3) && !F(n).includes(12), `${n}개: 4장 줄도, 혼자 남는 카드도 없음`)
-  assert.deepEqual(F(2), [6, 6])
-  assert.deepEqual(F(0), [])
-  for (let n = 1; n <= 16; n++) assert.equal(F(n).reduce((a, b) => a + b, 0) % 12, 0, `${n}개: 빈 칸 없음`)
+  const ctx = vm.createContext({
+    cbEsc: v => String(v).replace(/</g, '&lt;'),
+    cbRiskMeterHtml: (m, u, c) => m ? `<meter u="${u}" c="${c}">` : '',
+    cbFxMixHtml: () => '<fx>',
+  })
+  for (const n of ['cbRiskSubHtml', 'cbRiskRowHtml', 'cbRiskOkChipHtml']) vm.runInContext(extractFunction(riskSource, n), ctx)
+  const warn = { key: 'warn', label: '주의' }, hold = { key: 'hold', label: '보류' }
+  const ins = { kind: 'insight', verdict: warn, card: { id: 'effective-holdings', title: '실효 종목 수', value: '5.2개', tone: 'var(--warn)', detail: '실제 10종목', meter: { value: 5 } },
+    subs: [{ label: '상위 2개 합계', verdict: hold, card: { value: '55%', tone: 'var(--lab)', detail: '참고' } }] }
+  const row = ctx.cbRiskRowHtml(ins)
+  assert.match(row, /class="cb-risk-row is-warn"/)
+  assert.match(row, /<span class="cb-risk-verdict is-warn">주의<\/span>/, '판정 한 단어')
+  assert.match(row, /<b class="cb-risk-row-val cb-num" style="color:var\(--warn\)">5\.2개<\/b>/, '값은 판정 색')
+  assert.match(row, /<meter u="개"/, '실효 종목 수 게이지 단위는 개')
+  assert.match(row, /└ 상위 2개 합계<\/span><span class="cb-risk-verdict is-hold">보류<\/span><b class="cb-num"[^>]*>55%<\/b>/, '합친 부 항목은 설명 아래 └ 줄')
+  const prim = { kind: 'primary', verdict: warn, card: { title: '환노출 (원화 기준)', valFmt: '73.0%', color: '#d97706', msg: '외화 <b>60%</b> 이상', fxMix: [{ cur: 'USD', pct: 73 }], meter: { value: 73 } } }
+  const prow = ctx.cbRiskRowHtml(prim)
+  assert.match(prow, /<fx>/, '환노출은 통화 구성 막대')
+  assert.match(prow, /외화 60% 이상/, '설명의 태그는 벗긴다')
+  const chip = ctx.cbRiskOkChipHtml({ kind: 'primary', verdict: { key: 'ok' }, card: { title: '자산군 분산', valFmt: '5개', msg: '분산 양호' } })
+  assert.equal(chip, '<li class="cb-risk-ok-chip" data-tip="분산 양호">자산군 분산 <b class="cb-num">5개</b></li>', '양호는 이름·값 칩, 설명은 말풍선')
+}
+// 점수 카드와 목록 패널은 같은 고정 높이 — 소유주 탭마다 높이가 바뀌지 않는다
+{
+  const ws = readSource('workspace-ui.css')
+  assert.match(ws, /\.cb-risk-overview\{--risk-h:560px;align-items:stretch!important\}/)
+  assert.match(ws, /\.cb-risk-score-card,\.cb-risk-list-panel\{height:var\(--risk-h\)/)
+  assert.match(ws, /\.cb-risk-list\{[^}]*grid-auto-rows:minmax\(min-content,1fr\);overflow-y:auto\}/, '줄은 높이를 나눠 갖고, 넘치면 목록만 스크롤')
 }
 
 // ───────── ⑤ 연말 절세(연금계좌 세액공제) ─────────
