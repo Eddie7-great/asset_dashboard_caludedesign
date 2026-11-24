@@ -1541,3 +1541,26 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 
 /* 월별 현금흐름 상세 내역 — 주기 칸(2026-11-24): 주기만 한 줄, 넘치면 말줄임(전체는 title) */
 .cf-cycle-text{display:block;font-size:var(--fs-cap);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 세금 화면(2026-11-24 사용자 결정): 해외 기본공제 사용률은 반 높이, 그 아래 '손실 상계 여력'.
+   연말 절세 여력은 반 폭, 옆에 '소유주별 해외 기본공제'. */
+#cb-tax2>.cb-tax-summary-grid>.cb-tax-ded-col{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-width:0}
+#cb-tax2 .cb-tax-half-card{display:flex;flex-direction:column;justify-content:center;gap:5px}
+.cb-tax-half-card .cb-tax-deduction-value{margin-top:0;justify-content:space-between;align-items:baseline;gap:6px}
+.cb-tax-half-card .cb-tax-deduction-remain{margin-top:0;padding-top:0}
+.cb-tax-half-card .cb-tax-deduction-track{margin-top:0}
+.cb-tax-half-note{font-size:var(--fs-cap);color:var(--mut)}
+.cb-tax-saving-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+.cb-tax-owner-ded{padding:15px 16px;min-width:0;display:flex;flex-direction:column}
+.cb-tax-od-sub{font-size:var(--fs-cap);color:var(--dim);margin-top:3px}
+.cb-tax-od-list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.cb-tax-od-head{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-body)}
+.cb-tax-od-tag{font-size:var(--fs-cap);color:var(--lab)}
+.cb-tax-od-gain{margin-left:auto;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.cb-tax-od-track{height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner);overflow:hidden;margin:6px 0 4px}
+.cb-tax-od-track>i{display:block;height:100%;background:var(--acc)}
+.cb-tax-od-track>i.is-over{background:var(--dn)}
+.cb-tax-od-row.is-dependent .cb-tax-od-track>i:not(.is-over){background:var(--warn)}
+.cb-tax-od-msg{font-size:var(--fs-cap);color:var(--mut)}
+@media(max-width:900px){.cb-tax-saving-row{grid-template-columns:1fr}}
+@media(max-width:768px){#cb-tax2>.cb-tax-summary-grid>.cb-tax-ded-col{grid-column:span 2;grid-template-rows:none;grid-template-columns:1fr 1fr}}

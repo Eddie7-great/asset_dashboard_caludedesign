@@ -84,6 +84,54 @@ function cbTaxSummary(list, ownerOf, ownerHints=[], when){
     deductionGroups:details.length
   };
 }
+// ── 손실 상계 여력·소유주별 해외 기본공제(2026-11-24 사용자 결정) ──
+// 새 세율·공제는 만들지 않는다 — cbTaxSummary 의 소유주별 genFgn·genBase 와 규칙값(tax-rules.js)만 쓴다.
+// 손실 상계는 같은 사람의 해외 이익과만 되므로 소유주마다 min(평가손실, 공제 초과 과세표준) × 세율을 더한 최대치다.
+function cbTaxHarvestPlan(buckets, candidates, rate){
+  const base=new Map((buckets||[]).filter(b=>!b.isLegacy).map(b=>[b.label,Number(b.genBase)||0]));
+  const lossBy=new Map();
+  (candidates||[]).forEach(x=>{const o=x&&x.i&&x.i.owner; const l=Math.abs(Number(x&&x.loss)||0); if(o&&l>0) lossBy.set(o,(lossBy.get(o)||0)+l);});
+  let loss=0, save=0;
+  lossBy.forEach((l,o)=>{ loss+=l; save+=Math.round(Math.min(l, base.get(o)||0)*(Number(rate)||0)); });
+  return {loss, save, count:(candidates||[]).filter(x=>Math.abs(Number(x&&x.loss)||0)>0).length};
+}
+// 부양가족으로 보는 소유주 — 자녀1 은 본인 연말정산의 부양가족이다(사용자 설명 2026-11-24).
+// 해외주식 양도소득금액(이익)이 연 소득금액 기준(tax-rules.js dependent.basicDeductionIncomeLimitKrw)을 넘으면
+// 다음 해 연말정산에서 부양가족 기본공제를 받지 못할 수 있으므로, 그 줄은 250만 공제가 아니라 이 기준으로 잰다.
+const CB_TAX_DEPENDENT_OWNERS=['자녀1'];
+function cbTaxOwnerDeductionRows(buckets, owners, deduction, dependentLimit, rate){
+  const by=new Map((buckets||[]).filter(b=>!b.isLegacy).map(b=>[b.label,b]));
+  return (owners||[]).map(owner=>{
+    const gain=Number(by.get(owner)?.genFgn)||0;
+    const dependent=CB_TAX_DEPENDENT_OWNERS.includes(owner)&&Number(dependentLimit)>0;
+    const cap=dependent?Number(dependentLimit):Number(deduction)||0;
+    const over=Math.max(0,gain-cap), room=Math.max(0,cap-Math.max(0,gain));
+    const taxOver=Math.max(0,gain-(Number(deduction)||0));
+    return {owner, gain, cap, dependent, over, room, used:cap>0?Math.max(0,Math.min(1,gain/cap)):0, due:Math.round(taxOver*(Number(rate)||0))};
+  });
+}
+function cbTaxOwnerDeductionHtml(rows){
+  const body=(rows||[]).map(r=>{
+    const msg=r.dependent
+      ? (r.over>0
+          ? `부양가족 소득 기준 <b style="color:var(--dn)">${cbKrw(r.over)} 초과</b> — 다음 해 연말정산에서 부양가족 공제를 못 받을 수 있음`
+          : `부양가족 소득 기준까지 <b style="color:var(--up)">${cbKrw(r.room)}</b> — 넘으면 다음 해 연말정산 부양가족 공제 제외`)
+      : (r.over>0
+          ? `공제 초과 <b style="color:var(--dn)">${cbKrw(r.over)}</b> · 예상 세액 ${cbKrw(r.due)}`
+          : `남은 공제 <b style="color:var(--up)">${cbKrw(r.room)}</b> — 이만큼 이익을 실현해도 양도세 0`);
+    return `<div class="cb-tax-od-row${r.dependent?' is-dependent':''}">
+        <div class="cb-tax-od-head">${cbOwnerTag(r.owner)}<span class="cb-tax-od-tag">${r.dependent?'부양가족 기준 '+cbKrw(r.cap):'기본공제 '+cbKrw(r.cap)}</span><span class="cb-tax-od-gain">실현 ${r.gain?((r.gain>0?'+':'')+cbKrw(r.gain)):cbKrw(0)}</span></div>
+        <div class="cb-tax-od-track"><i class="${r.over>0?'is-over':''}" style="width:${(r.used*100).toFixed(1)}%"></i></div>
+        <div class="cb-tax-od-msg">${msg}</div>
+      </div>`;
+  }).join('');
+  const depTip='연말정산 부양가족 기본공제는 그 사람의 연간 소득금액 합계가 기준 이하일 때만 됩니다. 해외주식을 팔아 생긴 양도소득금액(이익)이 여기에 들어갑니다. 이자·배당 등 다른 소득과 근로소득 기준(총급여)은 이 앱이 모르므로 함께 확인하세요.';
+  return `<div class="cb-panel cb-tax-owner-ded">
+      <div class="cb-panel-title">소유주별 해외 기본공제</div>
+      <div class="cb-tax-od-sub">기본공제는 사람마다 따로 · 가족끼리 나눠 쓸 수 없음${(rows||[]).some(r=>r.dependent)?` · <span data-tip="${cbEsc(depTip)}">자녀는 부양가족 소득 기준으로</span>`:''}</div>
+      <div class="cb-tax-od-list">${body||'<div class="fin-empty">소유주가 없습니다.</div>'}</div>
+    </div>`;
+}
 function cbNiceStep(raw){
   raw = Math.max(raw||1, 1);
   const p = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -360,6 +408,12 @@ function cbRenderTax(){
     .filter(x=>x.loss<0)
     .sort((a,b)=>a.loss-b.loss);
   const harvestTotal = harvestCandidates.reduce((s,x)=>s+Math.abs(x.loss),0);
+  const harvest = cbTaxHarvestPlan(taxSummary.buckets, harvestCandidates, taxSummary.foreignRate);
+  const dependentLimit = _taxRuleValue('dependent.basicDeductionIncomeLimitKrw', null, year);
+  // 부양가족(자녀1)의 남은 250만 공제는 '세금 없이'는 맞지만, 실현하면 부양가족 소득 기준(100만)에 걸릴 수 있다 — 합계에 든 몫을 밝힌다.
+  const depRoom = dependentLimit>0 ? taxSummary.buckets.filter(b=>!b.isLegacy&&CB_TAX_DEPENDENT_OWNERS.includes(b.label)).reduce((s,b)=>s+(Number(b.deductionRoom)||0),0) : 0;
+  const depRoomNote = depRoom>0 ? `<div class="cb-tax-half-note" style="margin-top:3px">그중 ${CB_TAX_DEPENDENT_OWNERS.map(cbEsc).join('·')} 몫 ${cbKrw(depRoom)} — 실현하면 부양가족 공제에 영향(오른쪽 카드)</div>` : '';
+  const ownerDedRows = cbTaxOwnerDeductionRows(taxSummary.buckets, _cbTaxOwner==='전체'?OWNERS:[_cbTaxOwner], taxSummary.foreignDeduction, dependentLimit, taxSummary.foreignRate);
   const historyList = _cbTaxMonthFilter
     ? list.filter(t=>parseInt(String(t.month).split('-')[1]||'0')===_cbTaxMonthFilter)
     : list;
@@ -402,13 +456,23 @@ function cbRenderTax(){
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">예상 세액</span><span style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(${genDue>0?'--dn':'--lab'})">${cbKrw(genDue)}</span></div>
         </div>
       </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--warn)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">해외 기본공제 사용률</div>
+      <div class="cb-tax-ded-col">
+      <div class="cb-panel cb-tax-summary-card cb-tax-half-card" style="--card-tone:var(--warn)">
+        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800">해외 기본공제 사용률</div>
         <div class="cb-tax-deduction-value">
-          <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
+          <div style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
+          <span class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</span>
         </div>
         <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
-        <div class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</div>
+      </div>
+      <div class="cb-panel cb-tax-summary-card cb-tax-half-card" style="--card-tone:var(--dn)">
+        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800"><span data-tip="해외 일반계좌 종목의 지금 평가손실입니다. 같은 해에 팔아 손실을 확정하면 그 사람의 해외 실현이익과 상계됩니다. 세액 감소는 소유주마다 '손실'과 '공제 초과 과세표준' 중 작은 쪽 × 세율로 잡은 최대치입니다.">손실 상계 여력</span><span class="cb-tax-card-sub">해외 평가손실</span></div>
+        <div class="cb-tax-deduction-value">
+          <div style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:${harvest.loss>0?'var(--dn)':'var(--lab)'}">${harvest.loss>0?'−'+cbKrw(harvest.loss):cbKrw(0)}</div>
+          <span class="cb-tax-deduction-remain">${harvest.count}종목</span>
+        </div>
+        <div class="cb-tax-half-note">${harvest.loss>0?(harvest.save>0?`연말 전 팔면 세액 최대 <b style="color:var(--up)">${cbKrw(harvest.save)}</b> 감소`:'공제 안이라 팔아도 줄어드는 세금 없음'):'평가손실 종목 없음'}</div>
+      </div>
       </div>
       <div class="cb-panel cb-tax-summary-card" style="--card-tone:${CB_CLS.kr.color}">
         <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span class="cb-tax-card-sub">소액주주 비과세</span></div>
@@ -508,12 +572,14 @@ function cbRenderTax(){
             </details>`).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">기록된 실현손익이 없습니다.</div>'}
         </div></div>
       </div>
+      <div class="cb-tax-saving-row">
       <div class="cb-panel cb-tax-saving-panel" style="padding:15px 16px;min-width:0">
         <div class="cb-panel-title">연말 절세 여력${ownerSuffix}</div>
         <div style="font-size:var(--fs-cap);color:var(--dim);margin-top:3px">해외 일반계좌 · ${year}년 실현손익 기준</div>
         <div style="margin-top:14px">
           <div style="font-size:var(--fs-cap);color:var(--mut)">세금 없이 추가 실현 가능한 순이익</div>
           <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;color:${deductionRoom>0?'var(--up)':'var(--lab)'};margin-top:2px">${cbKrw(deductionRoom)}</div>
+          ${depRoomNote}
         </div>
         <div style="margin-top:11px">
           <div style="display:flex;justify-content:space-between;font-size:var(--fs-cap);color:var(--mut)"><span>기본공제 사용률</span><b>${deductionUsePct.toFixed(1)}%</b></div>
@@ -534,6 +600,8 @@ function cbRenderTax(){
             </div>`).join('') || '<div style="font-size:var(--fs-cap);color:var(--dim)">현재 미실현 손실 후보가 없습니다.</div>'}
         </div>
         <div style="font-size:var(--fs-cap);color:var(--dim);line-height:1.55;margin-top:auto;padding-top:12px">손실 상계 후보는 해외 일반계좌의 현재 평가손실만 표시합니다. 실제 매도 전 수수료·환율·세법 적용 여부를 확인하세요.</div>
+      </div>
+      ${cbTaxOwnerDeductionHtml(ownerDedRows)}
       </div>
     </div>
     ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('capitalGains',year):''}
