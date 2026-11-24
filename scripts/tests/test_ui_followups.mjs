@@ -384,7 +384,7 @@ assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-
 assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
 assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>월<\/span><span>소유주<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
-assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row\{display:grid;grid-template-columns:[^;]*minmax\(160px,2\.6fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
+assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row,\.cb-tax-month-sum\{display:grid;grid-template-columns:[^;]*minmax\(160px,2\.6fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
 assert.doesNotMatch(cobaltSource, /cb-tax-memo-(head|cell)" style="flex:1/, '메모 칸에 flex:1 을 다시 쓰지 않는다')
 assert.match(cobaltSource, /cbHomeSummary\(sel,nw\)/, '홈 보유 목록 옆 선택 종목 요약 유지')
 assert.match(styleSource, /\.cb-dash-table-toolbar\{position:sticky;top:0/, '대시보드 제목·검색줄을 스크롤 중 고정')

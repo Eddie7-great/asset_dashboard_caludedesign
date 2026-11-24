@@ -949,14 +949,21 @@
     .cb-tax-saving-panel{display:flex;flex-direction:column}
     /* 연말 절세 체크 · 연금계좌 세액공제 (2026-11-23) */
     .cb-tax-ts{margin-top:12px;padding:15px 18px}
-    .cb-tax-ts-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .cb-tax-ts-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+    .cb-tax-ts-side{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+    .cb-tax-ts-status{font-size:var(--fs-cap);color:var(--lab)}
+    .cb-tax-ts-status[data-tone="ok"]{color:var(--up)}
+    .cb-tax-ts-status[data-tone="warn"]{color:var(--warn)}
     .cb-tax-ts-dday{font-size:var(--fs-body);color:var(--acc);font-weight:700}
     .cb-tax-ts-list{display:flex;flex-direction:column}
-    .cb-tax-ts-row{display:grid;grid-template-columns:minmax(80px,.7fr) minmax(120px,1fr) minmax(120px,1fr) minmax(240px,2.6fr) minmax(110px,.9fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd)}
+    /* 2026-11-24: 머리줄 한 번 + 사람마다 한 줄 — 소유주 | 연금저축 | IRP | ISA(참고) | 공제 대상 막대. 저장 버튼 없음(자동 저장) */
+    .cb-tax-ts-row{display:grid;grid-template-columns:minmax(76px,.6fr) repeat(3,minmax(104px,.9fr)) minmax(260px,2.8fr);gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
     .cb-tax-ts-row:first-child{border-top:0}
-    .cb-tax-ts-field,.cb-tax-ts-val{display:flex;flex-direction:column;gap:3px;min-width:0}
-    .cb-tax-ts-field small,.cb-tax-ts-val small{font-size:var(--fs-cap);color:var(--lab)}
-    .cb-tax-ts-field input{width:100%;box-sizing:border-box;height:32px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--inner);color:var(--tx)}
+    .cb-tax-ts-colhead{padding:4px 0 6px;font-size:var(--fs-cap);color:var(--lab);font-weight:700}
+    .cb-tax-ts-colhead>span:nth-child(2),.cb-tax-ts-colhead>span:nth-child(3),.cb-tax-ts-colhead>span:nth-child(4){text-align:right;padding-right:9px}
+    .cb-tax-ts-val{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .cb-tax-ts-val small{font-size:var(--fs-cap);color:var(--lab)}
+    .cb-tax-ts-input{width:100%;min-width:0;box-sizing:border-box;height:32px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--inner);color:var(--tx);font:inherit}
     .cb-tax-ts-meter{display:flex;flex-direction:column;gap:6px;min-width:0}
     .cb-tax-ts-meter small{font-size:var(--fs-cap);color:var(--t2)}
     .cb-tax-ts-bar{position:relative;height:var(--bar-h-lg);background:var(--inner-bg);border-radius:var(--r-sm);overflow:hidden}
@@ -965,8 +972,8 @@
     .cb-tax-ts-done{color:var(--up);font-weight:700}
     .cb-tax-ts-over{color:var(--warn)}
     .cb-tax-ts-note{margin:10px 0 0;font-size:var(--fs-cap);color:var(--lab);line-height:1.5}
-    @media (max-width:1280px){.cb-tax-ts-row{grid-template-columns:minmax(80px,.7fr) minmax(110px,1fr) minmax(110px,1fr) minmax(110px,1fr) auto}.cb-tax-ts-meter{grid-column:1/-1;grid-row:2}}
-    @media (max-width:768px){.cb-tax-ts-row{grid-template-columns:1fr 1fr}.cb-tax-ts-owner{grid-column:1/-1}.cb-tax-ts-meter{grid-column:1/-1;grid-row:auto}}
+    @media (max-width:1100px){.cb-tax-ts-row{grid-template-columns:minmax(70px,.6fr) repeat(3,minmax(90px,1fr))}.cb-tax-ts-meter{grid-column:2/-1}.cb-tax-ts-colhead>span:last-child{display:none}}
+    @media (max-width:768px){.cb-tax-ts-row{grid-template-columns:1fr 1fr 1fr}.cb-tax-ts-owner{grid-column:1/-1}.cb-tax-ts-meter{grid-column:1/-1}}
     .cb-tax-actions{display:inline-flex;align-items:center;justify-content:center;gap:2px;flex-shrink:0}
     .cb-tax-actions .btn-action{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;line-height:1}
     .cb-tax-head-grid{width:46px;display:inline-grid;grid-template-columns:22px 22px;gap:2px;align-items:center;justify-items:center}
@@ -1035,7 +1042,9 @@
     .cb-fam-card{min-width:0;padding:12px;cursor:pointer}
     .cb-fam-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     .cb-fam-card-head{display:flex;align-items:center;gap:7px;min-width:0}
-    .cb-fam-card-ico{width:23px;height:23px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-micro);font-weight:800}
+    /* 소유주 점(2026-11-24, 사용자 결정 A안) — 다른 표의 '색 점 + 이름'(cbOwnerTag)과 같은 모양. 예전 동그라미 글자는 아내·아버지가 둘 다 '아'였다 */
+    .cb-fam-card-dot{width:9px;height:9px;flex-shrink:0;border-radius:50%}
+    .cb-fam-card[aria-pressed="true"]{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
     .cb-fam-card-name{min-width:0;font-size:var(--fs-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-fam-card-val{margin-top:8px;font:800 var(--fs-title) var(--font-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cb-fam-card-gain{margin-top:1px;font-size:var(--fs-micro);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

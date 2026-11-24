@@ -638,16 +638,17 @@ function renderFixedCostView() {
       ?`<select class="cf-fixed-inline-owner" aria-label="${_cfEsc(at.desc)} 소유주" onchange="setAutoTransferOwner(${safeId},this.value)"><option value="">미지정</option>${OWNERS.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`
       :`<span class="cf-fixed-owner"><i style="background:${ownerColors[owner]||'#8a97b0'}"></i>${_cfEsc(owner)}</span>`;
     const state=isExcluded?'<span class="cf-fixed-state is-ended">제외</span>':(isPending?'<span class="cf-fixed-state is-pending">분류 필요</span>':(!active?'<span class="cf-fixed-state is-ended">종료</span>':'<span class="cf-fixed-state is-included">합산</span>'));
-    const isGift=_autoTransferIsGift(at);
-    const giftBtn=`<button class="btn-action cf-fixed-gift-btn${isGift?' is-on':''}" aria-pressed="${isGift}" onclick="toggleAutoTransferGift(${safeId})" title="${isGift?'증여 이체 표시 해제':'증여 이체로 표시 — 가족 증여 화면에서 연결할 수 있습니다'}">증여</button>`;
-    const actions=giftBtn+(isExcluded
+    // 증여 이체 표식은 그 줄에만 작은 글자로 보인다(2026-11-24, 사용자 요청) — 표에서 켜고 끄는 버튼은 없앴다.
+    // 표식은 고정비 등록·수정 폼의 '증여 이체' 체크로 붙이고 뗀다(✎ 수정).
+    const giftTag=_autoTransferIsGift(at)?'<span class="cf-fixed-state is-gift" title="증여 이체 — 가족 증여 화면에서 연결할 수 있습니다">증여</span>':'';
+    const actions=(isExcluded
       ?`<button class="btn-action" onclick="restoreFixedCost(${safeId})" title="고정비 검토 대상으로 복원">↺</button>`
       :isPending
       ?`<button class="btn-action" onclick="includeFixedCost(${safeId})" title="고정비로 포함">✓</button><button class="btn-action" onclick="editFixedCost(${safeId})" title="확인 후 수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`
       :`<button class="btn-action" onclick="editFixedCost(${safeId})" title="수정">✎</button><button class="btn-action" onclick="excludeFixedCost(${safeId})" title="고정비에서 제외">✕</button>`);
     // 대출 상환 조건이 있으면 바로 아래 줄(항목 칸부터 끝까지)에 방식·금리·잔여·잔액 — 좁은 항목 칸에 넣으면 잘린다
     const loanRow=at.loan?`<tr class="cf-fixed-loan-row"><td colspan="2"></td><td colspan="5" class="text-left"><small class="cf-fixed-loan-note">${_cfEsc(_loanStatusText(at.loan,y,m))}</small></td></tr>`:'';
-    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item-name">${_cfEsc(at.desc||'-')}</span>${state}</td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
+    return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item"><span class="cf-fixed-item-name" title="${_cfEsc(at.desc||'')}">${_cfEsc(at.desc||'-')}</span>${state}${giftTag}</span></td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
   }).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>';
 }
 
@@ -851,15 +852,6 @@ function _setAutoTransferGift(at,on){
   if(on&&at.type==='지출'){ at.isGift=true; return; }
   delete at.isGift; delete at.giftKind; delete at.giftFrom;
 }
-// 고정비 표의 '증여' 버튼 — 이미 등록한 자동이체에 표식을 붙이거나 뗀다(고정비 포함 여부는 건드리지 않는다).
-function toggleAutoTransferGift(id) {
-  if(isMobileLayout())return;
-  const at=autoTransferData.find(x=>x.id===id);if(!at)return;
-  _setAutoTransferGift(at,!_autoTransferIsGift(at));
-  saveAutoTransfers();
-  renderFixedCostView();
-}
-
 function setAutoTransferOwner(id,owner) {
   if(isMobileLayout())return;
   const at=autoTransferData.find(x=>x.id===id);if(!at||!OWNERS.includes(owner))return;

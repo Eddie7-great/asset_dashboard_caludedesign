@@ -7,6 +7,8 @@ let _cbTaxDraft = { m:String(new Date().getMonth()+1), k:'domestic', acc:'일반
 let _cbTaxYear = null;   // 조회 연도(문자열). null이면 올해.
 let _cbTaxOwner = '전체'; // 소유주 필터 ('전체' 또는 소유주명)
 let _cbTaxMonthFilter = null; // 차트 클릭으로 하단 내역을 거르는 월(1~12)
+// 실현손익 내역의 달 묶음 펼침(2026-11-24) — null 이면 기본(기록이 있는 가장 최근 달만 펼침). 화면을 옮기면 cbResetViewState 가 되돌린다.
+let _cbTaxMonthOpen = null;
 let _cbTaxEditId = null; // 수정 중인 실현손익 기록 ID
 const CB_TAX_ACCTS = ['일반','연금저축','ISA'];
 const CB_TAX_FGN_DED=_taxRuleValue('capitalGains.foreignStockBasicDeductionKrw',2_500_000);
@@ -285,6 +287,29 @@ function cbSortTaxEntries(list, ownerOf){
     || (taxOwnerRank(a)-taxOwnerRank(b))
     || (Number(a.id||0)-Number(b.id||0)));
 }
+// 실현손익 내역을 달마다 묶는다(2026-11-24, 사용자 요청 — 한 해 기록이 길게 늘어져 스크롤이 너무 내려갔다).
+// 최근 달이 위. 묶음 머리줄의 합계·누적은 이미 정렬·누적한 값(sorted·annualCumulative)을 더하고 읽을 뿐 새 계산이 없다.
+// 펼침: 사용자가 바꾼 적이 없으면 가장 최근 달만, 수정 중인 기록의 달과 차트로 고른 달은 늘 펼친다.
+function cbTaxMonthGroups(sorted, cumulative){
+  const by=new Map();
+  sorted.forEach(t=>{ const m=parseInt(String(t.month).split('-')[1]||'0'); if(!by.has(m)) by.set(m,[]); by.get(m).push(t); });
+  const months=[...by.keys()].sort((a,b)=>b-a);
+  const editMonth=_cbTaxEditId!=null?parseInt(String((sorted.find(t=>Number(t.id)===Number(_cbTaxEditId))||{}).month||'').split('-')[1]||'0'):null;
+  return months.map((m,i)=>{
+    const rows=by.get(m), sum=f=>rows.filter(f).reduce((a,t)=>a+(Number(t.amt)||0),0);
+    const dom=sum(t=>t.category==='domestic'), frn=sum(t=>t.category!=='domestic');
+    const last=rows[rows.length-1];
+    const open=m===_cbTaxMonthFilter||m===editMonth||(_cbTaxMonthOpen?_cbTaxMonthOpen.has(m):i===0);
+    return {m,rows,dom,frn,total:dom+frn,cum:(cumulative&&cumulative.get(last))||0,open};
+  });
+}
+function cbTaxMonthToggle(m, open){
+  if(!_cbTaxMonthOpen){
+    _cbTaxMonthOpen=new Set();
+    document.querySelectorAll('#cb-tax2 details.cb-tax-month[open]').forEach(d=>_cbTaxMonthOpen.add(Number(d.dataset.taxMonth)));
+  }
+  if(open) _cbTaxMonthOpen.add(Number(m)); else _cbTaxMonthOpen.delete(Number(m));
+}
 function cbTaxCumulativeByEntry(list, ownerOf){
   let annualTotal = 0;
   const cumulative = new Map();
@@ -456,7 +481,16 @@ function cbRenderTax(){
             <span>월</span><span>소유주</span><span>시장</span><span>계좌</span><span><span data-tip="계좌 유형과 시장에 따라 이 실현손익에 적용되는 대표 세제 방식">세제 구분</span></span><span class="cb-tax-memo-head">메모</span><span>실현손익</span><span><span data-tip="조회 연도의 기록을 월·시장·소유주·등록 순으로 합산한 누적 실현손익">연간 누적손익</span></span>
             <span><span class="cb-tax-head-grid"><span></span><span>관리</span></span></span>
           </div>
-          ${sorted.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
+          ${cbTaxMonthGroups(sorted, annualCumulative).map(g=>`
+            <details class="cb-tax-month" data-tax-month="${g.m}"${g.open?' open':''} ontoggle="cbTaxMonthToggle(${g.m},this.open)">
+              <summary class="cb-tax-month-sum">
+                <span class="cb-tax-month-name">${g.m}월</span>
+                <span class="cb-tax-month-count">${g.rows.length}건</span>
+                <span class="cb-tax-month-split">${g.dom?`국내 <b class="cb-num" style="${cbGainStyle(g.dom)}">${(g.dom>0?'+':'')+cbKrw(g.dom)}</b>`:''}${g.dom&&g.frn?' · ':''}${g.frn?`해외 <b class="cb-num" style="${cbGainStyle(g.frn)}">${(g.frn>0?'+':'')+cbKrw(g.frn)}</b>`:''}</span>
+                <span class="cb-num cb-tax-month-total" style="${cbGainStyle(g.total)}">${(g.total>0?'+':'')+cbKrw(g.total)}</span>
+                <span class="cb-num cb-tax-month-cum" style="${cbGainStyle(g.cum)}">${g.cum>=0?'+':''}${cbKrw(g.cum)}</span>
+              </summary>
+              ${g.rows.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
             <div class="cb-tax-hist-row">
               <span style="color:var(--mut)">${parseInt(String(t.month).split('-')[1]||'0')}월</span>
               <span>${cbOwnerTag(ownerOf(t))}</span>
@@ -470,7 +504,8 @@ function cbRenderTax(){
                 <button class="btn-action" title="수정" onclick="cbTaxEdit(${taxId})">✎</button>
                 <button class="btn-action" title="삭제" style="color:var(--dn)" onclick="cbTaxDel(${taxId})">✕</button>
               </span>
-            </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">기록된 실현손익이 없습니다.</div>'}
+            </div>`;}).join('')}
+            </details>`).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">기록된 실현손익이 없습니다.</div>'}
         </div></div>
       </div>
       <div class="cb-panel cb-tax-saving-panel" style="padding:15px 16px;min-width:0">
@@ -515,60 +550,91 @@ function cbPensionCreditPlan(pension, irp, caps){
   return {credited,left,pensionRoom:Math.min(Math.max(0,capP-p),left),irpRoom:left,
     overPension:Math.max(0,p-capP),overTotal:Math.max(0,pCredit+r-capT),pct:capT>0?credited/capT*100:0};
 }
+// 전체 탭은 가족 네 명을 모두 보인다(2026-11-24, 사용자 요청 — 예전에는 본인·아내 + 연금·ISA 계좌 보유자만 보여 자녀가 빠졌다).
 function cbTaxSavingOwners(year){
-  if(_cbTaxOwner!=='전체') return [_cbTaxOwner];
-  const saved=Object.keys(((window._taxSaving||{}).years||{})[year]||{});
-  const withAcc=(pfolioData||[]).filter(i=>i&&(Number(i.qty)||0)>0&&['ISA','연금'].includes(getAccountDivTaxInfo(i.acc).type)).map(i=>i.owner);
-  const set=new Set(['본인','아내',...withAcc,...saved]);
-  return OWNERS.filter(o=>set.has(o));
+  return _cbTaxOwner==='전체' ? OWNERS.slice() : [_cbTaxOwner];
 }
 function cbTaxSavingRow(year, owner){ return ((((window._taxSaving||{}).years||{})[year]||{})[owner])||{pension:0,irp:0,isa:0}; }
+// 한 사람 줄의 막대·설명 — 처음 그릴 때와 입력하는 동안(cbTaxSavingInput) 같은 함수를 쓴다
+function cbTaxSavingMeterHtml(owner, v, capP, capT){
+  const money=x=>cbKrw(x), plan=cbPensionCreditPlan(v.pension,v.irp,{pension:capP,total:capT});
+  const room=plan.left<=0?'<span class="cb-tax-ts-done">공제 대상 한도를 모두 채웠습니다</span>'
+    :`남은 여력 <b class="cb-num">${money(plan.left)}</b> · 연금저축으로는 최대 ${money(plan.pensionRoom)}`;
+  const over=[plan.overPension>0?`연금저축 ${money(plan.overPension)}은 연금저축 한도 밖`:'',plan.overTotal>0?`합산 ${money(plan.overTotal)}은 합산 한도 밖`:''].filter(Boolean).join(' · ');
+  return `<div class="cb-tax-ts-bar" role="img" aria-label="${cbEsc(owner)} 공제 대상 ${money(plan.credited)} / ${money(capT)}"><i style="width:${Math.min(100,plan.pct).toFixed(1)}%"></i><em style="left:${(capP/capT*100).toFixed(1)}%" title="연금저축 한도 ${money(capP)}"></em></div>
+        <small><b class="cb-num">${money(plan.credited)}</b> / ${money(capT)} · ${room}${over?` · <span class="cb-tax-ts-over">${over}</span>`:''}</small>`;
+}
 function cbTaxSavingPanelHtml(year){
   const capP=_taxRuleValue('pensionCredit.pensionSavingsCapKrw',null,year), capT=_taxRuleValue('pensionCredit.combinedCapKrw',null,year);
   const now=new Date(), thisYear=String(now.getFullYear())===String(year);
   const dec31=new Date(Number(year),11,31), daysLeft=Math.ceil((dec31-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
   const mobile=typeof isMobileLayout==='function'&&isMobileLayout();
   const money=v=>cbKrw(v);
-  const head=`<div class="cb-tax-ts-head"><span class="cb-panel-title"><span data-tip="연금저축은 연 ${capP!=null?money(capP):'—'}까지, 연금저축과 퇴직연금(IRP 등)을 합쳐 연 ${capT!=null?money(capT):'—'}까지 세액공제 대상입니다. 그해 12월 31일까지 넣은 돈만 칩니다. 납입액은 증권사 앱에서 확인해 적어 주세요.">연말 절세 체크 · 연금계좌 세액공제</span></span>${thisYear&&daysLeft>=0?`<b class="cb-tax-ts-dday">${daysLeft===0?'오늘 마감':`12월 31일까지 ${daysLeft}일`}</b>`:''}</div>`;
+  const status=mobile?'':`<span class="cb-tax-ts-status" id="cb-tax-ts-status" role="status" aria-live="polite">입력하면 자동으로 저장됩니다</span>`;
+  const head=`<div class="cb-tax-ts-head"><span class="cb-panel-title"><span data-tip="연금저축은 연 ${capP!=null?money(capP):'—'}까지, 연금저축과 퇴직연금(IRP 등)을 합쳐 연 ${capT!=null?money(capT):'—'}까지 세액공제 대상입니다. 그해 12월 31일까지 넣은 돈만 칩니다. 납입액은 증권사 앱에서 확인해 적어 주세요.">연말 절세 체크 · 연금계좌 세액공제</span></span><span class="cb-tax-ts-side">${status}${thisYear&&daysLeft>=0?`<b class="cb-tax-ts-dday">${daysLeft===0?'오늘 마감':`12월 31일까지 ${daysLeft}일`}</b>`:''}</span></div>`;
   if(capP==null||capT==null) return `<div class="cb-panel cb-tax-ts">${head}<p class="cb-tax-ts-note">${cbEsc(year)}년은 검증된 한도 규칙이 없어 표시하지 않습니다.</p></div>`;
+  // 머리줄 한 번 + 사람마다 한 줄(입력 칸 위 작은 이름표를 줄마다 되풀이하지 않는다). 휴대폰은 조회 전용이라 이름표를 값 옆에 둔다.
+  const colHead=`<div class="cb-tax-ts-row cb-tax-ts-colhead" aria-hidden="true"><span>소유주</span><span>연금저축</span><span>퇴직연금(IRP)</span><span>ISA(참고)</span><span>세액공제 대상 · 막대 끝 = 합산 한도 ${money(capT)}</span></div>`;
   const rows=cbTaxSavingOwners(year).map(owner=>{
-    const v=cbTaxSavingRow(year,owner), plan=cbPensionCreditPlan(v.pension,v.irp,{pension:capP,total:capT});
-    const ok=encodeURIComponent(owner);
+    const v=cbTaxSavingRow(year,owner);
     const input=(k,label,val)=>mobile?`<span class="cb-tax-ts-val"><small>${label}</small><b class="cb-num">${money(val)}</b></span>`
-      :`<label class="cb-tax-ts-field"><small>${label}</small><input type="text" inputmode="numeric" data-ts-owner="${cbEsc(owner)}" data-ts-key="${k}" value="${val?Number(val).toLocaleString('ko-KR'):''}" placeholder="0" aria-label="${cbEsc(owner)} ${year}년 ${label} 납입액(원)"></label>`;
-    const room=plan.left<=0?'<span class="cb-tax-ts-done">공제 대상 한도를 모두 채웠습니다</span>'
-      :`남은 여력 <b class="cb-num">${money(plan.left)}</b> · 연금저축으로는 최대 ${money(plan.pensionRoom)}`;
-    const over=[plan.overPension>0?`연금저축 ${money(plan.overPension)}은 연금저축 한도 밖`:'',plan.overTotal>0?`합산 ${money(plan.overTotal)}은 합산 한도 밖`:''].filter(Boolean).join(' · ');
-    return `<div class="cb-tax-ts-row">
+      :`<input class="cb-tax-ts-input" type="text" inputmode="numeric" data-ts-owner="${cbEsc(owner)}" data-ts-key="${k}" data-ts-year="${cbEsc(year)}" value="${val?Number(val).toLocaleString('ko-KR'):''}" placeholder="0" aria-label="${cbEsc(owner)} ${year}년 ${label} 납입액(원)" oninput="cbTaxSavingInput(this)" onchange="cbTaxSavingInput(this,true)">`;
+    return `<div class="cb-tax-ts-row" data-ts-row="${cbEsc(owner)}">
       <span class="cb-tax-ts-owner">${cbOwnerTag(owner)}</span>
-      ${input('pension','연금저축',v.pension)}${input('irp','퇴직연금(IRP)',v.irp)}
-      <div class="cb-tax-ts-meter"><div class="cb-tax-ts-bar" role="img" aria-label="${cbEsc(owner)} 공제 대상 ${money(plan.credited)} / ${money(capT)}"><i style="width:${Math.min(100,plan.pct).toFixed(1)}%"></i><em style="left:${(capP/capT*100).toFixed(1)}%" title="연금저축 한도 ${money(capP)}"></em></div>
-        <small><b class="cb-num">${money(plan.credited)}</b> / ${money(capT)} · ${room}${over?` · <span class="cb-tax-ts-over">${over}</span>`:''}</small></div>
-      ${input('isa','ISA(참고)',v.isa)}
-      ${mobile?'':`<button type="button" class="cb-btn cb-tax-ts-save" data-ts-save="${cbEsc(owner)}" onclick="cbTaxSavingSave(decodeURIComponent('${ok}'),'${cbEsc(year)}')">저장</button>`}
+      ${input('pension','연금저축',v.pension)}${input('irp','퇴직연금(IRP)',v.irp)}${input('isa','ISA(참고)',v.isa)}
+      <div class="cb-tax-ts-meter">${cbTaxSavingMeterHtml(owner,v,capP,capT)}</div>
     </div>`;
   }).join('');
   return `<div class="cb-panel cb-tax-ts">${head}
-    <div class="cb-tax-ts-list">${rows}</div>
+    <div class="cb-tax-ts-list">${mobile?'':colHead}${rows}</div>
     <p class="cb-tax-ts-note">막대의 세로선은 연금저축 한도(${money(capP)}), 끝은 합산 한도(${money(capT)})입니다. 세액공제율과 환급액은 소득에 따라 달라 계산하지 않습니다. ISA 는 납입액만 적어 둡니다.</p>
     ${mobile&&typeof finMobileNote==='function'?finMobileNote('연금계좌 납입액 입력'):''}
   </div>`;
 }
+// 저장 버튼 없이 입력하면 저장한다(2026-11-24, 사용자 요청). 치는 동안은 그 줄 막대만 바로 고치고(화면 전체를 다시 그리면
+// 입력 칸 포커스가 사라진다), 0.8초 쉬거나 칸을 벗어나면(change) 저장한다. 저장 경로·검사는 예전 '저장' 버튼과 같다.
+const _cbTaxSavingTimers={};
+function _cbTaxSavingStatus(text, tone){
+  const el=document.getElementById('cb-tax-ts-status'); if(!el) return;
+  el.textContent=text; el.dataset.tone=tone||'';
+}
+function _cbTaxSavingRead(owner){
+  const read=k=>{ const el=[...document.querySelectorAll('[data-ts-owner][data-ts-key]')].find(x=>x.dataset.tsOwner===owner&&x.dataset.tsKey===k); return el?String(el.value||'').replace(/[,\s]/g,''):''; };
+  return {pension:read('pension'),irp:read('irp'),isa:read('isa')};
+}
+function cbTaxSavingInput(el, now){
+  if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
+  const owner=el?.dataset?.tsOwner, year=el?.dataset?.tsYear;
+  if(!OWNERS.includes(owner)||!/^\d{4}$/.test(String(year))) return;
+  const raw=_cbTaxSavingRead(owner);
+  const bad=Object.values(raw).some(v=>v!==''&&!(/^\d+$/.test(v)));
+  const box=document.querySelector(`[data-ts-row="${CSS.escape(owner)}"] .cb-tax-ts-meter`);
+  const capP=_taxRuleValue('pensionCredit.pensionSavingsCapKrw',null,year), capT=_taxRuleValue('pensionCredit.combinedCapKrw',null,year);
+  if(!bad&&box&&capP!=null&&capT!=null) box.innerHTML=cbTaxSavingMeterHtml(owner,{pension:Number(raw.pension)||0,irp:Number(raw.irp)||0},capP,capT);
+  clearTimeout(_cbTaxSavingTimers[owner]);
+  if(bad){ _cbTaxSavingStatus('숫자(원)만 적어 주세요 — 저장하지 않았습니다','warn'); return; }
+  _cbTaxSavingStatus('저장 대기 중…','');
+  if(now) cbTaxSavingSave(owner,year);
+  else _cbTaxSavingTimers[owner]=setTimeout(()=>cbTaxSavingSave(owner,year),800);
+}
 async function cbTaxSavingSave(owner, year){
   if(typeof isMobileLayout==='function'&&isMobileLayout()) return;
-  if(window._kvLoadState?.ext!=='ready'){ showSaveError('재무 기록을 불러온 뒤에 저장할 수 있습니다.'); return; }
+  clearTimeout(_cbTaxSavingTimers[owner]);
+  if(window._kvLoadState?.ext!=='ready'){ _cbTaxSavingStatus('재무 기록을 불러온 뒤에 저장할 수 있습니다','warn'); showSaveError('재무 기록을 불러온 뒤에 저장할 수 있습니다.'); return; }
   if(!OWNERS.includes(owner)||!/^\d{4}$/.test(String(year))) return;
-  const read=k=>{ const el=[...document.querySelectorAll('[data-ts-owner][data-ts-key]')].find(x=>x.dataset.tsOwner===owner&&x.dataset.tsKey===k); return el?String(el.value||'').replace(/[,\s]/g,''):'0'; };
-  const raw={pension:read('pension'),irp:read('irp'),isa:read('isa')};
-  if(Object.values(raw).some(v=>v!==''&&!(/^\d+$/.test(v)))){ showSaveError('납입액은 0 이상의 원 단위 숫자로 적어 주세요.'); return; }
+  const raw=_cbTaxSavingRead(owner);
+  if(Object.values(raw).some(v=>v!==''&&!(/^\d+$/.test(v)))){ _cbTaxSavingStatus('숫자(원)만 적어 주세요 — 저장하지 않았습니다','warn'); return; }
   const row={pension:Number(raw.pension)||0,irp:Number(raw.irp)||0,isa:Number(raw.isa)||0};
+  const prev=cbTaxSavingRow(year,owner);
+  if(prev.pension===row.pension&&prev.irp===row.irp&&prev.isa===row.isa){ _cbTaxSavingStatus('저장됨','ok'); return; }
   const next=JSON.parse(JSON.stringify(window._taxSaving||{years:{}}));
   next.years=next.years||{}; next.years[year]=next.years[year]||{};
   if(row.pension||row.irp||row.isa) next.years[year][owner]=row; else delete next.years[year][owner];
   window._taxSaving=_normalizeTaxSaving(next);
-  await saveExtDataToKV();   // 실패하면 저장 경로가 마지막 원격 상태로 되돌리고 다시 그린다
-  cbRenderTax();
-  cbRestoreFilterFocus('cb-tax2','data-ts-save',owner);
+  _cbTaxSavingStatus('저장 중…','');
+  const res=await saveExtDataToKV();   // 실패하면 저장 경로가 마지막 원격 상태로 되돌리고 다시 그린다
+  if(res&&res.ok===false) _cbTaxSavingStatus('저장하지 못했습니다','warn');
+  else _cbTaxSavingStatus(`저장됨 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`,'ok');
 }
 function cbTaxYear(y){ _cbTaxYear = y; cbRenderTax(); }
 // 소유주 탭 — 요약 카드·차트·내역이 모두 list 파생이라 필터만 바꾸면 전부 갱신된다

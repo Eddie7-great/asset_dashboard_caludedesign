@@ -171,7 +171,8 @@ assert.match(cobalt, /\$\{cbGiftLedgerHtml\(giftScope\)\}/, '소유주 탭의 �
   assert.match(html, /<input type="checkbox" id="cf-fixed-gift"> 증여 이체<\/label>\s*<button id="cf-fixed-submit"/, '고정비 등록 폼의 증여 이체 체크');
   assert.match(pick(script, 'addAutoTransfer'), /const isGift = type==='지출' && !!document\.getElementById\('cf-gift-flag'\)\?\.checked;[\s\S]*if \(isGift\) at\.isGift = true;/);
   assert.match(pick(script, 'submitFixedCost'), /_setAutoTransferGift\(existing,isGift\);[\s\S]*if\(isGift\) row\.isGift=true;/);
-  assert.match(pick(script, 'renderFixedCostView'), /onclick="toggleAutoTransferGift\(\$\{safeId\}\)"/, '이미 등록한 자동이체는 고정비 표의 증여 버튼으로 표시');
+  assert.doesNotMatch(script, /toggleAutoTransferGift|cf-fixed-gift-btn/, "2026-11-24: 고정비 표의 '증여' 켜고 끄기 버튼은 없앴다 — 등록·수정 폼의 체크로 붙이고 뗀다");
+  assert.match(pick(script, 'renderFixedCostView'), /const giftTag=_autoTransferIsGift\(at\)\?'<span class="cf-fixed-state is-gift"[^']*>증여<\/span>':'';/, '증여 이체 줄에만 작은 표식');
   assert.match(script, /isGift:item\.type!=='수입'&&\(item\.isGift===true\|\|item\.giftKind==='child'\|\|item\.giftKind==='spouse'\),/, '저장값 정리가 표식을 지킨다');
   assert.match(pick(script, 'editFixedCost'), /o\.dataset\.temp='1'/, "목록에 없는 카테고리('저축/투자')를 수정하다 '기타'로 바꾸지 않는다");
 }

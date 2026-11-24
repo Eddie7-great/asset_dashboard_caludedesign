@@ -54,7 +54,7 @@ const render = grab(script, 'renderFixedCostView');
 assert.match(render, /const monthly=included\.reduce\(\(sum,at\)=>sum\+_autoTransferMonthlyEquivalent\(at,y,m\),0\);/);
 assert.match(render, /`\+ 적립식 ₩\$\{Math\.round\(dcaGroup\.total\)\.toLocaleString\(\)\} = ₩\$\{Math\.round\(monthly\+dcaGroup\.total\)\.toLocaleString\(\)\}`/);
 assert.match(render, /_fixedCostDistributionHtml\(included,y,m\)/, '분포는 고정비만');
-assert.match(html, /<div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계<\/div><div id="cf-fixed-dca-sum" class="cf-fixed-summary-note" hidden><\/div>/);
+assert.match(html, /<div class="cf-fixed-summary-notes"><div id="cf-fixed-monthly-note" class="cf-fixed-summary-note">등록된 고정비 합계<\/div><div id="cf-fixed-dca-sum" class="cf-fixed-summary-note cf-fixed-dca-sum" hidden><\/div><\/div>/, '2026-11-24: 부부 합계와 적립식 금액은 한 줄에 나란히');
 assert.match(html, /<div class="cf-fixed-side">\s*<div class="glass-panel cf-fixed-dist-panel">[\s\S]*?<div class="glass-panel cf-fixed-dca-panel" id="cf-fixed-dca" hidden><\/div>\s*<\/div>/, '분포 카드 아래');
 assert.match(css, /\.cf-fixed-side\{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;overflow-y:auto\}/, '넘치면 오른쪽 열이 스크롤 — 분포 범례를 자르지 않는다');
 assert.match(css, /\.cf-fixed-dca-link\{[^}]*color:var\(--acc\)/, '버튼 글자색을 준다(다크에서 검정이 되지 않게)');

@@ -266,11 +266,11 @@ function cbRenderCalendar(){
   // 위 세 카드와 같은 일정 합계를 더하고 뺄 뿐이다(새 판정 없음). 현금 흐름 화면의 실제 순현금흐름이 아니라 일정 기준 추정이라 손익 색을 쓰지 않는다.
   const net=calNetCash(data);
   const savingOut=Object.values(data.days).some(list=>list.some(ev=>ev.kind==='out'&&(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(ev.cat)));
-  const netNotes=[
-    data.totals.in>0?'':'수입 자동이체가 없어 수입은 0원입니다.',
-    savingOut&&data.totals.dca>0?"'저축/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다.":'',
-  ].filter(Boolean);
-  const netCard=`<div class="cb-panel cal-sum-card cal-net-card"><span class="cal-kind"><span data-tip="이 달 일정의 배당(세전 추정) + 수입 자동이체 − 자동이체 지출 − 적립 매수입니다. 일정 기준 추정이며 현금 흐름 화면의 실제 순현금흐름과 다릅니다.">이 달 예정 순현금</span></span><b class="cb-num">${cbSignDisp(net)}</b><small>배당 + 수입 − 지출 − 적립 매수</small>${netNotes.map(t=>`<small class="cal-net-note">${t}</small>`).join('')}</div>`;
+  // 2026-11-24(사용자 요청): '수입 자동이체가 없어 수입은 0원입니다' 문장은 뺐다 — 산식 줄이 이미 '배당 + 수입 − …'을 말한다.
+  // 저축 이체·적립 중복 경고는 카드 높이를 늘리지 않게 제목 옆 작은 표식(말풍선)으로 둔다 — 네 카드가 같은 높이.
+  const dupWarn=savingOut&&data.totals.dca>0
+    ?`<span class="cal-net-warn" data-tip="'저축/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다.">중복 주의</span>`:'';
+  const netCard=`<div class="cb-panel cal-sum-card cal-net-card"><span class="cal-kind"><span data-tip="이 달 일정의 배당(세전 추정) + 수입 자동이체 − 자동이체 지출 − 적립 매수입니다. 일정 기준 추정이며 현금 흐름 화면의 실제 순현금흐름과 다릅니다.">이 달 예정 순현금</span>${dupWarn}</span><b class="cb-num">${cbSignDisp(net)}</b><small>배당 + 수입 − 지출 − 적립 매수</small></div>`;
   el.innerHTML=`<div class="cal-toolbar">
       <button type="button" class="cb-btn" data-cal-move="-1" onclick="calMove(-1)" aria-label="이전 달">‹</button>
       <b class="cal-title" aria-live="polite">${ym.y}년 ${ym.m+1}월</b>

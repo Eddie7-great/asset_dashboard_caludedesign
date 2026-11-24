@@ -211,8 +211,9 @@ assert.equal(ctx.calNetCash({ totals: { div: 180000, dca: 600000, out: 320000, i
   assert.match(h, /cal-chip in/, '수입 자동이체는 달력·목록에 그대로 남는다');
   vm.runInContext("autoTransferData=[{owner:'본인',type:'지출',cat:'저축/투자',desc:'자녀 증여',amt:500000,dayOfMonth:10}];cbRenderCalendar();", ctx);
   h = els['cb-cal2'].innerHTML;
-  assert.match(h, /<small class="cal-net-note">수입 자동이체가 없어 수입은 0원입니다\.<\/small>/);
-  assert.match(h, /<small class="cal-net-note">'저축\/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다\.<\/small>/);
+  assert.doesNotMatch(h, /수입 자동이체가 없어 수입은 0원입니다/, '2026-11-24: 수입 0원 안내 문장은 뺐다');
+  assert.match(h, /<span class="cal-net-warn" data-tip="'저축\/투자' 이체와 적립이 같은 돈이면 두 번 빠집니다\.">중복 주의<\/span>/, '중복 경고는 카드 높이를 늘리지 않는 표식');
+  assert.doesNotMatch(h, /cal-net-note/);
   vm.runInContext("autoTransferData=[{owner:'본인',type:'지출',desc:'관리비',amt:320000,dayOfMonth:25},{owner:'아내',type:'수입',desc:'월세',amt:700000,dayOfMonth:5}];", ctx);
 }
 assert.match(ws, /\.cal-list\{display:flex;flex-direction:column;margin-top:8px;flex:1 1 auto;min-height:160px;contain:size;position:relative;overflow-y:auto\}/, '목록은 달력 바닥까지 채우고 안에서 스크롤(목록 길이가 줄 높이를 늘리지 않게 contain:size)');
