@@ -32,7 +32,7 @@ function rememberCfDeletion(item){
   }
   return key;
 }
-const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572','부부 송금':'#94a3c8','아내 지출(추정)':'#f2a33c'};
+const cfColors = {'교통/차량':'#4ecdc4','교육':'#f472b6','급여':'#5b9bff','기타':'#94a3c8','문화/생활':'#c084fc','식비':'#f2a33c','의료/건강':'#fb7185','저축/투자':'#56c596','주거/통신':'#e8875a','배당금':'#4ade80','대출납입금':'#fb7185','관리비':'#e8875a','세금':'#e05572','부부 송금':'#94a3c8','아내 지출(추정)':'#f2a33c','적립식':'#3f63c9'};
 // 자동이체 등록 데이터: {id, owner, type, cat, desc, amt, cycle, dayOfWeek, dayOfMonth,
 // isFixedCost:true|false|undefined(기존 데이터 검토 필요), startMonth, endMonth, lastApplied}
 let autoTransferData = [];
@@ -541,13 +541,15 @@ function _fixedCostIncomeForMonth(y,m) {
 
 // 합산된(included) 고정비를 카테고리로 접어 비중을 낸다. 이미 표에서 도는
 // _autoTransferMonthlyEquivalent 를 그대로 가중치로 쓴다 — 새 계산 없음.
-function _fixedCostDistribution(included, y, m) {
+function _fixedCostDistribution(included, y, m, dcaTotal = 0) {
   const byCat = new Map();
   included.forEach(at => {
     const cat = at.cat || '기타';
     const amt = _autoTransferMonthlyEquivalent(at, y, m);
     byCat.set(cat, (byCat.get(cat) || 0) + amt);
   });
+  // 부부 적립식 매수(2026-11-24) — '적립식' 한 칸. 값은 _fixedCostDcaGroup 의 월 환산 합 그대로.
+  if (dcaTotal > 0) byCat.set('적립식', (byCat.get('적립식') || 0) + dcaTotal);
   const total = [...byCat.values()].reduce((s, v) => s + v, 0);
   return [...byCat.entries()]
     .map(([cat, amount]) => ({ cat, amount, pct: total > 0 ? amount / total * 100 : 0 }))
@@ -556,8 +558,8 @@ function _fixedCostDistribution(included, y, m) {
 // 색은 cfColors(월별 현금흐름 차트와 같은 정의) 를 그대로 쓴다 — 카테고리별 색이
 // 화면마다 달라지지 않는다. 차트 라이브러리 없이 .sim-stack(100% 누적 막대) 패턴을
 // 재사용한다.
-function _fixedCostDistributionHtml(included, y, m) {
-  const dist = _fixedCostDistribution(included, y, m);
+function _fixedCostDistributionHtml(included, y, m, dcaTotal = 0) {
+  const dist = _fixedCostDistribution(included, y, m, dcaTotal);
   if (!dist.length) return '<p class="cf-fixed-dist-empty">합산된 고정비가 없어 분포를 표시할 수 없습니다.</p>';
   const bar = `<div class="sim-stack" role="img" aria-label="카테고리별 고정비 비중">${dist.map(d =>
     `<span style="width:${d.pct.toFixed(2)}%;background:${cfColors[d.cat] || '#94a3c8'}" title="${_cfEsc(d.cat)} ${d.pct.toFixed(1)}%"></span>`
@@ -567,27 +569,25 @@ function _fixedCostDistributionHtml(included, y, m) {
   ).join('')}</div>`;
   return bar + legend;
 }
-// ── 적립식 매수 묶음(2026-11-18 4차, 사용자 결정: 별도 묶음) ──
-// 고정비 합계(월 고정비 카드·분포·수입 대비 비율)에는 넣지 않고 옆에 따로 보여 준다.
-// 대상·금액은 현금 안전판(finCashSafety 의 dca)과 같다: 켜 둔(i.dca) 적립식 규칙의 월 환산(cbDcaPerMonthKRW). 새 계산 없음.
+// ── 적립식 매수(2026-11-24 사용자 결정: 부부 적립식을 고정비에 포함) ──
+// 부부 월급에서 나가는 돈이라 본인·아내 적립식만 고정비 내역·합계·분포·수입 대비 비율에 넣는다.
+// 자녀1·아버지 적립식은 뺀다 — 자녀1 은 이미 고정비에 있는 증여 이체로 사므로 넣으면 같은 돈이 두 번 빠진다.
+// 금액은 켜 둔(dcaState 'on') 규칙의 월 환산(cbDcaPerMonthKRW) 그대로다. 현금 안전판의 '월 필수지출'(finMonthlyFixedCost)에는 넣지 않는다.
 function _fixedCostDcaGroup(ownerF){
-  const mine=(pfolioData||[]).filter(i=>i&&dcaHasRule(i)&&(!ownerF||ownerF==='전체'||i.owner===ownerF));
+  const couple=typeof CF_OWNERS!=='undefined'?CF_OWNERS:['본인','아내'];
+  const inScope=o=>(!ownerF||ownerF==='전체')?couple.includes(o):o===ownerF;
   const perMonth=i=>typeof cbDcaPerMonthKRW==='function'?cbDcaPerMonthKRW(i):0;
-  const rows=mine.filter(i=>dcaState(i)==='on').map(i=>({owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
-    label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
+  const rows=(pfolioData||[]).map((i,idx)=>({i,idx})).filter(({i})=>i&&dcaHasRule(i)&&dcaState(i)==='on'&&inScope(i.owner))
+    .map(({i,idx})=>({idx,owner:i.owner||'',name:i.name||i.tkr||'',tkr:i.tkr||'',
+      label:typeof cbDcaRuleLabel==='function'?cbDcaRuleLabel(i):(i.dcaCycle||''),monthly:perMonth(i)}))
     .sort((a,b)=>b.monthly-a.monthly||String(a.name).localeCompare(String(b.name),'ko'));
   return {rows,total:rows.reduce((s,r)=>s+r.monthly,0)};
 }
-function _fixedCostDcaHtml(group, savingCount){
-  const won=v=>`₩${Math.round(v).toLocaleString()}`;
-  const tag=o=>typeof cbOwnerTag==='function'?cbOwnerTag(o):`<span>${_cfEsc(o)}</span>`;
-  const list=group.rows.map(r=>`<div class="cf-fixed-dca-row">${tag(r.owner)}<span class="cf-fixed-dca-name" title="${_cfEsc(r.name)}">${_cfEsc(r.name)}</span><span class="cf-fixed-dca-rule">${_cfEsc(r.label)}</span><b>${won(r.monthly)}</b></div>`).join('');
-  const dup=savingCount?`<p class="cf-fixed-dca-warn">고정비에 '저축/투자' 자동이체가 ${savingCount}건 있습니다. 증권계좌로 보내는 그 돈으로 적립식 매수를 한다면, 월 고정비 카드의 '+ 적립식' 합계에는 같은 돈이 두 번 들어갑니다.</p>`:'';
-  // 합계가 종목 목록보다 먼저다(2026-11-20 8차, 사용자 결정) — 목록이 길어도 합계가 카드 위에서 바로 보인다. 중단한 규칙은 세지도 적지도 않는다.
-  return `<div class="cf-fixed-dca-head"><div class="cb-label">적립식 매수 <small>고정비와 별도</small></div><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
-    <div class="cf-fixed-dca-total"><span>적립식 월 합계</span><b>${won(group.total)}</b></div>
-    <p class="cf-fixed-dca-sub">매수 규칙의 월 환산액입니다. 고정비 합계·분포·수입 대비 비율에는 넣지 않습니다.</p>
-    <div class="cf-fixed-dca-list">${list}</div>${dup}`;
+// 고정비 표의 적립식 줄 — 수정은 같은 적립식 설정 창(cbDcaEdit)
+function _fixedCostDcaRowHtml(r){
+  const owner=r.owner||'미지정';
+  const edit=Number.isSafeInteger(r.idx)?`<button class="btn-action" onclick="cbDcaEdit(${r.idx})" title="적립식 설정 수정">✎</button>`:'';
+  return `<tr class="cf-fixed-row-dca"><td class="text-left"><span class="cf-fixed-owner"><i style="background:${ownerColors[owner]||'#8a97b0'}"></i>${_cfEsc(owner)}</span></td><td class="text-left cf-fixed-secondary">적립식</td><td class="text-left"><span class="cf-fixed-item"><span class="cf-fixed-item-name" title="${_cfEsc(r.name)}">${_cfEsc(r.name)}</span></span></td><td class="text-left">${_cfEsc(r.label)}</td><td class="text-right">₩${Math.round(r.monthly).toLocaleString()}</td><td class="text-right cf-fixed-secondary">₩${Math.round(r.monthly*12).toLocaleString()}</td><td class="text-right cf-fixed-actions">${edit}</td></tr>`;
 }
 function renderFixedCostView() {
   const body=document.getElementById('cf-fixed-table-body');
@@ -598,7 +598,10 @@ function renderFixedCostView() {
   const visible=ownerExpenses.filter(at=>at.isFixedCost!==false||_cfShowExcluded);
   const included=visible.filter(at=>at.isFixedCost===true&&_autoTransferActiveInMonth(at,y,m));
   const pending=visible.filter(at=>at.isFixedCost==null);
-  const monthly=included.reduce((sum,at)=>sum+_autoTransferMonthlyEquivalent(at,y,m),0);
+  const fixedMonthly=included.reduce((sum,at)=>sum+_autoTransferMonthlyEquivalent(at,y,m),0);
+  // 부부 적립식 매수도 고정비 합계에 넣는다(2026-11-24 사용자 결정) — 월 고정비·연간·수입 대비 비율·분포가 같은 합계를 쓴다
+  const dcaGroup=_fixedCostDcaGroup(_cfOwner);
+  const monthly=fixedMonthly+dcaGroup.total;
   const annual=monthly*12;
   const income=_fixedCostIncomeForMonth(y,m);
   const ratio=income>0?monthly/income*100:null;
@@ -610,18 +613,19 @@ function renderFixedCostView() {
   const ratioNote=document.getElementById('cf-fixed-ratio-note');if(ratioNote)ratioNote.textContent=income>0?`이번 달 수입 ₩${Math.round(income).toLocaleString()} 기준`:'이번 달 수입 내역이 없습니다';
   const nextEl=document.getElementById('cf-fixed-next');if(nextEl)nextEl.textContent=next?`₩${Math.round(_effectiveAutoTransferAmt(next.at,next.date.getFullYear(),next.date.getMonth()+1)).toLocaleString()}`:'-';
   const nextNote=document.getElementById('cf-fixed-next-note');if(nextNote)nextNote.textContent=next?`${next.date.getMonth()+1}월 ${next.date.getDate()}일 · ${next.at.owner||'미지정'} · ${next.at.desc}`:'예정된 결제가 없습니다';
-  const monthNote=document.getElementById('cf-fixed-monthly-note');if(monthNote)monthNote.textContent=`${cfScopeLabel()} · ${included.length}개 항목`;
+  const monthNote=document.getElementById('cf-fixed-monthly-note');if(monthNote)monthNote.textContent=`${cfScopeLabel()} · ${included.length+dcaGroup.rows.length}개 항목`;
   const review=document.getElementById('cf-fixed-review-note');if(review)review.textContent=pending.length?`기존 자동이체 ${pending.length}건은 소유주와 고정비 여부를 확인해야 합계에 반영됩니다.`:'분류가 완료된 고정비만 합산합니다.';
   const badge=document.getElementById('cf-fixed-pending-badge');if(badge){badge.style.display=pending.length?'inline-flex':'none';badge.textContent=String(pending.length);}
   const excludedToggle=document.getElementById('cf-fixed-excluded-toggle');if(excludedToggle){excludedToggle.style.display=excluded.length?'':'none';excludedToggle.textContent=_cfShowExcluded?`제외 항목 숨기기`:`제외 항목 ${excluded.length}건`;excludedToggle.classList.toggle('active',_cfShowExcluded);}
-  const distEl=document.getElementById('cf-fixed-dist');if(distEl)distEl.innerHTML=_fixedCostDistributionHtml(included,y,m);
-  // 적립식 매수 — 별도 묶음. 월 고정비 카드에는 '+ 적립식 = 합계' 한 줄만 덧붙인다(카드 값은 그대로 고정비)
-  const dcaGroup=_fixedCostDcaGroup(_cfOwner);
-  const savingCount=included.filter(at=>(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(at.cat)).length;
+  const distEl=document.getElementById('cf-fixed-dist');if(distEl)distEl.innerHTML=_fixedCostDistributionHtml(included,y,m,dcaGroup.total);
+  // 카드 아래 한 줄: 그중 적립식이 얼마인지. '저축/투자' 고정비가 같이 있으면 증권계좌 이체와 적립식이 같은 돈일 수 있어 '중복 주의'.
+  // 증여 이체는 자녀 계좌로 가는 돈이라(그 적립식은 이 합계에 없다) 겹침 대상에서 뺀다.
+  const savingCount=included.filter(at=>(typeof FIN_SAVING_CATS!=='undefined'?FIN_SAVING_CATS:['저축/투자']).includes(at.cat)&&!_autoTransferIsGift(at)).length;
   const dcaSum=document.getElementById('cf-fixed-dca-sum');
-  if(dcaSum){ dcaSum.hidden=!dcaGroup.rows.length; dcaSum.textContent=dcaGroup.rows.length?`+ 적립식 ₩${Math.round(dcaGroup.total).toLocaleString()} = ₩${Math.round(monthly+dcaGroup.total).toLocaleString()}`:''; }
-  const dcaEl=document.getElementById('cf-fixed-dca');
-  if(dcaEl){ dcaEl.hidden=!dcaGroup.rows.length&&!dcaGroup.paused; dcaEl.innerHTML=dcaEl.hidden?'':_fixedCostDcaHtml(dcaGroup,savingCount); }
+  if(dcaSum){
+    dcaSum.hidden=!dcaGroup.rows.length;
+    dcaSum.innerHTML=dcaGroup.rows.length?`그중 적립식 ₩${Math.round(dcaGroup.total).toLocaleString()}${savingCount?` <span class="cal-net-warn" tabindex="0" data-tip="고정비에 '저축/투자' 자동이체가 ${savingCount}건 있습니다. 증권계좌로 보내는 그 돈으로 적립식 매수를 한다면 같은 돈이 두 번 들어갑니다.">중복 주의</span>`:''}`:'';
+  }
 
   const rows=visible.slice().sort((a,b)=>{
     const ap=a.isFixedCost===true?0:(a.isFixedCost==null?1:2),bp=b.isFixedCost===true?0:(b.isFixedCost==null?1:2);
@@ -649,7 +653,8 @@ function renderFixedCostView() {
     // 대출 상환 조건이 있으면 바로 아래 줄(항목 칸부터 끝까지)에 방식·금리·잔여·잔액 — 좁은 항목 칸에 넣으면 잘린다
     const loanRow=at.loan?`<tr class="cf-fixed-loan-row"><td colspan="2"></td><td colspan="5" class="text-left"><small class="cf-fixed-loan-note">${_cfEsc(_loanStatusText(at.loan,y,m))}</small></td></tr>`:'';
     return `<tr class="${isPending?'cf-fixed-row-pending':''}${isExcluded?' cf-fixed-row-excluded':''}${at.loan?' has-loan':''}"><td class="text-left">${ownerCell}</td><td class="text-left cf-fixed-secondary">${_cfEsc(at.cat||'-')}</td><td class="text-left"><span class="cf-fixed-item"><span class="cf-fixed-item-name" title="${_cfEsc(at.desc||'')}">${_cfEsc(at.desc||'-')}</span>${state}${giftTag}</span></td><td class="text-left">${_cfEsc(_fixedCostCycleText(at))}</td><td class="text-right">${isPending?'-':`₩${Math.round(monthlyAmt).toLocaleString()}`}</td><td class="text-right cf-fixed-secondary">${isPending?'-':`₩${Math.round(monthlyAmt*12).toLocaleString()}`}</td><td class="text-right cf-fixed-actions">${actions}</td></tr>${loanRow}`;
-  }).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>';
+  }).join('')+dcaGroup.rows.map(_fixedCostDcaRowHtml).join('')
+  :(dcaGroup.rows.length?dcaGroup.rows.map(_fixedCostDcaRowHtml).join(''):'<tr><td colspan="7" class="cf-fixed-empty">등록된 고정비가 없습니다.</td></tr>');
 }
 
 function toggleFixedCostScheduleFields() {

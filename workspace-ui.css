@@ -1305,7 +1305,11 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-item{display:flex;align-items:center;min-width:0}
 .cf-fixed-item>.cf-fixed-item-name{flex:0 1 auto;min-width:0;max-width:none}
 .cf-fixed-item>.cf-fixed-state{flex:none}
+/* 좁은 화면(1439px 이하)에서는 이름과 표식(합산·증여)이 한 줄에 안 들어가면 표식을 다음 줄로 — 같은 줄에 묶어 두면 '자녀 증여 이체' 같은 이름이 통째로 잘렸다(2026-11-24) */
+@media(max-width:1439px){.cf-fixed-item{flex-wrap:wrap;row-gap:2px}}
 @media(min-width:769px){.cf-fixed-bottom-row{grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr)}}
+/* 1440px 미만은 분포 카드를 300px 로 고정해 내역 표의 항목 칸을 넓힌다(적립식 줄이 들어오며 표가 길어졌다) */
+@media(min-width:1101px) and (max-width:1439px){.cf-fixed-bottom-row{grid-template-columns:minmax(0,1fr) 300px}}
 /* 숫자 카드 네 개: 라벨·값·보조 문구가 같은 높이에서 시작한다(가운데 정렬이면 보조 줄 수에 따라 카드마다 위아래로 어긋났다).
    월 고정비 카드는 '부부 합계 · N개 항목'과 '+ 적립식 …'을 한 줄에 나란히 둔다. */
 @media(min-width:1101px){.cf-fixed-summary-grid{grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr))}}
@@ -1313,6 +1317,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cf-fixed-summary-notes{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;margin-top:5px}
 .cf-fixed-summary-notes>.cf-fixed-summary-note{margin-top:0;flex:0 1 auto;min-width:0}
 .cf-fixed-dca-sum{font-weight:600;color:var(--t2)}
+.cf-fixed-dca-sum .cal-net-warn{margin-left:4px}
 .cb-gift-link-from{display:flex;align-items:center;gap:6px;color:var(--mut);white-space:nowrap}
 .cb-gift-auto-tag{white-space:nowrap;font-style:normal;font-size:var(--fs-cap);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 @media(max-width:768px){.cb-gift-link-row{grid-template-columns:1fr}.cb-gift-link select,.cb-gift-link input{pointer-events:none}}
@@ -1340,22 +1345,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 두 카드는 제 높이 그대로 쌓고, 넘치면 오른쪽 열 전체가 스크롤한다 — 한 카드를 줄이면 분포 범례가 잘린다 */
 .cf-fixed-side{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;overflow-y:auto}
 .cf-fixed-side>.glass-panel{flex:0 0 auto;overflow:visible}
-.cf-fixed-dca-panel{padding:14px;display:flex;flex-direction:column;gap:8px}
-.cf-fixed-dca-panel[hidden]{display:none}
-.cf-fixed-dca-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cf-fixed-dca-head .cb-label small{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--mut)}
-.cf-fixed-dca-link{padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:var(--fs-cap);cursor:pointer;white-space:nowrap}
-.cf-fixed-dca-link:hover{text-decoration:underline}
-.cf-fixed-dca-sub{margin:0;font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
-.cf-fixed-dca-list{display:flex;flex-direction:column}
-.cf-fixed-dca-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
-.cf-fixed-dca-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
-.cf-fixed-dca-rule{font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
-.cf-fixed-dca-row b,.cf-fixed-dca-total b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 /* 합계는 제목 바로 아래(2026-11-20 8차) — 목록보다 먼저 보이도록 크게, 아래 줄로 목록과 나눈다 */
-.cf-fixed-dca-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body);color:var(--tx)}
-.cf-fixed-dca-total b{font-size:var(--fs-card);font-weight:800}
-.cf-fixed-dca-warn{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--inner);font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
 #cf-fixed-dca-sum[hidden]{display:none}
 @media(max-width:768px){.cf-fixed-side{overflow:visible}}
 

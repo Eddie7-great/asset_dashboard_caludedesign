@@ -135,6 +135,6 @@ assert.match(css,/@media \(max-width: 768px\)[\s\S]*cf-fixed-summary-grid[\s\S]*
 
 assert.match(html,/cf-fixed-bottom-row[\s\S]*cf-fixed-table-panel[\s\S]*cf-fixed-dist-panel[\s\S]*id="cf-fixed-dist"/,'내역 표와 분포 시각화를 한 행에 나란히 둔다')
 assert.match(css,/\.cf-fixed-bottom-row\{display:grid;grid-template-columns:minmax\(0,1\.4fr\) minmax\(200px,1fr\)/,'표는 컴팩트하게, 분포는 옆 여백에 — 표 단독 사용 대비 폭을 나눈다')
-assert.match(source,/const distEl=document\.getElementById\('cf-fixed-dist'\);if\(distEl\)distEl\.innerHTML=_fixedCostDistributionHtml\(included,y,m\)/,'renderFixedCostView 가 표와 같은 included 목록으로 분포를 그린다')
+assert.match(source,/const distEl=document\.getElementById\('cf-fixed-dist'\);if\(distEl\)distEl\.innerHTML=_fixedCostDistributionHtml\(included,y,m,dcaGroup\.total\)/,'renderFixedCostView 가 표와 같은 included 목록(+ 부부 적립식 합계)으로 분포를 그린다')
 
 console.log('PASS 현금 흐름 고정비 관리')

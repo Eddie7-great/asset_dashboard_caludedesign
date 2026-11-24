@@ -398,4 +398,6 @@ async function cbDcaEditSave(){
 // 보유 목록(레거시 화면)은 저장 래퍼의 cbRerender 가 다시 그리지 않으므로 여기서 그린다.
 function cbDcaEditRefresh(){
   if(document.getElementById('view-holdings')?.classList.contains('active')&&typeof renderPortfolio==='function') renderPortfolio(currentOwner);
+  // 고정비 표의 적립식 줄(✎)에서 연 경우 — 고정비 합계를 다시 그린다
+  if(document.getElementById('view-cashflow')?.classList.contains('active')&&typeof renderFixedCostView==='function') renderFixedCostView();
 }
