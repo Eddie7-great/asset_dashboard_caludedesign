@@ -105,6 +105,14 @@ function cbDivMonthlyForYear(list, year, netBasis=false){
     coverage:{covered,total:list.length}
   };
 }
+// 소유주별 예상 배당세(2026-11-24 사용자 결정 A) — 금융소득 근접도 카드 안에 넣는다. 새 계산 없이
+// allocateDividendTax 의 소유주 합(o.tax·o.gross·o.net)만 그린다. ISA 몫은 연간 현금흐름 참고값이다.
+function cbDivOwnerTaxHtml(o){
+  const tax=Number(o&&o.tax)||0;
+  const tip=`세전 연간 추정 배당에 계좌별 세율을 적용한 값입니다.${o&&o.isa>0?' ISA 몫은 만기 정산 전 연간 현금흐름 참고입니다.':''}${o&&o.pension>0?' 연금계좌는 과세이연이라 0원입니다.':''}`;
+  return `<div class="cb-fin-income-tax"><span data-tip="${cbEsc(tip)}">예상 배당세</span><b class="cb-num${tax>0?' is-tax':''}">${tax>0?'−'+cbDisp(tax):cbDisp(0)}</b></div>
+            <div class="cb-fin-income-net">세전 ${cbDisp(o.gross||0)} → 세후 ${cbDisp(o.net||0)}</div>`;
+}
 function cbUpcomingDividendSchedule(list, days=90, asOf=null){
   const start=asOf?new Date(asOf):new Date();
   if (Number.isNaN(start.getTime())) return [];
@@ -368,8 +376,8 @@ function cbRenderDiv(){
     </div>
     <div class="cb-panel cb-fin-income-panel">
       <div class="fin-section-head">
-        <span><span data-tip="실제 기준은 개인별 과세대상 이자·배당 합계입니다. 이 화면은 앱에 입력된 일반계좌 배당만 집계하므로 법적 대상 판정이 아닌 부분 근접도입니다.">입력된 일반계좌 배당 기준 금융소득 근접도</span> <span style="color:var(--dim);font-weight:500">· 소유주별 · 부분 집계</span></span>
-        <small>기준 ${cbDisp(CB_FIN_INCOME_THRESHOLD)} · 이 앱에 없는 예적금 이자는 미포함</small>
+        <span>소유주별 예상 배당세 · <span data-tip="실제 기준은 개인별 과세대상 이자·배당 합계입니다. 이 화면은 앱에 입력된 일반계좌 배당만 집계하므로 법적 대상 판정이 아닌 부분 근접도입니다.">입력된 일반계좌 배당 기준 금융소득 근접도</span> <span style="color:var(--dim);font-weight:500">· 부분 집계</span></span>
+        <small>예상 배당세 합계 <b style="color:var(--dn)">−${cbDisp(alloc.owners.reduce((s,o)=>s+(o.tax||0),0))}</b> · 근접도 기준 ${cbDisp(CB_FIN_INCOME_THRESHOLD)} · 예적금 이자 미포함</small>
       </div>
       <div class="cb-fin-income-grid">
         ${alloc.owners.filter(o=>o.gross>0).sort((a,b)=>OWNERS.indexOf(a.owner)-OWNERS.indexOf(b.owner)).map(o=>{
@@ -378,6 +386,7 @@ function cbRenderDiv(){
           const near=!over&&o.comprehensivePct>=80;
           return `<div class="cb-fin-income-card${over?' is-over':near?' is-near':''}">
             <div class="cb-fin-income-head"><b><i style="background:${cbOwnerColor(o.owner)}"></i>${cbEsc(o.owner)}</b><span>${o.comprehensivePct.toFixed(0)}%</span></div>
+            ${cbDivOwnerTaxHtml(o)}
             <div class="cb-fin-income-track"><i style="width:${pct}%"></i></div>
             <div class="cb-fin-income-meta">일반 ${cbDisp(o.general)}${o.isa>0?` · ISA ${cbDisp(o.isa)}`:''}${o.pension>0?` · 연금 ${cbDisp(o.pension)}`:''}</div>
             <div class="cb-fin-income-note">${over?`⚠ 입력 배당만으로 기준 초과 ${cbDisp(o.comprehensiveOver)} — 전체 금융소득 확인 필요`:near?'입력 배당이 기준에 근접했습니다 — 전체 금융소득을 확인하세요.':`입력 배당 기준 잔여 ${cbDisp(Math.max(0,CB_FIN_INCOME_THRESHOLD-o.general))}`}</div>

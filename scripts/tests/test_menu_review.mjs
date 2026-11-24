@@ -184,3 +184,16 @@ vm.runInContext(extractFunction(storedSource, '_normalizeTaxSaving'), context)
 }
 
 console.log('test_menu_review: OK')
+
+// 소유주별 예상 배당세(2026-11-24 사용자 결정 A) — 금융소득 카드 안, allocateDividendTax 소유주 합 그대로
+{
+  const divSrc = readSource('cobalt.js')
+  const ctx = vm.createContext({ cbEsc: v => String(v), cbDisp: v => '₩' + Math.round(v).toLocaleString('en-US') })
+  vm.runInContext(extractFunction(divSrc, 'cbDivOwnerTaxHtml'), ctx)
+  const h = ctx.cbDivOwnerTaxHtml({ owner: '본인', gross: 461388, net: 434326, tax: 27062, isa: 285660, pension: 0 })
+  assert.match(h, /예상 배당세<\/span><b class="cb-num is-tax">−₩27,062<\/b>/)
+  assert.match(h, /세전 ₩461,388 → 세후 ₩434,326/)
+  assert.match(h, /ISA 몫은 만기 정산 전 연간 현금흐름 참고/, 'ISA 는 참고값이라고 밝힌다')
+  assert.match(ctx.cbDivOwnerTaxHtml({ gross: 62100, net: 62100, tax: 0, pension: 62100 }), /<b class="cb-num">₩0<\/b>[\s\S]*/, '세금 0 은 회색')
+  assert.match(divSrc, /\$\{cbDivOwnerTaxHtml\(o\)\}/, '금융소득 카드 안에 넣는다')
+}
