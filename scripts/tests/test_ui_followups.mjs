@@ -296,7 +296,6 @@ const divGrowthContext = {
         {date:'2025-03-01',amount:1.21},
       ]},
       SHORT:{events:[
-        {date:'2025-03-01',amount:1},
         {date:'2026-03-01',amount:1.1},
       ]},
     }
@@ -304,11 +303,35 @@ const divGrowthContext = {
 }
 vm.createContext(divGrowthContext)
 for (const [source,name] of [
-  [scriptSource,'_divpAggregateByYear'],
-  [scriptSource,'_divpComputeCagr'],
   [cobaltSource,'cbStrip'],
+  [cobaltSource,'cbDivGrowthFromEvents'],
   [cobaltSource,'cbDivGrowthInfo'],
+  [cobaltSource,'cbDivGrowthTip'],
 ]) vm.runInContext(extractFunction(source,name),divGrowthContext)
+// 배당성장률 재점검(2026-11-24) — 실제 Yahoo 이력 모양으로 고정한다
+{
+  const G = (ev, d) => divGrowthContext.cbDivGrowthFromEvents(ev, new Date(d))
+  const monthly = (from, to, amt) => { const out = []; let [y, m] = from.split('-').map(Number); for (;;) { const k = `${y}-${String(m).padStart(2, '0')}`; if (k > to) break; out.push({ date: k + '-28', amount: typeof amt === 'function' ? amt(y, m) : amt }); m++; if (m > 12) { m = 1; y++ } } return out }
+  // 10월 상장 월배당(490590 모양): 2024 년 2회는 반쪽 해 — 시작점에서 빼고, 완결 연도가 1개뿐이라 12개월 비교
+  let g = G(monthly('2024-11', '2026-10', (y) => y === 2026 ? 110 : 100), '2026-11-24')
+  assert.equal(g.status, 'ready', '상장 2년 된 월배당은 최근 12개월 vs 직전 12개월로 산출')
+  assert.equal(g.basis, 'ttm')
+  assert.ok(Math.abs(g.value - ((110 * 10 + 100 * 2) / 1200 - 1) * 100) < 1e-9, '최근 12개월 1,300 vs 직전 12개월 1,200')
+  // 반쪽 첫해를 그대로 쓰면 +500% 가 나온다 — 그러지 않는다
+  g = G(monthly('2023-11', '2026-10', 100), '2026-11-24')
+  assert.equal(g.status, 'ready'); assert.equal(g.basis, 'cagr')
+  assert.equal(g.from, 2024, '2회뿐인 2023년은 시작점에서 뺀다'); assert.ok(Math.abs(g.value) < 1e-9, '매달 같은 금액이면 0%')
+  // 연 1회(442580 모양) 2024·2025 → 0%
+  g = G([{ date: '2024-04-29', amount: 200 }, { date: '2025-04-29', amount: 200 }, { date: '2026-04-29', amount: 100 }], '2026-11-24')
+  assert.equal(g.status, 'ready'); assert.ok(Math.abs(g.value) < 1e-9)
+  // 상장 1년 남짓 — 비교할 1년 전이 없다
+  g = G([{ date: '2026-04-29', amount: 11 }, { date: '2026-07-30', amount: 26 }, { date: '2026-10-29', amount: 90 }], '2026-11-24')
+  assert.equal(g.status, 'insufficient', '상장 2년 미만은 산출하지 않는다')
+  assert.match(divGrowthContext.cbDivGrowthTip(g), /상장 2년 미만/)
+  // 지급 0건은 '조회 실패'가 아니라 '이력 없음'
+  assert.equal(G([], '2026-11-24').status, 'none')
+  assert.match(divGrowthContext.cbDivGrowthTip({ status: 'ready', basis: 'cagr', from: 2020, to: 2025 }), /2020년 → 2025년/)
+}
 assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'READY'}).status,'ready','완결연도 2개 이상이면 배당성장률 산출')
 assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'SHORT'}).status,'insufficient','원본 이력은 있으나 완결연도가 짧으면 이력 부족으로 구분')
 assert.equal(divGrowthContext.cbDivGrowthInfo({tkr:'MISSING'}).status,'missing','원본 배당 이력 조회 실패를 별도 구분')
@@ -674,6 +697,15 @@ assert.equal(lateMonth.length,1,"15일이 지나도 날짜 미정 월 배당은 
 assert.equal(lateMonth[0].exact,false,"추정 일정은 확정일이 아니다");
 assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보존한다");
 
+// 공시된 지급일이 있으면 '경' 없이 확정으로(2026-11-24)
+{
+  const ctx = upcomingContext
+  ctx.divPayDateFor = (d, y, m0) => (y === 2026 && m0 === 11 ? { date: new Date(2026, 11, 15), exact: true } : { date: new Date(y, m0, d.payDay), exact: false })
+  const ev = ctx.cbUpcomingDividendSchedule([{ tkr: 'O', incomeKRW: 1200, d: { months: [10, 11], payDay: 14 } }], 60, '2026-11-01T00:00:00')
+  assert.equal(ev.find(x => x.date.getMonth() === 11).dateLabel, '12월 15일'); assert.equal(ev.find(x => x.date.getMonth() === 11).exact, true)
+  assert.equal(ev.find(x => x.date.getMonth() === 10).dateLabel, '11월 14일경', '공시가 없는 달은 추정 표시')
+  delete ctx.divPayDateFor
+}
 // 2026-11-11 배당 상단 카드 — 보조 문구는 제목 줄 오른쪽, 연간 카드에는 세전/세후·소유주 표시가 없다
 {
   const grid = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-div-summary-grid">'), cobaltSource.indexOf('cb-div-top3-card'))

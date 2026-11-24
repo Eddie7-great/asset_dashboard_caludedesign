@@ -165,6 +165,7 @@ vm.createContext(cashContext)
 vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), cashContext)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), cashContext)
 vm.runInContext(extractFunction(scriptSource, '_normDivKey'), cashContext)
+vm.runInContext(extractFunction(scriptSource, '_divPayDateStr'), cashContext)
 vm.runInContext(extractFunction(scriptSource, 'autoAddDividendCashFlow'), cashContext)
 
 const firstCashSync = await cashContext.autoAddDividendCashFlow(true)

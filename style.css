@@ -108,6 +108,10 @@
 .cb-fin-income-head b{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut)}
 .cb-fin-income-head b i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .cb-fin-income-head span{font:800 var(--fs-card) var(--font-ui)}
+.cb-fin-income-tax{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:6px;font-size:var(--fs-cap);color:var(--mut)}
+.cb-fin-income-tax>b{font:800 var(--fs-card) var(--font-ui);color:var(--lab)}
+.cb-fin-income-tax>b.is-tax{color:var(--dn)}
+.cb-fin-income-net{font-size:var(--fs-cap);color:var(--mut);padding-bottom:8px;border-bottom:1px solid var(--bd)}
 .cb-fin-income-track{height:var(--bar-h);border-radius:var(--r-sm);background:var(--bd);overflow:hidden;margin:8px 0 7px}
 .cb-fin-income-track i{display:block;height:100%;border-radius:var(--r-sm);background:var(--acc)}
 .cb-fin-income-card.is-near .cb-fin-income-track i{background:var(--warn)}

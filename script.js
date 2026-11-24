@@ -678,8 +678,11 @@ function _normalizePyDividendInfo(tkr,info,existing) {
   if(!info||info.dps==='미조회') return null;
   const cleanMonths=list=>[...new Set((Array.isArray(list)?list:[])
     .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12))];
-  let cycle=info.cycle||existing.cycle||'-';
-  let months=cleanMonths(info.months);
+  // 지급일 근거가 있는 값(공시 지급일·국내 ETF 관행 추정)은 배당락일 기준인 Python 값으로 덮지 않는다 — 지급월이 한 달 어긋난다.
+  const payKnown=existing.paySource==='stockanalysis'||existing.paySource==='kr-etf-rule';
+  let cycle=(payKnown?existing.cycle:info.cycle)||info.cycle||existing.cycle||'-';
+  let months=payKnown?cleanMonths(existing.months):cleanMonths(info.months);
+  if(!months.length) months=cleanMonths(info.months);
   if(!months.length) months=cleanMonths(existing.months);
   if(!months.length) months=cleanMonths(_defaultMonthsForCycle(cycle));
 
@@ -705,7 +708,7 @@ function _normalizePyDividendInfo(tkr,info,existing) {
     months,
     cycle,
     exDiv:existing.exDiv||'-',
-    payDay:typeof info.payDay==='number'?info.payDay:(existing.payDay||null)
+    payDay:payKnown&&existing.payDay?existing.payDay:(typeof info.payDay==='number'?info.payDay:(existing.payDay||null))
   };
 }
 

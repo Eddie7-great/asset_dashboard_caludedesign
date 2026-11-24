@@ -131,7 +131,8 @@ function cbRiskMergeEntries(entries){
 // 합친 부 항목(CB_RISK_MERGE)은 설명 아래 '└ 라벨 판정 값' 한 줄이고, 그 설명은 말풍선에 둔다.
 function cbRiskSubHtml(sub){
   const c=sub.card, tip=[c.tip,c.detail].filter(Boolean).join(' · ');
-  return `<span class="cb-risk-sub"><span${tip?` data-tip="${cbEsc(tip)}"`:''}>└ ${cbEsc(sub.label)}</span><span class="cb-risk-verdict is-${sub.verdict.key}">${sub.verdict.label}</span><b class="cb-num" style="color:${c.tone}">${cbEsc(c.value)}</b></span>`;
+  // 부 항목은 설명 칸 안이 아니라 본 항목 아래 줄 — 이름·판정·값이 위 줄과 같은 칼럼에 선다(2026-11-24 사용자 요청)
+  return `<span class="cb-risk-sub-name"${tip?` data-tip="${cbEsc(tip)}"`:''}>└ ${cbEsc(sub.label)}</span><span class="cb-risk-verdict cb-risk-sub-verdict is-${sub.verdict.key}">${sub.verdict.label}</span><b class="cb-risk-sub-val cb-num" style="color:${c.tone}">${cbEsc(c.value)}</b>`;
 }
 function cbRiskRowHtml(entry){
   const c=entry.card, insight=entry.kind==='insight', v=entry.verdict;
@@ -147,7 +148,7 @@ function cbRiskRowHtml(entry){
       <span class="cb-risk-verdict is-${v.key}">${v.label}</span>
       <b class="cb-risk-row-val cb-num" style="color:${tone}">${cbEsc(value)}</b>
       <div class="cb-risk-row-meter">${meter}</div>
-      <div class="cb-risk-row-desc"><span>${cbEsc(desc)}</span>${subs}</div>
+      <div class="cb-risk-row-desc"><span>${cbEsc(desc)}</span></div>${subs}
     </div>`;
 }
 // 양호 항목은 목록 아래 작은 칩 한 줄 — 이름·값만, 설명은 말풍선(사용자 결정 2026-11-24)
@@ -205,7 +206,7 @@ function cbRenderRisk(){
       </div>
       <section class="cb-panel cb-risk-list-panel" aria-label="리스크 점검 항목">
         <div class="cb-risk-list-title"><b>점검 항목</b><span class="cb-risk-counts">${counts}</span></div>
-        ${mainCards.length?`<div class="cb-risk-list-head" aria-hidden="true"><span></span><span>항목</span><span>판정</span><span class="r">값</span><span>위치 <small>(눈금 = 주의·위험)</small></span><span>설명</span></div>
+        ${mainCards.length?`<div class="cb-risk-list-head" aria-hidden="true"><span></span><span>항목</span><span class="c">판정</span><span class="r">값</span><span>위치 <small>(눈금 = 주의·위험)</small></span><span>설명</span></div>
         <div class="cb-risk-list" role="list">${mainCards.map(cbRiskRowHtml).join('')}</div>`:'<p class="cb-risk-all-ok">확인할 항목이 없습니다. 모든 점검 항목이 양호합니다.</p>'}
         ${okCards.length?`<div class="cb-risk-ok-line"><b>양호 ${okCards.length}</b><ul>${okCards.map(cbRiskOkChipHtml).join('')}</ul></div>`:''}
       </section>

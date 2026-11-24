@@ -56,6 +56,8 @@ for (const name of [
   '_isKrPublicHoliday',
   '_isKrBankBusinessDay',
   '_nextKrBankBusinessDay',
+  'divPayBusinessDay',
+  'divPayDateFor',
   '_normalizeAutoTransferSchedules',
   '_autoTransferActiveInMonth',
   '_autoTransferScheduledDate',
@@ -138,3 +140,21 @@ assert.match(css,/\.cf-fixed-bottom-row\{display:grid;grid-template-columns:minm
 assert.match(source,/const distEl=document\.getElementById\('cf-fixed-dist'\);if\(distEl\)distEl\.innerHTML=_fixedCostDistributionHtml\(included,y,m,dcaGroup\.total\)/,'renderFixedCostView 가 표와 같은 included 목록(+ 부부 적립식 합계)으로 분포를 그린다')
 
 console.log('PASS 현금 흐름 고정비 관리')
+
+// 배당 입금 예상일 — 주말·공휴일이면 다음 영업일, 달이 넘어가면 직전 영업일(2026-11-24)
+{
+  const k = d => context._cfLocalDateKey(d)
+  assert.equal(k(context.divPayBusinessDay(2026, 10, 29)), '2026-11-30', '일요일 → 다음 월요일')
+  assert.equal(k(context.divPayBusinessDay(2026, 4, 31)), '2026-05-29', '말일이 일요일이면 달을 넘기지 않고 직전 금요일')
+  assert.equal(k(context.divPayBusinessDay(2026, 7, 15)), '2026-08-18', '광복절(토)·대체공휴일(월)을 건너뛴다')
+  assert.equal(k(context.divPayBusinessDay(2026, 1, 31)), '2026-02-27', '2월은 말일로 줄인 뒤 영업일')
+  assert.equal(k(context.divPayBusinessDay(2026, 8, 25)), '2026-09-29', '추석 연휴(24~26일)·대체공휴일(28일)을 건너뛴다')
+  assert.equal(k(context.divPayBusinessDay(2026, 8, 10)), '2026-09-10', '평일은 그대로')
+  // 공시된 지급일이 그 달에 있으면 그 날(확정), 없으면 최빈 지급일 추정
+  const d = { payDay: 15, payDates: ['2026-12-15', '2026-11-13'] }
+  let p = context.divPayDateFor(d, 2026, 10)
+  assert.equal(k(p.date), '2026-11-13'); assert.equal(p.exact, true)
+  p = context.divPayDateFor(d, 2027, 0)
+  assert.equal(k(p.date), '2027-01-15'); assert.equal(p.exact, false, '공시가 없는 달은 추정')
+  assert.equal(context.divPayDateFor({ payDay: null }, 2026, 10), null)
+}

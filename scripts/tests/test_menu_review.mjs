@@ -96,7 +96,7 @@ assert.doesNotMatch(riskSource, /cbRiskFillSpans|cbRiskFillGrid|cb-risk-card-gri
   assert.match(row, /<span class="cb-risk-verdict is-warn">주의<\/span>/, '판정 한 단어')
   assert.match(row, /<b class="cb-risk-row-val cb-num" style="color:var\(--warn\)">5\.2개<\/b>/, '값은 판정 색')
   assert.match(row, /<meter u="개"/, '실효 종목 수 게이지 단위는 개')
-  assert.match(row, /└ 상위 2개 합계<\/span><span class="cb-risk-verdict is-hold">보류<\/span><b class="cb-num"[^>]*>55%<\/b>/, '합친 부 항목은 설명 아래 └ 줄')
+  assert.match(row, /<\/div><span class="cb-risk-sub-name"[^>]*>└ 상위 2개 합계<\/span><span class="cb-risk-verdict cb-risk-sub-verdict is-hold">보류<\/span><b class="cb-risk-sub-val cb-num"[^>]*>55%<\/b>/, '합친 부 항목은 설명 칸 밖, 항목·판정·값 칼럼에 맞춘 아래 줄')
   const prim = { kind: 'primary', verdict: warn, card: { title: '환노출 (원화 기준)', valFmt: '73.0%', color: '#d97706', msg: '외화 <b>60%</b> 이상', fxMix: [{ cur: 'USD', pct: 73 }], meter: { value: 73 } } }
   const prow = ctx.cbRiskRowHtml(prim)
   assert.match(prow, /<fx>/, '환노출은 통화 구성 막대')
@@ -184,3 +184,43 @@ vm.runInContext(extractFunction(storedSource, '_normalizeTaxSaving'), context)
 }
 
 console.log('test_menu_review: OK')
+
+// 소유주별 예상 배당세(2026-11-24 사용자 결정 A) — 금융소득 카드 안, allocateDividendTax 소유주 합 그대로
+{
+  const divSrc = readSource('cobalt.js')
+  const ctx = vm.createContext({ cbEsc: v => String(v), cbDisp: v => '₩' + Math.round(v).toLocaleString('en-US') })
+  vm.runInContext(extractFunction(divSrc, 'cbDivOwnerTaxHtml'), ctx)
+  const h = ctx.cbDivOwnerTaxHtml({ owner: '본인', gross: 461388, net: 434326, tax: 27062, isa: 285660, pension: 0 })
+  assert.match(h, /예상 배당세<\/span><b class="cb-num is-tax">−₩27,062<\/b>/)
+  assert.match(h, /세전 ₩461,388 → 세후 ₩434,326/)
+  assert.match(h, /ISA 몫은 만기 정산 전 연간 현금흐름 참고/, 'ISA 는 참고값이라고 밝힌다')
+  assert.match(ctx.cbDivOwnerTaxHtml({ gross: 62100, net: 62100, tax: 0, pension: 62100 }), /<b class="cb-num">₩0<\/b>[\s\S]*/, '세금 0 은 회색')
+  assert.match(divSrc, /\$\{cbDivOwnerTaxHtml\(o\)\}/, '금융소득 카드 안에 넣는다')
+}
+
+// 세금 화면 카드(2026-11-24 사용자 결정): 손실 상계 여력 · 소유주별 해외 기본공제(자녀1 = 부양가족 소득 기준)
+{
+  const taxSrc = readSource('cobalt.js')
+  const ctx = vm.createContext({ cbEsc: v => String(v), cbKrw: v => '₩' + Math.round(v).toLocaleString('en-US'), cbOwnerTag: o => o })
+  vm.runInContext(extractFunction(taxSrc, 'cbTaxHarvestPlan') + ';' + 'var CB_TAX_DEPENDENT_OWNERS=[\'자녀1\'];' + extractFunction(taxSrc, 'cbTaxOwnerDeductionRows') + ';' + extractFunction(taxSrc, 'cbTaxOwnerDeductionHtml'), ctx)
+  const buckets = [
+    { label: '본인', isLegacy: false, genFgn: 7200000, genBase: 4700000, deductionRoom: 0 },
+    { label: '아내', isLegacy: false, genFgn: 900000, genBase: 0, deductionRoom: 1600000 },
+    { label: '자녀1', isLegacy: false, genFgn: 1300000, genBase: 0, deductionRoom: 1200000 },
+  ]
+  // 손실은 같은 사람의 과세표준만 줄인다 — 아내 손실은 아내 과세표준 0 이라 절세 0
+  const hv = ctx.cbTaxHarvestPlan(buckets, [{ i: { owner: '본인' }, loss: -1000000 }, { i: { owner: '아내' }, loss: -500000 }], 0.22)
+  assert.equal(hv.loss, 1500000); assert.equal(hv.count, 2); assert.equal(hv.save, 220000)
+  assert.equal(ctx.cbTaxHarvestPlan(buckets, [{ i: { owner: '본인' }, loss: -9000000 }], 0.22).save, Math.round(4700000 * 0.22), '과세표준을 넘는 손실은 절세에 안 센다')
+  const rows = ctx.cbTaxOwnerDeductionRows(buckets, ['본인', '아내', '자녀1', '아버지'], 2500000, 1000000, 0.22)
+  const kid = rows.find(r => r.owner === '자녀1')
+  assert.equal(kid.dependent, true); assert.equal(kid.cap, 1000000); assert.equal(kid.over, 300000, '자녀1 은 250만이 아니라 100만 기준')
+  assert.equal(rows.find(r => r.owner === '아내').room, 1600000)
+  assert.equal(rows.find(r => r.owner === '아버지').gain, 0)
+  const h = ctx.cbTaxOwnerDeductionHtml(rows)
+  assert.match(h, /부양가족 소득 기준 <b[^>]*>₩300,000 초과<\/b>/)
+  assert.doesNotMatch(h.split('자녀1')[1].split('아버지')[0], /양도세 0/, '자녀1 에는 "세금 0" 안내를 쓰지 않는다')
+  // 규칙값이 없으면 자녀1 도 일반 기본공제로
+  assert.equal(ctx.cbTaxOwnerDeductionRows(buckets, ['자녀1'], 2500000, null, 0.22)[0].dependent, false)
+  assert.match(taxSrc, /_taxRuleValue\('dependent\.basicDeductionIncomeLimitKrw'/, '기준은 tax-rules.js 에서만')
+}

@@ -128,6 +128,13 @@
       url: 'https://www.law.go.kr/lsLawLinkInfo.do?lsJoLnkSeq=1001059881&chrClsCd=010202',
       expected: ['제59조의3', '600만원', '900만원'],
     },
+    {
+      id: 'dependent-basic-deduction',
+      authority: '법제처 국가법령정보센터',
+      title: '소득세법 제50조 · 기본공제(부양가족 소득금액 기준)',
+      url: 'https://www.law.go.kr/LSW/lsInfoR.do?lsiSeq=280405&chrClsCd=010202&urlMode=lsInfoP&viewCls=lsInfoP&efYd=20260101&ancYnChk=0',
+      expected: ['제50조(기본공제)', '소득금액 합계액이 100만원 이하'],
+    },
   ];
 
   const COMMON_SOURCE_IDS = [
@@ -145,6 +152,7 @@
     'financial-income-guide',
     'securities-transaction-tax-history',
     'pension-account-tax-credit',
+    'dependent-basic-deduction',
   ];
 
   function valuesForYear(year) {
@@ -174,6 +182,11 @@
       pensionCredit: {
         pensionSavingsCapKrw: 6_000_000,
         combinedCapKrw: 9_000_000,
+      },
+      // 연말정산 부양가족 기본공제의 연간 소득금액 기준(소득세법 제50조 ①). 해외주식 양도소득금액(이익)이 여기에 들어간다.
+      // 세금 화면은 부양가족(자녀1)의 해외 실현이익이 이 기준에 얼마나 가까운지만 보여 주고 공제 여부를 판정하지 않는다.
+      dependent: {
+        basicDeductionIncomeLimitKrw: 1_000_000,
       },
       capitalGains: {
         foreignStockBasicDeductionKrw: 2_500_000,
@@ -245,12 +258,14 @@
           'local-income-stock-rate',
           'isa-tax-benefit',
           'securities-transaction-tax-history',
+          'dependent-basic-deduction',
           ...(year >= 2026 ? ['securities-transaction-tax-2026', 'rural-special-tax'] : []),
           ...(year === 2026 ? ['domestic-market-return-account'] : []),
         ],
         assumptions: [
           '거주자의 일반적인 과세대상 국외주식은 소유주별·과세기간별 원화 실현손익을 통산한 뒤 주식 양도소득 기본공제 250만원과 개인지방소득세 포함 22%를 적용합니다.',
           '국내주식은 대주주가 아닌 개인의 장내 양도로 가정합니다.',
+          '부양가족(자녀1)은 연말정산 기본공제 대상 판정의 연간 소득금액 기준 100만원과 해외주식 실현이익(양도소득금액)을 비교해 보여 줍니다.',
           'ISA 입력값은 계좌 전체 손익을 알 수 없는 상태에서 일반형 비과세 200만원을 연간 입력 순소득에 적용한 참고치입니다.',
         ],
         exclusions: [
@@ -263,6 +278,7 @@
           'ISA 서민·농어민형, 만기·중도해지, 계좌 내 상품별 비과세 여부는 자동 판정하지 않습니다.',
           'ISA에서는 직접 국외주식을 매수할 수 없으며, 화면의 ISA 손익은 계좌 내 적격 상품의 법정 손익통산을 단순화한 입력값입니다.',
           '국외상장 중소기업 등 특수세율과 외국납부세액공제는 반영하지 않습니다.',
+          '부양가족 기본공제의 나이(직계비속 20세 이하)·생계 요건, 이자·배당 등 다른 소득과 총급여 500만원 이하 근로소득 예외는 판정하지 않습니다.',
           ...(year === 2026 ? ['2026년 국내시장복귀계좌 양도소득 특례는 계좌·보유일·재투자 요건을 확인할 수 없어 반영하지 않습니다.'] : []),
         ],
       },
@@ -322,7 +338,7 @@
 
   const MANIFEST = {
     schemaVersion: 1,
-    manifestVersion: 'kr-tax-gift-2026.6',
+    manifestVersion: 'kr-tax-gift-2026.7',
     jurisdiction: '대한민국',
     timezone: 'Asia/Seoul',
     monitoring: {
@@ -334,7 +350,7 @@
     periods: [
       makePeriod(2024, 'kr-tax-gift-2024.1', true),
       makePeriod(2025, 'kr-tax-gift-2025.1', true),
-      makePeriod(2026, 'kr-tax-gift-2026.6', false),
+      makePeriod(2026, 'kr-tax-gift-2026.7', false),
     ],
   };
 
@@ -447,6 +463,7 @@
     }
     return [
       `해외주식 인별 기본공제 ${formatKrw(values.capitalGains.foreignStockBasicDeductionKrw)} · 세율 ${formatPct(values.capitalGains.foreignStockCombinedRate)}`,
+      `부양가족 소득금액 기준 연 ${formatKrw(values.dependent.basicDeductionIncomeLimitKrw)} · 자녀 해외 실현이익 비교`,
       `ISA 유지기간 정산: 일반형 ${formatKrw(values.isa.generalExemptionKrw)} 비과세 · 초과 ${formatPct(values.isa.separateTaxCombinedRate)} · 화면은 연간 근사`,
       `국내 장내 소액주주 양도차익 비과세 가정`,
       `KOSPI·KOSDAQ 장내 매도 부담 참고 ${formatPct(values.capitalGains.kospiTotalTransactionRate)} · 세액 합계에서는 제외`,
