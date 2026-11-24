@@ -1504,3 +1504,10 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 @media(min-width:1101px){
   .fin-goal-grid:has(>:nth-child(2):last-child),.fin-goal-grid:has(>:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* 적립식 월 환산 배분 — 켜 둔 규칙 전부를 보인다(2026-11-24). 표 옆(1560px 이상)에서는 목록이 표 높이를 넘지 않게
+   카드 안에서 스크롤하고(contain:size 라 목록 길이가 줄 높이를 늘리지 않는다), 표 아래로 내려간 좁은 화면에서는 그대로 펼친다. */
+.cb-dca-allocation-count{margin-left:6px;color:var(--lab);font-size:var(--fs-cap);font-weight:600}
+@media(min-width:1560px){
+  .cb-dca-allocation-card{display:flex;flex-direction:column}
+  .cb-dca-allocation-card>.cb-dca-allocation-list{flex:1 1 auto;min-height:200px;contain:size;overflow-y:auto;padding-right:4px}
+}

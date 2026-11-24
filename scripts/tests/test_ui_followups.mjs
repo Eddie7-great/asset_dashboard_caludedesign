@@ -333,7 +333,16 @@ assert.match(cobaltSource, /<div class="cb-panel cb-gift-panel[ "]/, '증여 패
 assert.match(styleSource, /@media \(max-width:768px\)[\s\S]*\.cb-gift-panel\{min-width:0;flex-basis:100%\}/, '모바일에서 증여 패널을 한 줄에 하나씩 (금액 잘림 방지)')
 assert.match(cobaltSource, /<div class="cb-lt-row">[\s\S]*class="cb-lt-name"[\s\S]*class="cb-lt-bar"/, '종목 집중도 행을 클래스로 노출')
 assert.match(styleSource, /@media \(max-width: 720px\)\{[\s\S]*\.cb-lt-detail\{display:none\}/, '좁은 화면에서는 룩스루 직접/ETF 칸을 숨겨 잘림 방지')
-assert.match(cobaltSource, /월 환산 매수 배분 TOP 5[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆에 월 환산 매수 배분 TOP 5 위젯 추가')
+assert.match(cobaltSource, /월 환산 매수 배분\$\{[\s\S]*dcaAlloc\.map[\s\S]*cb-dca-allocation-track/, 'DCA 내역 옆 월 환산 매수 배분 — 켜 둔 규칙 전부')
+assert.doesNotMatch(cobaltSource, /월 환산 매수 배분 TOP 5|dcaTopAlloc/, '배분 목록을 5개로 자르지 않는다(2026-11-24)')
+{
+  const ctx = vm.createContext({})
+  vm.runInContext(extractFunction(cobaltSource, 'cbDcaAllocLabel'), ctx)
+  assert.equal(ctx.cbDcaAllocLabel({ cls: 'us', ticker: 'QQQM', title: 'Invesco NASDAQ 100' }), 'QQQM · Invesco NASDAQ 100', '미국은 티커 먼저')
+  assert.equal(ctx.cbDcaAllocLabel({ cls: 'kr', ticker: '005930', title: '삼성전자' }), '삼성전자 · 005930', '한국은 이름 먼저')
+  assert.equal(ctx.cbDcaAllocLabel({ cls: 'jp', ticker: '1629', title: 'NEXT FUNDS' }), 'NEXT FUNDS · 1629', '일본은 이름 먼저')
+  assert.equal(ctx.cbDcaAllocLabel({ cls: 'crypto', ticker: 'BTC', title: 'BTC' }), 'BTC', '같으면 한 번만')
+}
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{\s*\.cb-dca-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}[\s\S]*@media \(min-width:1600px\)\{\s*\.cb-family-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
