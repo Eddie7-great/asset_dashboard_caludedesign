@@ -6,7 +6,7 @@
 // =====================================================================
 
 /* global pfolioData, RATES, OWNERS, ownerColors, monthlyPLData, benchData,
-   _gicsSector, _divpAggregateByYear, _divpComputeCagr, loadMonthlyPL,
+   _gicsSector, loadMonthlyPL,
    saveMonthlyPL, saveAssetsToKV, loadAssetsFromKV, saveExtDataToKV, cssVar,
    openAddModal, editItem, closeSidebar, fetchDivData, fetchDividendHistory,
    switchView, changeOwner, setTheme, isMobileLayout, authFetch */
@@ -145,29 +145,65 @@ function cbDivTaxAllocate(entries){
   if(typeof allocateDividendTax!=='function') throw new Error('배당세 계산 엔진을 불러오지 못했습니다.');
   return allocateDividendTax(entries,CB_FIN_INCOME_THRESHOLD);
 }
+// 배당성장률(2026-11-24 재점검) — 원본 지급 이력 하나로 고른다.
+//  ① 완결 연도 연평균(5년 → 3년 → 확보된 전 구간). 상장 첫해처럼 지급 횟수가 뒤 해들의 중앙값보다 적은
+//     '반쪽 해'는 시작점에서 뺀다 — 넣으면 10월 상장 월배당 ETF 가 2회분 → 12회분을 '+500%' 로 읽었다.
+//  ② 완결 연도가 모자라면 최근 12개월 vs 직전 12개월 — 직전 12개월이 지급 간격 안에서 꽉 차 있을 때만.
+//  둘 다 안 되면 산출하지 않는다(상장 2년 미만·지급 0건). 숫자를 지어내지 않는다.
+function cbDivGrowthFromEvents(events, today){
+  const ev=(Array.isArray(events)?events:[])
+    .filter(e=>e&&/^\d{4}-\d{2}-\d{2}/.test(String(e.date||''))&&Number(e.amount)>0)
+    .map(e=>({date:String(e.date).slice(0,10),amount:Number(e.amount)}))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!ev.length) return {value:null,status:'none',basis:null,years:0,events:0};
+  const now=today instanceof Date?today:new Date(), curY=now.getFullYear();
+  const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const sum={}, cnt={};
+  ev.forEach(e=>{const y=+e.date.slice(0,4); sum[y]=(sum[y]||0)+e.amount; cnt[y]=(cnt[y]||0)+1;});
+  let yrs=Object.keys(sum).map(Number).filter(y=>y<curY).sort((a,b)=>a-b);
+  if(yrs.length>=2){
+    const later=yrs.slice(1).map(y=>cnt[y]).sort((a,b)=>a-b), med=later[Math.floor(later.length/2)];
+    if(cnt[yrs[0]]<med) yrs=yrs.slice(1);
+  }
+  const base={years:yrs.length,events:ev.length,first:ev[0].date};
+  if(yrs.length>=2){
+    const lastY=yrs[yrs.length-1];
+    const cagr=y0=>sum[y0]>0&&lastY>y0?(Math.pow(sum[lastY]/sum[y0],1/(lastY-y0))-1)*100:null;
+    for(const k of [5,3]){
+      if(!yrs.includes(lastY-k)) continue;
+      const v=cagr(lastY-k); if(v!=null) return {...base,value:v,status:'ready',basis:'cagr',from:lastY-k,to:lastY};
+    }
+    const v=cagr(yrs[0]); if(v!=null) return {...base,value:v,status:'ready',basis:'cagr',from:yrs[0],to:lastY};
+  }
+  if(ev.length>=2){
+    const gaps=[]; for(let k=1;k<ev.length;k++) gaps.push((Date.parse(ev[k].date)-Date.parse(ev[k-1].date))/86400000);
+    gaps.sort((a,b)=>a-b);
+    const gap=gaps[Math.floor(gaps.length/2)];
+    const back=m=>{const d=new Date(now.getFullYear(),now.getMonth()-m,now.getDate()); return key(d);};
+    const t12=back(12), t24=back(24), t0=key(now);
+    const covered=(Date.parse(ev[0].date)-Date.parse(t24))/86400000 < gap;
+    const recent=ev.filter(e=>e.date>=t12&&e.date<=t0).reduce((a,e)=>a+e.amount,0);
+    const prior=ev.filter(e=>e.date>=t24&&e.date<t12).reduce((a,e)=>a+e.amount,0);
+    if(covered&&recent>0&&prior>0) return {...base,value:(recent/prior-1)*100,status:'ready',basis:'ttm'};
+  }
+  return {...base,value:null,status:'insufficient',basis:null};
+}
 function cbDivGrowthInfo(i){
   try{
     const raw = (window._divHistoryRawCache || {})[cbStrip(i.tkr)];
-    if (!raw || !Array.isArray(raw.events) || !raw.events.length) {
-      return { value:null, status:'missing', years:0, events:0 };
-    }
-    const annualMap = _divpAggregateByYear(raw.events);
-    const curY = new Date().getFullYear();
-    const yrs = Object.keys(annualMap).map(Number)
-      .filter(y => y < curY && annualMap[String(y)] > 0).sort((a,b)=>a-b);
-    const r = _divpComputeCagr(annualMap);
-    if (r.cagr5 != null) return { value:r.cagr5, status:'ready', years:yrs.length, events:raw.events.length };
-    if (r.cagr3 != null) return { value:r.cagr3, status:'ready', years:yrs.length, events:raw.events.length };
-    // 표준 3/5년 구간이 비어 있어도(이력이 짧거나 특정 연도 누락) 확보된 완결연도 전 구간으로 CAGR 추정
-    if (yrs.length >= 2){
-      const y0 = yrs[0], y1 = yrs[yrs.length-1];
-      const v0 = annualMap[String(y0)], v1 = annualMap[String(y1)];
-      if (v0 > 0 && y1 > y0) {
-        return { value:(Math.pow(v1/v0, 1/(y1-y0)) - 1) * 100, status:'ready', years:yrs.length, events:raw.events.length };
-      }
-    }
-    return { value:null, status:'insufficient', years:yrs.length, events:raw.events.length };
+    if (!raw || !Array.isArray(raw.events)) return { value:null, status:'missing', years:0, events:0 };
+    return cbDivGrowthFromEvents(raw.events);
   }catch(e){ return { value:null, status:'missing', years:0, events:0 }; }
+}
+// 성장률 칸의 말풍선 — 무엇과 무엇을 비교했는지, 못 냈으면 왜인지
+function cbDivGrowthTip(g){
+  if(!g) return '';
+  if(g.status==='ready') return g.basis==='ttm'
+    ? '최근 12개월 지급액 vs 직전 12개월 지급액 (완결 연도가 2개 미만이라 12개월 단위로 비교)'
+    : `${g.from}년 → ${g.to}년 연간 주당 배당금의 연평균 성장률(CAGR)`;
+  if(g.status==='none') return '배당 지급 기록이 없습니다(분배금을 재투자하는 상품이거나 아직 지급 전).';
+  if(g.status==='insufficient') return `지급 기록 ${g.events}건(${g.first}부터) — 1년 전과 비교할 자료가 아직 없습니다(상장 2년 미만).`;
+  return '배당 원본 이력을 아직 받지 못했습니다.';
 }
 function cbDivGrowth(i){
   return cbDivGrowthInfo(i).value;

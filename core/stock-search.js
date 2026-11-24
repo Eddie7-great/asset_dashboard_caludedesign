@@ -630,6 +630,18 @@ function _jpMarketHolidaySet(y){
   _MARKET_HOLIDAY_CACHE.set(key,set);return set;
 }
 function _isKrPublicHoliday(date){return _krHolidaySet(date.getFullYear(),false).has(_cfLocalDateKey(date));}
+// 배당 입금 예상일 — 지난 지급일의 '일(日)'을 다른 달에 그대로 옮기면 토·일·공휴일에 떨어진다(2026-11-24 확인).
+// 배당금은 국내 증권 계좌로 들어오므로 국내 은행 영업일로 맞춘다: 다음 영업일, 그러다 달이 넘어가면 직전 영업일.
+// 배당 화면(향후 90일·월별)·일정(cal2)·현금 흐름 자동 배당 기록이 모두 이 한 함수를 쓴다.
+function divPayBusinessDay(y,m0,day){
+  const last=new Date(y,m0+1,0).getDate();
+  const base=_dateAtNoon(y,m0,Math.max(1,Math.min(Number(day)||1,last)));
+  const off=d=>d.getDay()===0||d.getDay()===6||_isKrPublicHoliday(d);
+  const fwd=new Date(base);while(off(fwd))fwd.setDate(fwd.getDate()+1);
+  if(fwd.getMonth()===m0)return fwd;
+  const back=new Date(base);while(off(back))back.setDate(back.getDate()-1);
+  return back;
+}
 
 function _getDcaMarket(item) {
   if (item.grp === '가상화폐') return 'CRYPTO'; // 24/7 no holidays

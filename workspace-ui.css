@@ -987,7 +987,8 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 펼침 표시(▸)는 정렬 화살표처럼 칸 밖 여백에 건다 — 글자 뒤에 붙이면 '분기'가 머리글 '주기'보다 왼쪽에서 끝났다. */
 .cb-div-row>span:has(>.cb-div-caret){position:relative}
 .cb-div-caret{position:absolute;left:calc(100% + 3px);top:50%;transform:translateY(-50%);font-style:normal;color:var(--dim)}
-.cb-div-more{grid-column:1/-1;margin:8px 0 2px 84px;padding:8px 12px;border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-cap);color:var(--mut);line-height:1.7}
+/* 펼친 내용은 국기가 아니라 종목명 칸에서 시작한다 — 상자 안쪽 여백(12px)만큼 왼쪽으로 내어 글자 첫머리가 종목명과 같은 x 에 온다(2026-11-24 사용자 요청) */
+.cb-div-more{grid-column:3/-1;margin:8px 0 2px -12px;padding:8px 12px;border-radius:var(--r-md);background:var(--inner);font-size:var(--fs-cap);color:var(--mut);line-height:1.7}
 .cb-div-more b{color:var(--tx);font-weight:700}
 .cb-div-head{padding:7px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--dim)}
 .cb-div-row{padding:9px 8px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
@@ -1009,7 +1010,7 @@ button,input,select,textarea{font-family:var(--font-ui)}
 @media(max-width:768px){
   /* 휴대폰은 보조 칸(.cb-mobile-secondary)을 숨기므로 남는 5칸 틀을 따로 둔다 — 숨긴 칸 자리에 다음 칸이 밀려 들어가지 않게 */
   .cb-div-head,.cb-div-row{grid-template-columns:52px 24px minmax(120px,1fr) 88px 60px}
-  .cb-div-more{margin-left:0}
+  .cb-div-more{grid-column:1/-1;margin-left:0}
   .cb-div-upcoming-list{grid-template-columns:minmax(0,1fr)}
 }
 /* 배당 상단: TOP 3 카드가 숫자 카드 줄에 못 들어가는 폭(1760px 미만)에서는 아랫줄 전체를 쓰고 세 종목을 가로로 놓는다.
@@ -1500,24 +1501,27 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .cb-risk-list-title>b{font-size:var(--fs-card)}
 .cb-risk-counts{display:flex;gap:10px;font-size:var(--fs-cap);color:var(--lab)}
 .cb-risk-counts>.is-bad{color:var(--dn)}.cb-risk-counts>.is-warn{color:var(--warn)}.cb-risk-counts>.is-ok{color:var(--up)}
-.cb-risk-list-head,.cb-risk-row{display:grid;grid-template-columns:10px minmax(120px,150px) 46px 84px minmax(170px,1fr) minmax(200px,1.35fr);align-items:center;gap:12px}
+.cb-risk-list-head,.cb-risk-row{display:grid;grid-template-columns:10px 136px 52px 76px minmax(200px,1fr) minmax(220px,1fr);align-items:center;column-gap:14px;row-gap:2px}
 .cb-risk-list-head{padding:0 4px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap);color:var(--lab)}
 .cb-risk-list-head small{font-size:var(--fs-cap)}
 .cb-risk-list-head .r,.cb-risk-row-val{text-align:right}
+.cb-risk-list-head .c{text-align:center}
 .cb-risk-list{flex:1 1 auto;min-height:0;display:grid;grid-auto-rows:minmax(min-content,1fr);overflow-y:auto}
 .cb-risk-row{padding:4px;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
 .cb-risk-dot{width:9px;height:9px;border-radius:50%;background:var(--lab)}
 .cb-risk-row.is-bad .cb-risk-dot{background:var(--dn)}.cb-risk-row.is-warn .cb-risk-dot{background:var(--warn)}.cb-risk-row.is-ok .cb-risk-dot{background:var(--up)}
 .cb-risk-row-name{font-weight:700;color:var(--tx);min-width:0}
-.cb-risk-row>.cb-risk-verdict{justify-self:start}
+.cb-risk-row>.cb-risk-verdict{justify-self:center}   /* 판정 배지는 머리글 '판정'과 같은 가운데 */
 .cb-risk-row-val{font-weight:800;white-space:nowrap}
 .cb-risk-row-meter{min-width:0}
 .cb-risk-row-meter .cb-meter,.cb-risk-row-meter .cb-fx-mix,.cb-risk-row-meter .cb-meter-wrap{margin-top:0}
 .cb-risk-row-meter .cb-meter-wrap.is-top{padding-top:16px}
 .cb-risk-row-desc{min-width:0;font-size:var(--fs-cap);line-height:1.45;color:var(--mut)}
 .cb-risk-row-desc>span:first-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.cb-risk-sub{display:flex;align-items:center;gap:6px;margin-top:3px;color:var(--mut)}
-.cb-risk-sub>b{font-weight:800}
+/* 합친 부 항목: 본 항목 아래 줄의 항목·판정·값 칼럼(자동 배치가 다음 줄로 내린다) */
+.cb-risk-sub-name{grid-column:2;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-risk-row>.cb-risk-sub-verdict{grid-column:3}
+.cb-risk-sub-val{grid-column:4;text-align:right;font-weight:800;font-size:var(--fs-cap);white-space:nowrap}
 .cb-risk-all-ok{flex:1;margin:0;padding:16px 4px;color:var(--mut);font-size:var(--fs-body)}
 .cb-risk-ok-line{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd2);font-size:var(--fs-cap)}
 .cb-risk-ok-line>b{color:var(--up);white-space:nowrap}
@@ -1526,7 +1530,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .cb-risk-ok-chip>b{margin-left:3px;color:var(--tx)}
 /* 1440px 미만은 설명 칸을 줄 아래로 내리지 않고 게이지 칸을 줄인다. 1100px 이하는 한 단(점수 카드 위, 목록 아래)이고 높이를 풀어 준다. */
 @media(max-width:1439px){.cb-risk-overview{--risk-h:620px}
-  .cb-risk-list-head,.cb-risk-row{grid-template-columns:10px minmax(104px,124px) 44px 72px minmax(130px,1fr) minmax(170px,1.15fr);gap:10px}
+  .cb-risk-list-head,.cb-risk-row{grid-template-columns:10px 140px 44px 64px minmax(170px,1fr) minmax(180px,1fr);column-gap:9px}
   .cb-risk-row .cb-meter-dir{display:none}   /* 좁으면 '낮을수록 안전'이 눈금 숫자에 붙는다 — 방향은 게이지 말풍선에 그대로 있다 */}
 @media(max-width:1100px){.cb-risk-score-card,.cb-risk-list-panel{height:auto}.cb-risk-list{overflow:visible}}
 @media(max-width:860px){
@@ -1534,3 +1538,6 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
   .cb-risk-row{grid-template-columns:10px minmax(0,1fr) auto auto;row-gap:6px;padding:8px 4px}
   .cb-risk-row-meter,.cb-risk-row-desc{grid-column:2/-1}
 }
+
+/* 월별 현금흐름 상세 내역 — 주기 칸(2026-11-24): 주기만 한 줄, 넘치면 말줄임(전체는 title) */
+.cf-cycle-text{display:block;font-size:var(--fs-cap);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -197,41 +197,6 @@ window.onload = async function() {
   document.getElementById('login-pw')?.focus();
 };
 
-// =============================================
-// 배당 성장률 계산 헬퍼 — cobalt.js 배당 관리 화면(cbDivGrowthInfo)이 쓴다.
-// 이 헬퍼를 쓰던 예전 배당+(YoC·DRIP) 화면은 제거됐다.
-// =============================================
-function _divpAggregateByYear(events) {
-  // events: [{date:'YYYY-MM-DD', amount:number}]
-  const map = {};
-  events.forEach(e => {
-    const y = e.date.slice(0, 4);
-    map[y] = (map[y] || 0) + e.amount;
-  });
-  return map;  // { '2021': 4.32, '2022': 4.56, ... }
-}
-function _divpComputeCagr(annualMap) {
-  const curYear = new Date().getFullYear();
-  // 완결 연도만 (올해는 보통 미완결이라 제외)
-  const completedYears = Object.keys(annualMap).map(Number).filter(y => y < curYear).sort((a,b)=>a-b);
-  if (completedYears.length < 2) return { cagr3: null, cagr5: null, yoy: null, recent5: [] };
-  const lastY = completedYears[completedYears.length - 1];
-  const valLast = annualMap[String(lastY)];
-  const cagr = (n) => {
-    const target = lastY - n;
-    if (!completedYears.includes(target)) return null;
-    const valStart = annualMap[String(target)];
-    if (!valStart || valStart <= 0) return null;
-    return (Math.pow(valLast / valStart, 1 / n) - 1) * 100;
-  };
-  const yoyTarget = lastY - 1;
-  const yoy = completedYears.includes(yoyTarget) && annualMap[String(yoyTarget)] > 0
-    ? ((valLast / annualMap[String(yoyTarget)]) - 1) * 100
-    : null;
-  const recent5 = completedYears.slice(-5).map(y => ({ y, v: annualMap[String(y)] }));
-  return { cagr3: cagr(3), cagr5: cagr(5), yoy, recent5 };
-}
-
 // 예전 목표 & 리밸런싱 화면의 KV 키. 구버전 클라이언트 호환을 위해 read/write 만 유지한다.
 window._targetAlloc = window._targetAlloc || null;  // {groups, region, threshold} — UI 제거, KV 페이로드만 보존
 

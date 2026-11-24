@@ -96,7 +96,7 @@ assert.doesNotMatch(riskSource, /cbRiskFillSpans|cbRiskFillGrid|cb-risk-card-gri
   assert.match(row, /<span class="cb-risk-verdict is-warn">주의<\/span>/, '판정 한 단어')
   assert.match(row, /<b class="cb-risk-row-val cb-num" style="color:var\(--warn\)">5\.2개<\/b>/, '값은 판정 색')
   assert.match(row, /<meter u="개"/, '실효 종목 수 게이지 단위는 개')
-  assert.match(row, /└ 상위 2개 합계<\/span><span class="cb-risk-verdict is-hold">보류<\/span><b class="cb-num"[^>]*>55%<\/b>/, '합친 부 항목은 설명 아래 └ 줄')
+  assert.match(row, /<\/div><span class="cb-risk-sub-name"[^>]*>└ 상위 2개 합계<\/span><span class="cb-risk-verdict cb-risk-sub-verdict is-hold">보류<\/span><b class="cb-risk-sub-val cb-num"[^>]*>55%<\/b>/, '합친 부 항목은 설명 칸 밖, 항목·판정·값 칼럼에 맞춘 아래 줄')
   const prim = { kind: 'primary', verdict: warn, card: { title: '환노출 (원화 기준)', valFmt: '73.0%', color: '#d97706', msg: '외화 <b>60%</b> 이상', fxMix: [{ cur: 'USD', pct: 73 }], meter: { value: 73 } } }
   const prow = ctx.cbRiskRowHtml(prim)
   assert.match(prow, /<fx>/, '환노출은 통화 구성 막대')

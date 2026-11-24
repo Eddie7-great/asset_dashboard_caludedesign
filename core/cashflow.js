@@ -393,6 +393,11 @@ function cleanupDuplicateDivEntries() {
   }
 }
 
+// 자동 배당 기록의 날짜 — 주말·공휴일이면 영업일로(divPayBusinessDay, 배당 화면·일정과 같은 규칙)
+function _divPayDateStr(yr,mo0,payDay){
+  const d=typeof divPayBusinessDay==='function'?divPayBusinessDay(yr,mo0,payDay):new Date(yr,mo0,Math.min(payDay,new Date(yr,mo0+1,0).getDate()));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 // 미정 배당 항목을 확정일로 업데이트 (fetchDivData 후 호출)
 function resolvePendingDivDates() {
   let changed = false;
@@ -407,8 +412,7 @@ function resolvePendingDivDates() {
     const cached = window._divDataCache?.[tkr] || DIV_INFO_DB?.[tkr];
     const payDay = (cached && typeof cached.payDay === 'number' && cached.payDay > 0) ? cached.payDay : null;
     if (!payDay) return;
-    const lastDay = new Date(entryYr, entryMo1, 0).getDate();
-    entry.date = `${entryYr}-${String(entryMo1).padStart(2,'0')}-${String(Math.min(payDay,lastDay)).padStart(2,'0')}`;
+    entry.date = _divPayDateStr(entryYr, entryMo1-1, payDay);
     delete entry.dateStatus;
     changed = true;
   });
@@ -484,10 +488,9 @@ async function autoAddDividendCashFlow(silent=false) {
     const existing=monthlyGroups.get(divKey);
     if(existing){ existing.net+=netPayout; return; }
     const payDay=(typeof ref.s.payDay==='number'&&ref.s.payDay>0)?ref.s.payDay:null;
-    const lastDay=new Date(yr,mo+1,0).getDate();
     monthlyGroups.set(divKey,{
       divKey,owner,net:netPayout,payDay,
-      dateStr:payDay?`${yr}-${String(mo+1).padStart(2,'0')}-${String(Math.min(payDay,lastDay)).padStart(2,'0')}`:'미정',
+      dateStr:payDay?_divPayDateStr(yr,mo,payDay):'미정',
       desc:`${ref.s.name} ${ref.cycleLabel} 수입 (${ref.taxInfo.label})`
     });
   });
@@ -741,7 +744,9 @@ function renderCashFlow() {
     if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;}
     let cls=i.type==='수입'?'var(--up)':'var(--dn)',sign=i.type==='수입'?'+':'-';
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
-    const cycleDisp=i.isAuto?`<span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}</span>`:`<span style="font-size:var(--fs-cap);color:var(--t3)">일회성</span>`;
+    // 주기 칸은 주기만 적는다 — '자동이체 · 매월 15일'은 칸 폭(88px)을 넘어 '자동이…'로 잘렸다(2026-11-24).
+    // 자동이체라는 사실은 내용 칸의 [자동] 머리말과 마우스 설명(title)에 있다.
+    const cycleDisp=i.isAuto?`<span class="cf-cycle-text" title="자동이체${i.cycleLabel?' · '+_cfEsc(i.cycleLabel):''}">${_cfEsc(i.cycleLabel||'자동이체')}</span>`:`<span class="cf-cycle-text">일회성</span>`;
     const ownerCell=`<td class="text-left"><span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">${_cfEsc(i.owner||'-')}</span></td>`;
     html+=`<tr><td class="text-left">${_cfEsc(fd)}</td><td class="text-left"><span style="color:${cls};font-weight:700">${_cfEsc(i.type)}</span></td>${ownerCell}<td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left" data-overflow-tip="${_cfEsc(i.desc)}">${_cfEsc(i.desc)}</td><td style="color:${cls}" class="text-right">${sign}₩${amount.toLocaleString()}</td><td class="text-right">${cycleDisp}</td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="현금흐름 수정" onclick="editCF(${realIdx})">✎</button><button class="btn-action" type="button" aria-label="현금흐름 삭제" onclick="deleteCF(${realIdx})">✕</button></td></tr>`;
   });
