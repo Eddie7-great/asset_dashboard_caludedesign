@@ -234,6 +234,49 @@ export function parseNaverDividend(d: any): { dps: number; yld: number; cycle: s
   return { dps: Math.round(dps), yld: parseFloat((yld || 0).toFixed(2)), cycle: '', months: [], cur: 'KRW', source: 'naver' };
 }
 
+// ── 배당 지급일(2026-11-24 사용자 결정) ─────────────────────────
+// Yahoo 의 배당 날짜는 입금일이 아니라 배당락일이다. 그 '일'을 지급일로 쓰면 미국 종목은 2~4주, 국내 ETF 는 달이 하나 어긋난다.
+// 미국: stockanalysis.com 공개 배당 페이지의 history:[{dt:배당락일, …, pay:지급일}] — 회사가 공시한 실제 지급일(앞으로 지급될 확정분 포함).
+// 국내 ETF: 지급일 공개 출처가 없어(네이버 분배 이력은 배당락일만) 거래소 관행으로 추정 — 배당락일 다음 영업일이 지급기준일,
+//   그로부터 통상 2영업일 뒤 지급. 주말만 건너뛰고(공휴일은 화면의 divPayBusinessDay 가 맞춘다) 추정으로 표시한다.
+export function parseStockanalysisDividends(html: any): { ex: string; pay: string }[] {
+  if (typeof html !== 'string') return [];
+  const out: { ex: string; pay: string }[] = [];
+  const seen = new Set<string>();
+  const re = /\{dt:"(\d{4}-\d{2}-\d{2})"[^{}]{0,200}?pay:"(\d{4}-\d{2}-\d{2})"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) && out.length < 80) {
+    const key = m[1] + '|' + m[2];
+    if (seen.has(key) || m[2] < m[1]) continue;
+    seen.add(key);
+    out.push({ ex: m[1], pay: m[2] });
+  }
+  return out;
+}
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export function addWeekdays(date: Date, n: number): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  let left = n;
+  while (left > 0) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) left--; }
+  return d;
+}
+// 지급일 목록 → 지급월(최근 1년)·최빈 지급일·지급일 목록(최근 1년 + 앞으로). 지급 기록이 없으면 null.
+export function summarizePayDates(pays: string[], now: Date): { months: number[]; payDay: number; payDates: string[] } | null {
+  const valid = Array.from(new Set((pays || []).filter(p => /^\d{4}-\d{2}-\d{2}$/.test(String(p))))).sort();
+  if (!valid.length) return null;
+  const today = isoDay(now);
+  const from = isoDay(new Date(now.getTime() - 370 * 86400000));
+  const recent = valid.filter(p => p >= from && p <= today);
+  const base = recent.length ? recent : valid.filter(p => p > today);
+  if (!base.length) return null;
+  const freq = new Map<number, number>();
+  base.forEach(p => { const d = Number(p.slice(8, 10)); freq.set(d, (freq.get(d) || 0) + 1); });
+  const payDay = [...freq.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+  const months = Array.from(new Set(base.map(p => Number(p.slice(5, 7)) - 1))).sort((a, b) => a - b);
+  const payDates = valid.filter(p => p >= from).slice(-24);
+  return { months, payDay, payDates };
+}
+
 export function getSectorForTicker(tkr: string): string {
   const t = tkr.replace(/\.(KS|KQ)$/, '').toUpperCase();
   if (WICS_MAP[t]) return WICS_MAP[t];
@@ -399,10 +442,21 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           const recent = divList.filter(e => e.date.getTime() >= cutoff);
           const annualDps = recent.reduce((s,e)=>s+e.amount, 0) || 0;
           const yld = price > 0 && annualDps > 0 ? (annualDps / price * 100) : 0;
-          const months = recent.map(e => e.date.getMonth());
+          const instrument = String(result.meta?.instrumentType || '').toUpperCase();
+          // 지급일: 미국은 공시된 실제 지급일, 국내 ETF 는 관행 추정. 둘 다 아니면 예전처럼 배당락일의 '일'(추정)이다.
+          let pay: { months: number[]; payDay: number; payDates?: string[] } | null = null;
+          let paySource = 'ex-date';
+          if (!isKrCode && annualDps > 0) {
+            pay = await stockanalysisPay(rawSym, instrument === 'ETF' ? 'etf' : 'stocks');
+            if (pay) paySource = 'stockanalysis';
+          } else if (isKrCode && instrument === 'ETF' && recent.length) {
+            const est = summarizePayDates(recent.map(e => isoDay(addWeekdays(e.date, 3))), new Date());
+            if (est) { pay = { months: est.months, payDay: est.payDay }; paySource = 'kr-etf-rule'; }
+          }
+          const months = pay ? pay.months : recent.map(e => e.date.getMonth());
           const { cycle, months: canonicalMonths } = deriveCycle(months);
-          // 최빈 지급일(day-of-month) 계산 — 이력 없으면 null
-          const payDay: number | null = (() => {
+          // 최빈 지급일(day-of-month) — 지급일 출처가 없으면 배당락일 기준(추정). 이력 없으면 null
+          const payDay: number | null = pay ? pay.payDay : (() => {
             if (!divList.length) return null;
             const freq = new Map<number,number>();
             divList.forEach(e => { const d = e.date.getDate(); freq.set(d, (freq.get(d)||0)+1); });
@@ -415,8 +469,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             months: canonicalMonths,
             cur: currency,
             payDay: payDay ?? undefined,
+            ...(pay?.payDates?.length ? { payDates: pay.payDates } : {}),
+            paySource,
             source: 'yahoo'
           };
+        } catch (e) { return null; }
+      }
+
+      // 미국 종목 실제 지급일 — stockanalysis 공개 배당 페이지. 실패·형식 불일치면 null(배당락일 기준 추정으로 남는다).
+      async function stockanalysisPay(sym: string, kind: 'etf' | 'stocks') {
+        if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return null;
+        try {
+          const r = await fetchWithTimeout(`https://stockanalysis.com/${kind}/${encodeURIComponent(sym.toLowerCase())}/dividend/`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' }
+          }, 6000);
+          if (!r.ok) return null;
+          return summarizePayDates(parseStockanalysisDividends(await r.text()).map(x => x.pay), new Date());
         } catch (e) { return null; }
       }
 

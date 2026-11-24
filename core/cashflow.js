@@ -393,9 +393,10 @@ function cleanupDuplicateDivEntries() {
   }
 }
 
-// 자동 배당 기록의 날짜 — 주말·공휴일이면 영업일로(divPayBusinessDay, 배당 화면·일정과 같은 규칙)
-function _divPayDateStr(yr,mo0,payDay){
-  const d=typeof divPayBusinessDay==='function'?divPayBusinessDay(yr,mo0,payDay):new Date(yr,mo0,Math.min(payDay,new Date(yr,mo0+1,0).getDate()));
+// 자동 배당 기록의 날짜 — 공시된 지급일(payDates)이 그 달에 있으면 그 날, 아니면 최빈 지급일을 영업일로(divPayDateFor, 배당 화면·일정과 같은 규칙)
+function _divPayDateStr(yr,mo0,payDay,payDates){
+  const hit=typeof divPayDateFor==='function'?divPayDateFor({payDay,payDates},yr,mo0):null;
+  const d=hit?hit.date:(typeof divPayBusinessDay==='function'?divPayBusinessDay(yr,mo0,payDay):new Date(yr,mo0,Math.min(payDay,new Date(yr,mo0+1,0).getDate())));
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 // 미정 배당 항목을 확정일로 업데이트 (fetchDivData 후 호출)
@@ -412,7 +413,7 @@ function resolvePendingDivDates() {
     const cached = window._divDataCache?.[tkr] || DIV_INFO_DB?.[tkr];
     const payDay = (cached && typeof cached.payDay === 'number' && cached.payDay > 0) ? cached.payDay : null;
     if (!payDay) return;
-    entry.date = _divPayDateStr(entryYr, entryMo1-1, payDay);
+    entry.date = _divPayDateStr(entryYr, entryMo1-1, payDay, cached.payDates);
     delete entry.dateStatus;
     changed = true;
   });
@@ -490,7 +491,7 @@ async function autoAddDividendCashFlow(silent=false) {
     const payDay=(typeof ref.s.payDay==='number'&&ref.s.payDay>0)?ref.s.payDay:null;
     monthlyGroups.set(divKey,{
       divKey,owner,net:netPayout,payDay,
-      dateStr:payDay?_divPayDateStr(yr,mo,payDay):'미정',
+      dateStr:payDay?_divPayDateStr(yr,mo,payDay,ref.s.payDates):'미정',
       desc:`${ref.s.name} ${ref.cycleLabel} 수입 (${ref.taxInfo.label})`
     });
   });

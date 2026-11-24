@@ -319,6 +319,49 @@ try {
     throw new Error('unexpected ' + u)
   }, 'NVDA')
   assert.equal(naverCalls, 0, '해외 종목은 네이버 대상이 아니다')
+  // (d) 배당 지급일(2026-11-24): 미국은 stockanalysis 공시 지급일, 국내 ETF 는 배당락일 + 3평일 관행 추정
+  {
+    const mod = { exports: {} }
+    vm.runInContext(ts.transpileModule(priceSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
+      vm.createContext({ module: mod, exports: mod.exports, process, console: quiet, Buffer, AbortController, URL, setTimeout, clearTimeout, fetch: async () => { throw new Error('no') }, require(id) { return id === './_auth.js' ? authHelper : require(id) } }))
+    const { parseStockanalysisDividends, summarizePayDates, addWeekdays } = mod.exports
+    const html = 'history:[{dt:"2026-11-30",amt:"$0.274",dec:"n/a",record:"2026-11-30",pay:"2026-12-15"},{dt:"2026-10-30",amt:"$0.2715",dec:"n/a",record:"2026-10-30",pay:"2026-11-13"},{dt:"2026-10-30",amt:"$0.2715",dec:"n/a",record:"2026-10-30",pay:"2026-11-13"}]'
+    assert.deepEqual(JSON.parse(JSON.stringify(parseStockanalysisDividends(html))), [{ ex: '2026-11-30', pay: '2026-12-15' }, { ex: '2026-10-30', pay: '2026-11-13' }], '배당락일·지급일 쌍, 중복 제거')
+    assert.deepEqual(JSON.parse(JSON.stringify(parseStockanalysisDividends('<html>no table</html>'))), [], '형식이 없으면 빈 목록')
+    assert.deepEqual(JSON.parse(JSON.stringify(parseStockanalysisDividends(null))), [])
+    const sum = summarizePayDates(['2026-03-27', '2026-07-10', '2026-10-08', '2026-12-28', '2025-01-01'], new Date(2026, 10, 24))
+    assert.deepEqual(Array.from(sum.months), [2, 6, 9], '최근 1년 실제 지급월(배당락월이 아니다)')
+    assert.deepEqual(Array.from(sum.payDates), ['2026-03-27', '2026-07-10', '2026-10-08', '2026-12-28'], '1년보다 오래된 지급일은 버리고 앞으로의 확정 지급일은 남긴다')
+    assert.equal(summarizePayDates([], new Date()), null)
+    const k = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    assert.equal(k(addWeekdays(new Date(2026, 9, 29), 3)), '2026-11-03', '국내 ETF: 10/29(목) 배당락 → 10/30 기준일 → 11/3 지급 — 다음 달로 넘어간다')
+    const iso = ms => k(new Date(ms))
+    const nowMs = Date.now()
+    const usBody = { ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: { currency: 'USD', regularMarketPrice: 50, instrumentType: 'EQUITY' }, events: { dividends: { a: { date: Math.floor(nowMs / 1000) - 86400 * 40, amount: 0.27 } } } }] } }) }
+    let saUrl = ''
+    res = await divCall(async url => {
+      const u = String(url)
+      if (u.includes('stockanalysis.com')) { saUrl = u; return { ok: true, status: 200, text: async () => `history:[{dt:"x",amt:"",dec:"",record:"",pay:"x"},{dt:"${iso(nowMs - 86400000 * 40)}",amt:"$0.27",dec:"n/a",record:"",pay:"${iso(nowMs - 86400000 * 25)}"},{dt:"${iso(nowMs + 86400000 * 5)}",amt:"$0.27",dec:"n/a",record:"",pay:"${iso(nowMs + 86400000 * 20)}"}]` } }
+      if (u.includes('finance.yahoo.com')) return usBody
+      if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
+      throw new Error('unexpected ' + u)
+    }, 'O')
+    const o = res.body.result.O
+    assert.match(saUrl, /stockanalysis\.com\/stocks\/o\/dividend\//, '주식은 stocks 경로')
+    assert.equal(o.paySource, 'stockanalysis')
+    assert.ok(Array.from(o.payDates).includes(iso(nowMs + 86400000 * 20)), '앞으로의 확정 지급일을 싣는다')
+    assert.equal(o.payDay, Number(iso(nowMs - 86400000 * 25).slice(8)), '최빈 지급일은 배당락일이 아니라 지급일에서')
+    // stockanalysis 실패 → 예전처럼 배당락일 기준 추정
+    res = await divCall(async url => {
+      const u = String(url)
+      if (u.includes('stockanalysis.com')) return { ok: false, status: 404, text: async () => '' }
+      if (u.includes('finance.yahoo.com')) return usBody
+      if (u.includes('er-api')) return { ok: true, status: 200, json: async () => ({ result: 'success', rates: { KRW: 1400, JPY: 140, AUD: 1.6 } }) }
+      throw new Error('unexpected ' + u)
+    }, 'O')
+    assert.equal(res.body.result.O.paySource, 'ex-date', '지급일 출처가 없으면 배당락일 기준 추정이라고 밝힌다')
+    assert.equal(res.body.result.O.payDates, undefined)
+  }
   // 화면: 주기를 모르면 1회 지급액을 화면이 쓸 기본 지급월 수로 나눈다(연간 배당이 4배로 잡히지 않게)
   assert.match(script, /const payMonths = months\.length \? months : \(_defaultMonthsForCycle\(cycle\) \|\| \[2,5,8,11\]\);\s*const cycleN = cycle !== '-' && CYCLE_COUNT\[cycle\] \? CYCLE_COUNT\[cycle\] : payMonths\.length;/)
 } finally {

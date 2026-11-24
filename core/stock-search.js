@@ -633,6 +633,16 @@ function _isKrPublicHoliday(date){return _krHolidaySet(date.getFullYear(),false)
 // 배당 입금 예상일 — 지난 지급일의 '일(日)'을 다른 달에 그대로 옮기면 토·일·공휴일에 떨어진다(2026-11-24 확인).
 // 배당금은 국내 증권 계좌로 들어오므로 국내 은행 영업일로 맞춘다: 다음 영업일, 그러다 달이 넘어가면 직전 영업일.
 // 배당 화면(향후 90일·월별)·일정(cal2)·현금 흐름 자동 배당 기록이 모두 이 한 함수를 쓴다.
+// 그 달의 배당 지급일 — 공시된 실제 지급일(payDates)이 그 달에 있으면 그 날(exact), 없으면 최빈 지급일을 영업일로 맞춘 추정.
+// 일정(90일 목록·달력)과 현금 흐름 자동 배당 기록이 같은 답을 쓰도록 이 함수 하나만 쓴다. 둘 다 없으면 null.
+function divPayDateFor(d,y,m0){
+  const key=`${y}-${String(m0+1).padStart(2,'0')}-`;
+  const hit=(Array.isArray(d?.payDates)?d.payDates:[]).find(p=>String(p).startsWith(key));
+  if(hit){ const day=Number(String(hit).slice(8,10)); if(day>=1&&day<=31) return {date:new Date(y,m0,day),exact:true}; }
+  const pd=Number(d?.payDay);
+  if(Number.isInteger(pd)&&pd>=1&&pd<=31) return {date:divPayBusinessDay(y,m0,pd),exact:false};
+  return null;
+}
 function divPayBusinessDay(y,m0,day){
   const last=new Date(y,m0+1,0).getDate();
   const base=_dateAtNoon(y,m0,Math.max(1,Math.min(Number(day)||1,last)));

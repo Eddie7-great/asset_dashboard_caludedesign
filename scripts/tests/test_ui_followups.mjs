@@ -697,6 +697,15 @@ assert.equal(lateMonth.length,1,"15일이 지나도 날짜 미정 월 배당은 
 assert.equal(lateMonth[0].exact,false,"추정 일정은 확정일이 아니다");
 assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보존한다");
 
+// 공시된 지급일이 있으면 '경' 없이 확정으로(2026-11-24)
+{
+  const ctx = upcomingContext
+  ctx.divPayDateFor = (d, y, m0) => (y === 2026 && m0 === 11 ? { date: new Date(2026, 11, 15), exact: true } : { date: new Date(y, m0, d.payDay), exact: false })
+  const ev = ctx.cbUpcomingDividendSchedule([{ tkr: 'O', incomeKRW: 1200, d: { months: [10, 11], payDay: 14 } }], 60, '2026-11-01T00:00:00')
+  assert.equal(ev.find(x => x.date.getMonth() === 11).dateLabel, '12월 15일'); assert.equal(ev.find(x => x.date.getMonth() === 11).exact, true)
+  assert.equal(ev.find(x => x.date.getMonth() === 10).dateLabel, '11월 14일경', '공시가 없는 달은 추정 표시')
+  delete ctx.divPayDateFor
+}
 // 2026-11-11 배당 상단 카드 — 보조 문구는 제목 줄 오른쪽, 연간 카드에는 세전/세후·소유주 표시가 없다
 {
   const grid = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-div-summary-grid">'), cobaltSource.indexOf('cb-div-top3-card'))

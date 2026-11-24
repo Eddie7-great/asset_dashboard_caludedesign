@@ -132,17 +132,16 @@ function cbUpcomingDividendSchedule(list, days=90, asOf=null){
       const month=cursor.getMonth();
       if(!months.includes(month)) continue;
       const lastDay=new Date(cursor.getFullYear(),month+1,0).getDate();
-      // 지급일이 주말·공휴일이면 영업일로 옮긴다(divPayBusinessDay — 일정·현금 흐름과 같은 함수)
-      const date=hasExactDay&&typeof divPayBusinessDay==='function'
-        ? divPayBusinessDay(cursor.getFullYear(),month,exactDay)
-        : new Date(cursor.getFullYear(),month,hasExactDay?Math.min(exactDay,lastDay):1);
+      // 공시된 지급일이 그 달에 있으면 그 날(확정), 없으면 최빈 지급일을 영업일로 맞춘 추정(divPayDateFor — 일정·현금 흐름과 같은 함수)
+      const pay=hasExactDay&&typeof divPayDateFor==='function'?divPayDateFor(x.d,cursor.getFullYear(),month):null;
+      const date=pay?pay.date:new Date(cursor.getFullYear(),month,hasExactDay?Math.min(exactDay,lastDay):1);
       if(hasExactDay) date.setHours(0,0,0,0);
       const day=date.getDate();
       if(hasExactDay ? date<start||date>end : new Date(cursor.getFullYear(),month,lastDay)<start||date>end) continue;
       events.push({
         date,
-        dateLabel:hasExactDay?`${month+1}월 ${day}일경`:`${month+1}월 예정`,
-        exact:false,
+        dateLabel:hasExactDay?(pay&&pay.exact?`${month+1}월 ${day}일`:`${month+1}월 ${day}일경`):`${month+1}월 예정`,
+        exact:!!(pay&&pay.exact),
         boundary:!hasExactDay&&(date<start||new Date(cursor.getFullYear(),month,lastDay)>end),
         owner:x.i?.owner||'—',
         ticker:cbStrip(x.tkr||x.i?.tkr),
@@ -449,7 +448,7 @@ function cbRenderDiv(){
         }).join('') || '<div class="cb-insight-empty">향후 90일 내 예상 배당이 없습니다.</div>'}
       </div>
       ${upcomingDividends.length>upcomingDividendShown.length?`<div class="cb-insight-more">외 ${upcomingDividends.length-upcomingDividendShown.length}건</div>`:''}
-      <ul class="cb-div-upcoming-note"><li>과거 지급 패턴 × 현재 보유량 기준 세전 추정</li><li>확정 공시가 아니라 실제 날짜·금액은 다를 수 있음</li><li>‘월 예정’은 일부가 90일 밖일 수 있음</li></ul>
+      <ul class="cb-div-upcoming-note"><li>과거 지급 패턴 × 현재 보유량 기준 세전 추정</li><li>날짜: 진한 글씨는 회사가 발표한 지급일(미국 날짜 — 국내 계좌 입금은 하루쯤 늦을 수 있음), ‘경’은 과거 지급일로 잡은 추정</li><li>금액은 추정이라 실제와 다를 수 있음</li><li>‘월 예정’은 일부가 90일 밖일 수 있음</li></ul>
     </div>
     </div>
     ${typeof assetTaxRuleDisclosureHtml==='function'?assetTaxRuleDisclosureHtml('dividend',year):''}`;

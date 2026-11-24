@@ -57,6 +57,7 @@ for (const name of [
   '_isKrBankBusinessDay',
   '_nextKrBankBusinessDay',
   'divPayBusinessDay',
+  'divPayDateFor',
   '_normalizeAutoTransferSchedules',
   '_autoTransferActiveInMonth',
   '_autoTransferScheduledDate',
@@ -149,4 +150,11 @@ console.log('PASS 현금 흐름 고정비 관리')
   assert.equal(k(context.divPayBusinessDay(2026, 1, 31)), '2026-02-27', '2월은 말일로 줄인 뒤 영업일')
   assert.equal(k(context.divPayBusinessDay(2026, 8, 25)), '2026-09-29', '추석 연휴(24~26일)·대체공휴일(28일)을 건너뛴다')
   assert.equal(k(context.divPayBusinessDay(2026, 8, 10)), '2026-09-10', '평일은 그대로')
+  // 공시된 지급일이 그 달에 있으면 그 날(확정), 없으면 최빈 지급일 추정
+  const d = { payDay: 15, payDates: ['2026-12-15', '2026-11-13'] }
+  let p = context.divPayDateFor(d, 2026, 10)
+  assert.equal(k(p.date), '2026-11-13'); assert.equal(p.exact, true)
+  p = context.divPayDateFor(d, 2027, 0)
+  assert.equal(k(p.date), '2027-01-15'); assert.equal(p.exact, false, '공시가 없는 달은 추정')
+  assert.equal(context.divPayDateFor({ payDay: null }, 2026, 10), null)
 }

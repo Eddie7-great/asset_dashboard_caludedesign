@@ -269,6 +269,10 @@ async function _fetchDivDataOnce(force=false) {
           cur: d.cur || existing.cur || 'USD',
           exDiv: existing.exDiv || '-',
           payDay: typeof d.payDay === 'number' ? d.payDay : (existing.payDay || null),
+          // 공시된 실제 지급일(미국, stockanalysis) — 그 달에 있으면 일정·현금 흐름이 추정 대신 이 날짜를 쓴다(divPayDateFor).
+          payDates: Array.isArray(d.payDates) ? d.payDates.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x))).slice(-24) : [],
+          // 지급일 근거: stockanalysis(공시) · kr-etf-rule(국내 ETF 관행 추정) · ex-date(배당락일 기준 추정)
+          paySource: typeof d.paySource === 'string' ? d.paySource.slice(0, 16) : null,
           // 서버가 쓴 출처(pykrx·yahoo·naver). 네이버는 연간 배당만 주므로 화면이 지급월이 추정임을 밝힌다.
           source: typeof d.source === 'string' ? d.source.slice(0, 16) : null,
         };
