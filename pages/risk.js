@@ -111,11 +111,17 @@ function cbRiskEntryKey(entry){ return entry.kind==='primary'?entry.card.title:e
 // 리스크 카드 격자에 빈 칸을 남기지 않는다(사용자 결정 2026-11-23). 넓은 화면은 12칸 격자에서
 // 한 줄 칸 수를 고른다 — 4·3 으로 나눠떨어지면 그 수, 아니면 4 이고 마지막 줄 카드가 남는 폭을 나눠 갖는다.
 // 돌려주는 값은 카드마다 12칸 중 차지하는 폭(3·4·6·12).
+// 2026-11-24(사용자 요청): 한 줄에 최대 3장 — 4장을 놓으면 카드가 약 210px 로 좁아져 제목이 두 줄이 되고
+// '낮을수록 안전'이 눈금 숫자에 붙었다. 3장씩 채우고, 남는 1장은 혼자 한 줄을 다 쓰지 않게 마지막 두 줄을 2장씩으로 나눈다.
 function cbRiskFillSpans(n){
   if(!(n>0)) return [];
-  const cols=n<=4?n:(n%4===0?4:(n%3===0?3:4));
-  const last=n%cols||cols;
-  return Array.from({length:n},(_,i)=>12/(i>=n-last?last:cols));
+  const rows=[];
+  let left=n;
+  while(left>0){
+    if(left===4){ rows.push(2,2); break; }
+    const k=Math.min(3,left); rows.push(k); left-=k;
+  }
+  return rows.flatMap(k=>Array(k).fill(12/k));
 }
 // 2칸 화면(1200px 이하)에서는 홀수 개일 때 마지막 카드가 한 줄을 다 쓴다.
 function cbRiskFillGrid(entries,cardHtml){

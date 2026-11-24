@@ -84,9 +84,11 @@ vm.runInContext(extractFunction(riskSource, 'cbRiskFillSpans'), context)
 {
   const F = n => [...context.cbRiskFillSpans(n)]
   assert.deepEqual(F(6), [4, 4, 4, 4, 4, 4], '6개는 3×2')
-  assert.deepEqual(F(8), [3, 3, 3, 3, 3, 3, 3, 3], '8개는 4×2')
-  assert.deepEqual(F(5), [3, 3, 3, 3, 12], '5개는 4 + 마지막 1개가 한 줄')
-  assert.deepEqual(F(7), [3, 3, 3, 3, 4, 4, 4], '7개는 4 + 3')
+  assert.deepEqual(F(8), [4, 4, 4, 4, 4, 4, 6, 6], '8개는 3 + 3 + 2 (한 줄 최대 3장)')
+  assert.deepEqual(F(5), [4, 4, 4, 6, 6], '5개는 3 + 2')
+  assert.deepEqual(F(7), [4, 4, 4, 6, 6, 6, 6], '7개는 3 + 2 + 2 — 혼자 한 줄을 쓰는 카드 없음')
+  assert.deepEqual(F(4), [6, 6, 6, 6], '4개는 2 + 2')
+  for (let n = 2; n <= 16; n++) assert.ok(!F(n).includes(3) && !F(n).includes(12), `${n}개: 4장 줄도, 혼자 남는 카드도 없음`)
   assert.deepEqual(F(2), [6, 6])
   assert.deepEqual(F(0), [])
   for (let n = 1; n <= 16; n++) assert.equal(F(n).reduce((a, b) => a + b, 0) % 12, 0, `${n}개: 빈 칸 없음`)
@@ -132,6 +134,35 @@ vm.runInContext(extractFunction(storedSource, '_normalizeTaxSaving'), context)
   const cleaned = N({ years: { 2026: { 외부인: { pension: 100 }, 아내: { pension: -5, irp: 'x', isa: 300 } } } })
   assert.equal(cleaned.years['2026']['외부인'], undefined, '모르는 소유주 제거')
   assert.deepEqual(cleaned.years['2026']['아내'], { pension: 0, irp: 0, isa: 300 }, '음수·비숫자는 0')
+}
+
+// ───────── 2026-11-24 화면 디테일 ─────────
+// 연말 절세: 전체 탭은 가족 네 명 모두(자녀가 빠지지 않게), 저장 버튼 없이 입력하면 저장
+{
+  const ctx = vm.createContext({ OWNERS: ['본인', '아내', '자녀1', '아버지'], _cbTaxOwner: '전체' })
+  vm.runInContext('var _cbTaxOwner=\'전체\';' + extractFunction(taxSource, 'cbTaxSavingOwners'), ctx)
+  assert.deepEqual([...ctx.cbTaxSavingOwners('2026')], ['본인', '아내', '자녀1', '아버지'])
+  vm.runInContext("_cbTaxOwner='자녀1'", ctx)
+  assert.deepEqual([...ctx.cbTaxSavingOwners('2026')], ['자녀1'])
+  assert.doesNotMatch(taxSource, /data-ts-save|>저장<\/button>/, '절세 체크에 저장 버튼이 없다')
+  assert.match(taxSource, /oninput="cbTaxSavingInput\(this\)" onchange="cbTaxSavingInput\(this,true\)"/, '입력하면(0.8초 뒤)·칸을 벗어나면 저장')
+}
+// 실현손익 내역: 달마다 묶고, 최근 달이 위, 기본으로 가장 최근 달만 펼친다
+{
+  const ctx = vm.createContext({})
+  vm.runInContext('var _cbTaxEditId=null,_cbTaxMonthFilter=null,_cbTaxMonthOpen=null;' + extractFunction(taxSource, 'cbTaxMonthGroups'), ctx)
+  const rows = [
+    { id: 1, month: '2026-01', amt: 100, category: 'domestic' },
+    { id: 2, month: '2026-01', amt: -30, category: 'foreign' },
+    { id: 3, month: '2026-03', amt: 50, category: 'foreign' },
+  ]
+  const cum = new Map([[rows[0], 100], [rows[1], 70], [rows[2], 120]])
+  const g = ctx.cbTaxMonthGroups(rows, cum)
+  assert.deepEqual(g.map(x => [x.m, x.rows.length, x.dom, x.frn, x.total, x.cum, x.open]), [[3, 1, 0, 50, 50, 120, true], [1, 2, 100, -30, 70, 70, false]])
+  vm.runInContext('_cbTaxMonthFilter=1', ctx)
+  assert.equal(ctx.cbTaxMonthGroups(rows, cum)[1].open, true, '차트로 고른 달은 펼친다')
+  vm.runInContext('_cbTaxMonthFilter=null;_cbTaxMonthOpen=new Set([1])', ctx)
+  assert.deepEqual(ctx.cbTaxMonthGroups(rows, cum).map(x => x.open), [false, true], '사용자가 바꾼 펼침을 지킨다')
 }
 
 console.log('test_menu_review: OK')

@@ -34,9 +34,9 @@ function cbRenderFam(){
   el.innerHTML = `
     <div class="cb-fam-card-grid">
       ${cards.map(f=>`
-        <div class="cb-panel cb-fam-card" role="button" tabindex="0" aria-pressed="${_famKey===f.key}" data-fam-key="${cbEsc(f.key)}" onclick="cbFamPick(this.dataset.famKey)" style="${_famKey===f.key?`border-color:${f.color};box-shadow:0 0 0 1px ${f.color}`:''}">
+        <div class="cb-panel cb-fam-card" role="button" tabindex="0" aria-pressed="${_famKey===f.key}" data-fam-key="${cbEsc(f.key)}" onclick="cbFamPick(this.dataset.famKey)">
           <div class="cb-fam-card-head">
-            <span class="cb-fam-card-ico" style="background:${f.color}26;color:${f.color}">${cbEsc(f.name.slice(0,1))}</span>
+            <i class="cb-fam-card-dot" style="background:${f.color}" aria-hidden="true"></i>
             <span class="cb-fam-card-name">${cbEsc(f.name)}</span>
           </div>
           <div class="cb-fam-card-val">${cbDisp(f.v)}</div>

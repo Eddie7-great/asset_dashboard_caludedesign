@@ -15,6 +15,10 @@
 #cf-input-panel .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(144px,170px));gap:10px;align-items:end;justify-content:start;max-width:none}
 #cf-input-panel .form-row>.form-group{min-width:0!important;gap:5px}#cf-input-panel .form-row>.btn-submit{height:36px;justify-self:start;white-space:nowrap}
 .cf-fixed-form{grid-template-columns:repeat(auto-fit,minmax(132px,180px));gap:12px;align-items:end}.cf-fixed-form button{height:36px;white-space:nowrap;justify-self:start}
+/* 고정비 등록 한 줄(2026-11-24): 소유주·카테고리·항목·금액·주기·결제일·시작 월·증여 이체·등록이 1280px 이상에서 한 줄이다.
+   항목 칸만 남는 폭을 갖고, 대출 조건 칸(fieldset)은 켜지면 그 아래 한 줄 전체(order). */
+@media(min-width:1280px){.cf-fixed-form{grid-template-columns:84px 118px minmax(120px,1fr) 112px 92px 70px 150px auto auto;gap:10px}}
+.cf-fixed-form>.cf-fixed-loan{order:1}
 .cb-gift-field{flex:0 1 176px!important;min-width:140px!important;max-width:190px}.cb-gift-field>span{min-height:18px;line-height:1.5}
 .cb-gift-panel div:has(>.cb-gift-field){align-items:flex-end}.cb-gift-settings{display:grid!important;grid-template-columns:minmax(130px,160px) minmax(80px,100px) minmax(100px,120px)}.cb-gift-settings .cb-gift-field{min-width:0!important;max-width:none}
 .cb-tax-entry-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:14px}
@@ -171,7 +175,10 @@
 #cb-perf2 .cb-perf-detail-grid{flex:0 0 auto;align-items:start}
 #cb-perf2 .cb-perf-detail-row{flex:0 0 auto;padding:6px 7px;font-size:var(--fs-micro)}
 #cb-perf2 .cb-perf-detail-head{padding:6px 7px}.cb-perf-detail-note{margin-top:7px;font-size:var(--fs-micro);line-height:1.5}
-.cb-risk-overview{align-items:stretch!important}.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0;align-self:stretch}
+/* 점수 카드는 자기 내용 높이(2026-11-24, 사용자 요청) — 예전에는 오른쪽 카드 열 높이에 맞춰 늘어나 소유주 탭마다 높이가 618·508·537px 로
+   바뀌고, 늘어난 만큼 '먼저 확인할 항목'과 아래 수치 사이가 크게 비었다. 넓은 화면에서는 스크롤해도 따라 내려온다(sticky). */
+.cb-risk-overview{align-items:start!important}.cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0;align-self:start}
+@media(min-width:1101px){.cb-risk-score-card{position:sticky;top:0}}
 .cb-risk-priorities{align-self:stretch;margin:10px 0;font-size:var(--fs-micro);line-height:1.5}.cb-risk-priorities p{padding:5px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
 .fin-price-help p{font-size:var(--fs-micro);line-height:1.5;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-micro)}.fin-price-issues small{color:var(--lab)}
 @media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:6px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{min-width:0}#cf-input-panel .form-input{padding:7px 6px;font-size:var(--fs-micro)}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
@@ -207,9 +214,10 @@
 .cb-dash-kpi{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border:1px solid var(--bd);border-radius:var(--r-lg);background:var(--panel);color:var(--tx);font-family:inherit;text-align:left}
 button.cb-dash-kpi{cursor:pointer}
 button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
-.cb-dash-kpi.is-total{border-color:var(--kpi-hi-bg);background:var(--kpi-hi-bg);color:var(--kpi-hi-tx)}
+/* 총액 카드(2026-11-24, 사용자 결정 B안): 진한 남색 고정 대신 테마 강조색을 옅게 깐다 — 테마를 바꾸면 따라간다. 숫자는 다른 카드처럼 본문 글자색 */
+.cb-dash-kpi.is-total{border-color:var(--acc-soft2);background:var(--acc-soft);color:var(--tx)}
 .cb-dash-kpi-label{display:flex;align-items:center;gap:6px;font-size:var(--fs-body);color:var(--mut)}
-.cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--kpi-hi-mut)}
+.cb-dash-kpi.is-total .cb-dash-kpi-label,.cb-dash-kpi.is-total .cb-dash-kpi-sub{color:var(--t2)}
 .cb-dash-kpi-go{margin-left:auto;color:var(--acc);font-weight:700}
 .cb-dash-kpi-value{font:800 var(--fs-kpi)/1.15 var(--font-ui);letter-spacing:-.02em;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .cb-dash-kpi.is-total .cb-dash-kpi-value{font-size:var(--fs-kpi)}
@@ -362,7 +370,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 .cal-sum-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 16px}
 .cal-sum-card>b{font:800 var(--fs-title)/1.2 var(--font-ui);letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .cal-sum-card>small{font-size:var(--fs-cap);color:var(--lab)}
-.cal-sum-card>small.cal-net-note{color:var(--mut);line-height:1.4}
+.cal-net-warn{margin-left:6px;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);font-size:var(--fs-cap);font-weight:700;white-space:nowrap}
 .cal-kind{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
 .cal-kind>i,.cal-chip>i{width:8px;height:8px;border-radius:var(--r-sm);flex-shrink:0;background:var(--cal-c)}
 .cal-kind.div,.cal-chip.div{--cal-c:var(--acc2)}.cal-kind.dca,.cal-chip.dca{--cal-c:var(--acc)}
@@ -711,12 +719,23 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
   .cb-dca-head,.cb-dca-row{grid-template-columns:62px minmax(150px,1.5fr) 92px 88px 100px}
 }
 /* 실현손익 기록 표 — 메모 칸(flex:1)이 남는 폭을 다 가져가 가운데가 휑했다. 모든 칸이 남는 폭을 나눠 갖는다. */
-.cb-tax-hist-head,.cb-tax-hist-row{display:grid;grid-template-columns:44px minmax(64px,.6fr) 46px minmax(60px,.5fr) minmax(88px,.6fr) minmax(160px,2.6fr) minmax(112px,.9fr) minmax(118px,.9fr) 54px;column-gap:12px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
+.cb-tax-hist-head,.cb-tax-hist-row,.cb-tax-month-sum{display:grid;grid-template-columns:44px minmax(64px,.6fr) 46px minmax(60px,.5fr) minmax(88px,.6fr) minmax(160px,2.6fr) minmax(112px,.9fr) minmax(118px,.9fr) 54px;column-gap:12px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
 .cb-tax-hist-head{color:var(--dim);padding:0 6px 7px}
 .cb-tax-hist-head>span,.cb-tax-hist-row>span{min-width:0}
 .cb-tax-hist-head>:nth-child(7),.cb-tax-hist-head>:nth-child(8),.cb-tax-hist-row>:nth-child(7),.cb-tax-hist-row>:nth-child(8){text-align:right}
 .cb-tax-hist-head>:nth-child(9){text-align:center}
 .cb-tax-hist-row>.cb-tax-memo-cell{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 실현손익 내역 달 묶음(2026-11-24) — 머리줄이 내역과 같은 칸을 쓴다: 달 · 건수 · 국내/해외 합(3~6칸) · 월 합계(실현손익 칸) · 월말 누적(누적 칸) */
+.cb-tax-month-sum{cursor:pointer;list-style:none;background:var(--inner);font-weight:700;border-bottom:1px solid var(--bd)}
+.cb-tax-month-sum::-webkit-details-marker{display:none}
+.cb-tax-month-sum:hover{background:color-mix(in srgb,var(--acc) 6%,var(--inner))}
+.cb-tax-month-name{display:flex;align-items:center;gap:6px}
+.cb-tax-month-name::before{content:'▸';font-size:var(--fs-cap);color:var(--lab);transition:transform var(--dur-fast) var(--ease-out)}
+.cb-tax-month[open]>.cb-tax-month-sum .cb-tax-month-name::before{transform:rotate(90deg)}
+.cb-tax-month-count{color:var(--lab);font-weight:600}
+.cb-tax-month-split{grid-column:3/7;color:var(--mut);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cb-tax-month-total,.cb-tax-month-cum{text-align:right}
+.cb-tax-month-sum>span{min-width:0}
 /* 목표 화면(2026-11-16) — 상단 3카드는 '라벨 줄 / 값 / 보조 문구' 같은 3층이다(현금 안전판의 목표 개월 입력은 라벨 줄 오른쪽). */
 .fin-goal-ctx-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:26px}
 .fin-goal-ctx-head>small{font-size:var(--fs-cap)}
@@ -1037,7 +1056,10 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-meter-wrap.is-top>.cb-meter-dir{bottom:auto;top:0}
 /* 리스크 카드: 머리줄(제목·판정 | 값) → 설명 → 바닥(게이지·부 카드). 두 종류 카드가 같은 자리에 같은 것을 둔다 */
 .cb-risk-primary-card,.cb-risk-insight-card{display:flex;flex-direction:column}
-.cb-risk-foot{margin-top:auto;padding-top:2px}
+/* 2026-11-24: 게이지를 카드 바닥으로 밀지 않는다 — 같은 줄의 키 큰 카드(부 카드 있음)에 맞춰 늘어난 카드에서 설명과 게이지 사이가
+   크게 벌어졌다. 설명 칸을 두 줄 높이로 잡아 한 줄짜리 설명 카드도 게이지가 옆 카드와 같은 높이에 오고, 남는 키는 카드 아래로 간다. */
+.cb-risk-foot{margin-top:2px}
+.cb-risk-primary-message,.cb-risk-insight-card>.cb-risk-insight-detail{min-height:calc(var(--fs-micro) * 1.55 * 2)}
 .cb-risk-insight-head{align-items:center}
 .cb-risk-insight-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .cb-risk-insight-head>.cb-risk-insight-value{margin-top:0;font-size:var(--fs-card);flex-shrink:0}
@@ -1274,9 +1296,23 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-gift-link-name>small{color:var(--lab);white-space:nowrap}
 .cb-gift-link-empty{margin:8px 0 2px;font-size:var(--fs-cap);color:var(--lab);line-height:1.6}
 .cf-fixed-gift-check{display:flex;align-self:end}
-#cf-fixed-table{min-width:860px} /* 관리 칸에 '증여' 버튼이 더해져 150px — 항목 칸 폭을 예전(약 120px)대로 지킨다 */
-.cf-fixed-gift-btn{font-size:var(--fs-cap);font-weight:600}
-.cf-fixed-gift-btn.is-on{color:var(--acc);font-weight:700;background:var(--acc-soft)}
+/* 고정비 내역(2026-11-24): '증여' 켜고 끄기 버튼을 없애고 증여 이체 줄에만 작은 표식 — 관리 칸이 ✎·✕ 두 개(76px)로 줄어
+   표가 패널 폭 안에 들어온다(예전 860px 이라 1440px 에서도 관리 칸이 밖으로 밀려 안 보였다). */
+#cf-fixed-table{min-width:620px}
+.cf-fixed-state.is-gift{color:var(--acc);background:var(--acc-soft)}
+.cf-fixed-state+.cf-fixed-state{margin-left:4px}
+/* 항목 칸: 이름이 남는 폭을 먼저 쓰고 표식(합산·증여)은 줄지 않는다 */
+.cf-fixed-item{display:flex;align-items:center;min-width:0}
+.cf-fixed-item>.cf-fixed-item-name{flex:0 1 auto;min-width:0;max-width:none}
+.cf-fixed-item>.cf-fixed-state{flex:none}
+@media(min-width:769px){.cf-fixed-bottom-row{grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr)}}
+/* 숫자 카드 네 개: 라벨·값·보조 문구가 같은 높이에서 시작한다(가운데 정렬이면 보조 줄 수에 따라 카드마다 위아래로 어긋났다).
+   월 고정비 카드는 '부부 합계 · N개 항목'과 '+ 적립식 …'을 한 줄에 나란히 둔다. */
+@media(min-width:1101px){.cf-fixed-summary-grid{grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr))}}
+.cf-fixed-summary-card{justify-content:flex-start}
+.cf-fixed-summary-notes{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;margin-top:5px}
+.cf-fixed-summary-notes>.cf-fixed-summary-note{margin-top:0;flex:0 1 auto;min-width:0}
+.cf-fixed-dca-sum{font-weight:600;color:var(--t2)}
 .cb-gift-link-from{display:flex;align-items:center;gap:6px;color:var(--mut);white-space:nowrap}
 .cb-gift-auto-tag{white-space:nowrap;font-style:normal;font-size:var(--fs-cap);padding:1px 7px;border-radius:999px;background:var(--seg-bg);color:var(--mut)}
 @media(max-width:768px){.cb-gift-link-row{grid-template-columns:1fr}.cb-gift-link select,.cb-gift-link input{pointer-events:none}}
