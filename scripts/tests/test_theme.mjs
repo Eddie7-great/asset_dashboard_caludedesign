@@ -1,4 +1,4 @@
-// 테마: 기본(밝은 본문 + 진한 사이드바) / 라이트 / 다크. 예전 판(라이트·다크·네이비)의 저장값은 한 번만 옮긴다.
+// 테마: 라이트(기본) / 네이비 / 다크 — 모두 리퀴드 글래스(2026-11-24). 예전 판의 저장값은 한 번만 옮긴다(themeV 3).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -23,28 +23,41 @@ function run(initial) {
   return { theme: ctx.result, store: Object.fromEntries(store) };
 }
 
-// 예전 저장값 이전 (themeV 없음)
-assert.equal(run({}).theme, 'default', '저장값이 없으면 기본');
-assert.equal(run({ theme: 'light' }).theme, 'default', '예전 라이트(지금 기본과 같은 본문)는 기본으로');
-assert.equal(run({ theme: 'navy' }).theme, 'dark', '네이비는 다크로');
+// 예전 저장값 이전
+assert.equal(run({}).theme, 'default', '저장값이 없으면 라이트(기본)');
+assert.equal(run({ theme: 'light' }).theme, 'default', '그 전 판 라이트는 라이트(기본)로');
+assert.equal(run({ theme: 'navy' }).theme, 'navy', '그 전 판 네이비는 네이비로');
 assert.equal(run({ theme: 'dark' }).theme, 'dark', '다크는 그대로');
-assert.equal(run({ theme: 'navy' }).store.themeV, '2', '이전은 한 번만 — 버전 표식을 남긴다');
-
-// 이전 후에는 사용자가 고른 값을 그대로 쓴다 (새 라이트를 기본으로 되돌리지 않는다)
-assert.equal(run({ theme: 'light', themeV: '2' }).theme, 'light', '이전 뒤 고른 라이트는 유지');
+assert.equal(run({ theme: 'navy' }).store.themeV, '3', '이전은 한 번만 — 버전 표식을 남긴다');
+// themeV 2(기본/라이트/다크) 사용자: 기본·라이트 → 라이트(기본), 다크 → 다크
 assert.equal(run({ theme: 'default', themeV: '2' }).theme, 'default');
-assert.equal(run({ theme: 'navy', themeV: '2' }).theme, 'default', '알 수 없는 값은 기본');
+assert.equal(run({ theme: 'light', themeV: '2' }).theme, 'default', '사이드바만 밝던 라이트는 새 라이트(기본)로');
+assert.equal(run({ theme: 'dark', themeV: '2' }).theme, 'dark');
+// 이전 후에는 고른 값을 그대로 쓴다
+assert.equal(run({ theme: 'navy', themeV: '3' }).theme, 'navy');
+assert.equal(run({ theme: 'light', themeV: '3' }).theme, 'default', '알 수 없는 값은 라이트(기본)');
 
-// 다크만 어두운 테마로 본다 (차트 색 분기)
-assert.match(script, /function isDarkTheme\(\) \{\s*return document\.body\.getAttribute\('data-theme'\) === 'dark';/);
+// 다크·네이비가 어두운 바탕이다 (차트 색 분기)
+assert.match(script, /function isDarkTheme\(\) \{\s*const t = document\.body\.getAttribute\('data-theme'\);\s*return t === 'dark' \|\| t === 'navy';/);
 
-// CSS: 기본은 :root, 라이트는 사이드바 토큰만 덮어쓴다, 네이비 토큰은 없다
-assert.match(style, /:root \{[\s\S]*--side-bg:#18213a;[\s\S]*--fs-title:22px;[\s\S]*--seg-bg:/, '기본 테마에 사이드바·크기·세그먼트 토큰');
-assert.match(style, /\[data-theme="light"\] \{[^}]*--side-bg:#ffffff;/, '라이트는 사이드바를 흰 카드로');
-assert.match(style, /\[data-theme="dark"\] \{[^}]*--side-bg:/, '다크도 사이드바 토큰을 정의');
-assert.doesNotMatch(style, /data-theme="navy"/, '네이비 토큰 삭제');
-assert.match(style, /:root \{[^}]*--gshadow:none;/, '카드 그림자 없음');
+// CSS: 라이트는 :root, 다크·네이비는 공통 블록 + 네이비 덮어쓰기. 예전 '라이트(사이드바만)' 블록은 없다
+assert.match(style, /:root \{[\s\S]*--side-bg:var\(--glass\);[\s\S]*--fs-title:22px;[\s\S]*--seg-bg:/, '라이트에 사이드바·크기·세그먼트 토큰');
+assert.match(style, /\[data-theme="dark"\],\[data-theme="navy"\] \{[^}]*--side-bg:/, '다크·네이비 공통 토큰');
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--glass:rgba\(24,42,84,/, '네이비 유리 색');
+assert.doesNotMatch(style, /\[data-theme="light"\]/, '사이드바만 밝던 라이트 블록은 없앴다');
+// 유리 토큰은 세 테마 모두 정의하고, 카드는 반투명 바탕 + 옅은 그림자
+for (const tok of ['--glass:rgba(', '--glass-edge:', '--glass-hi:', '--glass-rim:', '--app-mesh:', '--gshadow:0 1px 2px']) {
+  assert.ok(style.slice(style.indexOf(':root {'), style.indexOf('}', style.indexOf(':root {'))).includes(tok), '라이트 ' + tok);
+}
 assert.match(style, /\.glass-panel\.menu-col\{background:var\(--side-bg\)/, '사이드바는 --side-* 토큰으로만 칠한다');
+// 유리 효과는 workspace-ui.css 끝 블록 한 곳 — :is() 로 묶지 않는다(#view-holdings 우선순위가 전체에 붙는다)
+const glass = ws.slice(ws.indexOf('/* ===== 리퀴드 글래스'));
+assert.ok(glass.length > 100, '리퀴드 글래스 블록');
+assert.match(glass, /backdrop-filter:blur\(var\(--glass-blur\)\) saturate\(var\(--glass-sat\)\)/);
+assert.doesNotMatch(glass.split('@media')[0], /:is\(\.glass-panel/, '유리판 선택자를 :is() 로 묶지 않는다');
+assert.match(glass, /@media\(max-width:768px\)\{:root,body\{--glass-blur:10px/, '휴대폰은 흐림을 낮춘다');
+assert.match(glass, /@media\(prefers-reduced-transparency:reduce\)\{[\s\S]*backdrop-filter:none;background:var\(--panelSolid\)/, '투명도 줄이기는 불투명 판');
+assert.match(glass, /#login-overlay,\.boot-splash\{background:var\(--app-mesh\)/, '로그인·로딩도 같은 배경');
 
 // 세그먼트·전환 탭은 선택 항목을 강조색 바탕으로 칠하지 않는다 — 시뮬레이터 종류 탭은 밑줄형
 assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\](?:,\.view-mode-bar>button\.cb-btn\[aria-pressed=true\])?\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
@@ -52,7 +65,8 @@ assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\](?:,\.view-
 // --on-acc 는 강조색 바탕 위 글자색이다(다크의 밝은 강조색 위에 흰 글자는 읽히지 않는다).
 // 시작 버튼(＋추가·＋수입·＋새 목표 추가)은 2026-11-16 부터 파랑 채움이 아니라 일반 버튼과 같은 중립 톤이다.
 assert.match(style, /:root \{[^}]*--on-acc:#ffffff;/);
-assert.match(style, /\[data-theme="dark"\] \{[^}]*--on-acc:#0b1020;/);
+assert.match(style, /\[data-theme="dark"\],\[data-theme="navy"\] \{[^}]*--on-acc:#0b1020;/);
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--on-acc:#0a1733;/);
 for (const sel of ['.holdings-add-btn', '.cf-entry-open', '.fin-goal-add-btn']) {
   const rule = ws.slice(ws.indexOf(sel + '{'), ws.indexOf('}', ws.indexOf(sel + '{')));
   assert.match(rule, /border:1px solid var\(--bd2\);background:var\(--inner\);color:var\(--tx\)/, sel + ' 는 중립 톤 버튼');

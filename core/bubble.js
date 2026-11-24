@@ -107,9 +107,9 @@ const _BUBBLE_THEME_TONES = {
   light: { sectorSat:40, sectorLight:68, leafSat:32, leafSatRange:11, leafLight:72, leafLightRange:11 },
   dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 }
 };
-// 기본·라이트는 본문이 같으므로 같은 톤을 쓴다.
+// 다크·네이비는 어두운 바탕이라 같은 톤을 쓴다.
 function _bubbleThemeKey(){
-  return document.body.getAttribute('data-theme')==='dark'?'dark':'light';
+  return isDarkTheme()?'dark':'light';
 }
 function _bubbleSectorColor(sector){
   const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
@@ -139,6 +139,9 @@ function _bubbleOwnerFill(owner,panelColor){
 function _bubbleBlend(hex,target,amount){
   const parse=v=>{
     const s=String(v||'').trim();
+    // 유리 테마의 판 색은 rgba(...) 다 — 투명도는 버리고 색만 섞는다.
+    const rgb=s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if(rgb) return [Number(rgb[1]),Number(rgb[2]),Number(rgb[3])];
     const m=s.match(/^#([0-9a-f]{6})$/i); if(!m) return null;
     return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];
   };
@@ -375,7 +378,7 @@ function renderBubbleChart(mode) {
   const totalVal = baseItems.reduce((s, x) => s + x.val, 0) || 1;
   const isDark = isDarkTheme();
   const textColor = cssVar('--t1',isDark?'#e7e9ee':'#18213a');
-  const panelColor = cssVar('--glass',isDark?'#15181e':'#ffffff');
+  const panelColor = cssVar('--modal-bg',isDark?'#15181e':'#ffffff');
 
   // ── 계층 구축: ROOT → (전체 모드일 때) owner → grp → name ──
   // Plotly sunburst 는 ids / labels / parents / values 배열로 트리를 받는다.

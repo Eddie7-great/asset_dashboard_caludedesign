@@ -483,7 +483,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 
 /* ===== 공통 디자인 규칙 (2026-10-30) — 모든 페이지가 같은 사이드바·머리말·카드·글자 크기를 쓴다 =====
    색은 style.css 토큰(--side-*, --seg-*), 크기는 --fs-* 토큰만 쓴다. 이 블록은 앞선 머리말·버튼 규칙을 덮어쓰므로
-   파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow:none)으로 없앴다. */
+   파일 맨 끝에 둔다. 카드 그림자는 토큰(--gshadow)만 쓴다 — 유리판의 아주 옅은 그림자(2026-11-24). */
 .compact-menu .menu-btn{min-height:40px;padding:8px 12px;font-size:var(--fs-body)}
 #page-head #main-title{font-size:var(--fs-title);font-weight:700;letter-spacing:-.02em}
 #page-head #main-title-sub{font-size:var(--fs-body)}
@@ -1564,3 +1564,33 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .cb-tax-od-msg{font-size:var(--fs-cap);color:var(--mut)}
 @media(max-width:900px){.cb-tax-saving-row{grid-template-columns:1fr}}
 @media(max-width:768px){#cb-tax2>.cb-tax-summary-grid>.cb-tax-ded-col{grid-column:span 2;grid-template-rows:none;grid-template-columns:1fr 1fr}}
+
+/* ===== 리퀴드 글래스(2026-11-24 사용자 결정 — 강도 'A 은은하게') =====
+   카드 = 반투명 바탕(--glass) + 뒤 흐림(--glass-blur) + 윗변 빛줄(--glass-hi) + 아랫변 선(--glass-rim) + 옅은 그림자(--gshadow).
+   색·투명도는 style.css 테마 토큰에만 있고, 여기서는 효과만 건다. 유리판 목록을 늘리면 이 블록 한 곳에서 늘린다.
+   선택자를 :is() 로 묶지 않는다 — 가장 강한 선택자(#view-holdings)의 우선순위가 전체에 붙어 선택·경고 테두리를 덮는다.
+   표 머리줄처럼 위에 붙는 줄은 거의 불투명한 --panelSolid 그대로다(스크롤할 때 아래 줄이 비치지 않게). */
+.glass-panel,.cb-panel,.cb-dash-kpi,.holdings-kpi,.holdings-card,.rep-cover-stats>div,#view-holdings .pt-group,.holdings-tabs-mobile,.login-card{
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border-color:var(--glass-edge);
+  box-shadow:inset 0 1px 0 var(--glass-hi),inset 0 -1px 0 var(--glass-rim),var(--gshadow);
+}
+.glass-panel.menu-col{border-color:var(--side-border)}
+.side-rates{background:var(--side-inner);box-shadow:inset 0 1px 0 var(--glass-hi)}
+/* 미세한 입자(그레인) — 유리판이 플라스틱처럼 매끈해 보이지 않게. 본문 뒤(z-index:-1)에 깐다 */
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* 로그인·로딩 — 같은 배경 빛 위에 유리 카드. 카드 뒤에 강조색 빛을 한 점 둔다 */
+#login-overlay,.boot-splash{background:var(--app-mesh),linear-gradient(180deg,var(--bg1),var(--bg2))}
+#login-overlay::before{content:"";position:absolute;width:520px;height:520px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--acc) 26%,transparent),transparent 65%);filter:blur(20px);transform:translate(-120px,-90px)}
+.login-card{position:relative;box-shadow:inset 0 1px 0 var(--glass-hi),inset 0 -1px 0 var(--glass-rim),0 24px 60px rgba(10,20,45,.18)}
+.login-mark{box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 6px 16px rgba(10,20,45,.25)}
+/* 떠 있는 창도 뒤를 흐린다(바탕은 거의 불투명한 --modal-bg) */
+.modal-content{-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+/* 휴대폰: 흐림은 그리는 비용이 커서 낮춘다. '투명도 줄이기'를 켠 기기는 불투명 판 */
+@media(max-width:768px){:root,body{--glass-blur:10px;--glass-sat:140%}}
+@media(prefers-reduced-transparency:reduce){
+  .glass-panel,.cb-panel,.cb-dash-kpi,.holdings-kpi,.holdings-card,.rep-cover-stats>div,#view-holdings .pt-group,.holdings-tabs-mobile,.login-card,.modal-content{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panelSolid)}
+  body::after,#login-overlay::before{display:none}
+}
