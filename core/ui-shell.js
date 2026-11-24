@@ -18,18 +18,19 @@ if (sideDate) sideDate.innerText = `${now.getFullYear()}.${String(now.getMonth()
 // =============================================
 // 테마
 // =============================================
-// 3-테마: 'default'(밝은 본문 + 진한 사이드바) | 'light'(사이드바까지 밝게) | 'dark'
-// 'default'만 data-theme 속성이 없다 — :root 토큰이 곧 기본 테마다.
-const THEMES = ['default','light','dark'];
-// 저장된 테마를 읽는다. 예전 판(라이트/다크/네이비, 라이트=속성 없음)의 저장값은
-// 한 번만 새 구성으로 옮긴다: 라이트·미저장 → 기본, 네이비 → 다크.
+// 3-테마(2026-11-24): 'default'(라이트, 기본) | 'navy' | 'dark' — 모두 리퀴드 글래스.
+// 'default'만 data-theme 속성이 없다 — :root 토큰이 곧 라이트 테마다.
+const THEMES = ['default','navy','dark'];
+// 저장된 테마를 읽는다. 예전 판의 저장값은 한 번만 새 구성으로 옮긴다(themeV '3').
+//   themeV 2(기본/라이트/다크): 기본·라이트 → 라이트(default), 다크 → 다크.
+//   themeV 없음(그 전 판 라이트/다크/네이비): 라이트·미저장 → 라이트, 네이비 → 네이비, 다크 → 다크.
 function _savedTheme(){
   try{
     let t=localStorage.getItem('theme');
-    if(localStorage.getItem('themeV')!=='2'){
-      t = t==='dark'||t==='navy' ? 'dark' : 'default';
+    if(localStorage.getItem('themeV')!=='3'){
+      t = t==='dark' ? 'dark' : (t==='navy' ? 'navy' : 'default');
       localStorage.setItem('theme',t);
-      localStorage.setItem('themeV','2');
+      localStorage.setItem('themeV','3');
     }
     return THEMES.includes(t)?t:'default';
   }catch(e){ return 'default'; }
@@ -38,8 +39,10 @@ function _applyThemeAttr(mode){
   if (mode === 'default') document.body.removeAttribute('data-theme');
   else document.body.setAttribute('data-theme', mode);
 }
+// 어두운 바탕(다크·네이비)인가 — 차트 색 분기
 function isDarkTheme() {
-  return document.body.getAttribute('data-theme') === 'dark';
+  const t = document.body.getAttribute('data-theme');
+  return t === 'dark' || t === 'navy';
 }
 function setTheme(mode) {
   if (!THEMES.includes(mode)) mode = 'default';
