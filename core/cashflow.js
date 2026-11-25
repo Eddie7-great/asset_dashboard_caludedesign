@@ -843,12 +843,8 @@ function renderCashFlow() {
 // 월급 막대 하나가 폭을 다 차지하고 지출 막대가 손톱만 했고, 눈금은 '₩5.0백만' 같은 낯선 단위였다.
 // 이제 수입은 위 한 줄 숫자, 막대는 지출만 큰 순서로 그리고 금액(만 단위)·비율을 글자로 적는다.
 // 이미 계산된 incomeByCat·expByCat 만 받는다(새 계산 없음). 색은 고정비 분포와 같은 cfColors.
-function cfShortWon(v){
-  const a=Math.abs(Math.round(v)), sign=v<0?'-':'';
-  if(a>=100000000){ const e=Math.floor(a/100000000), m=Math.round((a%100000000)/10000); return sign+e+'억'+(m?' '+m.toLocaleString()+'만':''); }
-  if(a>=10000) return sign+Math.round(a/10000).toLocaleString()+'만';
-  return sign+'₩'+a.toLocaleString();
-}
+// 짧은 금액 — 단일 구현 shortWon(core/data.js)의 별칭(배당 막대 위 금액과 같은 모양).
+function cfShortWon(v){ return shortWon(v); }
 function cfCompositionHtml(incomeByCat, expByCat, tIn, tOut){
   const won=v=>'₩'+Math.round(v).toLocaleString();
   const savingCats=(typeof FIN_SAVING_CATS!=='undefined')?FIN_SAVING_CATS:['저축/투자'];

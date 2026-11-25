@@ -55,6 +55,21 @@ function assetAvgNative(i){
 function assetValueKRW(i){ return (Number(i && i.qty)||0) * (Number(i && i.curP)||0) * curRate(i && i.cur); }
 function assetCostKRW(i){ return !i || i.costUnknown ? 0 : (Number(i.qty)||0) * assetAvgNative(i) * curRate(i.cur); }
 function assetGainKRW(i){ return !i || i.grp==='현금' || i.costUnknown ? 0 : assetValueKRW(i) - assetCostKRW(i); }
+// 짧은 금액 표기 — 한 벌(2026-11-25). 배당 막대 위 금액·현금 흐름 구성 목록이 같은 모양을 쓴다.
+// 1억 이상 '1억 2,500만', 100만 이상 '1,234만', 1만 이상 '26.5만'(소수 한 자리), 그 밖 '8,000원'.
+// 예전엔 배당 화면(cbDivShortWon)과 현금 흐름(cfShortWon)이 따로 있어 같은 26.5만 원이 '26.5만'·'27만'으로 달리 보였다.
+// 그래프 눈금은 눈금 간격에 맞추는 cbAmtAxisLab(pages/tax.js) — 목적이 다르므로 따로 둔다.
+function shortWon(v){
+  const n = Number(v)||0, a = Math.abs(n), sign = n<0 ? '−' : '';
+  if (a >= 1e8) {
+    const e = Math.floor(a/1e8), m = Math.round((a - e*1e8)/1e4);
+    if (m >= 10000) return sign + (e+1) + '억';
+    return sign + e + '억' + (m ? ' ' + m.toLocaleString('ko-KR') + '만' : '');
+  }
+  if (a >= 1e6) return sign + Math.round(a/1e4).toLocaleString('ko-KR') + '만';
+  if (a >= 1e4) return sign + (Math.round(a/1e3)/10).toLocaleString('ko-KR') + '만';
+  return sign + Math.round(a).toLocaleString('ko-KR') + '원';
+}
 function fmtPriceNative(price, cur){
   const meta = curMeta(cur), d = meta.cashDecimals;
   return meta.symbol + (Number(price)||0).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});

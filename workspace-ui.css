@@ -116,7 +116,6 @@
 .fin-reference{border-left:1px solid var(--bd);padding-left:14px;font-size:var(--fs-cap)}.fin-reference h4{margin:0 0 8px}.fin-reference article{padding:9px 0;border-bottom:1px solid var(--bd)}.fin-reference b{display:block}.fin-reference p{margin:5px 0;line-height:1.6;color:var(--mut)}.fin-reference a{color:var(--acc)}
 .fin-goal-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;align-items:stretch}.fin-goal-context>.cb-panel{padding:12px;display:flex;flex-direction:column}.fin-goal-context b{display:block;margin-top:6px;font-size:var(--fs-title)}.fin-goal-context small{color:var(--lab)}
 #fin-goal-form .fin-form-grid{display:flex;gap:9px;flex-wrap:wrap;align-items:end}#fin-goal-form .fin-form-grid>label{flex:1 1 145px}#fin-goal-form .fin-form-actions{flex:0 0 auto;margin:0;align-self:end}#fin-goal-form button{white-space:nowrap}
-.fin-goal-gap{font-size:var(--fs-cap);color:var(--lab);grid-column:1/-1;margin:0}
 .form-row:has(#btn-cf-submit){gap:7px}.form-row:has(#btn-cf-submit)>.form-group{min-width:0!important}#btn-cf-submit{flex:0 0 auto;min-width:58px;white-space:nowrap;width:auto!important}
 .cb-tax-bottom-grid{grid-template-columns:1fr!important}.cb-tax-entry-form select,.cb-tax-entry-form input{font-size:var(--fs-cap);padding:5px 7px}.cb-tax-head-grid{display:block;width:auto;white-space:nowrap}.cb-tax-history-panel .cb-thead>span{flex-shrink:0}
 @media(max-width:1100px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr 1fr}.fin-rebal-comparison{grid-template-columns:1fr}.fin-reference{border-left:0;padding-left:0}}
@@ -241,8 +240,6 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #view-holdings .holdings-group[hidden]{display:none}
 #view-holdings .holdings-group .pt-group-header{cursor:default;padding:4px 16px 10px;background:transparent;border:0;border-radius:0}
 #view-holdings .holdings-group .pt-group-header:hover{background:transparent}
-.holdings-group .pt-group-title{font-size:var(--fs-card);font-weight:700}
-.holdings-group-count{margin-left:6px;font-size:var(--fs-cap);font-weight:400;color:var(--lab)}
 .holdings-group .pt-group-stats{gap:20px;flex-wrap:wrap;justify-content:flex-end;font-size:var(--fs-body);color:var(--mut)}
 .holdings-group .pt-group-stats strong{color:var(--tx)}
 .holdings-group .pt-table-wrap{padding:0 14px 14px}
@@ -505,7 +502,7 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 #cf-header-tabs.cf-section-tabs .cf-section-tab.active{background:transparent;color:var(--acc);font-weight:700;box-shadow:inset 0 -2px 0 var(--acc)}
 /* 규격 통일(2026-11-11) — 값은 style.css :root 의 --fs-*·--fw-*·--font-*·--r-*·--bar-h*·--btn-h 토큰에서만 온다.
    금액·비율·날짜 숫자는 한 글꼴(--font-num)로 쓰고 자릿수 폭을 맞춘다. 차트 눈금 글자도 같은 글꼴이다. */
-.cb-num,.pt-table td,.fin-table td,svg text{font-variant-numeric:tabular-nums}
+.cb-num,.pt-table td,svg text{font-variant-numeric:tabular-nums}
 .cb-btn,.api-btn,.btn-submit{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 /* 적립식 규칙 표는 약 870px 가 필요하다(2026-11-25 '월 환산' 칸을 뺐다 — 같은 값이 오른쪽 매수 배분 카드에 있다, 사용자 요청).
    1560px 이상에서는 남는 폭을 매수 배분 카드가 넓게 쓰고(최소 360px), 그보다 좁으면 카드를 표 아래로 내린다. */
@@ -990,7 +987,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-div-row>.cb-div-c-flag,.cb-div-row>.cb-div-c-asset{display:flex;align-items:center}
 .cb-div-row>.cb-div-c-yoc{font-weight:800;color:var(--up)}
 .cb-div-row>.cb-div-c-yld{font-weight:600;color:var(--tx)}
-.cb-div-row>.cb-div-c-ex{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 1440px 미만: 향후 90일 일정은 표 위 가로 띠로(긴 표 아래에 두면 보이지 않는다). 시가수익률 칸이 늘어 1400 → 1440(2026-11-25). */
 @media(max-width:1439px){
   .cb-div-detail-grid>.cb-div-upcoming-card{order:-1}
@@ -1153,9 +1149,6 @@ button,input,select,textarea{font-family:var(--font-ui)}
 .cb-dash-contrib-card,.cb-dash-trend-card{display:flex;flex-direction:column;min-width:0}
 .cb-tilemap{position:relative;flex:1 1 auto;min-height:240px;border-radius:var(--r-md);overflow:hidden}
 .cb-tilemap.is-sector{min-height:220px}
-.cb-tilemap-legend{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:var(--fs-cap);color:var(--lab);margin:0 0 6px}
-.cb-tilemap-legend>.up{color:var(--up)}.cb-tilemap-legend>.dn{color:var(--dn)}
-.cb-tilemap-legend b{font-size:var(--fs-cap)}
 .cb-tile{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;gap:1px;padding:5px 7px;overflow:hidden;box-shadow:inset 0 0 0 1.5px var(--panelSolid);border-radius:var(--r-sm);font-size:var(--fs-cap);line-height:1.3;color:var(--tx)}
 .cb-tile[data-tip]{border-bottom:0}
 .cb-tile>b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

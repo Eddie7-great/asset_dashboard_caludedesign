@@ -19,13 +19,8 @@ function cbDivAxisLab(v){
   if (Math.abs(v)>=10000) return cbAmtAxisLab(v);
   return Math.round(v/1000).toLocaleString('ko-KR')+'천';
 }
-// 막대 위 짧은 금액: 26.5만 · 1.2억 · 8,000원
-function cbDivShortWon(v){
-  const n=Number(v)||0, a=Math.abs(n);
-  if(a>=1e8) return (Math.round(n/1e7)/10).toLocaleString('ko-KR')+'억';
-  if(a>=1e4) return (Math.round(n/1e3)/10).toLocaleString('ko-KR')+'만';
-  return Math.round(n).toLocaleString('ko-KR')+'원';
-}
+// 막대 위 짧은 금액 — 단일 구현 shortWon(core/data.js)의 별칭: 26.5만 · 1억 2,500만 · 8,000원
+function cbDivShortWon(v){ return shortWon(v); }
 function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
   if (!detailMaps[monthIndex] || !(amount>0)) return;
   const owner = item.i?.owner || '미지정';

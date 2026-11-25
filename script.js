@@ -715,22 +715,19 @@ function _normalizePyDividendInfo(tkr,info,existing) {
 }
 
 /**
- * fetchPyDividends() – Python(pykrx/yfinance) 배당 데이터 보완
- * 등록된 모든 주식(국내 6자리 숫자/알파뉴메릭 + 해외 티커)을 병합 조회.
+ * fetchPyDividends() – Python(pykrx) 국내 배당 보완
+ * 국내(6자리 알파뉴메릭) 보유 주식만 보낸다. 해외는 dashboard.py 가 다루지 않는다 — 예전 yfinance 경로는
+ * 시간대 TypeError 로 늘 '미조회'였고 2026-11-25 지웠다(해외 배당은 api/price.ts 가 맡는다).
  * 배당 주기(months) 누락 시 cycle에서 추정하거나 기본 분기배당으로 설정.
  */
 async function fetchPyDividends() {
-  // 국내(6자리 알파뉴메릭 포함) + 해외(영문/기타) 모든 보유 종목
-  const allTickers = [...new Set(
+  const krTickers = [...new Set(
     pfolioData
       .filter(i => i.grp === '주식' && i.qty > 0)
       .map(i => String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/, ''))
-      .filter(Boolean)
+      .filter(t => /^[0-9A-Z]{6}$/.test(t))
   )];
-  if (!allTickers.length) return;
-
-  const krTickers = allTickers.filter(t => /^[0-9A-Z]{6}$/.test(t));
-  const foreignTickers = allTickers.filter(t => !/^[0-9A-Z]{6}$/.test(t));
+  if (!krTickers.length) return;
 
   const mergeOne = (tkr, info) => {
     const cacheTkr = normDivTkr(tkr);
@@ -739,29 +736,14 @@ async function fetchPyDividends() {
     if(normalized) window._divDataCache[cacheTkr]=normalized;
   };
 
-  // 국내 종목 배당 (pykrx 기반)
-  if (krTickers.length) {
-    try {
-      for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
-        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
-        if (d && d.success && d.result) {
-          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
-        }
+  try {
+    for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
+      const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
+      if (d && d.success && d.result) {
+        Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
       }
-    } catch(e) { console.warn('[fetchPyDividends KR]', e); }
-  }
-
-  // 해외 종목 배당 (yfinance 기반)
-  if (foreignTickers.length) {
-    try {
-      for (const chunk of _chunkTickers(foreignTickers, PY_DIVIDEND_TICKER_LIMIT)) {
-        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
-        if (d && d.success && d.result) {
-          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
-        }
-      }
-    } catch(e) { console.warn('[fetchPyDividends US]', e); }
-  }
+    }
+  } catch(e) { console.warn('[fetchPyDividends KR]', e); }
 
   syncDivHistory();
   // 현금흐름: 갱신된 배당 정보로 이번 달 누락 배당수입을 자동 등록

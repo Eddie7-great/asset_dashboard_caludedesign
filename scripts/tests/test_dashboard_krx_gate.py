@@ -178,36 +178,28 @@ try:
     krx_a, yf_a = setup('down', creds=False)
     skipped = dashboard.get_dividends(list(KR))
     check('국내 17종목 배당 조회에 KRX 호출 0회', krx_a.calls == [], str(krx_a.calls[:4]))
-    check('yfinance 는 종목마다 조회한다', all(f'{t}.KS' in yf_a.calls for t in KR))
     check('응답 모양 그대로({success, result})', skipped.get('success') is True and set(skipped['result']) == set(KR))
+    unavailable = {'dps': '미조회', 'yld': '미조회', 'cycle': '-', 'months': [], 'cur': 'KRW'}
+    check('KRX 없이는 모든 국내 종목이 미조회(price.ts 가 Yahoo → 네이버로 넘어간다)',
+          all(v == unavailable for v in skipped['result'].values()), str(list(skipped['result'].values())[:2]))
 
-    print('\n[결과는 예전 경로(pykrx 빈 응답 → yfinance)와 같다]')
+    print('\n[yfinance 보조 경로는 지웠다 — 2026-11-25]')
+    # 예전 경로는 yfinance 0.2.x 의 시간대 붙은 배당 날짜를 naive datetime 과 비교하다 TypeError 로
+    # 삼켜져 한 번도 값을 낸 적이 없다. 배당 조회가 yfinance 를 부르지 않는 것을 지킨다.
+    check('배당 조회는 yfinance 를 부르지 않는다', yf_a.calls == [], str(yf_a.calls[:4]))
+    us = dashboard.get_dividends(['AAPL', 'SCHD'])['result']
+    check('해외 종목은 이 엔드포인트가 다루지 않는다(미조회, price.ts 가 맡음)',
+          all(v == {**unavailable, 'cur': 'USD'} for v in us.values()), str(us))
+    check('get_dividends 소스에 yf. 호출이 없다',
+          'yf.' not in ast.get_source_segment(SOURCE_PATH.read_text(encoding='utf-8'),
+                                              next(f for f in ast.parse(SOURCE_PATH.read_text(encoding='utf-8')).body
+                                                   if isinstance(f, ast.FunctionDef) and f.name == 'get_dividends')))
+
+    print('\n[결과는 예전 경로(pykrx 빈 응답)와 같다]')
     krx_b, _ = setup('probe_only', creds=True)
     legacy = dashboard.get_dividends(list(KR))
     check('예전 경로를 실제로 탔다(종목마다 KRX 2회)', len(ticker_calls(krx_b)) == 2 * len(KR), str(len(krx_b.calls)))
     check('건너뛴 결과 == 예전 경로 결과', skipped == legacy)
-
-    q = skipped['result'][QUARTERLY]
-    check('분기 배당 종목 값', q == {
-        'dps': 1444, 'yld': 0.0, 'cycle': '분기',
-        'months': sorted({d.month - 1 for d in Q_DATES}), 'cur': 'KRW', 'payDay': 15,
-    }, str(q))
-    m = skipped['result'][MONTHLY]
-    check('월배당 ETF 값', m['dps'] == 600 and m['cycle'] == '월배당' and m['months'] == list(range(12))
-          and m['payDay'] == 3 and m['yld'] == 0.0, str(m))
-    a = skipped['result'][KOSDAQ_ANNUAL]
-    check('코스닥(.KQ) 연 1회 값', a == {
-        'dps': 1200, 'yld': 0.0, 'cycle': '연간', 'months': [A_DATES[0].month - 1], 'cur': 'KRW', 'payDay': 20,
-    }, str(a))
-    check('배당 이력이 없는 종목은 지금처럼 미조회',
-          skipped['result']['051910'] == {'dps': '미조회', 'yld': '미조회', 'cycle': '-', 'months': [], 'cur': 'KRW'})
-
-    # yfinance 0.2.x 는 배당 날짜에 시간대를 붙여 준다(Asia/Seoul). 그 모양에서도 두 경로가 같아야 한다.
-    setup('down', creds=False, table=yf_table('Asia/Seoul'))
-    skipped_tz = dashboard.get_dividends(list(KR))
-    setup('probe_only', creds=True, table=yf_table('Asia/Seoul'))
-    legacy_tz = dashboard.get_dividends(list(KR))
-    check('시간대가 붙은 yfinance 배당에서도 두 경로 결과가 같다', skipped_tz == legacy_tz)
 
     print('\n[자격은 있으나 KRX 가 응답하지 않음 — 확인 호출 한 번]')
     krx_c, _ = setup('down', creds=True)
@@ -230,8 +222,9 @@ try:
     live = dashboard.get_dividends(list(KR))
     check('종목마다 fundamental·ohlcv 를 부른다', len(ticker_calls(krx_d)) == 2 * len(KR), str(len(krx_d.calls)))
     lq = live['result'][QUARTERLY]
-    check('DPS = round(가격 × DIV / 100), 수익률은 KRX 값',
-          lq['dps'] == round(KRX_PRICE * KRX_DIV / 100) and lq['yld'] == KRX_DIV and lq['cycle'] == '분기', str(lq))
+    check('DPS = round(가격 × DIV / 100), 수익률은 KRX 값, 지급월은 12월 기말 가정',
+          lq == {'dps': round(KRX_PRICE * KRX_DIV / 100), 'yld': KRX_DIV, 'cycle': '연간', 'months': [11],
+                 'cur': 'KRW', 'payDay': None}, str(lq))
 
     print('\n[시세 보완·종목명 찾기도 같은 관문]')
     krx_e, _ = setup('down', creds=False)

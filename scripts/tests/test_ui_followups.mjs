@@ -79,6 +79,14 @@ vm.createContext(dividendContext)
 for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbDefaultDivMonths', 'cbAddDivMonthDetail', 'cbDivMonthlyForYear', 'cbDivShortWon', 'cbDivCalendarSvg']) {
   vm.runInContext(extractFunction(cobaltSource, name), dividendContext)
 }
+vm.runInContext(extractFunction(scriptSource, 'shortWon'), dividendContext)
+// 짧은 금액 표기는 한 벌(shortWon) — 배당 막대 위 금액과 현금 흐름 구성 목록이 같은 모양이어야 한다
+assert.equal(dividendContext.cbDivShortWon(265000), '26.5만')
+assert.equal(dividendContext.shortWon(125_000_000), '1억 2,500만')
+assert.equal(dividendContext.shortWon(8000), '8,000원')
+assert.equal(dividendContext.shortWon(-3_400_000), '−340만')
+assert.match(cobaltSource, /function cbDivShortWon\(v\)\{ return shortWon\(v\); \}/)
+assert.match(scriptSource, /function cfShortWon\(v\)\{ return shortWon\(v\); \}/)
 const dividendList = [
   { i: { owner: '본인', name: 'VOO', cur: 'KRW' }, tkr: 'VOO', title: 'Vanguard S&P 500 ETF', d: { months: [0] }, incomeKRW: 100 },
   { i: { owner: '아내', name: 'VOO', cur: 'KRW' }, tkr: 'VOO', title: 'Vanguard S&P 500 ETF', d: { months: [0] }, incomeKRW: 200 },

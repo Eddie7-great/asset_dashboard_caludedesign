@@ -96,9 +96,10 @@ assert.match(CHUNK_DECL, /const BENCH_TICKER_LIMIT = 20/, '벤치마크 상한�
   vm.runInContext(CHUNK_DECL, ctx)
   vm.runInContext(extractFunction('fetchPyDividends'), ctx)
   await vm.runInContext('fetchPyDividends()', ctx)
-  assert.deepEqual(sent.map(c => c.length), [20, 3, 20, 2], '국내·해외 모두 20개씩 나눠 보낸다')
+  assert.deepEqual(sent.map(c => c.length), [20, 3], '국내는 20개씩 나눠 보낸다')
   assert.ok(sent.every(c => c.length <= 20), '어떤 배당 묶음도 dashboard.py 상한(20)을 넘지 않는다')
-  assert.deepEqual(sent.flat().sort(), [...kr, ...us].sort(), '빠지거나 겹치는 종목이 없다')
+  assert.deepEqual(sent.flat().sort(), [...kr].sort(), '국내는 빠지거나 겹치는 종목이 없다')
+  assert.ok(!sent.flat().some(t => us.includes(t)), '해외는 보내지 않는다 — dashboard.py 가 다루지 않는다(늘 미조회였다)')
 }
 
 // ─────────────────────────── liveRefresh ───────────────────────────
