@@ -1682,6 +1682,80 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 @media (max-width:1100px){.chs-reads{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:768px){.chs-reads{grid-template-columns:1fr}.chs-pick select{max-width:180px}}
 
+/* ===== 차트 공부 > 추세추종(미너비니) 보기 — pages/minervini.js. 50·150·200일선(색은 기존 이동평균 토큰), VCP 되돌림 상자, 피벗·손절선, RS선 ===== */
+.chs-lens{justify-content:flex-start}
+.chs-sw.mm50{background:var(--ma-20)}.chs-sw.mm150{background:var(--ma-120)}.chs-sw.mm200{background:var(--ma-200)}
+.chs-svg .chs-ma.mm50{stroke:var(--ma-20)}.chs-svg .chs-ma.mm150{stroke:var(--ma-120)}.chs-svg .chs-ma.mm200{stroke:var(--ma-200);stroke-width:2.2}
+.chs-sw.mnv-sw-ct{height:10px;background:var(--acc);opacity:.18;border:1px dashed var(--acc)}
+.chs-sw.mnv-sw-pivot{height:0;border-top:2px dashed var(--up);background:none}
+.chs-sw.mnv-sw-stop{height:0;border-top:2px dashed var(--dn);background:none}
+.chs-svg .mnv-ct{fill:var(--acc);opacity:.1;stroke:var(--acc);stroke-dasharray:3 3}
+.chs-svg .mnv-ct-lab{fill:var(--acc);font-size:var(--fs-cap);font-weight:700;paint-order:stroke;stroke:var(--modal-bg);stroke-width:4px;stroke-linejoin:round}
+.chs-svg .mnv-pivot{stroke:var(--up);stroke-width:1.4;stroke-dasharray:6 4}
+.chs-svg .mnv-stop{stroke:var(--dn);stroke-width:1.4;stroke-dasharray:6 4}
+.chs-svg .mnv-pivot-lab,.chs-svg .mnv-stop-lab{font-size:var(--fs-cap);font-weight:700;paint-order:stroke;stroke:var(--modal-bg);stroke-width:4px;stroke-linejoin:round}
+.chs-svg .mnv-pivot-lab{fill:var(--up)}.chs-svg .mnv-stop-lab{fill:var(--dn)}
+.chs-svg .mnv-vavg{fill:none;stroke:var(--t2);stroke-width:1.4}
+.chs-svg .chs-vol.is-break{opacity:.95}
+.chs-svg .mnv-rs{fill:none;stroke:var(--acc);stroke-width:1.8}
+.chs-svg .mnv-rs-dot{fill:var(--acc)}
+.chs-svg .mnv-rs-lab{fill:var(--acc);font-size:var(--fs-cap);font-weight:700;paint-order:stroke;stroke:var(--modal-bg);stroke-width:4px;stroke-linejoin:round}
+.mnv-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px;align-items:stretch}
+.mnv-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.mnv-card{padding:14px 16px;display:flex;flex-direction:column;min-width:0;background:var(--inner-bg)}
+.mnv-col>.mnv-card{flex:1}
+.mnv-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.mnv-card-head small{font-size:var(--fs-cap);color:var(--lab)}
+.mnv-score{font-size:var(--fs-title);font-weight:800}
+.mnv-score small{font-size:var(--fs-cap);color:var(--lab);font-weight:600}
+.mnv-score.is-up,.mnv-big.is-up{color:var(--up)}.mnv-score.is-warn,.mnv-big.is-warn{color:var(--warn)}.mnv-score.is-dn,.mnv-big.is-dn{color:var(--dn)}.mnv-big.is-acc{color:var(--acc)}.mnv-big.is-mid{color:var(--lab)}
+.mnv-checks{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column}
+.mnv-checks li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
+.mnv-checks li:last-child{border-bottom:0}
+.mnv-checks li em{font-style:normal;font-size:var(--fs-cap);color:var(--mut);white-space:nowrap}
+.mnv-checks li.is-no>span{color:var(--mut)}
+.mnv-checks i{font-style:normal;font-weight:800;text-align:center;font-size:var(--fs-body)}
+.mnv-ok{color:var(--up)}.mnv-no{color:var(--dn)}.mnv-na{color:var(--lab)}
+.mnv-foot{display:block;margin-top:auto;padding-top:8px;font-size:var(--fs-cap);color:var(--lab);line-height:1.5}
+.mnv-stage-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px}
+.mnv-stage-step{height:24px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);background:var(--seg-bg);color:var(--lab);font-size:var(--fs-cap);font-weight:700}
+.mnv-stage-step.is-on{color:var(--on-acc)}
+.mnv-stage-step.is-on.is-up{background:var(--up)}.mnv-stage-step.is-on.is-dn{background:var(--dn)}.mnv-stage-step.is-on.is-warn{background:var(--warn)}.mnv-stage-step.is-on.is-mid{background:var(--t3)}
+.mnv-big{font-size:var(--fs-card);font-weight:800;margin-top:10px}
+.mnv-text{margin:4px 0 0;font-size:var(--fs-cap);color:var(--mut);line-height:1.5}
+.mnv-kv{display:flex;flex-direction:column;margin-top:8px}
+.mnv-kv>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-cap)}
+.mnv-kv>div:last-child{border-bottom:0}
+.mnv-kv span{color:var(--lab)}
+.mnv-kv b{font-size:var(--fs-body);text-align:right}
+.mnv-kv b small{font-size:var(--fs-cap);color:var(--lab);font-weight:600}
+.mnv-kv b.is-up{color:var(--up)}.mnv-kv b.is-dn{color:var(--dn)}
+.mnv-hold{margin-top:10px;padding:8px 10px;border-radius:var(--r-md);background:var(--seg-bg);font-size:var(--fs-cap);color:var(--mut)}
+.mnv-hold.is-dn{color:var(--dn)}
+.mnv-ov{margin-top:12px;padding:16px 18px}
+.mnv-ov-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:var(--fs-body)}
+.mnv-ov-table th{text-align:left;font-size:var(--fs-cap);color:var(--lab);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--bd)}
+.mnv-ov-table td{padding:8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.mnv-ov-table tbody tr{cursor:pointer}
+.mnv-ov-table tbody tr:hover,.mnv-ov-table tbody tr.is-sel{background:var(--glass-hover)}
+.mnv-ov-table td small{color:var(--lab);font-size:var(--fs-cap)}
+.mnv-ov-table td.is-up{color:var(--up)}.mnv-ov-table td.is-dn{color:var(--dn)}
+.mnv-ov-name{font-weight:700}
+.mnv-ov-wait{color:var(--lab)}
+.mnv-dots{display:inline-flex;gap:3px;vertical-align:middle}
+.mnv-dots i{width:8px;height:8px;border-radius:50%;background:var(--seg-bg);border:1px solid var(--bd2)}
+.mnv-dots i.is-ok{background:var(--up);border-color:var(--up)}.mnv-dots i.is-no{background:var(--dn);border-color:var(--dn);opacity:.75}
+.mnv-stage-chip{display:inline-block;padding:2px 8px;border-radius:var(--r-sm);font-size:var(--fs-cap);font-weight:700;background:var(--seg-bg)}
+.mnv-stage-chip.is-up{color:var(--up)}.mnv-stage-chip.is-dn{color:var(--dn)}.mnv-stage-chip.is-warn{color:var(--warn)}.mnv-stage-chip.is-mid{color:var(--lab)}
+.mnv-scope-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:10px 0}
+.mnv-scope-head{font-weight:800;font-size:var(--fs-body);padding-bottom:6px;border-bottom:2px solid currentColor}
+.mnv-scope-head.is-up{color:var(--up)}.mnv-scope-head.is-warn{color:var(--warn)}.mnv-scope-head.is-dn{color:var(--dn)}
+.mnv-scope dl{margin:0}
+.mnv-scope dt{font-weight:700;font-size:var(--fs-body);margin-top:8px}
+.mnv-scope dd{margin:2px 0 0;font-size:var(--fs-cap);color:var(--mut);line-height:1.5}
+@media (max-width:1280px){.mnv-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.mnv-grid>.mnv-card:last-child{grid-column:1/-1}}
+@media (max-width:768px){.mnv-grid,.mnv-scope-grid{grid-template-columns:1fr}}
+
 /* ===== 리스크: 고점 대비 하락 · 스트레스 테스트(2026-11-25 시안) — pages/risk.js ===== */
 .cb-risk-extra{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px;align-items:stretch}
 .cb-dd-card,.cb-stress-card{padding:15px 17px;display:flex;flex-direction:column;min-width:0}

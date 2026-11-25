@@ -189,7 +189,9 @@ async function chsFetchBars(tkr, frame='D'){
   if (frame!=='D') bars = chsMergeBars(bars, frame);
   const need = frame==='D' ? 30 : frame==='Y' ? 2 : 10;
   if (bars.length < need) throw new Error(`${F.label}이 ${need}개보다 적습니다`);
-  return {bars, cur:String(d.currency||'').toUpperCase(), symbol:d.symbol||tkr, at:Date.now()};
+  // 지수 종가(^GSPC·^KS11)도 함께 둔다 — 추세추종 보기의 RS선·상대강도(pages/minervini.js)가 쓴다
+  const bench = d && d.benchmarkClose && typeof d.benchmarkClose==='object' ? {spy:d.benchmarkClose.spy||[], kospi:d.benchmarkClose.kospi||[]} : {};
+  return {bars, cur:String(d.currency||'').toUpperCase(), symbol:d.symbol||tkr, bench, at:Date.now()};
 }
 function chsCacheKey(tkr, frame){ return frame==='D' ? tkr : frame+':'+tkr; }
 async function chsLoad(tkr, frame=_chsFrame){
@@ -320,7 +322,7 @@ function chsHover(evt){
     + row('시가', chsNum(b.o,cur)) + row('고가', chsNum(b.h,cur)) + row('저가', chsNum(b.l,cur))
     + row('종가', chsNum(b.c,cur)+(chg==null?'':` <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`))
     + row('거래량', (b.v||0).toLocaleString('ko-KR'))
-    + chsMaList(frame).map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
+    + (v.maList||chsMaList(frame)).map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
     + row('RSI', v.ind.rsi[g]==null?'—':v.ind.rsi[g].toFixed(0))
     + row('MACD', v.ind.macd.macd[g]==null?'—':chsNum(v.ind.macd.macd[g],cur==='KRW'||cur==='JPY'?'USD':cur));
   tip.hidden = false;
@@ -357,12 +359,23 @@ function cbRenderChart(){
     return;
   }
   const row = list.find(r=>r.tkr===_chsTkr), key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
-  if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
+  const lensOn = typeof mnvBody==='function' && _chsLens==='mnv';
+  if (!lensOn && !data && !_chsErr[key]) chsLoad(_chsTkr, frame);
   const sel = `<label class="chs-pick"><span class="sr-only">종목</span><select class="cb-input" onchange="chsPick(this.value)">${list.map(r=>`<option value="${cbEsc(r.tkr)}"${r.tkr===_chsTkr?' selected':''}>${cbEsc(r.name)}${r.name!==r.tkr?' · '+cbEsc(r.tkr):''}</option>`).join('')}</select></label>`;
   const frames = `<div class="owner-tabs chs-frames" role="group" aria-label="봉 단위">${Object.entries(CHS_FRAMES).map(([k,f])=>`<button class="owner-btn${k===frame?' active':''}" data-chs-frame="${k}" aria-pressed="${k===frame}" onclick="chsFramePick('${k}')">${f.label}</button>`).join('')}</div>`;
   const rangeKeys = Object.keys(F.ranges);
   // 년봉은 '전체' 하나뿐이지만 그대로 그린다. 봉 단위 버튼은 맨 오른쪽에 둔다 — 기간 버튼 수가 바뀌어도 누른 자리에서 움직이지 않게
   const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${rangeKeys.map(k=>`<button class="owner-btn${k===_chsRange?' active':''}" data-chs-range="${k}" aria-pressed="${k===_chsRange}" onclick="chsRangePick('${k}')">${F.ranges[k][0]}</button>`).join('')}</div>`;
+  // 보는 법 — 기본 지표 / 추세추종(미너비니, pages/minervini.js). 화면 안의 종류 전환이라 밑줄형 탭이다.
+  const lens = typeof mnvBody==='function' ? `<div class="sim-view-tabs chs-lens" role="group" aria-label="보는 법">${[['basic','기본 지표'],['mnv','추세추종 · 미너비니']].map(([k,t])=>`<button class="cb-btn" data-chs-lens="${k}" aria-pressed="${(_chsLens==='mnv'?'mnv':'basic')===k}" onclick="chsLensPick('${k}')">${t}</button>`).join('')}</div>` : '';
+  if (lensOn){
+    const m = mnvBody(list, row, ownerF);
+    el.innerHTML = `${lens}<div class="cb-panel chs-panel">
+      <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${m.tools}</div></div>
+      ${m.body}
+    </div>${m.below}`;
+    return;
+  }
   let body;
   if (!data){
     body = _chsErr[key]
@@ -389,7 +402,7 @@ function cbRenderChart(){
       <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${svg}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
       <div class="chs-reads">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
   }
-  el.innerHTML = `<div class="cb-panel chs-panel">
+  el.innerHTML = `${lens}<div class="cb-panel chs-panel">
       <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
       ${body}
     </div>
