@@ -1733,7 +1733,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-nums b{font-size:var(--fs-card);font-weight:800}
 .trd-nums b em{font-style:normal;font-size:var(--fs-cap);font-weight:700;margin-left:4px}
 .trd-nums b.is-up,.trd-nums em.is-up{color:var(--up)}.trd-nums b.is-dn,.trd-nums em.is-dn{color:var(--dn)}
-.trd-lights{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:12px}
+.trd-lights{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;margin-top:12px}
 .trd-light{padding:14px 15px;border-radius:var(--r-lg);background:var(--glass);border:1px solid var(--bd);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));display:flex;flex-direction:column;gap:6px;min-width:0}
 .trd-lamps{display:inline-flex;gap:6px;padding:5px 7px;border-radius:20px;background:var(--seg-bg);align-self:flex-start}
 .trd-lamp{width:14px;height:14px;border-radius:50%;background:var(--bd2);opacity:.45}
@@ -1780,7 +1780,10 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-direct{margin-top:12px;padding:14px 18px}
 .trd-direct ul{margin:8px 0 0;padding-left:18px;font-size:var(--fs-body);color:var(--mut);line-height:1.7}
 .trd-direct b{color:var(--tx);margin-right:6px}
-.mac-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}
+.mac-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.mac-lens>.trd-group-title{margin:0}
+.trd-value-one{grid-template-columns:1fr}
+.trd-value-one .trd-vchecks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
 .mac-val{font-size:var(--fs-card);font-weight:800;line-height:1.35}
 .mac-card.is-g .mac-val{color:var(--up)}.mac-card.is-y .mac-val{color:var(--warn)}.mac-card.is-r .mac-val{color:var(--dn)}
 .scr-panel{padding:14px 18px}
@@ -1814,7 +1817,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .scr-sig{display:inline-block;padding:2px 8px;border-radius:20px;font-size:var(--fs-cap);font-weight:800;border:1px solid currentColor}
 .scr-sig.is-up{color:var(--up)}.scr-sig.is-acc{color:var(--acc)}
 .scr-foot{display:block;margin-top:8px;font-size:var(--fs-cap);color:var(--lab)}
-@media (max-width:1280px){.mac-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1100px){.mac-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.trd-value-one .trd-vchecks{grid-template-columns:1fr}}
 @media (max-width:768px){.mac-cards{grid-template-columns:1fr}.scr-mac{margin-left:0}}
 .trd-sub{font-size:var(--fs-cap);color:var(--lab);font-weight:500;margin-left:6px}
 .trd-more{margin-top:12px;padding:14px 18px}
@@ -1822,7 +1825,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-note{margin-top:12px;padding:16px 18px}
 .trd-note ul{margin:8px 0 10px;padding-left:18px;font-size:var(--fs-cap);color:var(--mut);line-height:1.7}
 .trd-note b{color:var(--tx)}
-@media (max-width:1280px){.trd-lights{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1279px){.trd-lights{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:900px){.trd-hero{grid-template-columns:1fr}}
 @media (max-width:768px){.trd-lights{grid-template-columns:repeat(2,minmax(0,1fr))}.trd-word{font-size:var(--fs-kpi)}}
 /* ===== 리스크: 고점 대비 하락 · 스트레스 테스트(2026-11-25 시안) — pages/risk.js ===== */
