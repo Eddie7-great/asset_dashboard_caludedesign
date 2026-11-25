@@ -304,8 +304,9 @@ function chsChartSvg(view){
     <rect x="${padL}" y="${P.price.y}" width="${plotW}" height="${P.macd.y+P.macd.h-P.price.y}" fill="transparent" onmousemove="chsHover(event)" onmouseleave="chsHover(null)" data-chart-hit="chs"/>
   </svg>`;
 }
-function chsHover(evt){
-  const v = _chsView, tip = document.getElementById('chs-tip'), line = document.getElementById('chs-cross');
+// pre = 화면 이름표(차트 공부 'chs' · 추세추종 'trd') — 두 화면이 같은 말풍선 함수를 쓰되 요소·상태는 따로 둔다
+function chsHover(evt, pre='chs'){
+  const v = pre==='trd' ? (typeof _trdView!=='undefined' ? _trdView : null) : _chsView, tip = document.getElementById(pre+'-tip'), line = document.getElementById(pre+'-cross');
   if (!v || !tip || !line) return;
   if (!evt){ tip.hidden = true; line.style.display = 'none'; return; }
   const svg = evt.currentTarget.ownerSVGElement || evt.currentTarget.closest('svg');
@@ -359,23 +360,12 @@ function cbRenderChart(){
     return;
   }
   const row = list.find(r=>r.tkr===_chsTkr), key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
-  const lensOn = typeof mnvBody==='function' && _chsLens==='mnv';
-  if (!lensOn && !data && !_chsErr[key]) chsLoad(_chsTkr, frame);
+  if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
   const sel = `<label class="chs-pick"><span class="sr-only">종목</span><select class="cb-input" onchange="chsPick(this.value)">${list.map(r=>`<option value="${cbEsc(r.tkr)}"${r.tkr===_chsTkr?' selected':''}>${cbEsc(r.name)}${r.name!==r.tkr?' · '+cbEsc(r.tkr):''}</option>`).join('')}</select></label>`;
   const frames = `<div class="owner-tabs chs-frames" role="group" aria-label="봉 단위">${Object.entries(CHS_FRAMES).map(([k,f])=>`<button class="owner-btn${k===frame?' active':''}" data-chs-frame="${k}" aria-pressed="${k===frame}" onclick="chsFramePick('${k}')">${f.label}</button>`).join('')}</div>`;
   const rangeKeys = Object.keys(F.ranges);
   // 년봉은 '전체' 하나뿐이지만 그대로 그린다. 봉 단위 버튼은 맨 오른쪽에 둔다 — 기간 버튼 수가 바뀌어도 누른 자리에서 움직이지 않게
   const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${rangeKeys.map(k=>`<button class="owner-btn${k===_chsRange?' active':''}" data-chs-range="${k}" aria-pressed="${k===_chsRange}" onclick="chsRangePick('${k}')">${F.ranges[k][0]}</button>`).join('')}</div>`;
-  // 보는 법 — 기본 지표 / 추세추종(미너비니, pages/minervini.js). 화면 안의 종류 전환이라 밑줄형 탭이다.
-  const lens = typeof mnvBody==='function' ? `<div class="sim-view-tabs chs-lens" role="group" aria-label="보는 법">${[['basic','기본 지표'],['mnv','추세추종 · 미너비니']].map(([k,t])=>`<button class="cb-btn" data-chs-lens="${k}" aria-pressed="${(_chsLens==='mnv'?'mnv':'basic')===k}" onclick="chsLensPick('${k}')">${t}</button>`).join('')}</div>` : '';
-  if (lensOn){
-    const m = mnvBody(list, row, ownerF);
-    el.innerHTML = `${lens}<div class="cb-panel chs-panel">
-      <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${m.tools}</div></div>
-      ${m.body}
-    </div>${m.below}`;
-    return;
-  }
   let body;
   if (!data){
     body = _chsErr[key]
@@ -402,7 +392,7 @@ function cbRenderChart(){
       <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${svg}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
       <div class="chs-reads">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
   }
-  el.innerHTML = `${lens}<div class="cb-panel chs-panel">
+  el.innerHTML = `<div class="cb-panel chs-panel">
       <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
       ${body}
     </div>

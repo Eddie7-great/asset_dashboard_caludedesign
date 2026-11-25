@@ -1,11 +1,11 @@
-// ── 투자 분석 > 차트 공부 > 추세추종(미너비니) 보기 ──
+// ── 투자 분석 > 추세추종(trend2) — 미국 주식을 검색해 마크 미너비니 규칙으로 판단한다 ──
 // 마크 미너비니의 책 두 권에 적힌 규칙을 내 종목의 일봉에 그대로 대어 본다.
 //   《Trade Like a Stock Market Wizard》(2013) — 트렌드 템플릿 8조건 · 4단계 · VCP(변동성 수축 패턴) · 손절 규칙
 //   《Think & Trade Like a Champion》(2017) — 한 번에 거는 위험(자산의 1.25~2.5%) · 손익비 · 진입 후 손절선 옮기기
 // 규칙을 확인해 주는 도구이지 매수 신호가 아니다. 그대로 옮길 수 없는 것(시장 전체 순위 RS·실적)은 화면에 '대신'·'못 함'으로 밝힌다.
 // 계산은 아래 순수 함수(mnvTemplate·mnvStage·mnvVcp·mnvRisk)뿐이고, 그리는 쪽은 그 결과를 옮긴다.
 
-let _chsLens = 'basic', _mnvRange = '1Y';
+let _mnvRange = '1Y';
 const MNV_MA = [
   {n:50,  label:'50일선',  cls:'mm50'},
   {n:150, label:'150일선', cls:'mm150'},
@@ -17,9 +17,9 @@ const MNV_YEAR = 252;          // 52주 ≈ 252거래일
 const MNV_MAX_STOP = 10;       // 최대 손절 −10%(책: "손실을 10% 넘게 두지 않는다 · 평균 손실은 6~7%")
 const MNV_DEF_STOP = 7;        // 패턴이 없을 때 쓰는 일반 손절 폭(평균 손실 6~7% 의 위쪽)
 const MNV_RISK_PCTS = [1.25, 2.5]; // 한 번에 거는 위험 = 자산의 1.25~2.5%(Think & Trade Like a Champion)
-const MNV_BREAKOUT_VOL = 1.4;
+const MNV_BREAKOUT_VOL = 1.4;  // 돌파일 거래량이 50일 평균보다 40% 이상 많아야 '거래량 실린 돌파'
 // 한 종목 상한 — 손절 폭이 아주 좁으면 위험 식이 자산의 절반 넘게 사라고 계산한다. 책의 숫자가 아니라 앱의 가정이며 화면에 그렇게 적는다.
-const MNV_POS_CAP = 25;  // 돌파일 거래량이 50일 평균보다 40% 이상 많아야 '거래량 실린 돌파'
+const MNV_POS_CAP = 25;
 
 function mnvBenchKey(cur){ return String(cur||'').toUpperCase()==='KRW' ? 'kospi' : 'spy'; }
 function mnvBenchName(k){ return k==='kospi' ? 'KOSPI' : 'S&P 500'; }
@@ -212,31 +212,12 @@ function mnvAnalyze(data, row){
   return {bars, ma, bk, bench, tpl:mnvTemplate(bars, ma, bench), stage, vcp};
 }
 
-// ── 내 종목 한눈에 — 일봉을 둘씩 차례로 받는다(리스크 화면과 같은 캐시) ──
-let _mnvQueue = null;
-function mnvLoadAll(list){
-  if (_mnvQueue) return;
-  const todo = list.map(r=>r.tkr).filter(t=>!_chsCache[t] && !_chsErr[t]);
-  if (!todo.length) return;
-  _mnvQueue = todo.slice();
-  let pending = null;
-  const kick = () => { if (pending) return; pending = setTimeout(()=>{ pending = null; if (_cobaltActive==='chart2' && _chsLens==='mnv') cbRenderChart(); }, 250); };
-  const worker = async () => {
-    while (_mnvQueue && _mnvQueue.length){
-      const t = _mnvQueue.shift();
-      if (_chsCache[t]) continue;
-      try { _chsCache[t] = await chsFetchBars(t, 'D'); } catch(e){ _chsErr[t] = (e&&e.message)||'조회 실패'; }
-      kick();
-    }
-  };
-  Promise.all([worker(), worker()]).finally(()=>{ _mnvQueue = null; kick(); });
-}
-
 // ── 그리기 ──
 function mnvChartSvg(view){
   const {bars, off, cur, A} = view, n = bars.length, W = 1100, padL = 10, padR = 66;
-  const P = {price:{y:14,h:330}, vol:{y:378,h:70}, rs:{y:482,h:90}};
-  const H = 604, plotW = W-padL-padR, step = plotW/n, X = i => padL + (i+0.5)*step;
+  const pre = view.pre || 'chs', noRs = !!view.noRs;
+  const P = {price:{y:14,h:330}, vol:{y:378,h:70}, rs:noRs ? {y:448,h:0} : {y:482,h:90}};
+  const H = noRs ? 480 : 604, plotW = W-padL-padR, step = plotW/n, X = i => padL + (i+0.5)*step;
   const sl = arr => arr ? arr.slice(off) : [];
   const vcp = A.vcp, risk = view.risk;
   let lo = Math.min(...bars.map(b=>b.l)), hi = Math.max(...bars.map(b=>b.h));
@@ -297,88 +278,13 @@ function mnvChartSvg(view){
     ${xTicks}${grid(pTicks, Yp, pFmt)}
     ${ctBoxes}${avgLine}${candles}${maLines}${pivotLine}${stopLine}
     ${panelLab(P.vol.y,'거래량 · 선은 50일 평균')}${vol}${vAvg}
-    ${panelLab(P.rs.y,`RS선 · ${mnvBenchName(A.bk)} 대비(첫날 100)`)}${rsSvg}
-    <line id="chs-cross" x1="0" x2="0" y1="${P.price.y}" y2="${P.rs.y+P.rs.h}" class="chs-cross" style="display:none"/>
-    <rect x="${padL}" y="${P.price.y}" width="${plotW}" height="${P.rs.y+P.rs.h-P.price.y}" fill="transparent" onmousemove="chsHover(event)" onmouseleave="chsHover(null)" data-chart-hit="chs"/>
+    ${noRs ? '' : panelLab(P.rs.y,`RS선 · ${mnvBenchName(A.bk)} 대비(첫날 100)`) + rsSvg}
+    <line id="${pre}-cross" x1="0" x2="0" y1="${P.price.y}" y2="${P.rs.y+P.rs.h}" class="chs-cross" style="display:none"/>
+    <rect x="${padL}" y="${P.price.y}" width="${plotW}" height="${P.rs.y+P.rs.h-P.price.y}" fill="transparent" onmousemove="chsHover(event,'${pre}')" onmouseleave="chsHover(null,'${pre}')" data-chart-hit="chs"/>
   </svg>`;
 }
 
 function mnvCheckIcon(p){ return p===true ? '<i class="mnv-ok" aria-label="통과">✓</i>' : p===false ? '<i class="mnv-no" aria-label="미통과">✕</i>' : '<i class="mnv-na" aria-label="판정 보류">–</i>'; }
-function mnvTemplateCard(tpl){
-  const tone = tpl.score===8 ? 'up' : tpl.score>=6 ? 'warn' : 'dn';
-  return `<div class="cb-panel mnv-card mnv-tpl">
-    <div class="mnv-card-head"><span class="cb-panel-title" data-tip="《Trade Like a Stock Market Wizard》의 트렌드 템플릿 — 8개를 모두 만족해야 2단계 상승 종목으로 본다">트렌드 템플릿</span><b class="mnv-score is-${tone}">${tpl.score}<small> / 8</small></b></div>
-    <ol class="mnv-checks">${tpl.checks.map(x=>`<li class="${x.pass===true?'is-ok':x.pass===false?'is-no':'is-na'}">${mnvCheckIcon(x.pass)}<span data-tip="${cbEsc(x.tip)}">${x.label}</span><em class="cb-num">${x.value}</em></li>`).join('')}</ol>
-    <small class="mnv-foot">${tpl.score===8?'8개 모두 통과 — 책이 말하는 매수 후보의 최소 조건을 갖췄습니다(조건일 뿐 신호는 아닙니다).':tpl.known<8?'자료가 모자란 항목은 판정 보류(–)입니다.':`${8-tpl.score}개 미통과 — 책의 기준으로는 아직 매수 후보가 아닙니다.`}</small>
-  </div>`;
-}
-function mnvStageCard(st){
-  const steps = [1,2,3,4].map(s=>`<span class="mnv-stage-step${st&&st.stage===s?' is-on is-'+MNV_STAGES[s].tone:''}">${s}</span>`).join('');
-  return `<div class="cb-panel mnv-card">
-    <div class="mnv-card-head"><span class="cb-panel-title" data-tip="1 바닥 → 2 상승 → 3 천장 → 4 하락. 앱은 200일선의 한 달 기울기와 가격·50일선 위치로 근사한다">단계</span></div>
-    <div class="mnv-stage-bar">${steps}</div>
-    ${st ? `<div class="mnv-big is-${st.tone}">${st.name}</div><p class="mnv-text">${st.text}</p><small class="mnv-foot">200일선 한 달 변화 ${st.slope>=0?'+':''}${st.slope.toFixed(1)}%</small>`
-         : '<p class="mnv-text">200일선을 그릴 만큼 봉이 없어 판정을 보류합니다.</p>'}
-  </div>`;
-}
-function mnvVcpCard(v, cur){
-  const word = {breakout:'돌파', weak:'돌파 · 거래량 부족', forming:'형성 중', none:'패턴 아님'}[v.state];
-  const tone = {breakout:'up', weak:'warn', forming:'acc', none:'mid'}[v.state];
-  const depths = v.depths ? v.depths.map(d=>d.toFixed(0)+'%').join(' → ') : '—';
-  const row = (k,val) => `<div><span>${k}</span><b class="cb-num">${val}</b></div>`;
-  return `<div class="cb-panel mnv-card">
-    <div class="mnv-card-head"><span class="cb-panel-title" data-tip="변동성 수축 패턴 — 되돌림이 갈수록 얕아지고(예: 25% → 12% → 5%) 거래량이 마르다가, 마지막 되돌림의 고점(피벗)을 거래량을 싣고 넘는 모양. 사람이 눈으로 보는 패턴이라 앱의 판정은 근사다">VCP · 변동성 수축</span></div>
-    <div class="mnv-big is-${tone}">${word}</div>
-    <p class="mnv-text">${cbEsc(v.reason||'')}</p>
-    <div class="mnv-kv">
-      ${row('되돌림', v.depths ? `${depths} <small>(${v.depths.length}T)</small>` : '—')}
-      ${row('베이스 길이', v.baseWeeks ? `${v.baseWeeks}주` : '—')}
-      ${row('마지막 구간 거래량', v.lastVolPct==null ? '—' : `50일 평균 ${v.lastVolPct>=0?'+':''}${v.lastVolPct.toFixed(0)}%${v.volDry?' · 마름':''}`)}
-      ${row('피벗', v.pivot ? chsNum(v.pivot,cur) : '—')}
-    </div>
-  </div>`;
-}
-function mnvRiskCard(r, cur, owner, v){
-  const row = (k,val,cls='') => `<div><span>${k}</span><b class="cb-num ${cls}">${val}</b></div>`;
-  const basis = {pattern:'마지막 되돌림의 저점', cap:'저점이 10%보다 멀어 −10% 상한', default:`패턴이 없어 일반 손절 −${MNV_DEF_STOP}%`}[r.basis];
-  return `<div class="cb-panel mnv-card">
-    <div class="mnv-card-head"><span class="cb-panel-title" data-tip="《Trade Like a Stock Market Wizard》: 손실은 10%를 넘기지 않고 평균 6~7%. 《Think & Trade Like a Champion》: 한 번에 거는 위험은 자산의 1.25~2.5%, 이익은 위험의 2배 이상을 노린다">위험 관리</span></div>
-    <div class="mnv-kv">
-      ${row(r.basis==='default'?'기준 가격(지금)':'진입(피벗)', chsNum(r.entry,cur))}
-      ${row('손절선', `${chsNum(r.stop,cur)} <small>−${r.riskPct.toFixed(1)}%</small>`, 'is-dn')}
-      ${row('손익비 2배 · 3배', r.targets.map(t=>chsNum(t.price,cur)).join(' · '), 'is-up')}
-      ${r.sizes.map(s=>row(`위험 ${s.r}% 기준 매수 한도`, `${cbKrw(s.krw)} <small>자산의 ${s.pct.toFixed(0)}%${s.capped?' · 상한':''}</small>`)).join('')}
-    </div>
-    <small class="mnv-foot">손절선 근거: ${basis}${r.sizes.length?` · 자산 = ${cbEsc(owner)} 투자자산`:''}${r.sizes.some(s=>s.capped)?` · 한 종목 ${MNV_POS_CAP}% 상한은 앱의 가정(책의 숫자 아님)`:''}</small>
-    ${r.fromAvg!=null ? `<div class="mnv-hold${r.overMax?' is-dn':''}">내 평균 매입가 대비 <b class="cb-num">${r.fromAvg>=0?'+':''}${r.fromAvg.toFixed(1)}%</b>${r.overMax?' — 책의 최대 손절선(−10%)을 이미 넘었습니다':''}</div>` : ''}
-  </div>`;
-}
-function mnvOverviewHtml(list){
-  const score = r => _chsCache[r.tkr] ? mnvAnalyze(_chsCache[r.tkr], r).tpl.score : -1;
-  const sorted = list.slice().sort((a,b)=>score(b)-score(a));
-  const rows = sorted.map(r=>{
-    const d = _chsCache[r.tkr];
-    if (!d) return `<tr><td>${cbEsc(r.name)}</td><td colspan="5" class="mnv-ov-wait">${_chsErr[r.tkr] ? '받지 못함' : '받는 중…'}</td></tr>`;
-    const A = mnvAnalyze(d, r), sel = r.tkr===_chsTkr;
-    const vw = {breakout:'돌파', weak:'돌파(거래량 부족)', forming:`형성 중 · 피벗까지 ${A.vcp.toPivot!=null?A.vcp.toPivot.toFixed(1)+'%':''}`, none:'—'}[A.vcp.state];
-    return `<tr class="${sel?'is-sel':''}" role="button" tabindex="0" onclick="chsPick('${cbEsc(r.tkr)}')" data-sort-tpl="${A.tpl.score}">
-      <td><span class="mnv-ov-name">${cbEsc(r.name)}</span>${r.name!==r.tkr?` <small>${cbEsc(r.tkr)}</small>`:''}</td>
-      <td><span class="mnv-dots" aria-label="${A.tpl.score}/8">${A.tpl.checks.map(x=>`<i class="${x.pass===true?'is-ok':x.pass===false?'is-no':'is-na'}"></i>`).join('')}</span> <b class="cb-num">${A.tpl.score}/8</b></td>
-      <td>${A.stage ? `<span class="mnv-stage-chip is-${A.stage.tone}">${A.stage.stage}단계</span>` : '—'}</td>
-      <td>${vw}</td>
-      <td class="cb-num">${A.tpl.fromHi!=null&&isFinite(A.tpl.fromHi) ? A.tpl.fromHi.toFixed(1)+'%' : '—'}</td>
-      <td class="cb-num ${A.tpl.rsGap>0?'is-up':A.tpl.rsGap<0?'is-dn':''}">${A.tpl.rsGap==null?'—':(A.tpl.rsGap>=0?'+':'')+A.tpl.rsGap.toFixed(1)+'%p'}</td>
-    </tr>`;
-  });
-  const done = list.filter(r=>_chsCache[r.tkr]).map(r=>mnvAnalyze(_chsCache[r.tkr], r));
-  const pass = done.filter(a=>a.tpl.score===8).length;
-  return `<div class="cb-panel mnv-ov">
-    <div class="mnv-card-head"><span class="cb-panel-title">내 종목 한눈에</span><small>트렌드 템플릿 8개 모두 통과 <b>${pass}</b> / ${list.length}종목 · 줄을 누르면 위 차트로</small></div>
-    <div class="cb-scroll"><table class="mnv-ov-table">
-      <thead><tr><th>종목</th><th>트렌드 템플릿</th><th>단계</th><th>VCP</th><th>52주 고점 대비</th><th>지수 대비(대체 RS)</th></tr></thead>
-      <tbody>${rows.join('')}</tbody></table></div>
-  </div>`;
-}
 const MNV_SCOPE = [
   ['그대로', 'up', [
     ['트렌드 템플릿 1~7번', '50·150·200일 이동평균, 52주 고저 — 책의 숫자 그대로'],
@@ -396,38 +302,150 @@ const MNV_SCOPE = [
     ['장중 판단', '돌파 당일 장중 거래량 — 앱은 마감된 일봉만 씀'],
   ]],
 ];
-function mnvScopeHtml(){
-  return `<div class="cb-panel chs-guide mnv-scope">
-    <div class="cb-panel-title">어디까지 따라 하나</div>
-    <div class="mnv-scope-grid">${MNV_SCOPE.map(([t,tone,items])=>`<div class="mnv-scope-col"><div class="mnv-scope-head is-${tone}">${t}</div><dl>${items.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl></div>`).join('')}</div>
-    <small class="fin-callout">출처: Mark Minervini, 《Trade Like a Stock Market Wizard》(2013, 트렌드 템플릿·단계·VCP·손절), 《Think &amp; Trade Like a Champion》(2017, 위험 크기·손익비). 규칙에 맞는지 확인하는 공부용 도구이며 매수 신호가 아닙니다.</small>
-  </div>`;
+
+// ── 최종 판단 — 신호등 다섯 개를 책의 순서대로 묶는다(2026-11-25 사용자 요청: 세부 지표 대신 신호등 + 매수·매도 한 단어) ──
+// 판단 단어는 '미너비니 규칙으로 보면'의 뜻이다. 앱의 의견이나 투자 권유가 아니며, 화면에 그렇게 적는다.
+const TRD_CHASE_PCT = 5;   // 피벗보다 5% 넘게 오른 뒤에는 쫓아 사지 않는다(돌파 매수의 일반 규칙)
+const TRD_VERDICTS = {
+  buy: {word:'매수', tone:'up'},
+  wait:{word:'매수 대기', tone:'acc'},
+  hold:{word:'관망', tone:'mid'},
+  sell:{word:'매도 · 피하기', tone:'dn'},
+};
+function trdLights(A, close){
+  const t = A.tpl, st = A.stage, v = A.vcp;
+  const L = (key, name, light, text, tip) => ({key, name, light, text, tip});
+  const chase = v.pivot && (v.state==='breakout' || v.state==='weak') ? (close/v.pivot-1)*100 : null;
+  return [
+    L('trend','추세', t.score===8 ? 'g' : t.score>=6 ? 'y' : 'r', `조건 8개 중 ${t.score}개 통과`, '트렌드 템플릿 — 이동평균 순서·52주 고저·지수 대비 강도. 8개 모두여야 통과'),
+    L('stage','큰 흐름', !st ? 'n' : st.stage===2 ? 'g' : st.stage===4 ? 'r' : 'y', st ? st.name : '판정 보류', '1 바닥 · 2 상승 · 3 천장 · 4 하락. 2단계에서만 산다'),
+    L('rs','시장보다 강한가', t.rsGap==null ? 'n' : t.rsGap>0 ? 'g' : t.rsGap>-5 ? 'y' : 'r', t.rsGap==null ? '지수 자료 없음' : `S&P 500보다 ${t.rsGap>=0?'+':''}${t.rsGap.toFixed(1)}%p`, '최근 1년(최근 석 달에 무게)을 S&P 500 과 비교 — 책의 시장 전체 순위를 대신함'),
+    L('base','매수 자리', v.state==='breakout' ? 'g' : v.state==='forming'||v.state==='weak' ? 'y' : 'n',
+      {breakout:'거래량 실린 돌파', weak:'돌파했지만 거래량 부족', forming:`자리 만드는 중 · 피벗까지 ${v.toPivot!=null?v.toPivot.toFixed(1):'—'}%`, none:'아직 없음'}[v.state], 'VCP — 흔들림이 갈수록 줄다가 고점(피벗)을 거래량 실어 넘는 자리'),
+    L('chase','추격 위험', chase==null ? 'n' : chase>TRD_CHASE_PCT ? 'r' : 'g', chase==null ? '해당 없음' : chase>TRD_CHASE_PCT ? `피벗보다 ${chase.toFixed(1)}% 위 — 늦음` : `피벗에서 ${chase.toFixed(1)}% — 아직 안쪽`, `피벗보다 ${TRD_CHASE_PCT}% 넘게 오른 뒤에는 쫓아 사지 않는다`),
+  ];
+}
+function trdVerdict(A, close, risk){
+  const t = A.tpl, st = A.stage, v = A.vcp, lights = trdLights(A, close);
+  const chased = lights.find(l=>l.key==='chase').light==='r';
+  const s = st && st.stage, n = x => chsNum(x,'USD');
+  let k, why;
+  if (s===4 || s===3 || t.score<=3){
+    k = 'sell'; why = s===4 ? '하락 단계입니다. 규칙으로는 사지 않고, 갖고 있다면 정리를 검토하는 구간입니다.'
+      : s===3 ? '오르던 흐름이 꺾이는 천장 단계입니다. 규칙으로는 새로 사지 않고 이익을 지키는 구간입니다.'
+      : `추세 조건을 ${t.score}개만 통과했습니다. 규칙으로는 사지 않는 종목입니다.`;
+  } else if (t.score===8 && s===2 && v.state==='breakout' && !chased){
+    k = 'buy'; why = `조건 8개를 모두 통과했고 피벗 $${n(v.pivot)}을 거래량을 싣고 넘었습니다. 손절선은 $${n(risk.stop)}(−${risk.riskPct.toFixed(1)}%)입니다.`;
+  } else if (t.score===8 && s===2 && (v.state==='forming' || v.state==='weak')){
+    k = 'wait'; why = v.state==='forming'
+      ? `조건 8개를 모두 통과했습니다. $${n(v.pivot)}(피벗)을 거래량을 싣고 넘는 날이 매수 자리이고, 그 전에는 사지 않습니다.`
+      : `피벗 $${n(v.pivot)}은 넘었지만 거래량이 평소 수준입니다. 거래량이 붙는지 확인한 뒤가 규칙에 맞습니다.`;
+  } else {
+    k = 'hold';
+    const miss = t.checks.filter(x=>x.pass===false).map(x=>x.label);
+    why = t.score<8 ? `추세 조건 중 ${miss.length}개(${miss.slice(0,2).join(' · ')}${miss.length>2?' 등':''})를 아직 못 맞췄습니다. 다 맞출 때까지 지켜봅니다.`
+      : chased ? `좋은 종목이지만 이미 피벗보다 ${TRD_CHASE_PCT}% 넘게 올랐습니다. 쫓아 사지 않고 다음 자리를 기다립니다.`
+      : '상승 추세는 맞지만 아직 매수 자리(VCP)가 보이지 않습니다. 자리가 생길 때까지 지켜봅니다.';
+  }
+  return {key:k, ...TRD_VERDICTS[k], why, lights};
 }
 
-// 추세추종 보기 본문 — cbRenderChart 가 부른다
-function mnvBody(list, row, ownerF){
-  const data = _chsCache[_chsTkr];
-  if (!data && !_chsErr[_chsTkr]) chsLoad(_chsTkr, 'D');
-  mnvLoadAll(list);
-  const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${Object.entries(MNV_RANGES).map(([k,[lab]])=>`<button class="owner-btn${k===_mnvRange?' active':''}" data-mnv-range="${k}" aria-pressed="${k===_mnvRange}" onclick="mnvRangePick('${k}')">${lab}</button>`).join('')}</div>`;
-  if (!data){
-    _chsView = null;
-    return {tools:ranges, body: _chsErr[_chsTkr] ? `<div class="chs-msg">일봉을 받지 못했습니다(${cbEsc(_chsErr[_chsTkr])}).</div>` : `<div class="chs-msg" role="status">일봉을 받는 중…</div>`, below: mnvOverviewHtml(list) + mnvScopeHtml()};
-  }
-  const A = mnvAnalyze(data, row), all = A.bars, keep = Math.min(all.length, MNV_RANGES[_mnvRange][1]), off = all.length-keep;
-  const cur = data.cur || row.cur, avg = row.cur===cur ? chsAvg(row) : null, last = all[all.length-1], prev = all[all.length-2];
-  const equity = (pfolioData||[]).filter(i=>i && (!ownerF || i.owner===ownerF)).reduce((s,i)=>s+(assetValueKRW(i)||0),0);
-  const risk = mnvRisk(A.vcp, last.c, equity, avg);
-  const ind = chsIndicators(all); MNV_MA.forEach(m=>{ ind.ma[m.n] = A.ma[m.n]; });
-  _chsView = {bars:all.slice(off), allBars:all, ind, off, cur, avg, frame:'D', A, risk, maList:MNV_MA};
-  const chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t);
-  const body = `<div class="chs-top">
-      <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${d.m}월 ${d.d}일 종가 · Yahoo 일봉 · 비교 지수 ${mnvBenchName(A.bk)}</small></div>
-      <div class="chs-legend" aria-label="범례">${MNV_MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label}</span>`).join('')}<span><i class="chs-sw mnv-sw-ct"></i>VCP 되돌림</span><span><i class="chs-sw mnv-sw-pivot"></i>피벗</span><span><i class="chs-sw mnv-sw-stop"></i>손절선</span></div>
-    </div>
-    <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${mnvChartSvg(_chsView)}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
-    <div class="mnv-grid">${mnvTemplateCard(A.tpl)}<div class="mnv-col">${mnvStageCard(A.stage)}${mnvVcpCard(A.vcp, cur)}</div>${mnvRiskCard(risk, cur, ownerF||'가족 전체', A.vcp)}</div>`;
-  return {tools:ranges, body, below: mnvOverviewHtml(list) + mnvScopeHtml()};
+// ── 화면(trend2) ──
+let _trdTkr = null, _trdQuery = '', _trdErr = null, _trdBusy = false, _trdView = null;
+const _trdRecent = [];
+const TRD_EXAMPLES = ['NVDA','AAPL','MSFT','AMZN','META','TSLA'];
+async function trdSearch(q){
+  q = String(q==null ? (document.getElementById('trd-q')||{}).value||'' : q).trim();
+  _trdQuery = q; _trdErr = null;
+  if (!q){ cbRenderTrend(); return; }
+  let tkr = q.toUpperCase();
+  _trdBusy = true; cbRenderTrend();
+  try {
+    // 티커 모양이 아니면(회사 이름) 종목 검색으로 티커를 찾는다
+    if (!/^[A-Z][A-Z.\-]{0,5}$/.test(tkr)){
+      const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
+      const d = await r.json().catch(()=>null);
+      const sym = d && String(d.symbol || d.ticker || d.code || '').toUpperCase();
+      if (!sym) throw new Error('종목을 찾지 못했습니다');
+      tkr = sym;
+    }
+    if (!/^[A-Z][A-Z.\-]{0,5}$/.test(tkr) || /\.(KS|KQ|T)$/.test(tkr)) throw new Error('미국 주식만 볼 수 있습니다');
+    if (!_chsCache[tkr]) _chsCache[tkr] = await chsFetchBars(tkr, 'D');
+    if (String(_chsCache[tkr].cur||'').toUpperCase()!=='USD') throw new Error('미국 주식(달러 종목)만 볼 수 있습니다');
+    _trdTkr = tkr;
+    const at = _trdRecent.indexOf(tkr); if (at>=0) _trdRecent.splice(at,1);
+    _trdRecent.unshift(tkr); _trdRecent.length = Math.min(_trdRecent.length, 6);
+  } catch(e){ _trdErr = (e&&e.message)||'조회 실패'; }
+  finally { _trdBusy = false; }
+  if (_cobaltActive==='trend2') cbRenderTrend();
 }
-function mnvRangePick(r){ _mnvRange = MNV_RANGES[r] ? r : '1Y'; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-mnv-range',_mnvRange); }
-function chsLensPick(l){ _chsLens = l==='mnv' ? 'mnv' : 'basic'; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-lens',_chsLens); }
+function trdRangePick(r){ _mnvRange = MNV_RANGES[r] ? r : '1Y'; cbRenderTrend(); cbRestoreFilterFocus('cb-trend2','data-trd-range',_mnvRange); }
+function trdLightHtml(l){
+  const on = c => `<i class="trd-lamp is-${c}${l.light===c?' is-on':''}"></i>`;
+  const word = {g:'좋음', y:'보통', r:'나쁨', n:'해당 없음'}[l.light];
+  return `<div class="trd-light is-${l.light}" data-tip="${cbEsc(l.tip)}">
+    <span class="trd-lamps" aria-label="${word}">${on('g')}${on('y')}${on('r')}</span>
+    <div class="trd-light-name">${l.name}</div><div class="trd-light-text">${cbEsc(l.text)}</div></div>`;
+}
+function cbRenderTrend(){
+  const el = document.getElementById('cb-trend2'); if (!el) return;
+  cbSetHead('미국 주식을 검색하면 마크 미너비니의 추세추종 규칙으로 신호등과 판단을 보여 줍니다 · 규칙 확인용(투자 권유 아님)');
+  const chips = (_trdRecent.length ? _trdRecent : TRD_EXAMPLES).map(t=>`<button class="trd-chip" onclick="trdSearch('${t}')">${t}</button>`).join('');
+  const search = `<div class="cb-panel trd-search">
+      <form class="trd-form" onsubmit="event.preventDefault();trdSearch()">
+        <label class="sr-only" for="trd-q">미국 주식 티커 또는 이름</label>
+        <input id="trd-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="미국 주식 티커 또는 영문 이름 (예: NVDA, Apple)" value="${cbEsc(_trdQuery)}">
+        <button class="cb-btn" type="submit"${_trdBusy?' disabled':''}>${_trdBusy?'불러오는 중…':'판단하기'}</button>
+      </form>
+      <div class="trd-chips"><span>${_trdRecent.length?'최근':'예시'}</span>${chips}</div>
+      ${_trdErr ? `<p class="trd-err" role="alert">${cbEsc(_trdErr)}</p>` : ''}
+    </div>`;
+  const data = _trdTkr && _chsCache[_trdTkr];
+  if (!data){
+    _trdView = null;
+    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('종목을 검색해 보세요','미국 주식 하나를 고르면 일봉 2년치로 추세·큰 흐름·시장 대비 강도·매수 자리·추격 위험을 신호등으로 보여 주고, 규칙에 따른 판단 한 단어를 적습니다.',[])}</div>` + trdNoteHtml();
+    return;
+  }
+  const A = mnvAnalyze(data, {cur:'USD'}), all = A.bars, last = all[all.length-1], prev = all[all.length-2];
+  const risk = mnvRisk(A.vcp, last.c, 0, null), V = trdVerdict(A, last.c, risk);
+  const keep = Math.min(all.length, MNV_RANGES[_mnvRange][1]), off = all.length-keep;
+  const ind = chsIndicators(all); MNV_MA.forEach(m=>{ ind.ma[m.n] = A.ma[m.n]; });
+  _trdView = {bars:all.slice(off), allBars:all, ind, off, cur:'USD', avg:null, frame:'D', A, risk, maList:MNV_MA, pre:'trd', noRs:true};
+  const chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t), hasPivot = A.vcp.pivot && A.vcp.state!=='none';
+  const num = (k,v,cls='') => `<div><span>${k}</span><b class="cb-num ${cls}">${v}</b></div>`;
+  const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${Object.entries(MNV_RANGES).map(([k,[lab]])=>`<button class="owner-btn${k===_mnvRange?' active':''}" data-trd-range="${k}" aria-pressed="${k===_mnvRange}" onclick="trdRangePick('${k}')">${lab}</button>`).join('')}</div>`;
+  el.innerHTML = search + `
+    <div class="cb-panel trd-hero is-${V.tone}">
+      <div class="trd-verdict">
+        <div class="trd-name">${cbEsc(_trdTkr)} <small>${d.m}월 ${d.d}일 종가 기준</small></div>
+        <div class="trd-word"><i class="trd-dot"></i>${V.word}</div>
+        <p class="trd-why">${cbEsc(V.why)}</p>
+        <small class="trd-who">마크 미너비니의 규칙으로 본 판단 · 앱의 의견이나 투자 권유가 아닙니다</small>
+      </div>
+      <div class="trd-nums">
+        ${num('지금 가격', `$${chsNum(last.c,'USD')} <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`)}
+        ${num('피벗(살 자리)', hasPivot ? '$'+chsNum(A.vcp.pivot,'USD') : '없음', hasPivot?'is-up':'')}
+        ${num('손절선', hasPivot ? `$${chsNum(risk.stop,'USD')} <em>−${risk.riskPct.toFixed(1)}%</em>` : '—', hasPivot?'is-dn':'')}
+      </div>
+    </div>
+    <div class="trd-lights">${V.lights.map(trdLightHtml).join('')}</div>
+    <div class="cb-panel chs-panel">
+      <div class="chs-head"><div class="cb-panel-title">차트 <small class="trd-sub">50·150·200일선 · 살 자리(피벗)·손절선</small></div><div class="chs-tools">${ranges}</div></div>
+      <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${mnvChartSvg(_trdView)}<div id="trd-tip" class="chs-tip" hidden></div></div></div>
+    </div>
+    <details class="cb-panel trd-more"><summary>판단 근거 자세히 — 추세 조건 8개</summary>
+      <ol class="mnv-checks">${A.tpl.checks.map(x=>`<li class="${x.pass===true?'is-ok':x.pass===false?'is-no':'is-na'}">${mnvCheckIcon(x.pass)}<span data-tip="${cbEsc(x.tip)}">${x.label}</span><em class="cb-num">${x.value}</em></li>`).join('')}</ol>
+    </details>` + trdNoteHtml();
+}
+function trdNoteHtml(){
+  return `<div class="cb-panel trd-note">
+    <div class="cb-panel-title">판단 방법과 한계</div>
+    <ul>
+      <li><b>매수</b> = 추세 8개 통과 + 2단계 + 피벗을 거래량 실어 돌파 + 피벗에서 ${TRD_CHASE_PCT}% 안쪽. <b>매수 대기</b> = 8개 통과 + 2단계 + 자리 만드는 중. <b>매도·피하기</b> = 3·4단계 또는 조건 3개 이하. 나머지는 <b>관망</b>.</li>
+      <li>그대로 옮긴 것: 50·150·200일선과 52주 고저 조건, 2단계에서만 사기, 손절 최대 −10%.</li>
+      <li>대신한 것: 시장 전체 순위(IBD 상대강도) 대신 S&amp;P 500 과 비교 · 단계와 VCP 는 사람이 눈으로 보는 것을 규칙으로 근사.</li>
+      <li>못 하는 것: 실적(EPS·매출 성장) · 시장 전체 분위기 · 장중 판단. 마감된 일봉(Yahoo)만 씁니다.</li>
+    </ul>
+    <small class="fin-callout">출처: Mark Minervini, 《Trade Like a Stock Market Wizard》(2013), 《Think &amp; Trade Like a Champion》(2017). 지난 가격으로 규칙을 확인한 결과이며 앞으로의 가격을 맞히지 않습니다.</small>
+  </div>`;
+}
