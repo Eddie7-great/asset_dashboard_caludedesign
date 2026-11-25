@@ -372,8 +372,113 @@ function trdVerdict(A, close, risk, E){
   return {key:k, ...TRD_VERDICTS[k], why, lights, order};
 }
 
+
+// ── 세 관점 통합(2026-11-25 사용자 요청: 가치·매크로 스타일도 반영해 논리 강화) ──
+// 설계 문서 '추세추종 · 가치 · 매크로 통합 판단 로직 설계'. 세 학파를 점수로 더하지 않고 차례로 통과시킨다:
+// ① 매크로(시장 신호등 → 투자 크기) ② 가치(회사 품질·가격 신호등) ③ 추세(위 trdVerdict = 타이밍).
+// 이 조합은 앱의 설계다 — 거장들 누구도 이렇게 섞으라고 하지 않았고, 화면에 그렇게 적는다. 기준 숫자는 모두 잠정.
+const TRD_MACRO = {hyJump:1.0, hyHigh:5.0, dxyFast:5, dxyWarm:2};  // 신용 가산금리 3개월 +1%p·5% 이상, 달러 3개월 +5%·+2% (잠정)
+const TRD_Q = {roe:15, netDebtFcf:3, marginBand:10, fcfYears:4};   // ROE 5년 모두 15%↑ · 순부채 ≤ FCF 3년 · 영업이익률 폭 10%p 안 · FCF 5년 중 4년 플러스 (잠정)
+const TRD_PE_BAND = 1.1;                                           // 자기 5년 중앙 PER 의 110% 이하면 '비싸지 않음' (잠정)
+function trdMacro(M){
+  if (!M) return {light:'n', word:'자료 없음', items:[], size:1, text:'시장 자료를 받지 못해 크기 조정을 하지 않았습니다'};
+  const it = (key, name, light, text, tip) => ({key, name, light, text, tip});
+  const f = (v,d=2) => Number.isFinite(v) ? v.toFixed(d) : '—';
+  const items = [];
+  if (M.fed){ const d = M.fed.now - M.fed.ago6m;
+    items.push(it('fed','금리 방향', d>0.1 ? 'r' : 'g', d<-0.1 ? `기준금리 인하 중 (6개월 ${f(d)}%p)` : d>0.1 ? `기준금리 인상 중 (6개월 +${f(d)}%p)` : `기준금리 동결 ${f(M.fed.now)}%`, '드러켄밀러: 주가를 움직이는 건 이익보다 유동성(중앙은행)이다. 올리는 중이면 빨강')); }
+  if (Number.isFinite(M.t10) && Number.isFinite(M.t2)){ const sp = M.t10 - M.t2;
+    items.push(it('curve','장단기 금리차', sp<0 ? 'y' : Number.isFinite(M.spreadMin12m) && M.spreadMin12m<0 ? 'r' : 'g', sp<0 ? `역전 ${f(sp)}%p` : Number.isFinite(M.spreadMin12m) && M.spreadMin12m<0 ? `역전 뒤 다시 벌어짐 +${f(sp)}%p` : `정상 +${f(sp)}%p`, '10년물 − 2년물. 역전됐다가 다시 벌어질 때 경기 침체가 자주 왔다')); }
+  if (M.hy){ const d = M.hy.now - M.hy.ago3m;
+    items.push(it('hy','신용 위험', d>=TRD_MACRO.hyJump ? 'r' : M.hy.now>=TRD_MACRO.hyHigh ? 'y' : 'g', `하이일드 가산금리 ${f(M.hy.now)}% (3개월 ${d>=0?'+':''}${f(d)}%p)`, `빚을 갚기 어려운 회사들의 웃돈 금리. 3개월에 ${TRD_MACRO.hyJump}%p 넘게 뛰면 빨강(잠정)`)); }
+  if (M.dxy){ const d = (M.dxy.now/M.dxy.ago3m-1)*100;
+    items.push(it('dxy','달러', d>=TRD_MACRO.dxyFast ? 'r' : d>=TRD_MACRO.dxyWarm ? 'y' : 'g', `달러 지수 3개월 ${d>=0?'+':''}${f(d,1)}%`, `달러가 급히 오르면 세계 돈이 위험자산에서 빠지는 신호. 3개월 +${TRD_MACRO.dxyFast}% 이상 빨강(잠정)`)); }
+  if (M.spx){ const up = M.spx.ma200 > M.spx.ma200ago, above = M.spx.close > M.spx.ma200;
+    items.push(it('spx','시장 추세', above && up ? 'g' : !above && !up ? 'r' : 'y', `S&P 500 이 200일선 ${above?'위':'아래'} · 200일선 ${up?'오름':'내림'}`, '소로스의 재귀성(가격이 다시 현실을 바꿈)은 숫자로 못 옮겨, 지수 추세로 대신 본다. 미너비니도 시장이 나쁘면 좋은 종목도 실패한다고 한다')); }
+  const reds = items.filter(x=>x.light==='r').length, spxRed = items.some(x=>x.key==='spx' && x.light==='r');
+  const light = reds>=3 || spxRed ? 'r' : reds===2 ? 'y' : 'g';
+  const size = light==='r' ? 0 : light==='y' ? 0.5 : 1;
+  const word = {g:'공격해도 되는 시장', y:'조심할 시장', r:'새로 사지 않는 시장'}[light];
+  const text = {g:'평소 크기로 삽니다', y:'새 매수는 절반 크기, 손절은 짧게', r:'새 매수를 멈추고 가진 종목은 손절 규칙만 지킵니다'}[light];
+  return {light, word, items, size, reds, text, asOf:M.asOf};
+}
+function trdQuality(F){
+  const ys = F && Array.isArray(F.years) ? F.years.slice(-5) : [];
+  if (ys.length < 3) return {light:'n', checks:[], text:'재무 자료를 받지 못함', pass:0};
+  const C = (label, pass, value, tip) => ({label, pass, value, tip});
+  const roe = ys.map(y=>y.roe).filter(Number.isFinite), om = ys.map(y=>y.opMargin).filter(Number.isFinite), fcf = ys.map(y=>y.fcf).filter(Number.isFinite);
+  const band = om.length ? Math.max(...om)-Math.min(...om) : null;
+  const nd = Number.isFinite(F.netDebt) && Number.isFinite(F.fcfTtm) ? (F.netDebt<=0 ? 0 : F.fcfTtm>0 ? F.netDebt/F.fcfTtm : Infinity) : null;
+  const checks = [
+    C('돈을 꾸준히 잘 버나', roe.length ? roe.every(v=>v>=TRD_Q.roe) : null, roe.length ? `ROE 최저 ${Math.min(...roe).toFixed(0)}%` : '—', `자기자본이익률(ROE)이 최근 ${ys.length}년 모두 ${TRD_Q.roe}% 이상 — 해자의 흔적(버핏)`),
+    C('빚이 감당할 만한가', nd==null ? null : nd<=TRD_Q.netDebtFcf, nd==null ? '—' : nd===0 ? '순현금' : !Number.isFinite(nd) ? '현금흐름 없음' : `현금흐름 ${nd.toFixed(1)}년치`, `순부채를 한 해 잉여현금흐름으로 ${TRD_Q.netDebtFcf}년 안에 갚을 수 있나`),
+    C('이익률이 안정적인가', band==null ? null : band<=TRD_Q.marginBand, band==null ? '—' : `영업이익률 폭 ${band.toFixed(0)}%p`, `영업이익률이 ${ys.length}년 동안 ${TRD_Q.marginBand}%p 안에서 움직임 — 가격 결정력의 흔적(멍거)`),
+    C('실제 현금이 남나', fcf.length ? fcf.filter(v=>v>0).length >= Math.min(TRD_Q.fcfYears, fcf.length) : null, fcf.length ? `${fcf.length}년 중 ${fcf.filter(v=>v>0).length}년 플러스` : '—', '장부 이익이 아니라 잉여현금흐름(FCF)이 실제로 남는가'),
+  ];
+  const pass = checks.filter(c=>c.pass===true).length;
+  const light = pass>=3 ? 'g' : pass===2 ? 'y' : 'r';
+  return {light, checks, pass, text:`좋은 회사 조건 4개 중 ${pass}개`};
+}
+function trdPrice(F, M){
+  if (!F || !Number.isFinite(F.price)) return {light:'n', checks:[], text:'가격 자료를 받지 못함', pass:0};
+  const C = (label, pass, value, tip) => ({label, pass, value, tip});
+  const t10 = M && Number.isFinite(M.t10) ? M.t10 : null;
+  const fy = Number.isFinite(F.fcfTtm) && F.marketCap>0 ? F.fcfTtm/F.marketCap*100 : null;
+  const gn = F.eps>0 && F.bvps>0 ? Math.sqrt(22.5*F.eps*F.bvps) : null;
+  const checks = [
+    C('과거보다 싼가', Number.isFinite(F.pe) && Number.isFinite(F.peMed5y) ? F.pe <= F.peMed5y*TRD_PE_BAND : null, Number.isFinite(F.pe) ? `PER ${F.pe.toFixed(0)}배 (5년 중앙 ${Number.isFinite(F.peMed5y)?F.peMed5y.toFixed(0):'—'}배)` : '—', `지금 PER 이 자기 5년 중앙값의 ${Math.round(TRD_PE_BAND*100)}% 이하`),
+    C('국채보다 나은가', fy==null || t10==null ? null : fy > t10, fy==null ? '—' : `현금 수익률 ${fy.toFixed(1)}% · 국채 ${t10==null?'—':t10.toFixed(1)+'%'}`, '잉여현금흐름 ÷ 시가총액이 10년 국채금리보다 높은가 — 버핏의 국채 비교'),
+    C('그레이엄 적정가 아래인가', gn==null ? null : F.price < gn, gn==null ? '—' : `적정가 $${chsNum(gn,'USD')}`, '√(22.5 × EPS × 주당순자산). 성장주는 거의 통과하지 못해 참고로만 본다'),
+  ];
+  const pass = checks.filter(c=>c.pass===true).length;
+  const light = pass>=2 ? 'g' : pass===1 ? 'y' : 'r';
+  return {light, checks, pass, text:{g:'싼 편', y:'적정한 편', r:'비싼 편'}[light]};
+}
+// 종합 — 순서가 곧 우선순위. 위 단계가 막으면 아래 단계가 아무리 좋아도 통과하지 못한다.
+function trdCombine(V, Q, P, MC, A, close){
+  const t = V.key, s = A.stage && A.stage.stage, lines = [];
+  let word, tone, size = 1, shortStop = false, why;
+  if (t==='sell'){ word = V.word; tone = 'dn'; size = 0; why = V.why + (Q.light==='g' && P.light==='g' ? ' 회사는 좋고 싸 보이지만, 떨어지는 칼은 잡지 않습니다(가치 함정 방지).' : ''); }
+  else if (MC.light==='r' && (t==='buy' || t==='wait')){ word = '새 매수 멈춤'; tone = 'dn'; size = 0; why = '종목은 좋지만 시장 신호등이 빨강입니다. 시장이 무너지면 좋은 종목도 함께 빠지므로 새로 사지 않습니다.'; }
+  else if (t==='buy' || t==='wait'){
+    if (Q.light==='r'){ word = '관망'; tone = 'mid'; size = 0; why = '차트는 좋지만 돈을 꾸준히 버는 회사가 아닙니다. 차트만 좋은 회사는 사지 않습니다.'; }
+    else {
+      word = t==='buy' ? '매수' : '매수 대기'; tone = t==='buy' ? 'up' : 'acc';
+      if (Q.light==='y'){ size = 0.5; }
+      if (P.light==='r'){ size = Math.min(size, 0.5); shortStop = true; }
+      why = shortStop ? V.why.replace(/ ?손절선은 .*?입니다\./, '') : V.why;
+      const also = /다만/.test(why) ? '또' : '다만';
+      if (P.light==='r') why += ` ${also} 가치 기준으로 비싸서 절반만 사고 손절을 산 값의 −5%로 짧게 잡습니다.`;
+      else if (Q.light==='y') why += ` ${also} 회사 품질이 보통이라 절반만 삽니다.`;
+    }
+  } else if (Q.light==='g' && P.light==='g' && s!==3 && s!==4){ word = '관심 목록'; tone = 'acc'; size = 0; why = '좋은 회사가 싼 편입니다. 다만 아직 사는 자리가 아니니 추세가 2단계로 돌아서고 매수 자리가 생길 때까지 기다립니다.'; }
+  else { word = V.word; tone = V.tone; size = 0; why = V.why; }
+  if (size>0) size *= MC.size;
+  const sizeWord = size>=1 ? '평소 크기' : size>=0.5 ? '절반 크기' : size>0 ? '4분의 1 크기' : null;
+  // 짧은 손절 = 사는 값의 −5% — 대기 주문은 피벗, 바로 사는 경우는 마지막 종가를 사는 값으로 본다
+  const stop = V.order && shortStop ? Math.max(V.order.stop, (V.order.kind==='wait' ? V.order.pivot : close)*0.95) : V.order && V.order.stop;
+  const order = V.order && size>0 ? {...V.order, stop} : null;
+  lines.push({key:'macro', who:'매크로', name:'시장', light:MC.light, text:MC.light==='n' ? MC.text : `${MC.word} — ${MC.text}`});
+  lines.push({key:'value', who:'가치', name:'회사', light:Q.light==='n' ? 'n' : Q.light==='r' ? 'r' : Q.light==='g' && P.light!=='r' ? 'g' : 'y', text:Q.light==='n' ? '재무 자료를 받지 못함' : `품질 ${({g:'좋음',y:'보통',r:'나쁨'})[Q.light]} · 가격 ${P.light==='n'?'모름':P.text}`});
+  lines.push({key:'trend', who:'추세', name:'타이밍', light:{buy:'g', wait:'y', hold:'y', sell:'r'}[t], text:`${V.word}${A.stage?' · '+A.stage.name:''}`});
+  return {word, tone, why, size, sizeWord, order, lines, shortStop};
+}
+
 // ── 화면(trend2) ──
-const _trdEarn = {};
+const _trdEarn = {}, _trdFund = {};
+let _trdMacro, _trdMacroBusy = false;
+// 재무(5년 ROE·이익률·FCF, 순부채, PER) — /api/price?type=fundamentals. 시장 자료 — /api/price?type=macro(FRED). 실패하면 null(회색).
+async function trdFetchJson(url){
+  const r = await authFetch(url); const d = await r.json().catch(()=>null);
+  return d && d.success ? d : null;
+}
+async function trdLoadMacro(){
+  if (_trdMacro!==undefined || _trdMacroBusy) return;
+  _trdMacroBusy = true;
+  try { _trdMacro = await trdFetchJson('/api/price?type=macro'); } catch(e){ _trdMacro = null; }
+  finally { _trdMacroBusy = false; }
+  if (_cobaltActive==='trend2') cbRenderTrend();
+}
 // 분기 실적 — /api/price?type=earnings(stockanalysis 공개 표). 실패하면 null — 실적 불만 회색이 되고 다른 판단은 그대로다.
 async function trdFetchEarnings(tkr){
   const r = await authFetch('/api/price?type=earnings&tkr=' + encodeURIComponent(tkr));
@@ -400,8 +505,10 @@ async function trdSearch(q){
     }
     if (!/^[A-Z][A-Z.\-]{0,5}$/.test(tkr) || /\.(KS|KQ|T)$/.test(tkr)) throw new Error('미국 주식만 볼 수 있습니다');
     const ep = _trdEarn[tkr] ? null : trdFetchEarnings(tkr).then(e=>{ _trdEarn[tkr] = e; }).catch(()=>{ _trdEarn[tkr] = null; });
+    const fp = _trdFund[tkr] ? null : trdFetchJson('/api/price?type=fundamentals&tkr=' + encodeURIComponent(tkr)).then(f=>{ _trdFund[tkr] = f; }).catch(()=>{ _trdFund[tkr] = null; });
     if (!_chsCache[tkr]) _chsCache[tkr] = await chsFetchBars(tkr, 'D');
     if (ep) await ep;
+    if (fp) await fp;
     if (String(_chsCache[tkr].cur||'').toUpperCase()!=='USD') throw new Error('미국 주식(달러 종목)만 볼 수 있습니다');
     _trdTkr = tkr;
     const at = _trdRecent.indexOf(tkr); if (at>=0) _trdRecent.splice(at,1);
@@ -420,7 +527,9 @@ function trdLightHtml(l){
 }
 function cbRenderTrend(){
   const el = document.getElementById('cb-trend2'); if (!el) return;
-  cbSetHead('미국 주식을 검색하면 마크 미너비니의 추세추종 규칙으로 신호등과 판단을 보여 줍니다 · 규칙 확인용(투자 권유 아님)');
+  cbSetHead('미국 주식을 검색하면 시장(매크로) → 회사(가치) → 타이밍(추세) 순서로 신호등과 종합 판단을 보여 줍니다 · 규칙 확인용(투자 권유 아님)');
+  trdLoadMacro();
+  const MC = trdMacro(_trdMacro);
   const chips = (_trdRecent.length ? _trdRecent : TRD_EXAMPLES).map(t=>`<button class="trd-chip" onclick="trdSearch('${t}')">${t}</button>`).join('');
   const search = `<div class="cb-panel trd-search">
       <form class="trd-form" onsubmit="event.preventDefault();trdSearch()">
@@ -434,34 +543,41 @@ function cbRenderTrend(){
   const data = _trdTkr && _chsCache[_trdTkr];
   if (!data){
     _trdView = null;
-    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('종목을 검색해 보세요','미국 주식 하나를 고르면 일봉 2년치로 추세·큰 흐름·시장 대비 강도·매수 자리·추격 위험을 신호등으로 보여 주고, 규칙에 따른 판단 한 단어를 적습니다.',[])}</div>` + trdNoteHtml();
+    el.innerHTML = trdMacroHtml(MC) + search + `<div class="cb-panel">${cbEmptyHtml('종목을 검색해 보세요','미국 주식 하나를 고르면 회사 품질·가격(가치)과 추세·매수 자리(미너비니)를 신호등으로 보여 주고, 위 시장 신호등까지 묶어 판단 한 단어를 적습니다.',[])}</div>` + trdNoteHtml();
     return;
   }
   const A = mnvAnalyze(data, {cur:'USD'}), all = A.bars, last = all[all.length-1], prev = all[all.length-2];
   const risk = mnvRisk(A.vcp, last.c, 0, null), V = trdVerdict(A, last.c, risk, _trdEarn[_trdTkr]);
+  const F = _trdFund[_trdTkr], Q = trdQuality(F), P = trdPrice(F, _trdMacro), X = trdCombine(V, Q, P, MC, A, last.c);
+  const XT = {up:'up', dn:'dn', acc:'acc', mid:'mid'}[X.tone] || 'mid';
   const keep = Math.min(all.length, MNV_RANGES[_mnvRange][1]), off = all.length-keep;
   const ind = chsIndicators(all); MNV_MA.forEach(m=>{ ind.ma[m.n] = A.ma[m.n]; });
-  _trdView = {bars:all.slice(off), allBars:all, ind, off, cur:'USD', avg:null, frame:'D', A, risk, maList:MNV_MA, pre:'trd', noRs:true};
+  const vRisk = X.order ? {...risk, stop:X.order.stop, riskPct:(1-X.order.stop/last.c)*100} : risk;  // 차트 손절선도 종합 판단의 손절(비쌀 때 −5%)
+  _trdView = {bars:all.slice(off), allBars:all, ind, off, cur:'USD', avg:null, frame:'D', A, risk:vRisk, maList:MNV_MA, pre:'trd', noRs:true};
   const chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t), hasPivot = A.vcp.pivot && A.vcp.state!=='none';
   const num = (k,v,cls='') => `<div><span>${k}</span><b class="cb-num ${cls}">${v}</b></div>`;
   const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${Object.entries(MNV_RANGES).map(([k,[lab]])=>`<button class="owner-btn${k===_mnvRange?' active':''}" data-trd-range="${k}" aria-pressed="${k===_mnvRange}" onclick="trdRangePick('${k}')">${lab}</button>`).join('')}</div>`;
-  el.innerHTML = search + `
-    <div class="cb-panel trd-hero is-${V.tone}">
+  el.innerHTML = trdMacroHtml(MC) + search + `
+    <div class="cb-panel trd-hero is-${XT}">
       <div class="trd-verdict">
         <div class="trd-name">${cbEsc(_trdTkr)} <small>${d.m}월 ${d.d}일 종가 기준</small></div>
-        <div class="trd-word"><i class="trd-dot"></i>${V.word}</div>
-        <p class="trd-why">${cbEsc(V.why)}</p>
-        ${V.order ? `<div class="trd-order"><b>${V.order.kind==='wait'?'오늘 밤 걸어 둘 주문':'다음 장에 산다면'}</b>${V.order.kind==='wait'
-          ? `<span>$${chsNum(V.order.pivot,'USD')}에 닿으면 <em class="is-up">매수</em></span><span>산 뒤 $${chsNum(V.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`
-          : `<span>$${chsNum(V.order.maxBuy,'USD')}까지만 <em class="is-up">매수</em>(피벗 +${TRD_CHASE_PCT}%)</span><span>$${chsNum(V.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`}<small>증권사의 감시·스톱 주문으로 걸어 두면 장중에 보지 않아도 됩니다 · 거래량 조건은 걸 수 없음</small></div>` : ''}
-        <small class="trd-who">마크 미너비니의 규칙으로 본 판단 · 앱의 의견이나 투자 권유가 아닙니다</small>
+        <div class="trd-word"><i class="trd-dot"></i>${X.word}${X.sizeWord ? `<span class="trd-size">${X.sizeWord}</span>` : ''}</div>
+        <p class="trd-why">${cbEsc(X.why)}</p>
+        <ul class="trd-three">${X.lines.map(l=>`<li class="is-${l.light}"><i class="trd-mini is-${l.light}"></i><b>${l.name}</b><em>${l.who}</em><span>${cbEsc(l.text)}</span></li>`).join('')}</ul>
+        ${X.order ? `<div class="trd-order"><b>${X.order.kind==='wait'?'오늘 밤 걸어 둘 주문':'다음 장에 산다면'}</b>${X.order.kind==='wait'
+          ? `<span>$${chsNum(X.order.pivot,'USD')}에 닿으면 <em class="is-up">매수</em> · ${X.sizeWord}</span><span>산 뒤 $${chsNum(X.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`
+          : `<span>$${chsNum(X.order.maxBuy,'USD')}까지만 <em class="is-up">매수</em> · ${X.sizeWord}</span><span>$${chsNum(X.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`}<small>증권사의 감시·스톱 주문으로 걸어 두면 장중에 보지 않아도 됩니다 · 거래량 조건은 걸 수 없음</small></div>` : ''}
+        <small class="trd-who">세 학파의 규칙을 앱이 묶은 판단 · 거장들이 직접 정한 조합이 아니며 투자 권유가 아닙니다</small>
       </div>
       <div class="trd-nums">
         ${num('지금 가격', `$${chsNum(last.c,'USD')} <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`)}
         ${num('피벗(살 자리)', hasPivot ? '$'+chsNum(A.vcp.pivot,'USD') : '없음', hasPivot?'is-up':'')}
-        ${num('손절선', hasPivot ? `$${chsNum(risk.stop,'USD')} <em>−${risk.riskPct.toFixed(1)}%</em>` : '—', hasPivot?'is-dn':'')}
+        ${(()=>{ const st = X.order ? X.order.stop : risk.stop, pc = (1-st/last.c)*100; return num('손절선', hasPivot ? `$${chsNum(st,'USD')} <em>−${pc.toFixed(1)}%</em>` : '—', hasPivot?'is-dn':''); })()}
       </div>
     </div>
+    <div class="trd-group-title"><b>회사</b> <span>가치 — 그레이엄 · 버핏 · 멍거</span></div>
+    <div class="trd-value">${trdValueCardHtml('품질 · 좋은 회사인가', Q)}${trdValueCardHtml('가격 · 비싸지 않은가', P)}</div>
+    <div class="trd-group-title"><b>타이밍</b> <span>추세 — 마크 미너비니</span></div>
     <div class="trd-lights">${V.lights.map(trdLightHtml).join('')}</div>
     <div class="cb-panel chs-panel">
       <div class="chs-head"><div class="cb-panel-title">차트 <small class="trd-sub">50·150·200일선 · 살 자리(피벗)·손절선</small></div><div class="chs-tools">${ranges}</div></div>
@@ -471,16 +587,38 @@ function cbRenderTrend(){
       <ol class="mnv-checks">${A.tpl.checks.map(x=>`<li class="${x.pass===true?'is-ok':x.pass===false?'is-no':'is-na'}">${mnvCheckIcon(x.pass)}<span data-tip="${cbEsc(x.tip)}">${x.label}</span><em class="cb-num">${x.value}</em></li>`).join('')}</ol>
     </details>` + trdNoteHtml();
 }
+function trdMacroHtml(MC){
+  const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'};
+  const items = MC.items.length ? MC.items.map(x=>`<li class="is-${x.light}" data-tip="${cbEsc(x.tip)}"><i class="trd-mini is-${x.light}" aria-label="${word[x.light]}"></i><b>${x.name}</b><span>${cbEsc(x.text)}</span></li>`).join('')
+    : `<li class="is-n"><span>${_trdMacroBusy || _trdMacro===undefined ? '시장 자료를 불러오는 중…' : '시장 자료(FRED)를 받지 못했습니다'}</span></li>`;
+  return `<section class="cb-panel trd-macro is-${MC.light}" aria-label="시장 신호등">
+    <div class="trd-macro-head">
+      <span class="trd-lamps">${['g','y','r'].map(c=>`<i class="trd-lamp is-${c}${MC.light===c?' is-on':''}"></i>`).join('')}</span>
+      <div><div class="trd-macro-title">시장 신호등 <em>매크로 — 소로스 · 드러켄밀러</em></div>
+      <div class="trd-macro-word">${MC.light==='n' ? '판정 보류' : MC.word}<small>${cbEsc(MC.text)}</small></div></div>
+    </div>
+    <ul class="trd-macro-items">${items}</ul>
+  </section>`;
+}
+function trdValueCardHtml(title, R){
+  const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'}[R.light];
+  return `<div class="trd-light trd-vcard is-${R.light}">
+    <div class="trd-vhead"><span class="trd-lamps" aria-label="${word}">${['g','y','r'].map(c=>`<i class="trd-lamp is-${c}${R.light===c?' is-on':''}"></i>`).join('')}</span><div class="trd-light-name">${title}</div><span class="trd-vsum">${cbEsc(R.text)}</span></div>
+    ${R.checks.length ? `<ul class="trd-vchecks">${R.checks.map(c=>`<li data-tip="${cbEsc(c.tip)}">${mnvCheckIcon(c.pass)}<span>${c.label}</span><em class="cb-num">${cbEsc(c.value)}</em></li>`).join('')}</ul>` : `<div class="trd-light-text">ETF·적자 회사는 이 기준으로 보지 않습니다</div>`}
+  </div>`;
+}
 function trdNoteHtml(){
   return `<div class="cb-panel trd-note">
     <div class="cb-panel-title">판단 방법과 한계</div>
     <ul>
+      <li><b>순서가 곧 우선순위</b>: ① 시장 신호등이 빨강이면 새로 사지 않음, 노랑이면 크기 절반 ② 추세 3·4단계면 회사가 좋고 싸도 피함(가치 함정 방지) ③ 회사 품질이 나쁘면 차트가 좋아도 관망 ④ 비싸면 절반만 사고 손절 −5%. 점수를 더해 숫자 하나로 만들지 않습니다.</li>
+      <li>가치 기준(ROE ${TRD_Q.roe}%·PER 5년 중앙의 ${Math.round(TRD_PE_BAND*100)}%·FCF 수익률 vs 국채·그레이엄 수)과 매크로 기준(금리·장단기 금리차·하이일드 가산금리·달러·S&amp;P 500 200일선)은 모두 잠정입니다. 해자·경영진·재귀성처럼 숫자로 옮길 수 없는 판단은 직접 하세요.</li>
       <li><b>매수</b> = 추세 8개 통과 + 2단계 + 피벗을 거래량 실어 돌파 + 피벗에서 ${TRD_CHASE_PCT}% 안쪽. <b>매수 대기</b> = 8개 통과 + 2단계 + 자리 만드는 중. <b>매도·피하기</b> = 3·4단계, 조건 3개 이하, 또는 이익 감소 + 조건 미달. 차트가 좋아도 이익이 줄면 <b>관망</b>. 나머지는 <b>관망</b>.</li>
       <li>그대로 옮긴 것: 50·150·200일선과 52주 고저 조건, 2단계에서만 사기, 손절 최대 −10%.</li>
       <li>대신한 것: 시장 전체 순위(IBD 상대강도) 대신 S&amp;P 500 과 비교 · 단계와 VCP 는 사람이 눈으로 보는 것을 규칙으로 근사.</li>
       <li>실적: 전년 같은 분기 대비 EPS·매출 증가율(stockanalysis.com). 초록 기준(EPS +25%·매출 +20%)은 잠정이며 책 원문 대조 전입니다. 이익률·실적 서프라이즈는 아직 보지 않습니다.</li>
       <li>못 하는 것: 시장 전체 분위기 · 장중 거래량 판단. 마감된 일봉(Yahoo)만 씁니다.</li>
     </ul>
-    <small class="fin-callout">출처: Mark Minervini, 《Trade Like a Stock Market Wizard》(2013), 《Think &amp; Trade Like a Champion》(2017). 지난 가격으로 규칙을 확인한 결과이며 앞으로의 가격을 맞히지 않습니다.</small>
+    <small class="fin-callout">출처: Benjamin Graham, 《The Intelligent Investor》 · 버크셔 해서웨이 주주서한 · Mark Minervini, 《Trade Like a Stock Market Wizard》(2013), 《Think &amp; Trade Like a Champion》(2017). 지난 가격으로 규칙을 확인한 결과이며 앞으로의 가격을 맞히지 않습니다.</small>
   </div>`;
 }
