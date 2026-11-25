@@ -1,7 +1,7 @@
 // Ephemeral scenarios: this module never writes portfolio data, goals or KV.
 let _simOwner='전체',_simState=null;
-let _simView='backtest';
-function simView(view){_simView=['allocation','retire'].includes(view)?view:'backtest';cbRenderSimulator();cbRestoreFilterFocus('cb-sim2','data-sim-view',_simView);}
+let _simView='allocation';
+function simView(view){_simView=view==='retire'?'retire':'allocation';cbRenderSimulator();cbRestoreFilterFocus('cb-sim2','data-sim-view',_simView);}
 
 // Allocate a fixed new contribution, without selling existing assets. Rounded to KRW.
 function simCalculate(current,weights,monthly,months,mode='gap'){
@@ -36,7 +36,7 @@ function cbRenderSimulator(){
   if(!_simState)_simState=simDefaults();
   const s=_simState;
   cbSetHead('입력값을 바꿔 추가 투자 후 자산 배분을 비교합니다 · 저장되지 않는 가상 계산',cbOwnerBtns(_simOwner,'simOwner'));
-  el.innerHTML=`<div class="sim-view-tabs"><button class="cb-btn" data-sim-view="backtest" aria-pressed="${_simView==='backtest'}" onclick="simView('backtest')">과거 성과 백테스트</button><button class="cb-btn" data-sim-view="allocation" aria-pressed="${_simView==='allocation'}" onclick="simView('allocation')">추가 투자 배분</button><button class="cb-btn" data-sim-view="retire" aria-pressed="${_simView==='retire'}" onclick="simView('retire')">은퇴 자금 예상</button></div><div ${_simView==='retire'?'':'hidden'}>${retHtml()}</div><div ${_simView==='backtest'?'':'hidden'}>${btHtml()}</div><div class="sim-future" ${_simView==='allocation'?'':'hidden'}>
+  el.innerHTML=`<div class="sim-view-tabs"><button class="cb-btn" data-sim-view="allocation" aria-pressed="${_simView==='allocation'}" onclick="simView('allocation')">추가 투자 배분</button><button class="cb-btn" data-sim-view="retire" aria-pressed="${_simView==='retire'}" onclick="simView('retire')">은퇴 자금 예상</button></div><div ${_simView==='retire'?'':'hidden'}>${retHtml()}</div><div class="sim-future" ${_simView==='allocation'?'':'hidden'}>
     <div class="sim-mobile-preview"><span id="sim-mobile-total"></span><button class="cb-btn" onclick="document.querySelector('.sim-results').scrollIntoView({behavior:'smooth',block:'start'})">배분 보기 ↓</button></div>
     <div class="sim-layout"><section class="cb-panel sim-controls" aria-label="시뮬레이션 조건"><div class="fin-section-head"><span>투자 조건</span><button class="cb-btn" onclick="simReset()">초기화</button></div>
       <label class="sim-field" for="sim-monthly">월 투자금 <span>만원</span><input id="sim-monthly" type="text" inputmode="decimal" value="${simAmtText(s.monthly)}" oninput="simInput('monthly',this.value)"></label>

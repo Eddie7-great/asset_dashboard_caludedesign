@@ -89,7 +89,7 @@ function navSync(id){
   bar.innerHTML=group&&group.views.length>1?group.views.map(([view,label])=>
     `<a href="#view=${view}"${view===host?' aria-current="page"':''} onclick="if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();switchView(navModeTarget('${view}'));">${label}</a>`).join(''):'';
 }
-// 보기 전환 줄 — 머리줄 아래(스크롤 영역 밖) 오른쪽, 시뮬레이터 세 탭과 같은 밑줄형. 보기가 둘 이상인 세부 메뉴에서만 보인다.
+// 보기 전환 줄 — 머리줄 아래(스크롤 영역 밖) 오른쪽, 시뮬레이터 탭과 같은 밑줄형. 보기가 둘 이상인 세부 메뉴에서만 보인다.
 function navModeBar(id){
   const el=document.getElementById('view-mode-bar'); if(!el) return;
   const host=navHost(id),modes=NAV_MODES[host];

@@ -6,7 +6,7 @@ import vm from 'node:vm'
 import { readSource } from './_source.mjs'
 
 const read = f => readSource(f)
-const script = read('script.js'), finance = read('finance.js'), backtest = read('backtest.js'), style = read('style.css'), index = read('index.html')
+const script = read('script.js'), finance = read('finance.js'), style = read('style.css'), index = read('index.html')
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`)
   assert.notEqual(start, -1, `${name} 함수를 찾을 수 없음`)
@@ -50,9 +50,6 @@ assert.match(index, /id="trade-pl"[^>]*data-neg="1"/, '실현손익 칸은 음�
 assert.match(finance, /id="fin-goal-target" type="text" inputmode="numeric"/)
 assert.match(finance, /id="fin-goal-current" type="text" inputmode="numeric"/)
 assert.match(finance, /targetAmount:finNumInput\('fin-goal-target'\)[\s\S]*currentAmount:finNumInput\('fin-goal-current'\)/, '저장할 때 쉼표를 떼고 읽는다')
-assert.match(backtest, /id="bt-initial" type="text" inputmode="numeric"[\s\S]*id="bt-monthly" type="text" inputmode="numeric"/)
-assert.match(backtest, /Number\(String\(value\)\.replace\(\/,\/g,''\)\)/, '백테스트도 쉼표를 떼고 읽는다')
-assert.match(backtest, /id="bt-fee" type="number" data-no-comma="1"/, '비율 칸은 그대로')
 
 // ── 목표: 기한 미정 ─────────────────────────────────────────────
 assert.match(finance, /id="fin-goal-nodate" type="checkbox" onchange="finGoalNoDateToggle\(\)"\$\{ge&&!ge\.targetDate\?' checked':''\}>기한 미정/, '기한 없는 목표는 체크된 채로 열린다')

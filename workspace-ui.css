@@ -124,18 +124,11 @@
 /* 좁은 화면에서는 표를 옆으로 밀어 보므로 자산군 칸을 고정해 어느 행인지 잃지 않게 한다. */
 .fin-rebal-table>div>span:first-child{position:sticky;left:0;z-index:1;background:var(--panelSolid)}.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(var(--dnSoft),var(--dnSoft)),var(--panelSolid)}.fin-rebal-table::before{content:'옆으로 밀어 필요 조정액·월 DCA 보정안 보기 →';position:sticky;left:0;display:block;padding:0 2px 6px;font-size:var(--fs-micro);color:var(--dim)}}
 @media(max-width:520px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}.home-table-column .cb-dash-table-toolbar{flex-wrap:wrap}.home-table-column input{max-width:100%;width:100%}}
-.bt-panel{padding:18px;min-width:0}.bt-search-feedback{display:flex;align-items:center;gap:10px;min-height:32px;margin:6px 0 2px;font-size:var(--fs-cap);color:var(--lab)}.bt-search-feedback>span{white-space:nowrap}.bt-search-feedback #bt-candidates{min-width:0}.bt-search-feedback #bt-candidates:empty{display:none}
 @media(max-width:768px){#page-sections{grid-column:1/-1;width:100%;box-sizing:border-box}}
 #cf-input-panel .form-row:has(#btn-cf-submit){grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
 #cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{grid-column:span 2}
 #cf-input-panel .form-row:has(#btn-cf-submit)>.form-group:has(#cf-amt){grid-column:span 1}
-.bt-panel input:not([type=range]),.bt-panel select{box-sizing:border-box;min-width:0;padding:7px 9px;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);height:35px;font:inherit;font-size:var(--fs-cap)}
-.bt-controls{display:grid;grid-template-columns:minmax(160px,1.6fr) 88px minmax(105px,1fr) minmax(105px,1fr) 100px auto;gap:9px;align-items:end;margin-top:10px}.bt-controls label{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-cap);color:var(--lab);min-width:0}.bt-controls .bt-query-field{min-width:0}.bt-controls>button{height:35px;white-space:nowrap}
-.bt-panel p{font-size:var(--fs-cap);color:var(--lab);line-height:1.6}.bt-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.bt-kpis>div{padding:10px;background:var(--inner);border-radius:var(--r-md);min-width:0}.bt-kpis small{font-size:var(--fs-micro);color:var(--lab)}.bt-kpis b{display:block;margin-top:7px;font-size:var(--fs-title);overflow-wrap:anywhere}
-.bt-chart{display:block;width:100%;height:300px;background:var(--inner);border-radius:var(--r-md)}.bt-y-tick line{stroke:var(--bd);stroke-width:1}.bt-y-tick text,.bt-y-title{fill:var(--lab);font:11px var(--font-ui)}.bt-line{clip-path:inset(0 100% 0 0);animation:bt-chart-reveal .9s cubic-bezier(.22,.75,.25,1) forwards}.bt-line-value{animation-delay:.12s}.bt-chart-labels{display:flex;justify-content:space-between;font-size:var(--fs-micro);color:var(--lab);gap:7px;margin-top:6px}.bt-inspect{display:flex;align-items:center;gap:12px;font-size:var(--fs-cap);margin-top:12px}.bt-inspect input{flex:1;min-width:0}.sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
-@keyframes bt-chart-reveal{to{clip-path:inset(0 0 0 0)}}
-@media(max-width:768px){.bt-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-controls .bt-query-field{grid-column:1/-1}.bt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-chart{height:200px}.bt-search-feedback{align-items:flex-start;flex-direction:column}.bt-chart-labels{font-size:var(--fs-micro)}}
-@media(prefers-reduced-motion:reduce){.bt-line{animation:none;clip-path:none}}
+.sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
 /* Keep descriptive titles together and group controls without space-between gaps. */
 #page-head{justify-content:flex-start;flex-wrap:wrap;gap:8px!important}
 #main-title{white-space:nowrap;flex-shrink:0}
@@ -524,7 +517,6 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
    옆 두 카드는 값 아래가 비고 세 값의 높이도 어긋났다 */
 .fin-goal-context b{margin-top:auto;padding-top:6px}
 /* 백테스트 — 실행 전 결과 자리가 통째로 비어 화면 대부분이 여백이었다. 무엇이 나오는지 알려 준다 */
-#bt-output:empty::before{content:"종목을 고르고 ‘백테스트 실행’을 누르면 납입 원금 · 최종 평가액 · 손익률 · 연평균 수익률 · 최대 낙폭과 기간별 평가액 그래프가 여기에 나옵니다.";display:flex;align-items:center;justify-content:center;min-height:200px;padding:16px;border:1px dashed var(--bd2);border-radius:var(--r-md);color:var(--lab);font-size:var(--fs-body);line-height:1.6;text-align:center}
 /* ===== 결산 리포트(report2 월간 · reporty 연간, 2026-11-11) — 표지 + 장. 장 하나가 본문 영역 하나를 꽉 채우고
    스크롤 한 번에 한 장씩 넘어간다(사이드·헤더는 그대로). 장마다 바탕이 딱 끊겨 바뀐다. 색·글꼴·모서리·막대는 대시보드 토큰만 쓴다.
    장 높이(--rep-h)는 reportMount 가 스크롤 영역의 실제 높이로 넣는다 — 퍼센트 높이는 flex 스크롤 영역에서 믿을 수 없다. */

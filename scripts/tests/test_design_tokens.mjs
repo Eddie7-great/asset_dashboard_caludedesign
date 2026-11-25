@@ -23,7 +23,7 @@ assert.doesNotMatch(html, /family=IBM\+Plex\+Mono/, '쓰지 않는 글꼴을 내
 // 본문 글꼴이 Noto 먼저였을 때는 같은 금액이 표에서는 Noto 숫자, 숫자 카드에서는 Manrope 숫자로 다르게 보였다.
 assert.match(rootBlock, /--font-ui:'Manrope','Noto Sans KR',sans-serif;--font-num:var\(--font-ui\)/, '--font-ui 는 Manrope 먼저, --font-num 은 같은 스택');
 assert.equal((allCss.match(/'Noto Sans KR'/g) || []).length, 1, 'CSS 에서 글꼴 이름은 토큰 정의 한 곳에만 적는다');
-const jsSrc = finance + read('cobalt.js') + read('workspace-pages.js') + read('etf-explorer.js') + read('simulator.js') + read('backtest.js') + read('navigation.js');
+const jsSrc = finance + read('cobalt.js') + read('workspace-pages.js') + read('etf-explorer.js') + read('simulator.js') + read('navigation.js');
 assert.doesNotMatch(jsSrc, /font-family="|font-family:\s*'?(Manrope|Noto)/, 'JS 가 그리는 마크업·SVG 에 글꼴 이름을 직접 적지 않는다(SVG 글자는 svg text 규칙이 맡는다)');
 assert.match(ws, /svg text\{font-family:var\(--font-ui\)\}/, 'SVG 글자도 같은 글꼴 토큰');
 // 글자 크기는 규격 6단에서만 — rem·12px 미만을 CSS·JS 에 다시 적지 않는다(휴대폰 입력칸 16px 은 iOS 확대 방지용 예외)
