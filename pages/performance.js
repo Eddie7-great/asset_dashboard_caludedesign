@@ -34,11 +34,13 @@ function cbRenderPerf(){
   const fmtR = v => v==null ? '—' : (v>=0?'+':'')+Number(v).toFixed(1)+'%';
   const csR = v => v==null ? 'color:var(--lab)' : cbUpDn(v);
   if (CB_PERF_TFS.indexOf(_cbPerfTf)<0) _cbPerfTf='1Y';
-  // 주인공은 가족이다 — 소유주는 앱 공통 소유주 색의 굵은 실선, 비교 지수는 회색으로 뒤에 둔다(KOSPI 는 점선으로 S&P 와 구분).
+  // 비교 기준(S&P 500·KOSPI)을 소유주보다 먼저 둔다(사용자 결정 2026-11-25) — 카드·범례·말풍선·표가 이 순서를 따른다.
+  // 색은 그대로: 소유주는 앱 공통 소유주 색의 굵은 실선, 비교 지수는 회색 가는 선(KOSPI 는 점선).
+  // 그래프는 배열 순서대로 그리므로 지수 선이 먼저(아래) 깔리고 소유주 선이 위에 온다.
   const entities = [
-    ...OWNERS.map(o=>({key:o,label:o,color:cbOwnerColor(o),isBench:false,dash:false})),
     {key:'S&P 500',label:'S&P 500',color:CB_PERF_BENCH_COLOR['S&P 500'],isBench:true,dash:false},
     {key:'KOSPI',label:'KOSPI',color:CB_PERF_BENCH_COLOR.KOSPI,isBench:true,dash:true},
+    ...OWNERS.map(o=>({key:o,label:o,color:cbOwnerColor(o),isBench:false,dash:false})),
   ];
   const tf = _cbPerfTf;
   const sel = benchData[tf] || {labels:[],data:{}};
@@ -64,9 +66,12 @@ function cbRenderPerf(){
     const alpha = (!e.isBench && rv!=null && spSel!=null) ? rv-spSel : null;
     return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, mdd: mddOf(sel.data[e.key]) };
   });
-  // 하단 표: 선택 기간 수익률 높은 순(값 없는 줄은 끝). 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
+  // 하단 표: 비교 지수 두 줄(S&P 500 → KOSPI)을 맨 위에 고정하고, 소유주는 선택 기간 수익률 높은 순(값 없는 줄은 끝).
+  // 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
   const tfIdx = CB_PERF_TFS.indexOf(tf);
   const sortedRows = rows.slice().sort((a,b)=>{
+    if (a.e.isBench!==b.e.isBench) return a.e.isBench?-1:1;
+    if (a.e.isBench) return 0;
     const av=a.vals[tfIdx], bv=b.vals[tfIdx];
     if (av==null) return bv==null?0:1;
     if (bv==null) return -1;
@@ -117,7 +122,7 @@ function cbRenderPerf(){
     ${typeof finInvestTrendCard==='function'?finInvestTrendCard():''}
     <div class="cb-panel cb-perf-detail-panel" style="margin-top:12px;padding:16px 18px">
       <div class="cb-perf-detail-grid">
-        <!-- 한 표(6줄)를 선택 기간 수익률 순으로 — 예전에는 좌우 두 표(S&P·본인·자녀1 | KOSPI·아내·아버지)라 순위를 눈으로 맞춰야 했다 -->
+        <!-- 한 표(6줄): 비교 지수 두 줄이 위, 소유주는 선택 기간 수익률 순 — 예전에는 좌우 두 표(S&P·본인·자녀1 | KOSPI·아내·아버지)라 순위를 눈으로 맞춰야 했다 -->
         <div class="cb-perf-detail-table">
           <div class="cb-perf-detail-head">
             <span>구분</span>

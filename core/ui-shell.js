@@ -224,6 +224,8 @@ function switchView(viewId, btn) {
   if (!btn) btn=document.getElementById('menu-'+viewId);
   const viewEl = document.getElementById('view-'+viewId);
   if (!viewEl) return;
+  // 다른 화면을 열 때도 시세가 10분 넘게 묵었으면 다시 받는다 — 화면을 먼저 그린 뒤(setTimeout) 확인한다.
+  if (typeof autoRefreshIfStale==='function') setTimeout(autoRefreshIfStale,0);
   // 현재 활성 뷰가 bubble이었고 떠나는 경우: Plotly 인스턴스 정리
   const prevActive = document.querySelector('.view-section.active');
   if (prevActive && prevActive.id === 'view-bubble' && viewId !== 'bubble') {
