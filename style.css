@@ -3,19 +3,22 @@
        카드는 반투명 유리판이다 — 바탕(--glass) + 뒤 흐림(--glass-blur) + 윗변 빛줄(--glass-hi) + 아랫변 선(--glass-rim)
        + 아주 옅은 그림자(--gshadow). 유리 효과 규칙은 workspace-ui.css 맨 끝 '리퀴드 글래스' 블록 한 곳에 있다. */
     :root {
-      --bg1:#eef1f6;--bg2:#e3e8f0;--bg3:#dfe5f0;
-      /* 유리 뒤 배경 빛 — 같은 계열 푸른빛 한 가지만(파스텔을 섞지 않는다) */
-      --app-mesh:radial-gradient(60% 50% at 8% 0%,rgba(70,110,200,.20),transparent 70%),radial-gradient(50% 45% at 100% 8%,rgba(90,130,190,.14),transparent 70%),radial-gradient(70% 50% at 60% 110%,rgba(60,90,150,.12),transparent 70%);
-      --glass-blur:16px;--glass-sat:150%;--glass-edge:rgba(255,255,255,.9);--glass-hi:rgba(255,255,255,.85);--glass-rim:rgba(20,32,60,.10);
-      --glass:rgba(255,255,255,.72);--glass-hover:rgba(255,255,255,.86);
-      --panel-border:rgba(24,40,80,.10);--inner-bg:rgba(236,241,249,.55);
+      --bg1:#eef2f8;--bg2:#e4e9f2;--bg3:#dfe5f0;
+      /* 유리 뒤 배경 — 바탕(--app-base) 위에 큰 빛 덩어리 넷(--app-mesh). 유리판이 투명해도 뒤에 비칠 것이 있어야
+         반투명으로 읽힌다(2026-11-25 사용자 선택: 라이트 '아이스 블루' 1안). 판에는 색을 넣지 않는다 */
+      --app-base:linear-gradient(160deg,#dfe7f3,#eef2f8 45%,#e4e9f2);
+      --app-mesh:radial-gradient(38vw 38vw at 14% 18%,rgba(37,99,235,.55),transparent 70%),radial-gradient(30vw 30vw at 88% 12%,rgba(13,148,136,.42),transparent 70%),radial-gradient(36vw 36vw at 62% 78%,rgba(99,102,241,.42),transparent 70%),radial-gradient(26vw 26vw at 30% 95%,rgba(56,189,248,.40),transparent 70%);
+      --glass-blur:26px;--glass-sat:180%;--glass-edge:rgba(255,255,255,.75);--glass-hi:rgba(255,255,255,.95);--glass-rim:rgba(255,255,255,.25);
+      --glass:rgba(255,255,255,.34);--glass-hover:rgba(255,255,255,.46);
+      --glass-sheen:linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,.10) 38%,rgba(255,255,255,0) 60%,rgba(255,255,255,.18));
+      --panel-border:rgba(255,255,255,.7);--inner-bg:rgba(255,255,255,.28);
       --header-bg:transparent;--hover-bg:rgba(42,111,219,.06);
-      --modal-bg:rgba(250,252,255,.97);--border-light:rgba(24,40,80,.08);--border-dark:rgba(24,40,80,.16);
-      --gshadow:0 1px 2px rgba(20,32,60,.06),0 8px 24px rgba(20,32,60,.06);
+      --modal-bg:rgba(250,252,255,.97);--border-light:rgba(255,255,255,.55);--border-dark:rgba(30,45,80,.14);
+      --gshadow:0 1px 2px rgba(20,35,70,.08),0 10px 30px rgba(20,35,70,.12);
       /* 사이드바 — 테마마다 따로 정한다(라이트는 사이드바도 유리판) */
       --side-bg:var(--glass);--side-border:var(--glass-edge);--side-tx:#18213a;--side-mut:#4a5878;--side-dim:#596783;
       --side-hover:rgba(42,111,219,.07);--side-active-bg:rgba(255,255,255,.9);--side-active-tx:#18213a;
-      --side-inner:rgba(236,241,249,.6);--side-line:rgba(24,40,80,.08);
+      --side-inner:rgba(255,255,255,.28);--side-line:rgba(24,40,80,.08);
       /* 글자 크기 단계 — 페이지 제목 / 카드 제목 / 큰 숫자 / 본문 / 보조 */
       --fs-title:22px;--fs-card:15px;--fs-kpi:26px;--fs-body:13px;--fs-cap:12px;--fs-micro:12px;
       /* 규격 토큰(2026-11-11) — 굵기 3단·글꼴 2종·모서리 3종·막대 2종·버튼 높이. 화면마다 숫자를 직접 적지 않는다 */
@@ -23,7 +26,7 @@
       --font-ui:'Manrope','Noto Sans KR',sans-serif;--font-num:var(--font-ui);
       --r-sm:4px;--r-md:8px;--r-lg:12px;--bar-h:6px;--bar-h-lg:12px;--btn-h:36px;
       /* 소유주·기간 탭 같은 세그먼트 컨트롤 — 회색 바탕 + 선택 항목 흰 바탕 */
-      --seg-bg:rgba(24,40,80,.06);--seg-on:rgba(255,255,255,.92);
+      --seg-bg:rgba(255,255,255,.30);--seg-on:rgba(255,255,255,.85);
       /* 강조 숫자 카드(홈 투자자산 총액) */
       --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
       --acc:#2a6fdb;--on-acc:#ffffff;
@@ -161,14 +164,17 @@
     /* ── 디자인 토큰 ─ 다크 · 네이비(공통: 어두운 바탕) ──────────
        네이비는 다크 토큰을 이어받고 바탕·유리·글자 톤만 남색으로 덮어쓴다. */
     [data-theme="dark"],[data-theme="navy"] {
-      --bg1:#0b0c10;--bg2:#060709;--bg3:#060708;
-      --app-mesh:radial-gradient(44% 46% at 12% 6%,rgba(110,130,180,.22),transparent 70%),radial-gradient(38% 40% at 90% 20%,rgba(120,120,150,.12),transparent 70%),radial-gradient(50% 50% at 62% 96%,rgba(80,100,130,.14),transparent 70%);
-      --glass:rgba(255,255,255,.065);--glass-hover:rgba(255,255,255,.09);
-      --glass-edge:rgba(255,255,255,.09);--glass-hi:rgba(255,255,255,.07);--glass-rim:rgba(0,0,0,.4);
-      --panel-border:rgba(255,255,255,.09);--inner-bg:rgba(255,255,255,.04);
+      --bg1:#0f1013;--bg2:#09090b;--bg3:#060607;
+      /* 다크 = '그라파이트'(무채색 회색 빛, 은은하게 — 2026-11-25 사용자 선택) */
+      --app-base:linear-gradient(160deg,#09090b,#0f1013 50%,#060607);
+      --app-mesh:radial-gradient(55vw 50vw at 14% 18%,rgba(148,163,184,.13),transparent 70%),radial-gradient(45vw 42vw at 88% 12%,rgba(100,116,139,.14),transparent 70%),radial-gradient(52vw 48vw at 62% 78%,rgba(71,85,105,.18),transparent 70%),radial-gradient(40vw 36vw at 30% 95%,rgba(203,213,225,.06),transparent 70%);
+      --glass:rgba(255,255,255,.055);--glass-hover:rgba(255,255,255,.09);
+      --glass-edge:rgba(255,255,255,.16);--glass-hi:rgba(255,255,255,.28);--glass-rim:rgba(255,255,255,.04);
+      --glass-sheen:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.02) 38%,rgba(255,255,255,0) 60%,rgba(255,255,255,.04));
+      --panel-border:rgba(255,255,255,.14);--inner-bg:rgba(255,255,255,.05);
       --header-bg:transparent;--hover-bg:rgba(122,162,255,.07);
-      --modal-bg:rgba(20,22,28,.97);--border-light:rgba(255,255,255,.07);--border-dark:rgba(255,255,255,.14);
-      --gshadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+      --modal-bg:rgba(20,22,28,.97);--border-light:rgba(255,255,255,.09);--border-dark:rgba(255,255,255,.16);
+      --gshadow:0 1px 2px rgba(0,0,0,.4),0 14px 36px rgba(0,0,0,.45);
       --acc:#7aa2ff;--on-acc:#0b1020;--acc2:#38bdf8;--acc3:#a78bfa;
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
@@ -179,18 +185,21 @@
       --side-bg:var(--glass);--side-border:var(--glass-edge);--side-tx:#e7e9ee;--side-mut:#c2c8d2;--side-dim:#a9b0bc;
       --side-hover:rgba(255,255,255,.06);--side-active-bg:rgba(255,255,255,.12);--side-active-tx:#ffffff;
       --side-inner:rgba(255,255,255,.05);--side-line:rgba(255,255,255,.08);
-      --seg-bg:rgba(255,255,255,.05);--seg-on:rgba(255,255,255,.13);
+      --seg-bg:rgba(255,255,255,.06);--seg-on:rgba(255,255,255,.16);
       --kpi-hi-bg:#1f2a44;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6
     }
     /* ── 디자인 토큰 ─ 네이비 ─────────────────────────────── */
     [data-theme="navy"] {
-      --bg1:#0c1a36;--bg2:#081127;
-      --app-mesh:radial-gradient(60% 45% at 10% 0%,rgba(60,110,220,.38),transparent 70%),radial-gradient(45% 40% at 95% 10%,rgba(40,120,180,.20),transparent 70%),radial-gradient(70% 45% at 55% 110%,rgba(30,70,160,.24),transparent 70%);
-      --glass:rgba(24,42,84,.62);--glass-hover:rgba(30,52,100,.7);
-      --glass-edge:rgba(170,200,255,.16);--glass-hi:rgba(255,255,255,.10);--glass-rim:rgba(0,0,0,.25);
-      --panel-border:rgba(170,200,255,.16);--inner-bg:rgba(255,255,255,.05);
-      --modal-bg:rgba(18,34,70,.97);--border-light:rgba(170,200,255,.10);--border-dark:rgba(170,200,255,.20);
-      --gshadow:0 1px 2px rgba(0,6,24,.3),0 10px 28px rgba(0,6,24,.30);
+      --bg1:#0a2240;--bg2:#071a2c;
+      /* 네이비 = '아틱 시안'(남색 바탕 + 청록 빛, 은은하게 — 2026-11-25 사용자 선택). 유리판은 색 없는 흰 투명 */
+      --app-base:linear-gradient(160deg,#071a2c,#0a2240 50%,#061526);
+      --app-mesh:radial-gradient(55vw 50vw at 14% 18%,rgba(34,211,238,.22),transparent 70%),radial-gradient(45vw 42vw at 88% 12%,rgba(56,189,248,.20),transparent 70%),radial-gradient(52vw 48vw at 62% 78%,rgba(14,165,233,.22),transparent 70%),radial-gradient(40vw 36vw at 30% 95%,rgba(103,232,249,.16),transparent 70%);
+      --glass:rgba(255,255,255,.075);--glass-hover:rgba(255,255,255,.11);
+      --glass-edge:rgba(255,255,255,.22);--glass-hi:rgba(255,255,255,.35);--glass-rim:rgba(255,255,255,.06);
+      --glass-sheen:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.03) 38%,rgba(255,255,255,0) 60%,rgba(255,255,255,.06));
+      --panel-border:rgba(255,255,255,.2);--inner-bg:rgba(255,255,255,.06);
+      --modal-bg:rgba(12,32,56,.97);--border-light:rgba(255,255,255,.12);--border-dark:rgba(255,255,255,.18);
+      --gshadow:0 1px 2px rgba(0,6,24,.3),0 14px 36px rgba(0,0,0,.30);
       --t1:#eef3ff;--t2:#c6d1ea;--t3:#a9b6d4;
       --acc:#82a8ff;--on-acc:#0a1733;--acc-soft:rgba(130,168,255,.16);--acc-soft2:rgba(130,168,255,.30);
       --grid:rgba(170,200,255,.12);
@@ -198,7 +207,7 @@
       --side-tx:#eef3ff;--side-mut:#c6d1ea;--side-dim:#a9b6d4;
       --side-hover:rgba(255,255,255,.07);--side-active-bg:rgba(255,255,255,.16);
       --side-inner:rgba(255,255,255,.06);--side-line:rgba(170,200,255,.12);
-      --seg-bg:rgba(255,255,255,.06);--seg-on:rgba(255,255,255,.16);
+      --seg-bg:rgba(255,255,255,.07);--seg-on:rgba(255,255,255,.20);
       --kpi-hi-bg:#1c3266
     }
     /* ── 디자인 토큰 별칭 — 시안(.dc.html) 마크업을 그대로 이식하기 위한 매핑 ──
@@ -252,7 +261,7 @@
       --dn:color-mix(in srgb,var(--tiptx) 58%,#ef476f 42%);
       --warn:color-mix(in srgb,var(--tiptx) 58%,#f59e0b 42%)
     }
-    body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:var(--app-mesh),linear-gradient(180deg,var(--bg1),var(--bg2));background-attachment:fixed;font-family:var(--font-ui);color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
+    body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:var(--app-mesh),var(--app-base);background-attachment:fixed;font-family:var(--font-ui);color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}
     .glass-panel{background:var(--glass);border:1px solid var(--panel-border);border-radius:var(--r-lg);box-shadow:var(--gshadow);padding:14px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;min-width:0;transition:background .3s,border .3s}
     .layout{display:grid;grid-template-columns:210px 1fr;gap:15px;padding:15px;height:100vh;height:100dvh;box-sizing:border-box}
