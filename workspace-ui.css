@@ -1787,6 +1787,10 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .scr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .scr-top .scr-tabs{justify-content:flex-start;margin:0;flex:1}
 .scr-panel-tabs{padding-bottom:0}
+/* 종목 찾기·종목 상세: 카드 사이 세로 간격은 한 값(12px) — 카드마다 margin-top 을 따로 주지 않는다(2026-11-26 사용자 지적: 신호등 줄과 차트 카드가 붙어 보였다) */
+#cb-trend2,#cb-value2,#cb-macro2,#cb-screen2{display:flex;flex-direction:column;gap:12px}
+#cb-trend2>*,#cb-value2>*,#cb-macro2>*,#cb-screen2>*{margin-top:0!important;margin-bottom:0!important}
+#cb-trend2>.trd-back,#cb-value2>.trd-back{align-self:flex-start;padding:0}
 .trd-back{border:0;background:none;padding:0 0 8px;color:var(--acc);font:inherit;font-size:var(--fs-body);font-weight:700;cursor:pointer}
 .scr-tabs .trd-mini{margin-left:4px;vertical-align:middle}
 .scr-tabs em{font-style:normal;font-size:var(--fs-cap);color:var(--lab);margin-left:2px}
