@@ -17,11 +17,14 @@ const css = ws.slice(ws.indexOf('/* ===== 사이드바 접기/펴기'));
 assert.match(css, /\.side-collapse-btn\{display:none\}\s*@media\(min-width:769px\)\{/, '휴대폰은 기존 햄버거 서랍만');
 assert.match(css, /\.layout\{transition:grid-template-columns [^}]*var\(--ease-out\)/, '격자 폭을 애니메이션으로 줄인다');
 assert.match(css, /body\.side-collapsed \.layout\{grid-template-columns:0px 1fr;gap:0;transition-timing-function:var\(--ease-in\)\}/, '접을 때는 가속 곡선');
-assert.match(css, /\.side-collapse-btn\{position:fixed;top:22px;left:25px;/, '사이드바 왼쪽 위 고정');
-// 빨려 들어가는 효과 — 버튼 중심을 기준점으로 작아지며 사라지고, 펼 때는 거꾸로
-assert.match(css, /\.menu-col\{min-width:0;overflow:hidden;transform-origin:25px 22px;transition:opacity [^}]*transform [^}]*var\(--ease-out\)/);
-assert.match(css, /body\.side-collapsed \.menu-col\{opacity:0;transform:scale\(\.06\);border-radius:50%;[^}]*pointer-events:none;transition-timing-function:var\(--ease-in\)\}/);
-assert.match(css, /body\.side-collapsed #page-head\{padding-left:64px!important\}/, '접힌 동안 제목이 버튼 밑으로 들어가지 않게');
+assert.match(css, /\.side-collapse-btn\{position:fixed;top:50%;left:217px;/, '펼친 동안 손잡이는 사이드바 오른쪽 가장자리 가운데(D안)');
+assert.match(css, /body\.side-collapsed \.side-collapse-btn\{left:0;/, '접힌 동안은 화면 왼쪽 가장자리');
+assert.doesNotMatch(css, /\.menu-col\{padding-top:52px\}/, '사이드바 위 빈 줄은 없앴다');
+// 옆으로 밀려 들어가는 효과 — 펼 때는 거꾸로
+assert.match(css, /\.menu-col\{min-width:0;overflow:hidden;transition:opacity [^}]*transform [^}]*var\(--ease-out\)/);
+assert.doesNotMatch(css, /scale\(\.06\)/, '예전 버튼 쪽으로 빨려 들어가는 효과는 없앴다');
+assert.match(css, /body\.side-collapsed \.menu-col\{opacity:0;transform:translateX\(-40px\);[^}]*pointer-events:none;transition-timing-function:var\(--ease-in\)\}/, '옆으로 밀려 들어간다');
+assert.match(css, /body\.side-collapsed #page-head\{padding-left:30px!important\}/, '접힌 동안 제목이 손잡이에 붙지 않게');
 assert.match(css, /prefers-reduced-motion:reduce\)\{\.layout,\.menu-col,\.side-collapse-arrow,#page-head\{transition:none!important\}/);
 assert.match(css, /\.menu-col>\*\{box-sizing:border-box;width:188px;flex-shrink:0\}/, '여백·테두리까지 188px — content-box 면 환율 상자 오른쪽이 잘린다');
 
