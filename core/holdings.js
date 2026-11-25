@@ -124,17 +124,13 @@ function renderPortfolio(owner, opts) {
     +`<option value="전체"${_holdingsBrokerFilter==='전체'?' selected':''}>전체</option>`
     +stockCombos.map(c=>`<option value="${holdingsEsc(c.key)}"${_holdingsBrokerFilter===c.key?' selected':''}>${holdingsEsc(c.broker||'(미지정)')} / ${holdingsEsc(c.acc||'(미지정)')}</option>`).join('')
     +`</select></label>`;
-  let html='',totalPfolioValue=0;
+  let html='';
   const grpStats={};
   const _mobileHoldings=typeof isMobileLayout==='function'&&isMobileLayout();
   const showOwner=owner==='전체';
-  // [2] 가상화폐 포함 전체 원화 환산
-  items.forEach(i=>{
-    let val=0;
-    if(i.grp==='금'){const gm=i.unit==='돈'?3.75:(i.unit==='kg'?1000:1);val=i.qty*gm*(window._GOLD_G_KRW||i.curP);}
-    else{val=i.qty*i.curP*(RATES[i.cur]||1);}
-    totalPfolioValue+=val;
-  });
+  // 평가액·매입금액은 모든 화면이 쓰는 assetValueKRW·assetCostKRW(core/data.js) 하나다. 이 표에서 반올림하는 것은
+  // 단가 '표시'뿐이다 — 예전처럼 원화 단가를 먼저 반올림해 수량을 곱하면 코인처럼 수량이 많은 종목은 홈·계좌별과
+  // 수천 원씩 달랐고, 금을 '단위 배수 × 1g 시세'로 다시 세면 시세를 못 받은 날 '돈' 단위 금이 3.75배가 됐다.
   ['주식','가상화폐','금','현금'].forEach(grpName=>{
     let grpItems=groups[grpName];
     // 주식 그룹만 선택된 증권사·계좌 조합으로 필터링
@@ -168,12 +164,11 @@ function renderPortfolio(owner, opts) {
           // [8] 현금: 정렬, 검정폰트, 클릭편집
           // 환율은 반드시 RATES 를 거친다. 지원 통화가 아니면 1:1 이 되어 평가액이 수백 배 어긋나므로
           // curRateKnown 으로 확인하고, 확인되지 않으면 시세 미확인으로 표시한다.
-          const krwRate=RATES[i.cur]||1;
           i._priceStale=!curRateKnown(i.cur);
-          const cashKRW=Math.round(i.qty*krwRate);
+          const cashKRW=assetValueKRW(i);
           const symCur=curSymbol(i.cur);
           const fBal=symCur+(Number(i.qty)||0).toLocaleString();
-          const fKRW='₩'+cashKRW.toLocaleString();
+          const fKRW=fmtMoney(cashKRW);
           grpTotal+=cashKRW;grpInvest+=cashKRW;
           // [8] 클릭으로 잔액 수정
           const fBalEdit=`<button type="button" class="editable-val editable-val-button" aria-label="잔액 수정" onclick="makeEditable(this,'','','qty',true,${pIdx})">${fBal}</button>`;
@@ -182,12 +177,11 @@ function renderPortfolio(owner, opts) {
 
         } else if(grpName==='금'){
           // [7] 금: g기준 실시간 원화, 헤더 수정
-          const gm=i.unit==='돈'?3.75:(i.unit==='kg'?1000:1);
-          const goldG=window._GOLD_G_KRW||i.curP;
-          const curPKRW=Math.round(goldG*gm);
-          const avgPKRW=Math.round(i.avgP);
-          const current=i.qty*curPKRW;
-          const invest=i.costUnknown?0:i.qty*avgPKRW;
+          // curP 는 이미 단위(g·돈·kg)당 원화다 — 시세를 받을 때 1g 시세 × 단위 배수로 채운다(live-prices.js).
+          const curPKRW=Math.round(i.curP||0);
+          const avgPKRW=Math.round(i.avgP||0);
+          const current=assetValueKRW(i);
+          const invest=assetCostKRW(i);
           const {profit, pct:profitPct}=i.costUnknown?{profit:0,pct:0}:calcProfit(current, invest);
           if(!i.costUnknown){grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;}
           grpTotal+=current;
@@ -205,13 +199,12 @@ function renderPortfolio(owner, opts) {
         } else if(grpName==='가상화폐'){
           // 가상화폐: avgP/curP를 저장통화 기준으로 KRW 환산
           // cur='USD'이면 USD → KRW 변환 (기존 avgP가 KRW로 저장된 경우와 USD로 저장된 경우 모두 처리)
+          // 평단가가 원화(1,000만 이상)로 저장된 경우와 USD 로 저장된 경우를 assetAvgNative 가 함께 처리한다.
           const _cRate = curRate(i.cur);
-          // avgP가 USD 단위라면 환산, KRW 단위라면 그대로 (safeguard: avgP > 1000이고 curP > 100이면 USD 기준 가능성)
-          const _avgIsUSD = i.cur==='USD' && i.avgP > 0 && i.avgP < 10000000;
-          const avgPKRW = _avgIsUSD ? Math.round(i.avgP * _cRate) : Math.round(i.avgP);
-          const curPKRW=Math.round(i.curP * _cRate);
-          const current=i.qty*curPKRW;
-          const invest=i.qty*avgPKRW;
+          const avgPKRW = Math.round(assetAvgNative(i) * _cRate);
+          const curPKRW = Math.round((i.curP||0) * _cRate);
+          const current=assetValueKRW(i);
+          const invest=assetCostKRW(i);
           const {profit, pct:profitPct}=calcProfit(current, invest);
           grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;grpTotal+=current;
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';
@@ -224,10 +217,10 @@ function renderPortfolio(owner, opts) {
 
         } else {
           // 주식 (국내/해외)
-          const rate=RATES[i.cur]||1;
+          const rate=curRate(i.cur);
           const dec=i.cur==='JPY'?1:curMeta(i.cur).cashDecimals;
           const sym=curSymbol(i.cur);
-          const invest=i.qty*i.avgP*rate, current=i.qty*i.curP*rate;
+          const invest=assetCostKRW(i), current=assetValueKRW(i);
           const {profit, pct:profitPct}=calcProfit(current, invest);
           grpInvest+=invest;grpKnownTotal+=current;grpKnownCount++;grpTotal+=current;
           const cCls=profit>0?'c-up':(profit<0?'c-dn':''),sign=profit>0?'+':'';

@@ -24,10 +24,8 @@ window._netWorthHistory = window._netWorthHistory || [];
 // 재무상태표 CRUD 직후에도 이 함수를 호출해 KPI와 차트 마지막 점을 일치시킨다.
 function updateNetWorthSnapshot() {
   const todayStr = _cfLocalDateKey(new Date());
-  const sumAssets = (arr) => arr.reduce((s, a) => {
-    if (a.grp === '금') return s + (a.qty||0) * (a.curP||0);
-    return s + (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
-  }, 0);
+  // 평가액은 화면과 같은 assetValueKRW(core/data.js) — 배치 asset_value_krw 와 test_net_worth_snapshot.py 가 대조한다.
+  const sumAssets = (arr) => arr.reduce((s, a) => s + assetValueKRW(a), 0);
   const portfolio = sumAssets(getFilteredAssets('전체'));
   const bs = window._balanceSheet || {};
   const nonInvestmentAssets = (bs.assets||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);

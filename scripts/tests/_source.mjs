@@ -45,3 +45,19 @@ export function readSource(rel) {
   const parts = SOURCE_PARTS[name]
   return parts ? parts.map(readOne).join('\n') : readOne(name)
 }
+
+// 종목 한 줄의 원화 금액 — 단일 출처(core/data.js)의 함수 묶음을 vm 컨텍스트에 그대로 싣는다.
+// (2026-11-25 숫자 일관성 점검: 화면마다 식을 따로 두지 않으므로 테스트도 원본 함수를 쓴다.)
+// 컨텍스트에는 RATES 가 있어야 한다.
+export function assetValueSource() {
+  const src = readOne('core/data.js')
+  const pick = (re, label) => { const m = src.match(re); if (!m) throw new Error(`core/data.js 에서 ${label} 을(를) 찾지 못함`); return m[0] }
+  return [
+    pick(/const CRYPTO_KRW_AVG_THRESHOLD = [^;]+;/, 'CRYPTO_KRW_AVG_THRESHOLD'),
+    pick(/function curRate\(cur\)\{[\s\S]*?\n\}/, 'curRate'),
+    pick(/function assetAvgNative\(i\)\{[\s\S]*?\n\}/, 'assetAvgNative'),
+    pick(/function assetValueKRW\(i\)\{[^\n]*\}/, 'assetValueKRW'),
+    pick(/function assetCostKRW\(i\)\{[^\n]*\}/, 'assetCostKRW'),
+    pick(/function assetGainKRW\(i\)\{[^\n]*\}/, 'assetGainKRW'),
+  ].join('\n')
+}

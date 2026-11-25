@@ -953,9 +953,7 @@ async function fetchBenchmarkData(ownerOverride) {
           const isKR = /^[0-9A-Z]{6}$/.test(stripped) && a.cur==='KRW';
           tkr = isKR ? stripped + (a.market==='KOSDAQ'?'.KQ':'.KS') : a.tkr;
         }
-        const val = a.grp==='금'
-          ? (a.qty||0) * (a.curP||0)               // curP는 이미 KRW
-          : (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
+        const val = assetValueKRW(a);   // 화면과 같은 평가액(core/data.js)
         tkrWeightMap[tkr] = (tkrWeightMap[tkr]||0) + val;
       });
       // 서버(api/dashboard.py)는 p_tkrs 를 20개로 제한한다. 넘기면 too_many_tickers 로
@@ -1048,9 +1046,7 @@ async function fetchBenchmarkData(ownerOverride) {
       const ownerWeightMap = {};
       OWNERS.forEach(o => {
         const v = getFilteredAssets(o).reduce((s,a)=>{
-          if (a.grp==='주식'||a.grp==='가상화폐') return s + (a.qty||0)*(a.curP||0)*(RATES[a.cur]||1);
-          if (a.grp==='금') return s + (a.qty||0)*(a.curP||0); // curP는 이미 KRW
-          return s;
+          return (a.grp==='주식'||a.grp==='가상화폐'||a.grp==='금') ? s + assetValueKRW(a) : s;
         }, 0);
         if (v > 0 && Array.isArray(benchData[Object.keys(benchData)[0]]?.data?.[o])) ownerWeightMap[o] = v;
       });

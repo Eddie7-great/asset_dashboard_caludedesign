@@ -70,16 +70,13 @@ function cbCls(i){
   if (i.cur === 'USD') return 'us';
   return 'kr';
 }
-function cbRate(cur){ return RATES[cur] != null ? RATES[cur] : 1; }
-// 가상화폐(cur=USD)는 현재가(curP)는 USD, 평단가(avgP)는 KRW(>=1000만) 또는 USD(<1000만)로 저장된다.
-// (script.js 대시보드 계산과 동일한 임계값 규칙) → 종목통화(USD) 기준 평단가로 정규화해 손익·표시를 일치시킨다.
-function cbAvgNative(i){
-  if (i.grp==='가상화폐' && i.cur==='USD' && i.avgP>0 && i.avgP>=10000000) return i.avgP / cbRate('USD');
-  return i.avgP||0;
-}
-function cbValKRW(i){ return (i.qty||0) * (i.curP||0) * cbRate(i.cur); }
-function cbCostKRW(i){ return i.costUnknown ? 0 : (i.qty||0) * cbAvgNative(i) * cbRate(i.cur); }
-function cbGainKRW(i){ return i.grp==='현금' || i.costUnknown ? 0 : cbValKRW(i) - cbCostKRW(i); }
+// 환율·평가액·매입금액의 단일 출처는 core/data.js(curRate·assetValueKRW·assetCostKRW·assetGainKRW·assetAvgNative)다.
+// 여기 cb* 는 이름만 남긴 별칭 — 식을 다시 적지 않는다(2026-11-25 숫자 일관성 점검).
+function cbRate(cur){ return curRate(cur); }
+function cbAvgNative(i){ return assetAvgNative(i); }
+function cbValKRW(i){ return assetValueKRW(i); }
+function cbCostKRW(i){ return assetCostKRW(i); }
+function cbGainKRW(i){ return assetGainKRW(i); }
 
 function cbDisp(vKrw){
   const c = _dispCur, v = vKrw / cbRate(c);
@@ -313,7 +310,10 @@ function cbBrokerLabel(i){ return String((i&&i.broker)||'미지정').trim() || '
 function cbMergeRows(rows){
   const m = new Map();
   rows.forEach(r=>{
-    const key = (r.i.owner||'') + '::' + cbStrip(r.i.tkr) + '::' + r.cls;
+    // 티커가 없는 현금은 통화별, 금은 단위별로 나눈다 — 예전엔 소유주마다 한 줄이 되어 '원화 150만 + 달러 1,234'가
+    // 수량 1,501,234 로, '3돈 + 17.5g' 이 20.5돈으로 보였다(금액 합은 맞았다). 주식·코인은 같은 티커면 그대로 합친다.
+    const unitKey = r.cls==='cash' ? '::' + String(r.i.cur||'KRW') : r.cls==='gold' ? '::' + String(r.i.unit||'g') : '';
+    const key = (r.i.owner||'') + '::' + cbStrip(r.i.tkr) + '::' + r.cls + unitKey;
     if (m.has(key)){
       const g = m.get(key);
       g.qty += (r.i.qty||0); g.val += r.val; g.cost += r.cost; g.gain += r.gain;
@@ -462,9 +462,7 @@ function cbSectorName(key){ return typeof sectorKo==='function' ? sectorKo(key) 
 function cbSectors(includeCrypto, ownerFilter){
   const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
-  const itemValue = i => typeof _bubbleItemValueKRW==='function'
-    ? _bubbleItemValueKRW(i, curRate('USD'))
-    : cbValKRW(i);
+  const itemValue = i => cbValKRW(i);
   // 대시보드와 비중 차트 모두 현금·금까지 포함한 전체 포트폴리오를 분모로 사용한다.
   // 표시 목록은 섹터 집중도 성격에 맞게 주식(+선택 시 가상화폐)만 유지한다.
   const total = base.reduce((sum,i)=>sum+Math.max(0,itemValue(i)),0);
@@ -1653,6 +1651,12 @@ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
 }
 // ───────────────────────── 라우팅 통합 ─────────────────────────
 function cbRerender(){
+  // 오늘 투자자산 기록(메모리)을 지금 시세로 맞춘 뒤 그린다 — 홈 '최근 30일' 추이·성과 '투자자산 추이'의 마지막 점이
+  // 홈 총액 카드와 같은 금액이어야 한다. 예전엔 자동 새로고침(10분)·환율 갱신 뒤에 기록이 그대로라 둘이 달랐다.
+  // 저장은 하지 않는다(KV 의 오늘 값은 전체 새로고침·다음 접속 때 saveNetWorthSnapshot 이 같은 계산으로 덮는다).
+  if (window._kvLoadState?.assets==='ready' && window._kvLoadState?.ext==='ready' && typeof updateNetWorthSnapshot==='function'){
+    try{ updateNetWorthSnapshot(); }catch(e){ console.warn('[snapshot sync]', e); }
+  }
   if (_cobaltActive && CB_VIEWS[_cobaltActive]){
     try{
       if(_cobaltActive==='sim2'&&document.getElementById('sim-result')){simUpdate();retUpdate();}

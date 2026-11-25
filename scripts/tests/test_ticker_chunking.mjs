@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
-import { readSource } from './_source.mjs'
+import { readSource, assetValueSource } from './_source.mjs'
 
 const source = readSource('script.js')
 
@@ -386,6 +386,7 @@ for(const failure of [-1,2]) {
     },
   })
   vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext(assetValueSource(), ctx)
   vm.runInContext(extractFunction('fetchBenchmarkData'), ctx)
   const result = await vm.runInContext('fetchBenchmarkData()', ctx)
 
@@ -422,6 +423,7 @@ for(const failure of [-1,2]) {
     }),
   })
   vm.runInContext(CHUNK_DECL, ctx)
+  vm.runInContext(assetValueSource(), ctx)
   vm.runInContext(extractFunction('fetchBenchmarkData'), ctx)
   const result = await vm.runInContext('fetchBenchmarkData()', ctx)
   assert.equal(result.ok, false, '보유 종목이 있는데 포트폴리오 라인이 없으면 실패로 보고한다')

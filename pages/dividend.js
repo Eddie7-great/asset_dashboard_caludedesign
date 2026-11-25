@@ -52,7 +52,8 @@ function cbDivMonthlyForYear(list, year, netBasis=false){
   if (year===cur){
     // 올해 이후 → 예상: 연 배당을 지급 주기 월에 균등 배분
     list.forEach(x=>{
-      const ms = (x.d.months && x.d.months.length) ? x.d.months : cbDefaultDivMonths(x.d.cycle);
+      // 지급월·1회 금액은 결산·현금 흐름 자동 배당과 같은 단일 출처(core/dividend.js divPayMonthsOf).
+      const ms = typeof divPayMonthsOf==='function' ? divPayMonthsOf(x.d) : ((x.d.months && x.d.months.length) ? x.d.months : cbDefaultDivMonths(x.d.cycle));
       const per = x.incomeKRW / ms.length;
       ms.forEach(m=>{
         const mi=((m%12)+12)%12;
@@ -122,7 +123,8 @@ function cbUpcomingDividendSchedule(list, days=90, asOf=null){
   end.setDate(end.getDate()+Math.max(1,Number(days)||90));
   const events=[];
   (list||[]).forEach(x=>{
-    const months=Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:cbDefaultDivMonths(x.d?.cycle))
+    // 지급월은 배당 화면 막대·결산·현금 흐름과 같은 단일 출처(core/dividend.js divPayMonthsOf).
+    const months=typeof divPayMonthsOf==='function'?divPayMonthsOf(x.d||{}):Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:cbDefaultDivMonths(x.d?.cycle))
       .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12)));
     const exactDay=Number(x.d?.payDay);
     const hasExactDay=Number.isInteger(exactDay)&&exactDay>=1&&exactDay<=31;

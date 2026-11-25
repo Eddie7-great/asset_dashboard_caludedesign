@@ -445,15 +445,18 @@ async function autoAddDividendCashFlow(silent=false) {
   const annualLots=[];
   const scheduleKnownTickers=new Set();
   divStocks.forEach(s => {
-    const eps=Number(s.eps)||0;
-    const months=[...new Set((Array.isArray(s.months)?s.months:[])
-      .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12))];
+    // 금액·지급월은 배당 화면과 같은 단일 출처(core/dividend.js divPerPaymentDps·divPayMonthsOf).
+    // 내장 배당표(_divSource 'db', 고정값)로는 금액을 만들지 않는다 — 배당 화면에 없는 배당이 기록되던 원인이다.
+    if(s._divSource==='db') return;
+    const eps=divPerPaymentDps(s);
+    const reported=(Array.isArray(s.months)?s.months:[]).map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12);
+    const months=divPayMonthsOf(s);
     if(eps<=0||months.length===0) return;
     const rate = curRate(s.cur);
     const tkrNorm = String(s.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');
-    // 캐시/API에서 확인한 일정만 파괴적 stale 정리의 근거로 사용한다.
-    // 정적 DB 폴백은 조회 실패 때도 나타날 수 있어 기존 행 삭제 근거로는 부족하다.
-    if(s._divSource==='cache') scheduleKnownTickers.add(tkrNorm);
+    // 캐시/API에서 확인한 일정만 파괴적 stale 정리의 근거로 사용한다. 지급월을 받지 못해 주기로 짐작한 일정
+    // (reported 가 빈 경우)은 '이 달은 지급 없음'의 근거가 아니다.
+    if(s._divSource==='cache'&&reported.length) scheduleKnownTickers.add(tkrNorm);
     const cycleLabel = cycleMap[s.cycle]||s.cycle||'배당';
     const holdings = pfolioData.filter(i => {
       const t6 = String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/i,'');

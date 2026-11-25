@@ -106,6 +106,7 @@ context.window = {
     BBB:{eps:1,months:[5],cur:'KRW'},
   },
 }
+for (const name of ['curRate', '_defaultMonthsForCycle', 'divPayMonthsOf', 'divPerPaymentDps']) vm.runInContext(extractFunction(scriptSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'syncDivHistory'), context)
 context.syncDivHistory()
 assert.equal(Math.round(context.divHistory['2026']['본인'][2]), 1_934_000, 'legacy 3월 ISA 세후 배당 비례 배분')
@@ -166,6 +167,7 @@ vm.runInContext(extractFunction(scriptSource, 'getAccountDivTaxInfo'), cashConte
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), cashContext)
 vm.runInContext(extractFunction(scriptSource, '_normDivKey'), cashContext)
 vm.runInContext(extractFunction(scriptSource, '_divPayDateStr'), cashContext)
+for (const name of ['_defaultMonthsForCycle', 'divPayMonthsOf', 'divPerPaymentDps']) vm.runInContext(extractFunction(scriptSource, name), cashContext)
 vm.runInContext(extractFunction(scriptSource, 'autoAddDividendCashFlow'), cashContext)
 
 const firstCashSync = await cashContext.autoAddDividendCashFlow(true)
