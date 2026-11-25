@@ -263,9 +263,15 @@ assert.match(styleSource, /#view-holdings \.pt-table th\.holdings-owner-head,[\s
 assert.match(scriptSource, /const _BUBBLE_THEME_TONES = \{[\s\S]*light:[\s\S]*dark:/, '비중 차트의 동일 색 구성 규칙을 밝은 본문·다크별 톤으로 적용')
 assert.doesNotMatch(scriptSource, /_BUBBLE_THEME_TONES\.navy|navy:\s*\{/, '네이비 테마 톤은 없앴다')
 assert.match(scriptSource, /function _bubbleSectorColor\(sector\)[\s\S]*tone\.sectorSat,tone\.sectorLight/, '비중 차트 섹터 기준색은 공통 hue와 테마별 채도·명도로 생성')
-assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*const hue=base\+\(\(hash%13\)-6\)[\s\S]*tone\.leafSat[\s\S]*tone\.leafLight/, '모든 테마에서 섹터 hue를 유지하며 종목별 파스텔 명도만 변형')
-assert.match(scriptSource, /const _BUBBLE_OWNER_SECTORS = \{[\s\S]*function _bubbleOwnerColor\(owner\)[\s\S]*_SECTOR_HUES\[sector\][\s\S]*tone\.sectorSat\+3,tone\.sectorLight-3/, '소유주 구분점도 섹터 팔레트와 같은 테마별 색 생성 규칙 사용')
-assert.match(scriptSource, /function _bubbleOwnerFill\(owner,panelColor\)[\s\S]*colors\.push\(_bubbleOwnerFill\(owner,panelColor\)\)/, '전체 보기의 소유주 칸은 테마별 옅은 채움으로 구분')
+assert.match(scriptSource, /function _bubbleLeafColor\(sector,key\)[\s\S]*const hue=base\+\(\(hash%13\)-6\)[\s\S]*tone\.leafSat[\s\S]*tone\.leafLight[\s\S]*_bubbleHsla\(hue,sat,light,tone\.leafAlpha\)/, '종목 칸은 섹터 hue 를 유지한 반투명 유리 타일')
+assert.match(scriptSource, /function _bubbleGroupFill\(sector\)[\s\S]*tone\.grpAlpha[\s\S]*colors\.push\(_bubbleGroupFill\(sector\)\)/, '섹터 칸은 같은 hue 의 아주 옅은 유리')
+assert.match(scriptSource, /function _bubbleOwnerFill\(\)\{\s*return _bubbleGlass\(\)\.ownerFill;[\s\S]*colors\.push\(_bubbleOwnerFill\(\)\)/, '소유주 칸은 색 없는 흰 유리')
+assert.match(scriptSource, /color: _bubbleGlass\(\)\.line,\s*width: 1\.5/, '트리맵 칸 테두리는 테마별 반투명 흰 선')
+assert.match(scriptSource, /textfont: \{[\s\S]{0,120}color: textColor\s*\}/, '유리 칸 글자는 모든 칸에서 테마 글자색')
+{
+  const tones = scriptSource.match(/const _BUBBLE_THEME_TONES = \{[\s\S]*?\n\};/)[0];
+  for (const a of [...tones.matchAll(/(?:leaf|grp)Alpha:([.\d]+)/g)].map(m => Number(m[1]))) assert.ok(a > 0 && a <= 0.6, '유리 타일 투명도는 0.6 이하');
+}
 assert.match(scriptSource, /const trace = \{\n\s*type: 'treemap',[\s\S]*tiling: \{ packing: 'squarify'[\s\S]*pathbar: \{ visible: true[\s\S]*textinfo: 'label\+percent root',[\s\S]*text: labels\.map\(\(label, i\) => customdata\[i\]\.kind === 'leaf' \? _bubbleWrapLabel\(label\) : label\),\n\s*texttemplate: customdata\.map\(d => \(d\.kind === 'leaf' && d\.weight < 2\) \? '<b>%\{text\}<\/b>' : '<b>%\{text\}<\/b><br>%\{percentRoot:\.1%\}'\)[\s\S]*size: 16,/, '비중 분석은 트리맵 — 경로 막대로 드릴다운 위치를 보여 주고 칸 안에 굵은 이름·비중을 16px 로 쓴다(작은 칸은 이름만)')
 {
   const wrapContext = {}

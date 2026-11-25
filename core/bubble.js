@@ -104,9 +104,26 @@ function _bubbleWrapLabel(name){
 // 색 구성 규칙은 세 테마가 공유하고, 배경에 맞춰 채도·명도만 바꾼다.
 // sector는 기준 웨지, leaf는 같은 hue 안에서 종목별로 밝기만 부드럽게 달라진다.
 const _BUBBLE_THEME_TONES = {
-  light: { sectorSat:40, sectorLight:68, leafSat:32, leafSatRange:11, leafLight:72, leafLightRange:11 },
-  dark:  { sectorSat:46, sectorLight:69, leafSat:42, leafSatRange:12, leafLight:65, leafLightRange:10 }
+  light: { sectorSat:40, sectorLight:68, leafSat:58, leafSatRange:8, leafLight:54, leafLightRange:8, leafAlpha:.42, grpSat:60, grpLight:55, grpAlpha:.14 },
+  dark:  { sectorSat:46, sectorLight:69, leafSat:56, leafSatRange:8, leafLight:60, leafLightRange:8, leafAlpha:.50, grpSat:55, grpLight:60, grpAlpha:.16 }
 };
+// 트리맵 칸은 '유리 타일'이다(2026-11-25 사용자 결정 A안) — 섹터 색(hue)은 그대로 두고 반투명으로 칠해
+// 뒤 배경 색이 비쳐 오게 한다. 소유주·전체 칸은 색 없는 흰 유리, 섹터 칸은 아주 옅게, 종목 칸만 조금 진하게.
+const _BUBBLE_GLASS = {
+  light: { ownerFill:'rgba(255,255,255,0.28)', line:'rgba(255,255,255,0.75)' },
+  dark:  { ownerFill:'rgba(255,255,255,0.035)', line:'rgba(255,255,255,0.16)' }
+};
+function _bubbleGlass(){ return _BUBBLE_GLASS[_bubbleThemeKey()]||_BUBBLE_GLASS.light; }
+function _bubbleHsla(h,s,l,a){
+  const hh=((Math.round(h)%360)+360)%360;
+  return `hsla(${hh},${Math.round(s)}%,${Math.round(l)}%,${a})`;
+}
+// 섹터 칸: 같은 hue 의 아주 옅은 유리.
+function _bubbleGroupFill(sector){
+  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
+  const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
+  return _bubbleHsla(hue,tone.grpSat,tone.grpLight,tone.grpAlpha);
+}
 // 다크·네이비는 어두운 바탕이라 같은 톤을 쓴다.
 function _bubbleThemeKey(){
   return isDarkTheme()?'dark':'light';
@@ -116,38 +133,9 @@ function _bubbleSectorColor(sector){
   const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
   return _bubbleHslHex(hue,tone.sectorSat,tone.sectorLight);
 }
-// 소유주 웨지도 섹터와 같은 hue·테마 톤 생성기를 사용한다.
-// 임의의 별도 팔레트를 섞지 않아 중심 링과 바깥 섹터 링이 한 차트처럼 이어진다.
-const _BUBBLE_OWNER_SECTORS = {
-  '전체': 'Index ETF',
-  '본인': 'Technology',
-  '아내': 'Consumer Discretionary',
-  '자녀1': 'Financial Services',
-  '아버지': 'Communications Services'
-};
-function _bubbleOwnerColor(owner){
-  const tone=_BUBBLE_THEME_TONES[_bubbleThemeKey()]||_BUBBLE_THEME_TONES.light;
-  const sector=_BUBBLE_OWNER_SECTORS[owner]||'Other';
-  const hue=Number(_SECTOR_HUES[sector]??_SECTOR_HUES.Other);
-  return _bubbleHslHex(hue,tone.sectorSat+3,tone.sectorLight-3);
-}
-function _bubbleOwnerFill(owner,panelColor){
-  const theme=_bubbleThemeKey();
-  const mixToPanel=theme==='light'?0.82:theme==='dark'?0.72:0.68;
-  return _bubbleBlend(_bubbleOwnerColor(owner),panelColor,mixToPanel);
-}
-function _bubbleBlend(hex,target,amount){
-  const parse=v=>{
-    const s=String(v||'').trim();
-    // 유리 테마의 판 색은 rgba(...) 다 — 투명도는 버리고 색만 섞는다.
-    const rgb=s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-    if(rgb) return [Number(rgb[1]),Number(rgb[2]),Number(rgb[3])];
-    const m=s.match(/^#([0-9a-f]{6})$/i); if(!m) return null;
-    return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];
-  };
-  const a=parse(hex), b=parse(target); if(!a||!b) return hex;
-  const mix=a.map((v,i)=>Math.round(v+(b[i]-v)*amount));
-  return '#'+mix.map(v=>v.toString(16).padStart(2,'0')).join('');
+// 소유주 칸: 색 없는 흰 유리(테마 바탕이 비친다). 소유주 구분은 칸 이름과 경로 막대가 맡는다.
+function _bubbleOwnerFill(){
+  return _bubbleGlass().ownerFill;
 }
 function _bubbleHash(value){
   let h=2166136261;
@@ -173,7 +161,7 @@ function _bubbleLeafColor(sector,key){
   const hue=base+((hash%13)-6);
   const sat=tone.leafSat+((hash>>>8)%tone.leafSatRange);
   const light=tone.leafLight+((hash>>>16)%tone.leafLightRange);
-  return _bubbleHslHex(hue,sat,light);
+  return _bubbleHsla(hue,sat,light,tone.leafAlpha);
 }
 
 // 개별 종목 → RBICS L1 섹터 추정 (주식 전용). 영문 섹터명 반환.
@@ -378,7 +366,6 @@ function renderBubbleChart(mode) {
   const totalVal = baseItems.reduce((s, x) => s + x.val, 0) || 1;
   const isDark = isDarkTheme();
   const textColor = cssVar('--t1',isDark?'#e7e9ee':'#18213a');
-  const panelColor = cssVar('--modal-bg',isDark?'#15181e':'#ffffff');
 
   // ── 계층 구축: ROOT → (전체 모드일 때) owner → grp → name ──
   // Plotly sunburst 는 ids / labels / parents / values 배열로 트리를 받는다.
@@ -438,9 +425,8 @@ function renderBubbleChart(mode) {
       labels.push(owner);
       parents.push(rootId);
       values.push(ownerVal);
-      // 소유주 링은 섹터 팔레트의 같은 hue를 쓰되 테마 패널색과 섞어 옅게 채운다.
-      // 소유주 구분은 유지하면서 바깥 섹터·종목 링보다 시각적 우선순위가 낮게 보인다.
-      colors.push(_bubbleOwnerFill(owner,panelColor));
+      // 소유주 칸은 색 없는 흰 유리 — 바깥 섹터·종목 칸보다 시각적 우선순위가 낮다.
+      colors.push(_bubbleOwnerFill());
       customdata.push({ kind: 'owner', owner, name: owner, weight: ownerWeight, value: ownerVal });
       parentIdForSec = oid;
     } else {
@@ -454,12 +440,11 @@ function renderBubbleChart(mode) {
       const secVal = secMap[sector];
       const secWeight = (secVal / totalVal) * 100;
       const gid = `G::${owner}::${sector}`;
-      const secColor = _bubbleSectorColor(sector);
       ids.push(gid);
       labels.push(sectorKo(sector));   // 화면 이름만 한글 — id·색·비교 키는 영어 그대로
       parents.push(parentIdForSec);
       values.push(secVal);
-      colors.push(_bubbleBlend(secColor,panelColor,isDark?0.10:0.06));
+      colors.push(_bubbleGroupFill(sector));
       customdata.push({ kind: 'grp', owner, name: sectorKo(sector), weight: secWeight, value: secVal });
 
       // 3rd 레이어: 개별 종목(leaf)
@@ -520,8 +505,8 @@ function renderBubbleChart(mode) {
     marker: {
       colors,
       line: {
-        color: _bubbleThemeKey()==='light'?'rgba(255,255,255,.95)':'rgba(13,14,18,.9)',
-        width: 2
+        color: _bubbleGlass().line,
+        width: 1.5
       }
     },
     tiling: { packing: 'squarify', pad: 3 },
@@ -533,12 +518,11 @@ function renderBubbleChart(mode) {
     text: labels.map((label, i) => customdata[i].kind === 'leaf' ? _bubbleWrapLabel(label) : label),
     texttemplate: customdata.map(d => (d.kind === 'leaf' && d.weight < 2) ? '<b>%{text}</b>' : '<b>%{text}</b><br>%{percentRoot:.1%}'),
     textposition: 'top left',
-    // 섹터·종목 칸은 두 테마 모두 밝은 파스텔이라 글자가 항상 진해야 읽히고, 소유주·전체 칸은
-    // 패널색과 섞은 옅은 바탕(다크에서는 어두움)이라 테마 글자색을 쓴다 — 칸마다 글자색을 따로 준다.
+    // 모든 칸이 반투명 유리라 바탕은 테마 밝기를 따른다 — 글자도 모든 칸에서 테마 글자색(--t1)이다.
     textfont: {
       family: "'Manrope','Noto Sans KR',sans-serif",
       size: 16,
-      color: customdata.map(d => (d.kind === 'root' || d.kind === 'owner') ? textColor : '#18213a')
+      color: textColor
     },
     hovertext: hoverText,
     hoverinfo: 'text',
