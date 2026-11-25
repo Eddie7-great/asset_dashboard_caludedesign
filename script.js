@@ -507,6 +507,7 @@ async function liveRefreshDomesticEtfs(prefetch) {
 
 // 주 시세 API와 국내 보완 소스를 한 번의 최종 결과로 합친다.
 async function refreshMarketPrices(){
+  if(typeof _markMarketRefreshStart==='function') _markMarketRefreshStart();   // 자동 새로고침 간격의 기준(core/live-prices.js)
   // 국내 시세는 주 시세와 동시에 받아 두고(기다리는 시간 단축), 반영은 주 시세 뒤에 한다(덮는 순서는 예전 그대로).
   const domTickers=_domesticQuoteTickers();
   const domPrefetch=domTickers.length?_fetchDomesticQuotes(domTickers):null;
@@ -520,6 +521,7 @@ async function refreshMarketPrices(){
   const ok=stale===0&&(primaryResponded||(domesticCoversAll&&domestic?.ok===true));
   const result={ok,stale,primary,domestic,detail:ok?'등록 자산 최신 상태':(stale?`${stale}개 최신 확인 필요`:(primary?.error||'시세 조회 실패'))};
   if(typeof finMarkFresh==='function') finMarkFresh('prices','시장 시세','국내 네이버 직전 종가 · 해외 Yahoo · 코인 업비트',ok,result.detail);
+  if(typeof _stampRefreshButton==='function') _stampRefreshButton();
   return result;
 }
 

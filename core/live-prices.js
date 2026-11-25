@@ -113,7 +113,7 @@ function updateAvgpDecimalMode() {
 function flash(el,dir){if(!el)return;el.classList.remove('flash-up','flash-down','flash-neutral');void el.offsetWidth;el.classList.add(dir==='up'?'flash-up':dir==='down'?'flash-down':'flash-neutral');setTimeout(()=>el.classList.remove('flash-up','flash-down','flash-neutral'),1400);}
 
 // =============================================
-// 실시간 시세 갱신 (30초)
+// 시세 새로고침 — 버튼(manualRefresh)과 자동 새로고침(autoRefreshIfStale, 아래)이 같은 경로를 쓴다
 // =============================================
 let _manualRefreshRunning=false;
 async function manualRefresh(source='all') {
@@ -121,7 +121,10 @@ async function manualRefresh(source='all') {
   _manualRefreshRunning=true;
   const btn = document.getElementById('sidebar-refresh-btn');
   if(btn) btn.style.opacity='0.6';
-  const wants=key=>source==='all'||source===key;
+  // source: 'all' · 한 출처 키 · 출처 키 배열(자동 새로고침이 ['prices','rates'] 처럼 부른다).
+  // 배열은 'all' 이 아니므로 원장 다시 읽기·자동이체 실체화·스냅샷 저장은 하지 않는다.
+  const keys=Array.isArray(source)?source:[source];
+  const wants=key=>keys.includes('all')||keys.includes(key);
   let assetsResult={ok:window._kvLoadState?.assets==='ready',skipped:true};
   let extResult={ok:window._kvLoadState?.ext==='ready',skipped:true};
   const results={};
@@ -173,6 +176,72 @@ async function manualRefresh(source='all') {
     _manualRefreshRunning=false;
     if(btn) btn.style.opacity='1';
   }
+}
+
+// =============================================
+// 자동 새로고침 (2026-11-25 사용자 요청 — '새로고침 버튼을 항상 눌러야 하나?')
+// 로그인 직후에는 initDashboard 가 이미 시세·환율·배당·벤치마크를 한 번 받는다. 문제는 탭을 켜 둔 채
+// 다른 일을 하다 돌아왔을 때였다 — 예전에는 주기 갱신이 없어(위 '30초' 제목은 옛 흔적) 버튼을 눌러야 했다.
+// 이제는 화면이 보이는 동안 마지막 시세 확인이 AUTO_REFRESH_MIN_MS 보다 오래됐으면 스스로 다시 받는다.
+//   · 시세는 '직전 종가' 기준(국내 15:40 규칙·해외 완료된 봉)이라 몇 초마다 부를 이유가 없다 → 10분 간격.
+//   · 날짜가 바뀌었으면 배당·벤치마크(1년치 일봉이라 무겁다)도 함께 — 같은 날 안에서는 시세·환율만.
+//   · 탭이 안 보이면(다른 탭·최소화) 부르지 않는다 → 켜 둔 탭이 밤새 API 를 부르지 않는다.
+//   · 입력 중이거나 창(모달)이 열려 있으면 미룬다 — 화면을 다시 그리면 치던 칸의 포커스가 사라진다.
+// 서버 API 는 모두 Cache-Control: no-store 라 중간 캐시는 없고, 외부 출처(네이버·Yahoo·업비트) 호출 수는
+// 탭이 보이는 시간 1시간당 최대 6번으로 묶인다.
+// =============================================
+const AUTO_REFRESH_MIN_MS = 10*60*1000;
+const AUTO_REFRESH_CHECK_MS = 60*1000;
+let _lastMarketRefreshAt = 0;    // refreshMarketPrices 를 시작한 시각(성공·실패 무관 — 실패해도 10분은 기다린다)
+let _lastMarketRefreshDay = '';  // 그때의 로컬 날짜(YYYY-MM-DD)
+let _autoRefreshStarted = false;
+
+// 순수 판단: 지금 자동으로 다시 받을 출처 목록, 받지 않으면 null.
+function autoRefreshPlan(st){
+  if(!st||!st.ready||!st.visible||st.busy||st.editing) return null;
+  if(!st.lastAt) return null;   // 첫 조회(initDashboard)가 아직 시작되지 않았다
+  if(st.lastDay&&st.today&&st.today!==st.lastDay) return ['prices','rates','dividends','benchmark'];
+  if(st.now-st.lastAt>=AUTO_REFRESH_MIN_MS) return ['prices','rates'];
+  return null;
+}
+function _autoRefreshEditing(){
+  const a=document.activeElement;
+  if(a&&(a.matches?.('input,textarea,select,[contenteditable="true"]'))) return true;
+  return [...document.querySelectorAll('.modal-overlay')].some(m=>!m.hidden&&getComputedStyle(m).display!=='none');
+}
+function _autoRefreshState(){
+  const loginShown=document.getElementById('login-overlay')?.style.display==='flex';
+  return {
+    now:Date.now(), lastAt:_lastMarketRefreshAt, lastDay:_lastMarketRefreshDay, today:_cfLocalDateKey(new Date()),
+    ready:_dashboardInitStarted&&!loginShown&&!_boot&&window._kvLoadState?.assets==='ready',
+    visible:document.visibilityState!=='hidden',
+    busy:_manualRefreshRunning,
+    editing:_autoRefreshEditing(),
+  };
+}
+async function autoRefreshIfStale(){
+  const plan=autoRefreshPlan(_autoRefreshState());
+  if(!plan) return null;
+  return manualRefresh(plan);
+}
+function startAutoRefresh(){
+  if(_autoRefreshStarted) return;
+  _autoRefreshStarted=true;
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') autoRefreshIfStale(); });
+  window.addEventListener('focus',()=>autoRefreshIfStale());
+  setInterval(()=>autoRefreshIfStale(),AUTO_REFRESH_CHECK_MS);
+}
+function _markMarketRefreshStart(){
+  _lastMarketRefreshAt=Date.now();
+  _lastMarketRefreshDay=_cfLocalDateKey(new Date());
+}
+// 사이드바 새로고침 버튼 말풍선에 마지막 시세 확인 시각을 적는다 — 자동으로 받았는지 눈으로 확인할 수 있게.
+function _stampRefreshButton(){
+  const btn=document.getElementById('sidebar-refresh-btn');
+  if(!btn||!_lastMarketRefreshAt) return;
+  const d=new Date(_lastMarketRefreshAt);
+  const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  btn.title=`새로고침 · 시세 마지막 확인 ${hm} (화면을 보고 있으면 10분마다 자동)`;
 }
 
 // 서버(api/price.ts·api/dashboard.py)는 요청당 티커 개수를 제한한다(MAX_TICKERS=25,

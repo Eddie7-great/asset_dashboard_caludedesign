@@ -164,6 +164,8 @@ function initDashboard(){
     // 액면분할·병합 자동 반영 — 각 항목의 기준일(splitCheckedAt) 이후 분할만 반영한다.
     if(assetsResult?.ok) checkSplitAdjustments();
   })();
+  // 그 뒤로는 화면이 보이는 동안 시세가 10분 넘게 묵으면 스스로 다시 받는다(core/live-prices.js autoRefreshIfStale).
+  startAutoRefresh();
 }
 
 // 주소의 미리보기 파라미터만으로 인증을 건너뛸 수 없다. 같은 출처 부모가 소유한

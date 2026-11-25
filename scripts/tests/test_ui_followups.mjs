@@ -146,11 +146,11 @@ assert.match(styleSource, /:is\(span,small,em\)\[data-tip\][^{]*::after\{content
 assert.match(styleSource, /\.cb-thead,\s*\.pt-table th\{[\s\S]*font-family:var\(--font-ui\)/, '페이지별 칼럼명 폰트를 자산 내역과 통일')
 assert.match(styleSource, /\.cb-perf-card-grid\{display:grid;grid-template-columns:repeat\(6,minmax\(124px,1fr\)\)/, '성과 비교 상단 소유주·지수 카드를 한 줄로 유지')
 assert.match(styleSource, /\.cb-perf-card-grid\{[^}]*overflow:visible/, '성과 비교 상단 카드의 외곽선 때문에 세로 스크롤바가 생기지 않게 함')
-assert.match(cobaltSource, /const entities = \[\s*\.\.\.OWNERS\.map/, '성과 데이터 유무와 무관하게 모든 소유주 탭·그래프 범례 유지')
+assert.match(cobaltSource, /const entities = \[\s*\{key:'S&P 500'[^\n]*\n\s*\{key:'KOSPI'[^\n]*\n\s*\.\.\.OWNERS\.map/, '비교 지수(S&P 500 → KOSPI)를 소유주보다 앞에 두고, 성과 데이터 유무와 무관하게 모든 소유주 카드·범례 유지(2026-11-25 사용자 결정)')
 assert.match(cobaltSource, /if \(id==='perf2'\) cbVerifyPerfOwnersOnOpen\(\)/, '성과 비교 진입 때 누락 소유주 데이터 재검증')
 assert.match(styleSource, /\.cb-perf-detail-grid\{display:grid;grid-template-columns:minmax\(0,1fr\)/, '성과 비교 하단은 한 표(2026-11-17 3차 — 좌우 두 표는 순위를 눈으로 맞춰야 했다)')
 assert.equal((cobaltSource.match(/<div class="cb-perf-detail-table">/g) || []).length, 1, '수익률 표는 하나')
-assert.match(cobaltSource, /const sortedRows = rows\.slice\(\)\.sort\([\s\S]*?return bv-av;/, '선택 기간 수익률 높은 순으로 정렬(값 없는 줄은 끝)')
+assert.match(cobaltSource, /const sortedRows = rows\.slice\(\)\.sort\(\(a,b\)=>\{\s*if \(a\.e\.isBench!==b\.e\.isBench\) return a\.e\.isBench\?-1:1;[\s\S]*?return bv-av;/, '수익률 표는 비교 지수 두 줄을 맨 위에 고정하고, 소유주는 선택 기간 수익률 높은 순(값 없는 줄은 끝)')
 assert.match(cobaltSource, /\$\{cbPerfBarHtml\(r\.vals\[tfIdx\], perfBarMax, r\.e\.color\)\}/, '선택 기간 수익률 막대 칸')
 {
   const perfCtx = {}
