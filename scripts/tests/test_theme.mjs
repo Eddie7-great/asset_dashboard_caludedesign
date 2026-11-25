@@ -43,10 +43,12 @@ assert.match(script, /function isDarkTheme\(\) \{\s*const t = document\.body\.ge
 // CSS: 라이트는 :root, 다크·네이비는 공통 블록 + 네이비 덮어쓰기. 예전 '라이트(사이드바만)' 블록은 없다
 assert.match(style, /:root \{[\s\S]*--side-bg:var\(--glass\);[\s\S]*--fs-title:22px;[\s\S]*--seg-bg:/, '라이트에 사이드바·크기·세그먼트 토큰');
 assert.match(style, /\[data-theme="dark"\],\[data-theme="navy"\] \{[^}]*--side-bg:/, '다크·네이비 공통 토큰');
-assert.match(style, /\[data-theme="navy"\] \{[^}]*--glass:rgba\(24,42,84,/, '네이비 유리 색');
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--glass:rgba\(255,255,255,/, '네이비 유리판은 색 없는 흰 투명(2026-11-25)');
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--app-mesh:/, '네이비는 자기 배경 빛');
+assert.match(style, /body\{[^}]*background:var\(--app-mesh\),var\(--app-base\)/, '바탕 = 빛 덩어리 + 기본 그라데이션');
 assert.doesNotMatch(style, /\[data-theme="light"\]/, '사이드바만 밝던 라이트 블록은 없앴다');
 // 유리 토큰은 세 테마 모두 정의하고, 카드는 반투명 바탕 + 옅은 그림자
-for (const tok of ['--glass:rgba(', '--glass-edge:', '--glass-hi:', '--glass-rim:', '--app-mesh:', '--gshadow:0 1px 2px']) {
+for (const tok of ['--glass:rgba(', '--glass-edge:', '--glass-hi:', '--glass-rim:', '--app-mesh:', '--app-base:', '--glass-sheen:', '--gshadow:0 1px 2px']) {
   assert.ok(style.slice(style.indexOf(':root {'), style.indexOf('}', style.indexOf(':root {'))).includes(tok), '라이트 ' + tok);
 }
 assert.match(style, /\.glass-panel\.menu-col\{background:var\(--side-bg\)/, '사이드바는 --side-* 토큰으로만 칠한다');
@@ -57,7 +59,13 @@ assert.match(glass, /backdrop-filter:blur\(var\(--glass-blur\)\) saturate\(var\(
 assert.doesNotMatch(glass.split('@media')[0], /:is\(\.glass-panel/, '유리판 선택자를 :is() 로 묶지 않는다');
 assert.match(glass, /@media\(max-width:768px\)\{:root,body\{--glass-blur:10px/, '휴대폰은 흐림을 낮춘다');
 assert.match(glass, /@media\(prefers-reduced-transparency:reduce\)\{[\s\S]*backdrop-filter:none;background:var\(--panelSolid\)/, '투명도 줄이기는 불투명 판');
-assert.match(glass, /#login-overlay,\.boot-splash\{background:var\(--app-mesh\)/, '로그인·로딩도 같은 배경');
+assert.match(glass, /#login-overlay,\.boot-splash\{background:var\(--app-mesh\),var\(--app-base\)/, '로그인·로딩도 같은 배경');
+assert.match(glass, /background:var\(--glass-sheen\),var\(--glass\)/, '유리판 = 빛 반사 + 색 없는 투명');
+for (const th of ['', '[data-theme="dark"],[data-theme="navy"] {', '[data-theme="navy"] {']) {
+  const blk = th ? style.slice(style.indexOf(th), style.indexOf('}', style.indexOf(th))) : style.slice(style.indexOf(':root {'), style.indexOf('}', style.indexOf(':root {')));
+  const a = Number((blk.match(/--glass:rgba\(255,255,255,([.\d]+)\)/) || [])[1]);
+  assert.ok(a > 0 && a <= 0.4, `유리판 불투명도는 0.4 이하여야 뒤가 비친다 (${th || ':root'}: ${a})`);
+}
 
 // 세그먼트·전환 탭은 선택 항목을 강조색 바탕으로 칠하지 않는다 — 시뮬레이터 종류 탭은 밑줄형
 assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\](?:,\.view-mode-bar>button\.cb-btn\[aria-pressed=true\])?\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/, '시뮬레이터 탭은 밑줄로 선택 표시');
