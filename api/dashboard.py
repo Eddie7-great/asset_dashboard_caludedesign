@@ -17,7 +17,6 @@ import re
 import traceback
 import os
 import time
-from collections import Counter
 
 UNAVAILABLE = '미조회'
 SESSION_COOKIE = 'asset_dashboard_session'
@@ -586,10 +585,10 @@ def get_dividends(tickers):
 
             if is_kr:
                 try:
-                    # 1) 배당수익률 & 현재가 → 연간 DPS 추정 (KRX 를 쓸 수 있을 때만)
-                    #    _krx_usable() 이 거짓이면 pykrx 가 빈 응답을 준 것과 같은 상태(가격 0·수익률 0)로
-                    #    아래 yfinance 경로를 탄다 — 예전 운영(로그인 없는 KRX 가 빈 값을 주던 때)과 결과가 같다.
-                    #    yfinance 경로를 pykrx 분기 밖에 두므로 pykrx 미설치·예외 때도 '미조회'로 끝나지 않는다.
+                    # 배당수익률 × 직전 종가 → 연간 DPS 추정. KRX 를 쓸 수 있을 때만(_krx_usable).
+                    # 지급월 이력은 여기서 받지 않는다 — 예전 yfinance(.KS/.KQ) 보조 경로는 yfinance 0.2.x 가
+                    # 시간대가 붙은 날짜를 주어 400일 비교가 TypeError 로 삼켜지는 바람에 한 번도 값을 낸 적이
+                    # 없어 2026-11-25 지웠다. 지급월·주기는 api/price.ts(Yahoo events → 네이버)가 맡는다.
                     yld = 0.0
                     price = 0
                     if _krx_usable():
@@ -605,54 +604,15 @@ def get_dividends(tickers):
                             price = 0
                     annual_dps = round(price * yld / 100) if yld > 0 and price > 0 else 0
 
-                    # 2) 최근 2년 배당 이력 → cycle 및 months 도출
-                    #    pykrx.stock.get_index_fundamental 에는 dividend 가 없으므로
-                    #    get_market_ohlcv_by_date 로는 확인 불가. 대신 개별 배당 이력은
-                    #    krx.get_index_price_deposit / stock_index_dividend 로도 제공되지 않음.
-                    #    → yfinance .KS/.KQ 티커를 보조 수단으로 사용해 월별 지급 이력 확보.
-                    cycle = '-'
-                    months = []
-                    pay_day_kr = None
-                    if YF_OK:
-                        try:
-                            for suf in ('.KS', '.KQ'):
-                                ytkr = f'{tkr}{suf}'
-                                yt = yf.Ticker(ytkr)
-                                divs = yt.dividends
-                                if divs is not None and not divs.empty:
-                                    recent = divs[divs.index >= (datetime.datetime.now() - datetime.timedelta(days=400))]
-                                    if not recent.empty:
-                                        ms = sorted({int(d.month)-1 for d in recent.index})
-                                        months = ms[:12]
-                                        if len(ms) >= 10: cycle = '월배당'
-                                        elif len(ms) >= 3: cycle = '분기'
-                                        elif len(ms) == 2: cycle = '반기'
-                                        elif len(ms) == 1: cycle = '연간'
-                                        # yfinance에서 annual_dps 재확인 (pykrx DIV 부재 시)
-                                        if annual_dps == 0:
-                                            annual_dps = round(float(recent.sum()))
-                                            if price > 0 and annual_dps > 0:
-                                                yld = round(annual_dps/price*100, 2)
-                                        # 최빈 지급일(day-of-month)
-                                        pay_days_kr = [d.day for d in recent.index]
-                                        if pay_days_kr:
-                                            pay_day_kr = int(Counter(pay_days_kr).most_common(1)[0][0])
-                                        break
-                        except Exception:
-                            pass
-                    # cycle 미상이면 연간으로 가정 (한국 주식 관행: 연 1회 기말배당)
-                    if cycle == '-' and annual_dps > 0:
-                        cycle = '연간'
-                        months = [11]   # 12월 기말 가정
-
                     if annual_dps > 0 or yld > 0:
                         result[tkr] = {
                             'dps': annual_dps,
                             'yld': round(yld, 2),
-                            'cycle': cycle,
-                            'months': months,
+                            # 지급 이력이 없으므로 한국 주식 관행(연 1회 기말배당 — 12월)으로 가정한다.
+                            'cycle': '연간' if annual_dps > 0 else '-',
+                            'months': [11] if annual_dps > 0 else [],
                             'cur': 'KRW',
-                            'payDay': pay_day_kr
+                            'payDay': None
                         }
                         continue
                 except Exception:
@@ -660,40 +620,8 @@ def get_dividends(tickers):
                 result[tkr] = {'dps': UNAVAILABLE, 'yld': UNAVAILABLE, 'cycle': '-', 'months': [], 'cur': 'KRW'}
 
             else:
-                if YF_OK:
-                    try:
-                        t = yf.Ticker(tkr)
-                        info = t.fast_info
-                        div_yield = getattr(info, 'dividend_yield', None) or 0
-                        divs = t.dividends
-                        dps = 0.0
-                        months = []
-                        cycle = '-'
-                        pay_day_us = None
-                        if divs is not None and not divs.empty:
-                            recent = divs[divs.index >= (datetime.datetime.now() - datetime.timedelta(days=400))]
-                            if not recent.empty:
-                                dps = round(float(recent.sum()), 4)
-                                ms = sorted({int(d.month)-1 for d in recent.index})
-                                months = ms[:12]
-                                if len(ms) >= 10: cycle = '월배당'
-                                elif len(ms) >= 3: cycle = '분기'
-                                elif len(ms) == 2: cycle = '반기'
-                                elif len(ms) == 1: cycle = '연간'
-                                pay_days_us = [d.day for d in recent.index]
-                                if pay_days_us:
-                                    pay_day_us = int(Counter(pay_days_us).most_common(1)[0][0])
-                        result[tkr] = {
-                            'dps': dps,
-                            'yld': round(float(div_yield) * 100, 2),
-                            'cycle': cycle,
-                            'months': months,
-                            'cur': 'USD',
-                            'payDay': pay_day_us
-                        }
-                        continue
-                    except Exception:
-                        pass
+                # 해외 종목은 이 엔드포인트가 다루지 않는다 — api/price.ts(Yahoo events + stockanalysis 지급일)가 맡는다.
+                # 예전 yfinance 경로는 위와 같은 시간대 TypeError 로 늘 '미조회'였다(2026-11-25 삭제).
                 result[tkr] = {'dps': UNAVAILABLE, 'yld': UNAVAILABLE, 'cycle': '-', 'months': [], 'cur': 'USD'}
 
         except Exception as e:

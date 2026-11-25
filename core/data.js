@@ -38,6 +38,38 @@ function curRate(cur){
   if (c === 'KRW') return 1;
   return Number.isFinite(RATES[c]) && RATES[c] > 0 ? RATES[c] : 1;
 }
+// ── 종목 한 줄의 원화 금액 — 단일 출처(2026-11-25 숫자 일관성 점검) ──
+// 보유 목록·홈·구성원별·계좌별·비중 지도·섹터·리스크·ETF·결산·순자산 기록·벤치마크 가중치가 모두 이것만 쓴다
+// (cobalt.js 의 cbValKRW·cbCostKRW·cbGainKRW·cbAvgNative 는 이름만 남긴 별칭). 배치는 scripts/net_worth_snapshot.py 의
+// asset_value_krw·report_cost_krw 가 같은 식이고 test_net_worth_snapshot.py 가 대조한다.
+// 예전 보유 목록·비중 지도는 금을 '수량 × 단위 배수 × (1g 시세 || curP)'로 따로 셌다 — curP 는 이미 단위당 원화라
+//   금 시세를 못 받은 날엔 '돈' 단위 금이 3.75배(kg 은 1000배)로 부풀었다. 가상화폐·금·현금은 원화 단가를 먼저
+//   반올림한 뒤 수량을 곱해 수량이 많은 코인은 수천 원씩 다른 화면과 어긋났다. 반올림은 표시할 때만 한다.
+// 가상화폐(cur=USD)는 현재가는 USD, 평단가는 원화(1,000만 이상) 또는 USD(1,000만 미만)로 저장된다 — 종목 통화로 맞춘다.
+const CRYPTO_KRW_AVG_THRESHOLD = 10000000;
+function assetAvgNative(i){
+  const avg = Number(i && i.avgP) || 0;
+  if (i && i.grp==='가상화폐' && String(i.cur||'').toUpperCase()==='USD' && avg>=CRYPTO_KRW_AVG_THRESHOLD) return avg / curRate('USD');
+  return avg;
+}
+function assetValueKRW(i){ return (Number(i && i.qty)||0) * (Number(i && i.curP)||0) * curRate(i && i.cur); }
+function assetCostKRW(i){ return !i || i.costUnknown ? 0 : (Number(i.qty)||0) * assetAvgNative(i) * curRate(i.cur); }
+function assetGainKRW(i){ return !i || i.grp==='현금' || i.costUnknown ? 0 : assetValueKRW(i) - assetCostKRW(i); }
+// 짧은 금액 표기 — 한 벌(2026-11-25). 배당 막대 위 금액·현금 흐름 구성 목록이 같은 모양을 쓴다.
+// 1억 이상 '1억 2,500만', 100만 이상 '1,234만', 1만 이상 '26.5만'(소수 한 자리), 그 밖 '8,000원'.
+// 예전엔 배당 화면(cbDivShortWon)과 현금 흐름(cfShortWon)이 따로 있어 같은 26.5만 원이 '26.5만'·'27만'으로 달리 보였다.
+// 그래프 눈금은 눈금 간격에 맞추는 cbAmtAxisLab(pages/tax.js) — 목적이 다르므로 따로 둔다.
+function shortWon(v){
+  const n = Number(v)||0, a = Math.abs(n), sign = n<0 ? '−' : '';
+  if (a >= 1e8) {
+    const e = Math.floor(a/1e8), m = Math.round((a - e*1e8)/1e4);
+    if (m >= 10000) return sign + (e+1) + '억';
+    return sign + e + '억' + (m ? ' ' + m.toLocaleString('ko-KR') + '만' : '');
+  }
+  if (a >= 1e6) return sign + Math.round(a/1e4).toLocaleString('ko-KR') + '만';
+  if (a >= 1e4) return sign + (Math.round(a/1e3)/10).toLocaleString('ko-KR') + '만';
+  return sign + Math.round(a).toLocaleString('ko-KR') + '원';
+}
 function fmtPriceNative(price, cur){
   const meta = curMeta(cur), d = meta.cashDecimals;
   return meta.symbol + (Number(price)||0).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});

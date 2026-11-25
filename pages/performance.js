@@ -63,8 +63,11 @@ function cbRenderPerf(){
   const rows = entities.map(e=>{
     const g = t => cbLastVal((benchData[t]||{data:{}}).data[e.key]);
     const rv = g(tf);
-    const alpha = (!e.isBench && rv!=null && spSel!=null) ? rv-spSel : null;
-    return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, mdd: mddOf(sel.data[e.key]) };
+    // S&P 500 대비 = 이 줄 수익률 − S&P 500 수익률. KOSPI 도 같은 식으로 적는다(2026-11-25 사용자 요청 — 예전엔 지수 줄이 모두 '—').
+    // S&P 500 자기 줄은 비교 기준이라 '기준'으로 적는다.
+    const isBase = e.key==='S&P 500';
+    const alpha = (!isBase && rv!=null && spSel!=null) ? rv-spSel : null;
+    return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, isBase, mdd: mddOf(sel.data[e.key]) };
   });
   // 하단 표: 비교 지수 두 줄(S&P 500 → KOSPI)을 맨 위에 고정하고, 소유주는 선택 기간 수익률 높은 순(값 없는 줄은 끝).
   // 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
@@ -91,6 +94,7 @@ function cbRenderPerf(){
   );
 
   el.innerHTML = `
+    ${cbTwrCardHtml()}
     <div class="cb-perf-card-grid">
       ${cards.map(p=>`
         <div class="cb-panel cb-perf-card" role="button" tabindex="0" onclick="cbPerfSelToggle('${cbEsc(p.key)}')" style="border-top-color:${p.color};${selKey===p.key?`box-shadow:0 0 0 1.5px ${p.color}`:(selKey?'opacity:.5':'')}">
@@ -128,7 +132,7 @@ function cbRenderPerf(){
             <span>구분</span>
             <span class="cb-perf-bar-head">${tf} 수익률</span>
             ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
-            <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
+            <span><span data-tip="같은 기간 S&P 500 수익률과의 차이 (이 줄 − S&P 500). KOSPI 줄은 두 지수의 차이입니다.">S&amp;P 500 대비</span></span>
             <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
           </div>
           ${sortedRows.map(r=>`
@@ -136,14 +140,62 @@ function cbRenderPerf(){
               <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
               ${cbPerfBarHtml(r.vals[tfIdx], perfBarMax, r.e.color)}
               ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
-              <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
+              <span class="cb-num" style="${r.isBase?'color:var(--lab)':csR(r.alpha)}"><span class="cb-perf-value">${r.isBase?'기준':(r.alpha==null?'—':fmtR(r.alpha))}</span></span>
               <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
             </div>`).join('')}
         </div>
       </div>
-      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
-    </div>`;
+      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 500 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
+    </div>
+    ${cbFxEffectCardHtml()}`;
   cbScrollChartsToLatest(el);
+}
+// ── 환율 효과(2026-11-25 시안) — 외화 주식의 원화 손익 = 평가손익(보유 목록과 같은 값) + 환율 효과 ──
+// 보유 목록의 평가손익은 매입금액도 '오늘 환율'로 바꿔 계산해 환율로 번(잃은) 돈이 빠져 있다. 매수 평균 환율(avgFx)을 적은 종목만
+// 환율 효과 = 수량 × 평균단가 × (오늘 환율 − 매수 환율) 을 더해 원화로 실제 늘어난 돈을 보인다. 평가손익 숫자 자체는 바꾸지 않는다.
+function cbFxEffectRows(items){
+  return (items||[]).filter(i=>i&&i.grp==='주식'&&!i.costUnknown&&(Number(i.qty)||0)>0&&String(i.cur||'KRW').toUpperCase()!=='KRW')
+    .map(i=>{
+      const gain=assetGainKRW(i), fx0=Number(i.avgFx)>0?Number(i.avgFx):null, now=curRate(i.cur);
+      const fx=fx0==null?null:(Number(i.qty)||0)*assetAvgNative(i)*(now-fx0);
+      return {i, gain, fx0, now, fx, total:fx==null?null:gain+fx};
+    })
+    .sort((a,b)=>(b.fx!=null)-(a.fx!=null)||Math.abs(b.total??b.gain)-Math.abs(a.total??a.gain));
+}
+function cbFxEffectCardHtml(){
+  const rows=cbFxEffectRows(pfolioData);
+  if(!rows.length) return '';
+  const known=rows.filter(r=>r.fx!=null), missing=rows.length-known.length;
+  const sum=k=>known.reduce((s,r)=>s+r[k],0);
+  const g=sum('gain'), f=sum('fx'), t=g+f;
+  const sgn=v=>(v>0?'+':v<0?'−':'')+cbKrw(Math.abs(v));
+  const fxTxt=(r)=>{ const u=avgFxUnitOf(r.i.cur), fmt=v=>(v*u).toLocaleString('ko-KR',{maximumFractionDigits:u>1?2:1}); return `${fmt(r.fx0)} → ${fmt(r.now)}`; };
+  const max=Math.max(1,...known.map(r=>Math.abs(r.gain)+Math.abs(r.fx)));
+  const seg=(v,cls)=>v?`<i class="${cls}${v<0?' is-neg':''}" style="width:${(Math.abs(v)/max*100).toFixed(1)}%"></i>`:'';
+  return `<div class="cb-panel cb-fx-card">
+    <div class="cb-fx-head"><div class="cb-panel-title"><span data-tip="보유 목록의 평가손익은 매입금액도 오늘 환율로 바꿔 계산하므로 환율이 오르내려 생긴 손익이 빠져 있습니다. 매수 평균 환율을 적은 종목만 그 몫을 따로 셉니다. 보유 목록 숫자는 바꾸지 않습니다.">환율 효과</span> <small>· 외화 주식 · 원화로 본 손익 = 평가손익 + 환율 효과</small></div></div>
+    ${known.length?`<div class="cb-fx-sum">
+      <div><small>평가손익 <em>보유 목록과 같은 값</em></small><b style="${cbGainStyle(g)}">${sgn(g)}</b></div>
+      <span class="cb-fx-op">+</span>
+      <div><small>환율 효과 <em>매수 때보다 환율 변화</em></small><b style="${cbGainStyle(f)}">${sgn(f)}</b></div>
+      <span class="cb-fx-op">=</span>
+      <div><small>원화로 본 손익</small><b style="${cbGainStyle(t)}">${sgn(t)}</b></div>
+    </div>
+    <div class="cb-fx-list">
+      <div class="cb-fx-row cb-fx-rhead" aria-hidden="true"><span>소유주</span><span>종목</span><span>매수 → 오늘 환율</span><span class="cb-fx-bars-h"><i class="price"></i>주가 <i class="fx"></i>환율</span><span class="r">평가손익</span><span class="r">환율 효과</span><span class="r">합계</span></div>
+      ${known.map(r=>`<div class="cb-fx-row">
+        <span>${cbOwnerTag(r.i.owner)}</span>
+        <span class="cb-fx-name" title="${cbEsc(r.i.name||r.i.tkr)}">${cbFlagCell({cls:cbCls(r.i),i:r.i},22,13)}${cbEsc(cbCls(r.i)==='us'?cbStrip(r.i.tkr):(r.i.name||r.i.tkr))}</span>
+        <span class="cb-num cb-fx-rate">${fxTxt(r)}</span>
+        <span class="cb-fx-bars">${seg(r.gain,'price')}${seg(r.fx,'fx')}</span>
+        <span class="cb-num r" style="${cbGainStyle(r.gain)}">${sgn(r.gain)}</span>
+        <span class="cb-num r" style="${cbGainStyle(r.fx)}">${sgn(r.fx)}</span>
+        <b class="cb-num r" style="${cbGainStyle(r.total)}">${sgn(r.total)}</b>
+      </div>`).join('')}
+    </div>`:`<p class="cb-fx-empty">매수 평균 환율을 적은 외화 주식이 없습니다. 보유 목록에서 종목을 ✎ 수정해 '매수 평균 환율'을 적으면 여기서 나눠 보입니다.</p>`}
+    ${missing?`<p class="cb-fx-note">매수 환율 미입력 ${missing}종목은 합계에서 뺐습니다 — 보유 목록 ✎ 수정에서 적을 수 있습니다.</p>`:''}
+    <p class="cb-fx-note">엔화는 100엔당 원. 매수·매도 입력 창으로 더 산 몫은 입력한 날 환율로 평균냅니다. 세금 계산(해외주식 양도세)은 거래일 환율 기준이라 이 숫자와 다를 수 있습니다.</p>
+  </div>`;
 }
 // 휴대폰은 그래프를 옆으로 밀어 본다 — 처음에는 가장 궁금한 최신 구간(오른쪽 끝, 선 끝 이름표)을 보여 준다.
 // 넓은 화면은 넘치지 않으므로(scrollWidth == clientWidth) 아무 일도 하지 않는다.
@@ -194,4 +246,79 @@ function cbPerfHover(ev, idx){
 function cbPerfHide(){
   const t = document.getElementById('cb-perf-tip'); if(t) t.style.display = 'none';
   const g = document.getElementById('cb-perf-guide'); if(g) g.style.display = 'none';
+}
+
+// ── 진짜 내 수익률 카드(2026-11-25 시안) ──
+// 계산은 reportTwrSeries(workspace-pages.js). 비교 지수는 같은 달의 월말 값으로 월 수익률을 만든다(benchData['1Y']).
+// benchData 의 날짜는 'MM/DD'(연도 없음)라 끝에서부터 거꾸로 읽으며 달이 커지면 한 해 앞으로 본다.
+let _cbTwrOwner='전체';
+function cbBenchMonthEnds(sel, todayKey){
+  const labels=(sel&&sel.labels)||[], out={};
+  if(!labels.length) return out;
+  const today=String(todayKey||finLocalDateKey(new Date()));
+  let y=Number(today.slice(0,4)), lastM=Number(String(labels[labels.length-1]).slice(0,2));
+  if(lastM>Number(today.slice(5,7))) y--;
+  const yms=Array(labels.length); let m0=lastM;
+  for(let i=labels.length-1;i>=0;i--){ const m=Number(String(labels[i]).slice(0,2)); if(m>m0) y--; m0=m; yms[i]=`${y}-${String(m).padStart(2,'0')}`; }
+  ['S&P 500','KOSPI'].forEach(k=>{
+    const arr=(sel.data||{})[k]||[], ends={};
+    yms.forEach((ym,i)=>{ if(Number.isFinite(arr[i])) ends[ym]=arr[i]; });
+    out[k]=ends;
+  });
+  return out;
+}
+function cbBenchMonthReturn(ends, ym){
+  const a=ends&&ends[reportPrevYm(ym)], b=ends&&ends[ym];
+  return Number.isFinite(a)&&Number.isFinite(b)?(1+b/100)/(1+a/100)-1:null;
+}
+function cbTwrOwner(o){ _cbTwrOwner=o; cbRenderPerf(); cbRestoreFilterFocus('cb-perf2','data-twr-owner',o); }
+function cbTwrCardHtml(){
+  if(typeof reportTwrSeries!=='function') return '';
+  const ownerF=_cbTwrOwner==='전체'?null:_cbTwrOwner, todayKey=finLocalDateKey(new Date());
+  const series=reportTwrSeries(reportTimeline(ownerF,todayKey),ownerF,reportLastYms(todayKey,12));
+  const ok=series.filter(m=>!m.none);
+  const ends=cbBenchMonthEnds(benchData['1Y'],todayKey);
+  const benchCum={}; ['S&P 500','KOSPI'].forEach(k=>{ let c=1, any=false; ok.forEach(m=>{ const r=cbBenchMonthReturn(ends[k],m.ym); if(r!=null){ c*=1+r; any=true; } }); benchCum[k]=any?c-1:null; });
+  const pct=v=>v==null?'—':`${v>=0?'+':''}${(v*100).toFixed(1)}%`;
+  const tone=v=>v==null?'color:var(--lab)':v>=0?'color:var(--up)':'color:var(--dn)';
+  const ownerBtns=['전체',...OWNERS].map(o=>`<button class="owner-btn${_cbTwrOwner===o?' active':''}" data-twr-owner="${cbEsc(o)}" aria-pressed="${_cbTwrOwner===o}" onclick="cbTwrOwner('${cbEsc(o)}')">${cbEsc(o)}</button>`).join('');
+  const head=`<div class="fin-section-head"><span><span data-tip="달마다 '값이 오르내린 몫'을 '월초 금액 + 그 달 넣은 돈의 절반'으로 나눈 수익률을 이어 곱했습니다(시간가중). 돈을 더 넣어서 커진 몫은 빼므로 지수와 같은 잣대로 견줄 수 있습니다.">진짜 내 수익률</span> <span style="color:var(--dim);font-weight:500">· 넣은 돈을 뺀 실제 기록 · 월말 기준</span></span><div class="owner-tabs" role="group" aria-label="소유주">${ownerBtns}</div></div>`;
+  if(!ok.length) return `<div class="cb-panel fin-section cb-twr-card">${head}<p class="cb-twr-empty">월말 종목 기록이 두 달 이상 쌓이면 보입니다 — 2026년 10월부터 매일 자동 기록이 남기고 있습니다.</p></div>`;
+  const color=ownerF?cbOwnerColor(ownerF):'var(--acc)';
+  // 누적 선: 0 에서 시작해 달마다 한 점
+  const pts=[{ym:reportPrevYm(ok[0].ym),cum:0,b:{'S&P 500':0,'KOSPI':0}}];
+  const bc={'S&P 500':1,'KOSPI':1};
+  ok.forEach(m=>{ const b={}; ['S&P 500','KOSPI'].forEach(k=>{ const r=cbBenchMonthReturn(ends[k],m.ym); if(r!=null) bc[k]*=1+r; b[k]=r==null?null:bc[k]-1; }); pts.push({ym:m.ym,cum:m.cum,b}); });
+  const W=1100,H=200,pl=52,pr=96,pt=12,pb=26;
+  const vals=pts.flatMap(p=>[p.cum,p.b['S&P 500'],p.b.KOSPI]).filter(v=>v!=null);
+  const hi=Math.max(0.02,...vals), lo=Math.min(-0.02,...vals), stepRaw=(hi-lo)/4;
+  const step=[0.01,0.02,0.05,0.1,0.2,0.5].find(s=>s>=stepRaw)||1;
+  const top=Math.ceil(hi/step)*step, bottom=Math.floor(lo/step)*step;
+  const X=i=>pl+(pts.length<=1?0:i/(pts.length-1))*(W-pl-pr), Y=v=>pt+(top-v)/(top-bottom)*(H-pt-pb);
+  const ticks=[]; for(let v=bottom;v<=top+1e-9;v+=step) ticks.push(v);
+  const line=(get,attrs)=>{ let d=''; pts.forEach((p,i)=>{ const v=get(p); if(v==null) return; d+=(d?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1); }); return d?`<path d="${d}" fill="none" ${attrs}/>`:''; };
+  const lastI=pts.length-1;
+  const endLab=(v,txt,cls)=>v==null?'':`<text x="${X(lastI)+8}" y="${(Y(v)+4).toFixed(1)}" class="cb-twr-end ${cls||''}">${txt} ${pct(v)}</text>`;
+  const svg=`<svg viewBox="0 0 ${W} ${H}" class="cb-twr-svg" role="img" aria-label="진짜 내 수익률 누적 ${pct(ok[ok.length-1].cum)}">
+    ${ticks.map(v=>`<line x1="${pl}" x2="${W-pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--grid)"${Math.abs(v)<1e-9?' stroke-width="1.5"':''}/><text x="${pl-7}" y="${(Y(v)+4).toFixed(1)}" class="cb-twr-ax" text-anchor="end">${v>0?'+':''}${Math.round(v*100)}%</text>`).join('')}
+    ${pts.map((p,i)=>`<text x="${X(i).toFixed(1)}" y="${H-6}" class="cb-twr-ax" text-anchor="middle">${Number(p.ym.slice(5))}월</text>`).join('')}
+    ${line(p=>p.b['S&P 500'],`stroke="${CB_PERF_BENCH_COLOR['S&P 500']}" stroke-width="1.5"`)}
+    ${line(p=>p.b.KOSPI,`stroke="${CB_PERF_BENCH_COLOR.KOSPI}" stroke-width="1.5" stroke-dasharray="5 4"`)}
+    ${line(p=>p.cum,`stroke="${color}" stroke-width="2.4"`)}
+    ${pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.cum).toFixed(1)}" r="3.5" fill="${color}" stroke="var(--modal-bg)" stroke-width="1.5"><title>${Number(p.ym.slice(5))}월 말 · 누적 ${pct(p.cum)}</title></circle>`).join('')}
+    ${endLab(pts[lastI].cum,ownerF?cbEsc(ownerF):'가구','is-own')}${endLab(pts[lastI].b['S&P 500'],'S&P')}${endLab(pts[lastI].b.KOSPI,'KOSPI')}
+  </svg>`;
+  const last=ok[ok.length-1];
+  return `<div class="cb-panel fin-section cb-twr-card">${head}
+    <div class="cb-twr-stats">
+      <div><small>누적 수익률 · ${ok.length}개월</small><b class="cb-num" style="${tone(last.cum)}">${pct(last.cum)}</b><em>${Number(ok[0].ym.slice(5))}월부터 ${Number(last.ym.slice(5))}월${last.live?'(오늘)':''}까지</em></div>
+      <div><small>같은 기간 S&amp;P 500</small><b class="cb-num" style="${tone(benchCum['S&P 500'])}">${pct(benchCum['S&P 500'])}</b><em>${benchCum['S&P 500']!=null&&last.cum!=null?`차이 ${pct(last.cum-benchCum['S&P 500']).replace('%','%p')}`:''}</em></div>
+      <div><small>같은 기간 KOSPI</small><b class="cb-num" style="${tone(benchCum.KOSPI)}">${pct(benchCum.KOSPI)}</b><em>${benchCum.KOSPI!=null&&last.cum!=null?`차이 ${pct(last.cum-benchCum.KOSPI).replace('%','%p')}`:''}</em></div>
+      <div><small>이 기간 새로 넣은 돈</small><b class="cb-num">${cbSignDisp(ok.reduce((t,m)=>t+m.flow,0))}</b><em>수익률 계산에서 뺀 돈</em></div>
+    </div>
+    <div class="cb-twr-legend"><span><i style="background:${color}"></i>${ownerF?cbEsc(ownerF):'가구 전체'}</span><span>${cbPerfSwatch({key:'S&P 500',label:'S&P 500',color:CB_PERF_BENCH_COLOR['S&P 500'],isBench:true,dash:false},16)}S&amp;P 500</span><span>${cbPerfSwatch({key:'KOSPI',label:'KOSPI',color:CB_PERF_BENCH_COLOR.KOSPI,isBench:true,dash:true},16)}KOSPI</span></div>
+    <div class="cb-chart-scroll"><div class="cb-twr-plot">${svg}</div></div>
+    <div class="cb-twr-months">${series.map(m=>m.none?`<div class="is-none"><small>${Number(m.ym.slice(5))}월</small><b>—</b></div>`:`<div${m.live?' class="is-live"':''}><small>${Number(m.ym.slice(5))}월${m.live?' · 진행 중':''}</small><b class="cb-num" style="${tone(m.r)}">${pct(m.r)}</b><em>넣은 돈 ${shortWon(m.flow)}</em></div>`).join('')}</div>
+    <small class="fin-callout">아래 '지금 보유 가정' 그래프와 달리 실제로 가졌던 종목·금액의 기록입니다 · 넣은 날짜를 몰라 달 중간에 넣었다고 봅니다(수정 디츠 방식) · 종목 기록이 없는 달은 '—'이고 건너뜁니다</small>
+  </div>`;
 }

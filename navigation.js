@@ -2,7 +2,7 @@
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
-  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성']]},
+  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
@@ -38,6 +38,7 @@ function navOwner(id){
   if(id==='acct2')return _acctOwner;
   if(id==='cal2')return _calOwner;
   if(id==='report2'||id==='reporty')return _reportOwner;
+  if(id==='chart2')return _chsOwner;
   return null;
 }
 function navPrepare(id){
@@ -60,6 +61,7 @@ function navPrepare(id){
     if(id==='report2'||id==='reporty')_reportOwner=owner;
     if(id==='divm')_cbDivOwner=owner;
     if(id==='risk2')_cbRiskOwner=owner;
+    if(id==='chart2')_chsOwner=owner;
     // 보유 목록 ↔ 구성원별은 같은 보유를 보는 두 보기라 검색어도 잇는다(계좌별을 거쳐 가도 마지막 검색어를 지킨다).
     if(previous==='holdings')_navAssetQ=_holdingsQ;
     if(previous==='fam2')_navAssetQ=_famQ;
@@ -89,7 +91,7 @@ function navSync(id){
   bar.innerHTML=group&&group.views.length>1?group.views.map(([view,label])=>
     `<a href="#view=${view}"${view===host?' aria-current="page"':''} onclick="if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();switchView(navModeTarget('${view}'));">${label}</a>`).join(''):'';
 }
-// 보기 전환 줄 — 머리줄 아래(스크롤 영역 밖) 오른쪽, 시뮬레이터 세 탭과 같은 밑줄형. 보기가 둘 이상인 세부 메뉴에서만 보인다.
+// 보기 전환 줄 — 머리줄 아래(스크롤 영역 밖) 오른쪽, 시뮬레이터 탭과 같은 밑줄형. 보기가 둘 이상인 세부 메뉴에서만 보인다.
 function navModeBar(id){
   const el=document.getElementById('view-mode-bar'); if(!el) return;
   const host=navHost(id),modes=NAV_MODES[host];

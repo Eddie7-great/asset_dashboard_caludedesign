@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=70">
-  <link rel="stylesheet" href="workspace-ui.css?v=24">
+  <link rel="stylesheet" href="style.css?v=71">
+  <link rel="stylesheet" href="workspace-ui.css?v=25">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -150,6 +150,7 @@
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
     <div id="view-fam2" class="view-section"><div class="cb-scroll" id="cb-fam2"></div></div>
     <div id="view-risk2" class="view-section"><div class="cb-scroll" id="cb-risk2"></div></div>
+    <div id="view-chart2" class="view-section"><div class="cb-scroll" id="cb-chart2"></div></div>
     <div id="view-divm" class="view-section"><div class="cb-scroll" id="cb-divm"></div></div>
     <div id="view-gift2" class="view-section"><div class="cb-scroll" id="cb-gift2"></div></div>
     <div id="view-tax2" class="view-section"><div class="cb-scroll" id="cb-tax2"></div></div>
@@ -203,6 +204,8 @@
                 </div>
               </div>
             </div>
+            <!-- 입력 줄은 두 줄로 고정한다(2026-11-25 사용자 요청): 1줄 = 소유주·날짜(또는 주기·날짜)·유형·카테고리가 폭을 나눠 채우고,
+                 2줄 = 내용·금액·표시 체크·저장. 예전에는 한 줄로 늘어놓고 넘치는 대로 접혀 체크박스·저장 버튼이 들쭉날쭉한 자리로 떨어졌다. -->
             <div class="form-row cf-entry-form" style="margin-bottom:8px;align-items:flex-end">
               <input type="hidden" id="cf-edit-index" value="-1">
               <div class="form-group f-col cf-entry-owner"><label class="form-label">소유주</label><select id="cf-owner-input" class="form-input"><option>본인</option><option>아내</option></select></div>
@@ -219,13 +222,16 @@
               <div class="form-group f-col cf-entry-category"><label class="form-label">카테고리</label><select id="cf-cat" class="form-input"><option>교통/차량</option><option>교육</option><option>급여</option><option>기타</option><option>관리비</option><option>문화/생활</option><option>배당금</option><option>대출납입금</option><option>세금</option><option>식비</option><option>의료/건강</option><option>저축/투자</option><option>주거/통신</option></select>
                 <select id="at-cat" class="form-input" style="display:none"><option>교통/차량</option><option>교육</option><option>급여</option><option>기타</option><option>관리비</option><option>문화/생활</option><option>배당금</option><option>대출납입금</option><option>세금</option><option>식비</option><option>의료/건강</option><option>저축/투자</option><option>주거/통신</option></select>
               </div>
+              <div class="cf-entry-break" aria-hidden="true"></div>
               <div class="form-group f-col cf-entry-desc"><label class="form-label">내용</label><input type="text" id="cf-desc" class="form-input" placeholder="상세 내역 입력"></div>
               <div class="form-group f-col cf-entry-amount"><label class="form-label">금액</label><input type="text" id="cf-amt" class="form-input" placeholder="0" inputmode="numeric" oninput="handleAmtInput(this)">
                 <input type="text" id="at-amt" class="form-input" style="display:none" placeholder="0" inputmode="numeric">
               </div>
-              <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
-              <label id="cf-gift-flag-group" class="cf-fixed-check" style="display:none" data-tip="가족 계좌로 보내는 이체라면 체크하세요. 세금·증여 > 가족 증여의 '자동이체를 증여로 연결' 목록에 이 항목만 나타납니다."><input type="checkbox" id="cf-gift-flag"> 증여 이체</label>
-              <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()" style="margin-top:auto">저장</button>
+              <div class="cf-entry-checks" id="cf-entry-checks" style="display:none">
+                <label id="cf-fixed-flag-group" class="cf-fixed-check" style="display:none"><input type="checkbox" id="cf-fixed-flag"> 고정비에 포함</label>
+                <label id="cf-gift-flag-group" class="cf-fixed-check" style="display:none" data-tip="가족 계좌로 보내는 이체라면 체크하세요. 세금·증여 > 가족 증여의 '자동이체를 증여로 연결' 목록에 이 항목만 나타납니다."><input type="checkbox" id="cf-gift-flag"> 증여 이체</label>
+              </div>
+              <button class="btn-submit" id="btn-cf-submit" onclick="submitCfEntry()">저장</button>
             </div>
             </div>
             <!-- 자동이체 목록: 상세 내역 리스트로 통합됨 (숨김 유지) -->
@@ -261,6 +267,7 @@
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
+                <button type="button" id="cf-budget-btn" class="cf-budget-btn" aria-expanded="false" aria-controls="cf-comp-list" onclick="cfBudgetToggle()">예산</button>
                 <div class="tf-btns"><button type="button" class="tf-btn nav-arrow-btn" onclick="prevCfMonth()" title="이전 달" aria-label="이전 달">◀</button><button type="button" class="tf-btn nav-arrow-btn" onclick="nextCfMonth()" title="다음 달" aria-label="다음 달">▶</button></div>
               </div>
             </div>
@@ -270,6 +277,7 @@
           <div class="glass-panel f-col cf-trend-panel">
             <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:var(--fs-cap);color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
             <div class="chart-container"><canvas id="cfTrendChart" role="img" aria-label="월별 현금 흐름 추이 차트">월별 현금 흐름 추이 차트입니다.</canvas></div>
+            <div id="cf-rate-trend" class="cf-rate-trend" aria-live="polite"></div>
           </div>
           <div class="glass-panel" id="cf-div-panel" style="flex-shrink:0;display:none"></div>
         </div>
@@ -518,6 +526,10 @@
       </div>
       <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="decimal"></div>
     </div>
+    <!-- 외화 주식: 매수 평균 환율(선택, 2026-11-25 시안) — 성과 화면 '환율 효과'를 나누는 데만 쓴다. 평가액·손익 계산은 그대로 -->
+    <div class="form-row" id="row-avg-fx" style="display:none">
+      <div class="form-group f-col" style="flex:1"><label class="form-label" for="add-avgfx">매수 평균 환율 <small class="form-label-sub">선택 · <span id="add-avgfx-unit">1달러</span>당 원 · 모르면 비워 두세요</small></label><input type="text" class="form-input" id="add-avgfx" placeholder="예: 1,320" inputmode="decimal"></div>
+    </div>
     <div id="wrap-cost-unknown" style="display:none;margin:-1px 0 10px;padding:9px 11px;border:1px solid var(--border-light);border-radius:9px;background:var(--inner-bg)">
       <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);font-weight:700;color:var(--t2);cursor:pointer">
         <input id="add-cost-unknown" type="checkbox" onchange="toggleCostUnknown()">
@@ -603,11 +615,11 @@
 <script defer src="core/data.js?v=1"></script>
 <script defer src="core/dividend.js?v=1"></script>
 <script defer src="core/stored-data.js?v=2"></script>
-<script defer src="core/transfers.js?v=2"></script>
+<script defer src="core/transfers.js?v=3"></script>
 <script defer src="core/ui-shell.js?v=2"></script>
 <script defer src="core/stock-search.js?v=1"></script>
-<script defer src="core/holdings.js?v=2"></script>
-<script defer src="core/cashflow.js?v=1"></script>
+<script defer src="core/holdings.js?v=3"></script>
+<script defer src="core/cashflow.js?v=2"></script>
 <script defer src="core/live-prices.js?v=1"></script>
 <script defer src="core/ext-data.js?v=2"></script>
 <script defer src="core/auth-boot.js?v=1"></script>
@@ -616,17 +628,17 @@
 <script defer src="script.js?v=68"></script>
 <script defer src="finance.js?v=24"></script>
 <script defer src="navigation.js?v=8"></script>
-<script defer src="backtest.js?v=5"></script>
 <script defer src="simulator.js?v=4"></script>
 <script defer src="etf-explorer.js?v=7"></script>
 <script defer src="workspace-pages.js?v=9"></script>
-<script defer src="pages/performance.js?v=2"></script>
+<script defer src="pages/performance.js?v=3"></script>
 <script defer src="pages/family.js?v=1"></script>
 <script defer src="pages/risk.js?v=2"></script>
-<script defer src="pages/dividend.js?v=3"></script>
+<script defer src="pages/dividend.js?v=4"></script>
 <script defer src="pages/gift.js?v=4"></script>
-<script defer src="pages/tax.js?v=2"></script>
-<script defer src="pages/dca.js?v=2"></script>
+<script defer src="pages/tax.js?v=3"></script>
+<script defer src="pages/dca.js?v=3"></script>
+<script defer src="pages/chart-study.js?v=1"></script>
 <script defer src="cobalt.js?v=50"></script>
 </body>
 </html>

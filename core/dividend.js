@@ -78,6 +78,25 @@ function _defaultMonthsForCycle(cycle) {
   return null; // 미상
 }
 
+// ── 종목 하나의 배당 금액·지급월 — 단일 출처(2026-11-25 숫자 일관성 점검) ──
+// 연간 배당 = 연간 주당 배당(annualDps) × 수량 × 환율, 1회 지급액 = 연간 ÷ 지급월 수.
+// 배당 화면(월별 막대·연간 수입)·홈 연 배당·계좌별·결산 배당 장(divHistory)·현금 흐름 자동 배당이 이 함수들을 쓴다.
+// 예전 결산·현금 흐름은 '1회 지급액(eps = 연간 ÷ 주기 횟수) × 지급월 수'로 따로 세서, 지급월 수가 주기 횟수와 다른 종목
+// (분기 배당인데 최근 12개월 지급월이 5개 잡힌 경우)은 배당 화면보다 25% 크게 잡혔다. 또 조회 전·무배당 확인 뒤에도
+// 내장 배당표(DIV_INFO_DB, 고정값)나 배당수익률 × 현재가로 금액을 지어내 배당 화면에 없는 배당이 결산에 보였다.
+// 금액은 조회된 값(_divDataCache)만 쓴다 — 내장 배당표는 지급일 힌트로만 남는다(resolvePendingDivDates).
+function divPayMonthsOf(info){
+  const ms=(info&&Array.isArray(info.months)?info.months:[]).map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12);
+  if(ms.length) return [...new Set(ms)];
+  return _defaultMonthsForCycle(info&&info.cycle)||[2,5,8,11];
+}
+function divPerPaymentDps(info){
+  if(!info) return 0;
+  const annual=Number(info.annualDps)||0;
+  if(annual>0) return annual/divPayMonthsOf(info).length;
+  const eps=Number(info.eps)||0;   // 연간 값이 없는 예전 캐시만 1회 지급액 그대로
+  return eps>0?eps:0;
+}
 function syncDivHistory() {
   const YEARS = divHistoryYears();
   YEARS.forEach(y=>{
@@ -86,19 +105,6 @@ function syncDivHistory() {
       divHistory[y][o]=Array(12).fill(0);
     });
   });
-  // ── 1회 지급 배당금(eps) 계산 helper ─────────────────
-  //   eps 가 없으면 yld (%) × 현재가 / cycle 횟수 로 보조 계산
-  function _perPayoutEps(info, item) {
-    if (!info) return 0;
-    if (info.eps && info.eps > 0) return info.eps;
-    const yldNum = (typeof info.yldNum === 'number') ? info.yldNum : (parseFloat(String(info.yld||'').replace('%',''))||0);
-    if (yldNum <= 0) return 0;
-    const cycleN = CYCLE_COUNT[info.cycle||'-']||1;
-    const refPrice = (item && item.curP > 0) ? item.curP : 0;
-    if (refPrice <= 0) return 0;
-    return refPrice * yldNum / 100 / cycleN;
-  }
-
   // 세전 합계(divHistoryGross)는 읽는 곳이 없어 만들지 않는다 — 세전·세후는 화면이 세금 엔진 결과에서 직접 구한다.
   // 연간 세전 배당을 공통 세금 엔진에 한 번 모은 뒤 월별 세후 금액으로 배분한다.
   // 이 과정을 종목별 루프 안에서 처리하면 ISA 200만원 공제가 종목 수만큼 중복된다.
@@ -106,14 +112,13 @@ function syncDivHistory() {
   pfolioData.forEach((item,itemIndex)=>{
     if(item.grp!=='주식'||item.qty<=0) return;
     const tkr6 = normDivTkr(item.tkr);
-    const cached = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
-    const info = cached || DIV_INFO_DB[tkr6] || DIV_INFO_DB[item.tkr];
+    // 금액은 조회된 값만 — 배당 화면(cbDivOf)과 같은 근거. 내장 배당표·배당수익률 추정으로 지어내지 않는다.
+    const info = window._divDataCache[tkr6] || window._divDataCache[item.tkr];
     if (!info) return;
-    const epsVal = _perPayoutEps(info, item);
+    const epsVal = divPerPaymentDps(info);
     if (epsVal <= 0) return;
-    let months = (Array.isArray(info.months) && info.months.length) ? info.months : _defaultMonthsForCycle(info.cycle);
-    if (!months) months = [2,5,8,11];
-    const payout = item.qty * epsVal * (RATES[info.cur||item.cur]||1);
+    const months = divPayMonthsOf(info);
+    const payout = item.qty * epsVal * curRate(info.cur||item.cur);
     taxEntries.push({
       owner:item.owner,
       acc:item.acc,

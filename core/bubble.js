@@ -23,14 +23,11 @@ function setBubbleOwnerX(owner, btn) {
   renderBubbleChart('weight');
 }
 
-// 개별 자산 → KRW 환산 가치 (부동산 제외, 전 자산군 공용)
-function _bubbleItemValueKRW(i, usdRate) {
-  if (i.grp === '금') {
-    const gm = i.unit === '돈' ? 3.75 : (i.unit === 'kg' ? 1000 : 1);
-    return (i.qty || 0) * gm * (window._GOLD_G_KRW || i.curP || 0);
-  }
-  const rate = i.cur === 'USD' ? usdRate : curRate(i.cur);
-  return (i.qty || 0) * (i.curP || 0) * rate;
+// 개별 자산 → KRW 환산 가치 (부동산 제외, 전 자산군 공용) — 단일 출처 assetValueKRW(core/data.js) 그대로.
+// 예전엔 금을 '수량 × 단위 배수 × (1g 시세 || curP)'로 따로 셌다 — curP 가 이미 단위당 원화라 금 시세를 못 받은 날
+// '돈' 단위 금이 3.75배가 되어 비중 지도·섹터 집중도의 분모가 홈 숫자와 달랐다.
+function _bubbleItemValueKRW(i) {
+  return assetValueKRW(i);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -345,12 +342,11 @@ function renderBubbleChart(mode) {
   container._bubbleCurrentRoot = '__TOTAL__';
 
   const filterOwner = _bubbleOwner === '전체' ? null : _bubbleOwner;
-  const usdRate = curRate('USD');
 
   // ── 부동산 제외 · 소유주 필터 적용 ──
   const baseItems = pfolioData
     .filter(i => i && i.grp !== '부동산' && (!filterOwner || i.owner === filterOwner))
-    .map(i => ({ raw: i, val: _bubbleItemValueKRW(i, usdRate) }))
+    .map(i => ({ raw: i, val: _bubbleItemValueKRW(i) }))
     .filter(x => Number.isFinite(x.val) && x.val > 0);
 
   if (baseItems.length === 0) {

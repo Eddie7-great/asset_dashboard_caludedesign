@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { readSource } from './_source.mjs'
+import { readSource, assetValueSource } from './_source.mjs'
 
 const root = new URL('../../', import.meta.url);
 const read = (f) => readSource(f);
@@ -13,12 +13,12 @@ const html = read('index.html'), ws = read('workspace-ui.css'), script = read('s
 // ── 배선: 8번째 상위 메뉴, 월간·연간 두 화면(2026-11-19 통폐합 뒤 세부 메뉴 '결산' 하나 + 보기 전환 줄), 같은 소유주 범위 ──
 assert.match(nav, /\{menu:'report2',title:'결산 리포트',views:\[\['report2','결산'\]\]\}/);
 assert.match(nav, /report2:\[\['report2','월간'\],\['reporty','연간'\]\]/, '월간·연간은 보기 전환 줄로 오간다');
-assert.match(nav, /\['perf2','성과'\],\['risk2','리스크'\],\['bubble','구성'\]\]\}/, '투자 분석에는 결산이 없다');
+assert.match(nav, /\['perf2','성과'\],\['risk2','리스크'\],\['bubble','구성'\],\['chart2','차트 공부'\]\]\}/, '투자 분석에는 결산이 없다(차트 공부 2026-11-25 추가)');
 assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)return _reportOwner;/);
 assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)_reportOwner=owner;/);
 assert.match(html, /id="menu-report2" onclick="switchView\('report2',this\)">[\s\S]*?결산 리포트<\/button>/);
 assert.match(html, /<div id="view-reporty" class="view-section"><div class="cb-scroll" id="cb-reporty">/);
-assert.match(cobalt, /report2:cbRenderReport, reporty:cbRenderReportYear \};/);
+assert.match(cobalt, /report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart \};/);
 assert.doesNotMatch(cobalt, /지난달 결산 보기/, '홈의 지난달 결산 보기 링크는 없앴다(2026-11-18 3차, 사용자 결정 — 메뉴로 간다)');
 
 // ── 조회 전용 ──
@@ -58,6 +58,7 @@ const ctx = vm.createContext({
   divHistoryYears: () => ['2025', '2026', '2027'],
   divHistoryOf: (y, o) => (y === '2026' && o === '전체' ? [0, 0, 30, 0, 0, 30, 0, 0, 30, 0, 50, 70] : Array(12).fill(0)),
 });
+vm.runInContext(assetValueSource(), ctx);
 for (const n of ['cbStrip', 'cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW']) vm.runInContext(cobalt.match(new RegExp(`function ${n}\\([^)]*\\)\\{[\\s\\S]*?\\n?\\}`))[0], ctx);
 vm.runInContext(read('finance.js').match(/function finGoalAllocate\(goals, poolOf\)\{[\s\S]*?\n\}/)[0], ctx);
 for (const n of ['reportYmNext', 'reportBuildEntry', 'reportMonthEnds', 'reportEntryValue', 'reportTimeline', 'reportDefaultYm', 'reportHoldingDiff', 'reportDividendYear', 'reportRealizedYear']) vm.runInContext(grab(n), ctx);

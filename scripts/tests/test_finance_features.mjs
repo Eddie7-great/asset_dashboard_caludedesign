@@ -4,11 +4,12 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import { load } from 'cheerio'
-import { readSource } from './_source.mjs'
+import { readSource, assetValueSource } from './_source.mjs'
 
 const financeSource = fs.readFileSync(new URL('../../finance.js', import.meta.url), 'utf8')
 const cobaltSource = readSource('cobalt.js')
 const scriptSource = readSource('script.js')
+const workspacePagesSource = fs.readFileSync(new URL('../../workspace-pages.js', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const styleSource = fs.readFileSync(new URL('../../style.css', import.meta.url), 'utf8')
 
@@ -126,6 +127,7 @@ const elements = {
 Object.assign(context, {
   _taxRuleValue: (_path, fallback) => fallback,
   OWNERS: ['본인', '아내', '자녀1', '아버지'],
+  monthlyPLData: [],
   RATES: { USD: 1350, JPY: 9 },
   benchData: { '1Y': {} },
   document: { getElementById: id => elements[id] || null },
@@ -152,9 +154,12 @@ Object.assign(context, {
 })
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
-for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbAmtAxisPad']) vm.runInContext(extractFunction(cobaltSource, name), context)
+vm.runInContext("var _finMcRet=5, _finMcSel=null;", context)
+vm.runInContext(assetValueSource(), context)
+for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbAmtAxisPad', 'cbOwnerTag', 'cbGainStyle']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)
-for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalAllocate', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
+vm.runInContext(extractFunction(workspacePagesSource, 'cbEmptyHtml'), context)
+for (const name of ['finMobileNote', 'finGoalFind', 'finSnapshotKind', 'finSnapshotNumber', 'finSnapshotInvestment', 'finSnapshotOwnerInvestment', 'finNwSeries', 'finNwStats', 'finNwCoverage', 'finNwCoverageNote', 'finNwChartSvg', 'finInvestTrendCard', 'finGoalCurrent', 'finGoalAllocate', 'finGoalMonthlyDca', 'finGoalStatus', 'finGoalRows', 'finGoalChip', 'finGoalDday', 'finGoalProgressCard', 'finGoalTimelineCard', 'finMcRng', 'finGoalMonteCarlo', 'finGoalVol', 'finMcTone', 'finGoalMcRows', 'finGoalMcChartSvg', 'finGoalMcHtml', 'finGoalCardHtml', 'finGoalContext', 'finPortfolioReferences', 'finAccountDiagnostics', 'finAccountTree', 'finTreeHtml', 'finAccountTreeHtml', 'finRebalBulletHtml', 'finSellKind', 'finTaxAwareSellPlan', 'finTaxAwareSellHtml', 'cbRenderPlan', 'finFreshAge', 'finDataStatusRows', 'cbRenderDataStatus', 'finSaveAndRender']) {
   vm.runInContext(extractFunction(financeSource, name), context)
 }
 assert.equal(Math.round(context.finNwStats([{ v: 100 }, { v: 80 }]).mdd), -20, '양수 순자산은 기존 MDD 계산 유지')

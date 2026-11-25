@@ -3,7 +3,8 @@
 // cobalt.js 의 상수·상태는 함수 안에서만 쓴다 — 로드 때 쓰면 아직 없는 이름이라 오류가 난다(test_source_split.mjs).
 
 // ───────────────────────── 페이지: 배당 관리 ─────────────────────────
-// 배당 종목 표 펼친 줄(2026-11-23) — 자주 보는 7칸만 두고 보유 주수·주당 배당·시가수익률·배당성장·배당락은 줄을 누르면 아래에.
+// 배당 종목 표 펼친 줄(2026-11-23) — 자주 보는 칸만 두고 보유 주수·주당 배당·배당성장·배당락은 줄을 누르면 아래에.
+// 시가수익률은 '내 매입가 대비' 바로 옆 칸이다(2026-11-25 사용자 요청 — 두 수익률을 나란히 견준다).
 // 메모리에만 두고 다른 화면으로 옮기면 접는다(cbResetViewState).
 let _cbDivOpen=new Set();
 function cbDivRowKey(x){ return `${x.i?.owner||''}|${x.tkr||x.title||''}`; }
@@ -18,13 +19,8 @@ function cbDivAxisLab(v){
   if (Math.abs(v)>=10000) return cbAmtAxisLab(v);
   return Math.round(v/1000).toLocaleString('ko-KR')+'천';
 }
-// 막대 위 짧은 금액: 26.5만 · 1.2억 · 8,000원
-function cbDivShortWon(v){
-  const n=Number(v)||0, a=Math.abs(n);
-  if(a>=1e8) return (Math.round(n/1e7)/10).toLocaleString('ko-KR')+'억';
-  if(a>=1e4) return (Math.round(n/1e3)/10).toLocaleString('ko-KR')+'만';
-  return Math.round(n).toLocaleString('ko-KR')+'원';
-}
+// 막대 위 짧은 금액 — 단일 구현 shortWon(core/data.js)의 별칭: 26.5만 · 1억 2,500만 · 8,000원
+function cbDivShortWon(v){ return shortWon(v); }
 function cbAddDivMonthDetail(detailMaps, monthIndex, item, amount){
   if (!detailMaps[monthIndex] || !(amount>0)) return;
   const owner = item.i?.owner || '미지정';
@@ -51,7 +47,8 @@ function cbDivMonthlyForYear(list, year, netBasis=false){
   if (year===cur){
     // 올해 이후 → 예상: 연 배당을 지급 주기 월에 균등 배분
     list.forEach(x=>{
-      const ms = (x.d.months && x.d.months.length) ? x.d.months : cbDefaultDivMonths(x.d.cycle);
+      // 지급월·1회 금액은 결산·현금 흐름 자동 배당과 같은 단일 출처(core/dividend.js divPayMonthsOf).
+      const ms = typeof divPayMonthsOf==='function' ? divPayMonthsOf(x.d) : ((x.d.months && x.d.months.length) ? x.d.months : cbDefaultDivMonths(x.d.cycle));
       const per = x.incomeKRW / ms.length;
       ms.forEach(m=>{
         const mi=((m%12)+12)%12;
@@ -121,7 +118,8 @@ function cbUpcomingDividendSchedule(list, days=90, asOf=null){
   end.setDate(end.getDate()+Math.max(1,Number(days)||90));
   const events=[];
   (list||[]).forEach(x=>{
-    const months=Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:cbDefaultDivMonths(x.d?.cycle))
+    // 지급월은 배당 화면 막대·결산·현금 흐름과 같은 단일 출처(core/dividend.js divPayMonthsOf).
+    const months=typeof divPayMonthsOf==='function'?divPayMonthsOf(x.d||{}):Array.from(new Set((x.d?.months&&x.d.months.length?x.d.months:cbDefaultDivMonths(x.d?.cycle))
       .map(Number).filter(m=>Number.isInteger(m)&&m>=0&&m<12)));
     const exactDay=Number(x.d?.payDay);
     const hasExactDay=Number.isInteger(exactDay)&&exactDay>=1&&exactDay<=31;
@@ -349,14 +347,14 @@ function cbRenderDiv(){
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">월평균</div></div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율(YoC)">매입가 대비 배당률</span></div></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결 연도 2개 이상이면 연평균, 모자라면 최근 12개월 vs 직전 12개월로 냅니다. 상장 2년 미만·지급 이력 없는 종목은 빠집니다.">배당성장률</span></div>
-        <div class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결 연도 2개 이상이면 연평균, 모자라면 최근 12개월 vs 직전 12개월로 냅니다. 상장 2년 미만·지급 이력 없는 종목은 빠집니다.">배당성장률</span></div></div>
         <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
+        <div class="cb-div-summary-sub cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div>
       </div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div>
-        <div class="cb-div-history-status">상위 3종목 합계</div></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div></div>
         <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
+        <div class="cb-div-summary-sub">상위 3종목 합계</div>
       </div>
       <div class="cb-panel cb-div-summary-card cb-div-top3-card">
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
@@ -410,11 +408,11 @@ function cbRenderDiv(){
       <!-- 칸 폭은 .cb-div-head/.cb-div-row 격자(workspace-ui.css)가 정한다 — 한 칸만 flex:1 이고 나머지가 고정 폭이면
            표가 1110px 를 넘어 오른쪽 세 칸(배당성장·주기·배당락)이 화면 밖으로 밀렸다. 머리글 '종목'은 국기 칸부터 두 칸을 덮는다. -->
       <div class="cb-thead cb-div-head">
-        <span>${cbSortBtn('div','owner','소유주','text')}</span><span class="cb-div-c-name">${cbSortBtn('div','name','종목','text')}</span><span class="r">${cbSortBtn('div','income',`연간 수입 · ${basisLabel}`)}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','tax',`<span data-tip="${cbEsc(divTaxTip)}">배당세</span>`)}</span><span class="r">${cbSortBtn('div','share','<span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yoc','<span data-tip="Yield on Cost(YoC) — 내 평단가 대비 연간 배당금 비율">내 매입가 대비</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','cycle','주기','text')}</span>
+        <span>${cbSortBtn('div','owner','소유주','text')}</span><span class="cb-div-c-name">${cbSortBtn('div','name','종목','text')}</span><span class="r">${cbSortBtn('div','income',`연간 수입 · ${basisLabel}`)}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','tax',`<span data-tip="${cbEsc(divTaxTip)}">배당세</span>`)}</span><span class="r">${cbSortBtn('div','share','<span data-tip="현재 선택된 소유주의 연간 예상 배당 수입에서 해당 종목이 차지하는 비중">배당 비중</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yoc','<span data-tip="Yield on Cost(YoC) — 내 평단가 대비 연간 배당금 비율">내 매입가 대비</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','yld','<span data-tip="지금 주가 대비 연간 배당금 비율 — 오늘 산다면 받는 배당률. 내 매입가 대비보다 낮으면 그동안 주가가 올랐다는 뜻입니다.">시가수익률</span>')}</span><span class="r cb-mobile-secondary">${cbSortBtn('div','cycle','주기','text')}</span>
       </div>
       ${cbSortRows('div',visibleList,{
         owner:x=>cbOwnerRank(x.i.owner), name:x=>x.title||'', income:x=>x.incomeKRW, share:x=>x.incomeKRW, tax:x=>x.taxKRW,
-        yoc:x=>x.yoc, cycle:x=>x.d.cycle&&x.d.cycle!=='-'?x.d.cycle:null,
+        yoc:x=>x.yoc, yld:x=>x.d.yldNum>0?x.d.yldNum:null, cycle:x=>x.d.cycle&&x.d.cycle!=='-'?x.d.cycle:null,
       }).map(x=>{ const key=cbDivRowKey(x), open=_cbDivOpen.has(key); return `
         <div class="cb-div-row${open?' is-open':''}" role="button" tabindex="0" aria-expanded="${open}" data-div-key="${cbEsc(key)}" onclick="cbDivRowToggle(this.dataset.divKey)">
           <span>${cbOwnerTag(x.i.owner)}</span>
@@ -429,11 +427,12 @@ function cbRenderDiv(){
           <span class="cb-num cb-mobile-secondary r cap" style="${x.taxKRW>0?'color:var(--dn)':'color:var(--lab)'}" data-tip="${cbEsc(Array.from(x.accts).join('+')||'계좌 미지정')} · ${cbEsc(x.taxTip)}">${x.taxKRW>0?'−'+cbDisp(x.taxKRW):cbEsc(x.taxZeroLabel)}</span>
           <span class="r b mut">${divAnnual>0?(x.incomeKRW/divAnnual*100).toFixed(1)+'%':'—'}</span>
           <span class="cb-mobile-secondary r cb-div-c-yoc">${x.yoc!=null?x.yoc.toFixed(2)+'%':'—'}</span>
-          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')}<i class="cb-div-caret" aria-hidden="true">${open?'▾':'▸'}</i></span>          ${open?`<div class="cb-div-more">보유 <b>${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</b> · 주당 배당 <b>${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</b>/년 · <span data-tip="현재 주가 대비 연간 배당금 비율">시가수익률</span> <b>${(x.d.yldNum||0).toFixed(2)}%</b> · 배당성장 <b>${x.g!=null?`<span data-tip="${cbEsc(cbDivGrowthTip(x.growth))}" style="${cbUpDn(x.g)}">${x.g>=0?'+':''}${x.g.toFixed(1)}%${x.growth.basis==='ttm'?' (12개월)':''}</span>`:`<span data-tip="${cbEsc(cbDivGrowthTip(x.growth))}">${x.growth.status==='none'?'지급 이력 없음':x.growth.status==='insufficient'?'상장 2년 미만':'자료 없음'}</span>`}</b> · <span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span> <b>${cbEsc(x.d.exDiv||'—')}</b></div>`:''}
+          <span class="cb-mobile-secondary r cb-div-c-yld">${x.d.yldNum>0?x.d.yldNum.toFixed(2)+'%':'—'}</span>
+          <span class="cb-mobile-secondary r cap mut">${x.d.source==='naver'&&(!x.d.cycle||x.d.cycle==='-')?'<span data-tip="네이버 증권에서 연간 배당금만 확인한 종목입니다. 지급 주기·지급월은 받지 못해 분기 지급으로 가정해 나눴습니다.">추정</span>':cbEsc(x.d.cycle||'—')}<i class="cb-div-caret" aria-hidden="true">${open?'▾':'▸'}</i></span>          ${open?`<div class="cb-div-more">보유 <b>${Number(x.qty||0).toLocaleString(undefined,{maximumFractionDigits:4})}주</b> · 주당 배당 <b>${cbFmtNative(x.d.annualDps, x.d.cur||x.i.cur)}</b>/년 · 배당성장 <b>${x.g!=null?`<span data-tip="${cbEsc(cbDivGrowthTip(x.growth))}" style="${cbUpDn(x.g)}">${x.g>=0?'+':''}${x.g.toFixed(1)}%${x.growth.basis==='ttm'?' (12개월)':''}</span>`:`<span data-tip="${cbEsc(cbDivGrowthTip(x.growth))}">${x.growth.status==='none'?'지급 이력 없음':x.growth.status==='insufficient'?'상장 2년 미만':'자료 없음'}</span>`}</b> · <span data-tip="이 날짜 전까지 매수해야 다음 배당을 받을 수 있는 기준일">배당락</span> <b>${cbEsc(x.d.exDiv||'—')}</b></div>`:''}
         </div>`;}).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
     <div class="cb-panel cb-div-upcoming-card">
-      <div class="cb-insight-title">향후 90일 배당 일정</div>
+      <div class="cb-div-upcoming-head"><div class="cb-insight-title">향후 90일 배당 일정</div><button type="button" class="cb-cal-link" onclick="cbGoCalendar(_cbDivOwner)">달력에서 보기 ›</button></div>
       <div class="cb-div-upcoming-total"><span>예상 수입 합계</span><b>${cbDisp(upcomingDividendTotal)}</b></div>
       <div class="cb-div-upcoming-list">
         ${upcomingDividendShown.map(x=>{

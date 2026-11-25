@@ -327,6 +327,22 @@ function _normalizeTaxSaving(value){
   });
   return Object.keys(years).length?{years}:null;
 }
+// 카테고리 예산 — {scopes:{'전체'|'본인'|'아내':{카테고리:원}}}. 범위마다 40개, 금액은 0 초과 10억 이하.
+function _normalizeCfBudget(value){
+  const src=value&&typeof value==='object'&&!Array.isArray(value)&&value.scopes&&typeof value.scopes==='object'&&!Array.isArray(value.scopes)?value.scopes:null;
+  if(!src) return null;
+  const scopes={};
+  ['전체','본인','아내'].forEach(k=>{
+    const m=src[k]; if(!m||typeof m!=='object'||Array.isArray(m)) return;
+    const out={};
+    Object.keys(m).slice(0,40).forEach(cat=>{
+      const name=_boundedStoredText(cat,30); const amt=_safeStoredNumber(m[cat],{min:0,max:1_000_000_000});
+      if(name&&amt>0) out[name]=Math.round(amt);
+    });
+    if(Object.keys(out).length) scopes[k]=out;
+  });
+  return Object.keys(scopes).length?{scopes}:null;
+}
 function _normalizeGiftActual(value){
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const normalizeAmounts=items=>Array.from({length:4},(_,index)=>

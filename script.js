@@ -511,8 +511,11 @@ async function refreshMarketPrices(){
   // 국내 시세는 주 시세와 동시에 받아 두고(기다리는 시간 단축), 반영은 주 시세 뒤에 한다(덮는 순서는 예전 그대로).
   const domTickers=_domesticQuoteTickers();
   const domPrefetch=domTickers.length?_fetchDomesticQuotes(domTickers):null;
+  const priceBefore=typeof livePriceSnap==='function'?livePriceSnap():null;
   const primary=await liveRefresh();
   const domestic=await liveRefreshDomesticEtfs(domPrefetch);
+  // 다시 그린 뒤 바뀐 칸만 잠깐 밝힌다(첫 로딩 스플래시 중에는 안 보이므로 생략된다)
+  if(priceBefore&&typeof liveFlashApply==='function'&&!(typeof _boot!=='undefined'&&_boot)) liveFlashApply(livePriceChanged(priceBefore));
   const marketItems=(pfolioData||[]).filter(i=>i&&(i.grp==='주식'||i.grp==='가상화폐'));
   const stale=marketItems.filter(i=>i._priceStale).length;
   const hasForeign=marketItems.some(i=>!_isDomesticEquity(i));
@@ -715,22 +718,19 @@ function _normalizePyDividendInfo(tkr,info,existing) {
 }
 
 /**
- * fetchPyDividends() – Python(pykrx/yfinance) 배당 데이터 보완
- * 등록된 모든 주식(국내 6자리 숫자/알파뉴메릭 + 해외 티커)을 병합 조회.
+ * fetchPyDividends() – Python(pykrx) 국내 배당 보완
+ * 국내(6자리 알파뉴메릭) 보유 주식만 보낸다. 해외는 dashboard.py 가 다루지 않는다 — 예전 yfinance 경로는
+ * 시간대 TypeError 로 늘 '미조회'였고 2026-11-25 지웠다(해외 배당은 api/price.ts 가 맡는다).
  * 배당 주기(months) 누락 시 cycle에서 추정하거나 기본 분기배당으로 설정.
  */
 async function fetchPyDividends() {
-  // 국내(6자리 알파뉴메릭 포함) + 해외(영문/기타) 모든 보유 종목
-  const allTickers = [...new Set(
+  const krTickers = [...new Set(
     pfolioData
       .filter(i => i.grp === '주식' && i.qty > 0)
       .map(i => String(i.tkr||'').toUpperCase().replace(/\.(KS|KQ)$/, ''))
-      .filter(Boolean)
+      .filter(t => /^[0-9A-Z]{6}$/.test(t))
   )];
-  if (!allTickers.length) return;
-
-  const krTickers = allTickers.filter(t => /^[0-9A-Z]{6}$/.test(t));
-  const foreignTickers = allTickers.filter(t => !/^[0-9A-Z]{6}$/.test(t));
+  if (!krTickers.length) return;
 
   const mergeOne = (tkr, info) => {
     const cacheTkr = normDivTkr(tkr);
@@ -739,29 +739,14 @@ async function fetchPyDividends() {
     if(normalized) window._divDataCache[cacheTkr]=normalized;
   };
 
-  // 국내 종목 배당 (pykrx 기반)
-  if (krTickers.length) {
-    try {
-      for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
-        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
-        if (d && d.success && d.result) {
-          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
-        }
+  try {
+    for (const chunk of _chunkTickers(krTickers, PY_DIVIDEND_TICKER_LIMIT)) {
+      const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
+      if (d && d.success && d.result) {
+        Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
       }
-    } catch(e) { console.warn('[fetchPyDividends KR]', e); }
-  }
-
-  // 해외 종목 배당 (yfinance 기반)
-  if (foreignTickers.length) {
-    try {
-      for (const chunk of _chunkTickers(foreignTickers, PY_DIVIDEND_TICKER_LIMIT)) {
-        const d = await _pyFetch({type:'dividend', tickers: chunk.join(',')});
-        if (d && d.success && d.result) {
-          Object.entries(d.result).forEach(([tkr, info]) => mergeOne(tkr, info));
-        }
-      }
-    } catch(e) { console.warn('[fetchPyDividends US]', e); }
-  }
+    }
+  } catch(e) { console.warn('[fetchPyDividends KR]', e); }
 
   syncDivHistory();
   // 현금흐름: 갱신된 배당 정보로 이번 달 누락 배당수입을 자동 등록
@@ -953,9 +938,7 @@ async function fetchBenchmarkData(ownerOverride) {
           const isKR = /^[0-9A-Z]{6}$/.test(stripped) && a.cur==='KRW';
           tkr = isKR ? stripped + (a.market==='KOSDAQ'?'.KQ':'.KS') : a.tkr;
         }
-        const val = a.grp==='금'
-          ? (a.qty||0) * (a.curP||0)               // curP는 이미 KRW
-          : (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
+        const val = assetValueKRW(a);   // 화면과 같은 평가액(core/data.js)
         tkrWeightMap[tkr] = (tkrWeightMap[tkr]||0) + val;
       });
       // 서버(api/dashboard.py)는 p_tkrs 를 20개로 제한한다. 넘기면 too_many_tickers 로
@@ -1048,9 +1031,7 @@ async function fetchBenchmarkData(ownerOverride) {
       const ownerWeightMap = {};
       OWNERS.forEach(o => {
         const v = getFilteredAssets(o).reduce((s,a)=>{
-          if (a.grp==='주식'||a.grp==='가상화폐') return s + (a.qty||0)*(a.curP||0)*(RATES[a.cur]||1);
-          if (a.grp==='금') return s + (a.qty||0)*(a.curP||0); // curP는 이미 KRW
-          return s;
+          return (a.grp==='주식'||a.grp==='가상화폐'||a.grp==='금') ? s + assetValueKRW(a) : s;
         }, 0);
         if (v > 0 && Array.isArray(benchData[Object.keys(benchData)[0]]?.data?.[o])) ownerWeightMap[o] = v;
       });

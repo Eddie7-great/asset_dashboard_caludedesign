@@ -87,6 +87,19 @@ function cbTaxSummary(list, ownerOf, ownerHints=[], when){
 // ── 손실 상계 여력·소유주별 해외 기본공제(2026-11-24 사용자 결정) ──
 // 새 세율·공제는 만들지 않는다 — cbTaxSummary 의 소유주별 genFgn·genBase 와 규칙값(tax-rules.js)만 쓴다.
 // 손실 상계는 같은 사람의 해외 이익과만 되므로 소유주마다 min(평가손실, 공제 초과 과세표준) × 세율을 더한 최대치다.
+// 세금 상단 카드 한 장(2026-11-25) — 머리(제목 + 보조 한 줄) → 대표 값(라벨 + 큰 숫자, 막대는 숫자 오른쪽 같은 줄) → 세부 줄 → 각주.
+// 막대를 숫자 아래에 두면 그 카드만 세부 줄이 한 칸 내려가 옆 카드와 어긋난다.
+// 여섯 장이 같은 뼈대라 대표 숫자와 세부 줄이 카드마다 같은 높이에서 시작한다. 새 계산은 없다 — 값은 부르는 쪽이 이미 구한 것.
+// rows: [라벨 HTML, 값 HTML, 값 style] — 라벨·값 모두 한 줄(값은 줄바꿈하지 않는다).
+function cbTaxCardHtml({tone, title, sub='', heroLab='', hero='', heroTone='', bar=null, rows=[], note=''}){
+  const barHtml = bar==null ? '' : `<div class="cb-tax-deduction-track"><span style="width:${Math.max(0,Math.min(100,Number(bar)||0)).toFixed(2)}%"></span></div>`;
+  return `<div class="cb-panel cb-tax-summary-card" style="--card-tone:${tone}">
+        <div class="cb-tax-card-head"><span class="cb-tax-card-title">${title}</span>${sub?`<span class="cb-tax-card-sub">${sub}</span>`:''}</div>
+        <div class="cb-tax-card-hero"><span class="cb-tax-card-hero-lab">${heroLab}</span><div class="cb-tax-card-hero-line"><b style="${heroTone?`color:${heroTone}`:''}">${hero}</b>${barHtml}</div></div>
+        <div class="cb-tax-card-rows">${rows.map(([lab,val,st=''])=>`<div class="cb-tax-card-row"><span>${lab}</span><b style="${st}">${val}</b></div>`).join('')}</div>
+        ${note?`<div class="cb-tax-card-note">${note}</div>`:''}
+      </div>`;
+}
 function cbTaxHarvestPlan(buckets, candidates, rate){
   const base=new Map((buckets||[]).filter(b=>!b.isLegacy).map(b=>[b.label,Number(b.genBase)||0]));
   const lossBy=new Map();
@@ -94,6 +107,20 @@ function cbTaxHarvestPlan(buckets, candidates, rate){
   let loss=0, save=0;
   lossBy.forEach((l,o)=>{ loss+=l; save+=Math.round(Math.min(l, base.get(o)||0)*(Number(rate)||0)); });
   return {loss, save, count:(candidates||[]).filter(x=>Math.abs(Number(x&&x.loss)||0)>0).length};
+}
+// 손실 상계 후보 한 줄씩(2026-11-25 시안) — cbTaxHarvestPlan 과 같은 규칙(소유주마다 min(손실, 공제를 넘은 과세표준) × 세율)을
+// 종목에 나눠 적는다. 한 사람 안에서는 손실이 큰 종목부터 과세표준을 채우고, 반올림은 누적값으로 해서 줄의 합이 카드의 '줄일 세금'과 정확히 같다.
+function cbTaxHarvestRows(buckets, candidates, rate){
+  const base=new Map((buckets||[]).filter(b=>!b.isLegacy).map(b=>[b.label,Number(b.genBase)||0]));
+  const r=Number(rate)||0, byOwner=new Map();
+  (candidates||[]).forEach(x=>{ const o=x&&x.i&&x.i.owner, l=Math.abs(Number(x&&x.loss)||0); if(!o||!(l>0)) return; if(!byOwner.has(o)) byOwner.set(o,[]); byOwner.get(o).push({...x,lossAbs:l}); });
+  const out=[];
+  byOwner.forEach((list,o)=>{
+    list.sort((a,b)=>b.lossAbs-a.lossAbs);
+    let left=base.get(o)||0, raw=0, shown=0;
+    list.forEach(x=>{ const use=Math.min(x.lossAbs,left); left-=use; raw+=use*r; const cum=Math.round(raw); out.push({...x,owner:o,used:use,save:cum-shown}); shown=cum; });
+  });
+  return out.sort((a,b)=>(b.save-a.save)||(b.lossAbs-a.lossAbs));
 }
 // 부양가족으로 보는 소유주 — 자녀1 은 본인 연말정산의 부양가족이다(사용자 설명 2026-11-24).
 // 해외주식 양도소득금액(이익)이 연 소득금액 기준(tax-rules.js dependent.basicDeductionIncomeLimitKrw)을 넘으면
@@ -407,13 +434,13 @@ function cbRenderTax(){
     .map(i=>({ i, loss:cbGainKRW(i) }))
     .filter(x=>x.loss<0)
     .sort((a,b)=>a.loss-b.loss);
-  const harvestTotal = harvestCandidates.reduce((s,x)=>s+Math.abs(x.loss),0);
   const harvest = cbTaxHarvestPlan(taxSummary.buckets, harvestCandidates, taxSummary.foreignRate);
+  const harvestRows = cbTaxHarvestRows(taxSummary.buckets, harvestCandidates, taxSummary.foreignRate);
   const dependentLimit = _taxRuleValue('dependent.basicDeductionIncomeLimitKrw', null, year);
-  // 부양가족(자녀1)의 남은 250만 공제는 '세금 없이'는 맞지만, 실현하면 부양가족 소득 기준(100만)에 걸릴 수 있다 — 합계에 든 몫을 밝힌다.
-  const depRoom = dependentLimit>0 ? taxSummary.buckets.filter(b=>!b.isLegacy&&CB_TAX_DEPENDENT_OWNERS.includes(b.label)).reduce((s,b)=>s+(Number(b.deductionRoom)||0),0) : 0;
-  const depRoomNote = depRoom>0 ? `<div class="cb-tax-half-note" style="margin-top:3px">그중 ${CB_TAX_DEPENDENT_OWNERS.map(cbEsc).join('·')} 몫 ${cbKrw(depRoom)} — 실현하면 부양가족 공제에 영향(오른쪽 카드)</div>` : '';
   const ownerDedRows = cbTaxOwnerDeductionRows(taxSummary.buckets, _cbTaxOwner==='전체'?OWNERS:[_cbTaxOwner], taxSummary.foreignDeduction, dependentLimit, taxSummary.foreignRate);
+  // 부양가족(자녀1)의 남은 250만 공제는 '세금 없이'는 맞지만, 실현하면 부양가족 소득 기준(100만)에 걸릴 수 있다 — '남은 공제'에 든 몫을 밝힌다(2026-11-24 규칙).
+  const depRoom = dependentLimit>0 ? taxSummary.buckets.filter(b=>!b.isLegacy&&CB_TAX_DEPENDENT_OWNERS.includes(b.label)).reduce((s,b)=>s+(Number(b.deductionRoom)||0),0) : 0;
+  const depRoomNote = depRoom>0 ? `남은 공제 중 ${CB_TAX_DEPENDENT_OWNERS.map(cbEsc).join('·')} 몫 ${cbKrw(depRoom)} — 실현하면 부양가족 공제에 영향` : '';
   const historyList = _cbTaxMonthFilter
     ? list.filter(t=>parseInt(String(t.month).split('-')[1]||'0')===_cbTaxMonthFilter)
     : list;
@@ -437,71 +464,43 @@ function cbRenderTax(){
      </label>`
   );
   el.innerHTML = `
-    <!-- 상단 요약: 기존 5개를 압축하고 해외 기본공제 사용률을 추가 -->
+    <!-- 상단 요약 6장(2026-11-25 정리): 모두 같은 뼈대 — 머리(제목·보조 한 줄) → 대표 값 → 세부 줄(cbTaxCardHtml).
+         예전 '해외 기본공제 사용률'·'손실 상계 여력' 반 높이 두 장은 '해외 기본공제' 한 장으로 합쳤다. -->
     <div class="cb-tax-summary-grid">
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--dn)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800">${year}년 세액 참고 합계<span class="cb-tax-card-sub">${ownerSuffix.replace(/^ · /,'')}</span></div>
-        <div style="flex:1;display:flex;align-items:center">
-          <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;color:var(${totalDue>0?'--dn':'--lab'})">${cbKrw(totalDue)}</div>
-        </div>
-        <div style="font-size:var(--fs-cap);color:var(--dim);padding-top:8px;line-height:1.5">해외 예상 ${cbKrw(genDue)}<br>ISA 연간 현금흐름 참고 ${cbKrw(isaDue)}<br>${taxBreakdown||'과세 대상 기록 없음'}<br>해외주식 신고 ${parseInt(year)+1}년 5월</div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:${CB_CLS.us.color}">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 해외주식 <span style="color:var(--dim);font-weight:500">· 양도소득세</span></div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          ${row2('실현손익 합계', (genFgn>0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
-          ${row2(`<span data-tip="일반적인 해외주식 양도차익에서 소유주별 연 ${cbKrw(taxSummary.foreignDeduction)} 공제">기본공제</span>`, taxSummary.deductionGroups>1?`인별 ${cbKrw(taxSummary.foreignDeduction)} × ${taxSummary.deductionGroups}`:'−'+cbKrw(taxSummary.foreignDeduction))}
-          ${row2('<span data-tip="소유주별 실현손익에서 각자의 기본공제를 뺀 과세표준 합계">과세표준 합계</span>', cbKrw(genBase))}
-          ${row2('세율', `${pct(taxSummary.foreignRate)} <span style="color:var(--dim);font-weight:400">(지방세 포함)</span>`)}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">예상 세액</span><span style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(${genDue>0?'--dn':'--lab'})">${cbKrw(genDue)}</span></div>
-        </div>
-      </div>
-      <div class="cb-tax-ded-col">
-      <div class="cb-panel cb-tax-summary-card cb-tax-half-card" style="--card-tone:var(--warn)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800">해외 기본공제 사용률</div>
-        <div class="cb-tax-deduction-value">
-          <div style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(--warn)">${deductionUsePct.toFixed(1)}%</div>
-          <span class="cb-tax-deduction-remain">잔여 공제 ${cbKrw(deductionRoom)}</span>
-        </div>
-        <div class="cb-tax-deduction-track"><span style="width:${deductionUsePct.toFixed(2)}%"></span></div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card cb-tax-half-card" style="--card-tone:var(--dn)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800"><span data-tip="해외 일반계좌 종목의 지금 평가손실입니다. 같은 해에 팔아 손실을 확정하면 그 사람의 해외 실현이익과 상계됩니다. 세액 감소는 소유주마다 '손실'과 '공제 초과 과세표준' 중 작은 쪽 × 세율로 잡은 최대치입니다.">손실 상계 여력</span><span class="cb-tax-card-sub">해외 평가손실</span></div>
-        <div class="cb-tax-deduction-value">
-          <div style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:${harvest.loss>0?'var(--dn)':'var(--lab)'}">${harvest.loss>0?'−'+cbKrw(harvest.loss):cbKrw(0)}</div>
-          <span class="cb-tax-deduction-remain">${harvest.count}종목</span>
-        </div>
-        <div class="cb-tax-half-note">${harvest.loss>0?(harvest.save>0?`연말 전 팔면 세액 최대 <b style="color:var(--up)">${cbKrw(harvest.save)}</b> 감소`:'공제 안이라 팔아도 줄어드는 세금 없음'):'평가손실 종목 없음'}</div>
-      </div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:${CB_CLS.kr.color}">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">일반 · 국내주식 <span class="cb-tax-card-sub">소액주주 비과세</span></div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          ${row2('실현손익 합계', (genDom>0?'+':'')+cbKrw(genDom), cbUpDn(genDom))}
-          ${row2('<span data-tip="종목당 보유액 50억원 미만·지분율 기준 미만인 일반 투자자">소액주주</span> 장내 양도차익', '<span style="color:var(--up);font-weight:700">비과세</span>')}
-          ${row2(`<span data-tip="매도 대금에 부과되는 부담(손익과 무관). ${year}년 코스피 증권거래세 ${pct(kospiSecuritiesRate)} + 농어촌특별세 ${pct(kospiRuralRate)}, 코스닥 증권거래세 ${pct(kosdaqTotalRate)}">거래세·농특세 참고</span>`, `코스피 ${pct(kospiTotalRate)} · 코스닥 ${pct(kosdaqTotalRate)}`)}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">예상 양도세액</span><span style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(--lab)">${cbKrw(0)}</span></div>
-        </div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--purple,#c084fc)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">ISA 계좌 <span class="cb-tax-card-sub">만기 정산 전 연간 참고</span></div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          ${row2('연간 입력 순소득', (isaNet>0?'+':'')+cbKrw(isaNet), cbUpDn(isaNet))}
-          ${row2(`<span data-tip="실제 일반형 비과세 한도 ${cbKrw(taxSummary.isaExemption)}는 계좌 유지기간 전체 최종 순소득에 한 번 적용됩니다. 이 화면은 연간 참고 가정입니다.">참고 비과세 가정</span>`, taxSummary.deductionGroups>1?`인별 ${cbKrw(taxSummary.isaExemption)}`:'−'+cbKrw(taxSummary.isaExemption))}
-          ${row2('연간 참고 과세표준', cbKrw(isaBase))}
-          ${row2('참고율', `${pct(taxSummary.isaRate)} <span style="color:var(--dim);font-weight:400">(지방세 포함)</span>`)}
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--bd)"><span style="font-weight:700;font-size:var(--fs-cap)">연간 현금흐름 참고세액</span><span style="font-family:var(--font-ui);font-size:var(--fs-card);font-weight:800;color:var(${isaDue>0?'--dn':'--lab'})">${cbKrw(isaDue)}</span></div>
-        </div>
-      </div>
-      <div class="cb-panel cb-tax-summary-card" style="--card-tone:var(--up)">
-        <div style="font-size:var(--fs-cap);letter-spacing:.06em;color:var(--lab);font-weight:800;margin-bottom:8px">연금저축 계좌 <span class="cb-tax-card-sub">과세이연</span></div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1">
-          ${row2('순이익', (penNet>0?'+':'')+cbKrw(penNet), cbUpDn(penNet))}
-          ${row2('계좌 내 매매차익', '<b style="color:var(--up)">매도 시 과세 없음</b>')}
-          ${row2('연금 수령', `연금소득세 ${pct(pensionMinRate)}~${pct(pensionMaxRate)}`)}
-          ${row2('<span data-tip="중도 인출은 그해 양도세 계산에서 빠집니다.">중도 인출</span>', `기타소득세 ${pct(pensionWithdrawalRate)}`)}
-        </div>
-      </div>
+      ${cbTaxCardHtml({tone:'var(--dn)', title:`${year}년 세액 참고 합계`, sub:ownerSuffix.replace(/^ · /,''),
+        heroLab:'해외 양도세 + ISA 참고', hero:cbKrw(totalDue), heroTone:totalDue>0?'var(--dn)':'var(--lab)',
+        rows:[['해외 양도세', cbKrw(genDue)], ['ISA 참고', cbKrw(isaDue)], ['해외주식 신고', `${parseInt(year)+1}년 5월`]],
+        note:_cbTaxOwner==='전체'&&taxBreakdown?taxBreakdown:''})}
+      ${cbTaxCardHtml({tone:CB_CLS.us.color, title:'일반 · 해외주식', sub:'양도소득세',
+        heroLab:'예상 세액', hero:cbKrw(genDue), heroTone:genDue>0?'var(--dn)':'var(--lab)',
+        rows:[['실현손익', (genFgn>0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn)],
+          [`<span data-tip="일반적인 해외주식 양도차익에서 소유주별 연 ${cbKrw(taxSummary.foreignDeduction)} 공제${taxSummary.deductionGroups>1?` — 인별 ${cbKrw(taxSummary.foreignDeduction)} × ${taxSummary.deductionGroups}명`:''}">${taxSummary.deductionGroups>1?`기본공제 ×${taxSummary.deductionGroups}`:'기본공제'}</span>`, '−'+cbKrw(taxSummary.foreignDeduction*Math.max(1,taxSummary.deductionGroups))],
+          ['<span data-tip="소유주별 실현손익에서 각자의 기본공제를 뺀 과세표준 합계">과세표준</span>', cbKrw(genBase)],
+          ['<span data-tip="양도소득세 20% + 지방소득세 2%">세율</span>', pct(taxSummary.foreignRate)]]})}
+      ${cbTaxCardHtml({tone:'var(--warn)', title:'해외 기본공제', sub:'사용률 · 손실 상계 여력',
+        heroLab:'공제 사용률', hero:`${deductionUsePct.toFixed(1)}%`, heroTone:'var(--warn)',
+        bar:deductionUsePct,
+        rows:[['남은 공제', cbKrw(deductionRoom)],
+          [`<span data-tip="해외 일반계좌 종목의 지금 평가손실입니다(${harvest.count}종목). 같은 해에 팔아 손실을 확정하면 그 사람의 해외 실현이익과 상계됩니다.">평가손실</span>`, harvest.loss>0?'−'+cbKrw(harvest.loss):cbKrw(0), harvest.loss>0?'color:var(--dn)':'color:var(--lab)'],
+          ['<span data-tip="연말 전에 평가손실 종목을 팔면 줄일 수 있는 세금의 최대치 — 소유주마다 \'손실\'과 \'공제를 넘은 과세표준\' 중 작은 쪽 × 세율. 같은 사람끼리만 상계됩니다.">줄일 세금</span>', harvest.save>0?'최대 '+cbKrw(harvest.save):'—', harvest.save>0?'color:var(--up)':'color:var(--lab)']],
+        note:[harvest.loss>0&&!(harvest.save>0)?'공제 안이라 팔아도 줄어드는 세금 없음':'', depRoomNote].filter(Boolean).join('<br>')})}
+      ${cbTaxCardHtml({tone:CB_CLS.kr.color, title:'일반 · 국내주식', sub:'소액주주 비과세',
+        heroLab:'예상 양도세액', hero:cbKrw(0), heroTone:'var(--lab)',
+        rows:[['실현손익', (genDom>0?'+':'')+cbKrw(genDom), cbUpDn(genDom)],
+          ['<span data-tip="종목당 보유액 50억원 미만·지분율 기준 미만인 일반 투자자(소액주주)의 장내 양도차익">장내 차익</span>', '비과세', 'color:var(--up)'],
+          [`<span data-tip="매도 대금에 부과되는 부담(손익과 무관). ${year}년 코스피 증권거래세 ${pct(kospiSecuritiesRate)} + 농어촌특별세 ${pct(kospiRuralRate)}">코스피 거래세</span>`, pct(kospiTotalRate)],
+          [`<span data-tip="코스닥 증권거래세 ${pct(kosdaqTotalRate)} (농어촌특별세 없음)">코스닥 거래세</span>`, pct(kosdaqTotalRate)]]})}
+      ${cbTaxCardHtml({tone:'var(--acct-isa)', title:'ISA 계좌', sub:'만기 정산 전 연간 참고',
+        heroLab:'연간 현금흐름 참고세액', hero:cbKrw(isaDue), heroTone:isaDue>0?'var(--dn)':'var(--lab)',
+        rows:[['<span data-tip="이 화면에 입력한 ISA 계좌의 올해 실현손익 합계">순소득</span>', (isaNet>0?'+':'')+cbKrw(isaNet), cbUpDn(isaNet)],
+          [`<span data-tip="실제 일반형 비과세 한도 ${cbKrw(taxSummary.isaExemption)}는 계좌 유지기간 전체 최종 순소득에 한 번 적용됩니다. 이 화면은 연간 참고 가정입니다.${taxSummary.deductionGroups>1?` 인별 ${cbKrw(taxSummary.isaExemption)} × ${taxSummary.deductionGroups}명.`:''}">${taxSummary.deductionGroups>1?`비과세 ×${taxSummary.deductionGroups}`:'비과세 가정'}</span>`, '−'+cbKrw(taxSummary.isaExemption*Math.max(1,taxSummary.deductionGroups))],
+          ['과세표준', cbKrw(isaBase)],
+          ['<span data-tip="분리과세 9% + 지방소득세 0.9%">참고율</span>', pct(taxSummary.isaRate)]]})}
+      ${cbTaxCardHtml({tone:'var(--acct-pen)', title:'연금저축 계좌', sub:'과세이연',
+        heroLab:'계좌 순이익', hero:(penNet>0?'+':'')+cbKrw(penNet), heroTone:penNet>0?'var(--up)':penNet<0?'var(--dn)':'var(--lab)',
+        rows:[['매매차익', '과세 없음', 'color:var(--up)'],
+          [`<span data-tip="연금으로 받을 때 연금소득세 ${pct(pensionMinRate)}~${pct(pensionMaxRate)}(나이에 따라)">연금 수령</span>`, `${pct(pensionMinRate)}~${pct(pensionMaxRate)}`],
+          [`<span data-tip="연금이 아닌 방법으로 꺼내면 기타소득세 ${pct(pensionWithdrawalRate)}. 중도 인출은 그해 양도세 계산에서 빠집니다.">중도 인출</span>`, pct(pensionWithdrawalRate)]]})}
     </div>
     ${taxSummary.legacy?`<div class="cb-panel" role="note" style="margin-top:10px;padding:10px 13px;border-left:3px solid var(--warn);font-size:var(--fs-cap);color:var(--mut);line-height:1.55"><b style="color:var(--warn)">소유주 미지정 기록 별도 추정</b> · 해외 일반 ${cbKrw(taxSummary.legacy.genFgn)}, ISA ${cbKrw(taxSummary.legacy.isaNet)}, 예상세액 ${cbKrw(taxSummary.legacyDue)}. 어느 사람의 공제를 사용했는지 알 수 없어 하나의 별도 버킷으로 계산했습니다. 기록을 수정해 실제 소유주를 지정하세요.</div>`:''}
     <!-- 월별 실현손익 + 누적 손익·예상 세액 추이 (마우스 오버 시 월별 상세) -->
@@ -516,7 +515,7 @@ function cbRenderTax(){
       </div>
       <div class="cb-chart-scroll">${cbTaxChartSvg(1120,420,list,year)}</div>
     </div>
-    <!-- 하단: 좁아진 실현손익 내역 + 연말 절세 여력 -->
+    <!-- 하단: 실현손익 내역 + [손실 상계 후보 | 소유주별 해외 기본공제] -->
     <div class="cb-tax-bottom-grid">
       <div class="cb-panel cb-tax-history-panel" style="padding:14px 16px;min-width:0">
         <!-- 제목 · 입력 줄 · 월 필터 · 거래내역 가져오기를 한 줄에 — 폭이 모자라면 입력 줄이 다음 줄로 내려간다 -->
@@ -573,33 +572,17 @@ function cbRenderTax(){
         </div></div>
       </div>
       <div class="cb-tax-saving-row">
-      <div class="cb-panel cb-tax-saving-panel" style="padding:15px 16px;min-width:0">
-        <div class="cb-panel-title">연말 절세 여력${ownerSuffix}</div>
-        <div style="font-size:var(--fs-cap);color:var(--dim);margin-top:3px">해외 일반계좌 · ${year}년 실현손익 기준</div>
-        <div style="margin-top:14px">
-          <div style="font-size:var(--fs-cap);color:var(--mut)">세금 없이 추가 실현 가능한 순이익</div>
-          <div style="font-family:var(--font-ui);font-size:var(--fs-title);font-weight:800;color:${deductionRoom>0?'var(--up)':'var(--lab)'};margin-top:2px">${cbKrw(deductionRoom)}</div>
-          ${depRoomNote}
-        </div>
-        <div style="margin-top:11px">
-          <div style="display:flex;justify-content:space-between;font-size:var(--fs-cap);color:var(--mut)"><span>기본공제 사용률</span><b>${deductionUsePct.toFixed(1)}%</b></div>
-          <div style="height:7px;border-radius:5px;background:var(--inner);overflow:hidden;margin-top:5px"><div style="height:100%;width:${deductionUsePct}%;background:${deductionUsePct>=100?'var(--dn)':'var(--acc)'}"></div></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:13px;padding-top:11px;border-top:1px solid var(--bd)">
-          ${row2('해외 일반 실현손익', (genFgn>0?'+':'')+cbKrw(genFgn), cbUpDn(genFgn))}
-          ${row2('공제 초과 과세표준', cbKrw(genBase), genBase>0?'color:var(--dn)':'color:var(--lab)')}
-          ${row2('미실현 손실 후보 합계', harvestTotal>0?'−'+cbKrw(harvestTotal):cbKrw(0), harvestTotal>0?'color:var(--dn)':'color:var(--lab)')}
-        </div>
-        <div style="font-size:var(--fs-cap);color:var(--lab);font-weight:800;margin-top:14px">손실 상계 후보 TOP 3</div>
-        <div style="display:flex;flex-direction:column;gap:5px;margin-top:7px">
-          ${harvestCandidates.slice(0,3).map(x=>`
-            <div style="display:flex;align-items:center;gap:7px;font-size:var(--fs-cap)">
-              <i class="cb-owner-dot" style="background:${cbOwnerColor(x.i.owner)}"></i>
-              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)">${cbEsc(x.i.name||x.i.tkr)}${_cbTaxOwner==='전체'?` · ${cbEsc(x.i.owner)}`:''}</span>
-              <b class="cb-num" style="color:var(--dn);flex-shrink:0">−${cbKrw(Math.abs(x.loss))}</b>
-            </div>`).join('') || '<div style="font-size:var(--fs-cap);color:var(--dim)">현재 미실현 손실 후보가 없습니다.</div>'}
-        </div>
-        <div style="font-size:var(--fs-cap);color:var(--dim);line-height:1.55;margin-top:auto;padding-top:12px">손실 상계 후보는 해외 일반계좌의 현재 평가손실만 표시합니다. 실제 매도 전 수수료·환율·세법 적용 여부를 확인하세요.</div>
+      <div class="cb-panel cb-tax-saving-panel cb-tax-harvest">
+        <div class="cb-panel-title"><span data-tip="해외 일반계좌 종목 중 지금 평가손실인 것입니다. 같은 해에 팔아 손실을 확정하면 그 사람의 해외 실현이익과 상계됩니다. 합계는 위 '해외 기본공제' 카드에 있습니다.">손실 상계 후보</span>${ownerSuffix}</div>
+        <div class="cb-tax-od-sub">해외 일반계좌 · 팔면 줄일 수 있는 세금(종목별 최대) · 같은 사람끼리만 상계</div>
+        ${harvestRows.length?`<div class="cb-tax-hv-head" aria-hidden="true"><span>소유주</span><span>종목</span><span class="r">평가손실</span><span class="r">줄일 세금</span></div>
+        <div class="cb-tax-hv-list">${harvestRows.map(x=>`<div class="cb-tax-hv-row">
+            <span>${cbOwnerTag(x.owner)}</span>
+            <span class="cb-tax-hv-name" data-overflow-tip="${cbEsc(x.i.name||x.i.tkr)}" data-overflow-watch>${cbFlagCell({cls:cbCls(x.i),i:x.i},22,13)}${cbEsc(x.i.name||x.i.tkr)}</span>
+            <b class="cb-num r" style="color:var(--dn)">−${cbKrw(x.lossAbs)}</b>
+            ${x.save>0?`<b class="cb-num r" style="color:var(--up)">${cbKrw(x.save)}</b>`:`<span class="r cb-tax-hv-zero" data-tip="이 사람의 해외 실현이익이 아직 기본공제 안이라(또는 앞 종목 손실로 이미 다 상계돼) 팔아도 줄어드는 세금이 없습니다">—</span>`}
+          </div>`).join('')}</div>`:'<p class="cb-tax-hv-empty">지금 평가손실인 해외 일반계좌 종목이 없습니다.</p>'}
+        <div class="cb-tax-hv-note">지금 평가손실 기준입니다. 실제 매도 전에 수수료·환율·세법 적용 여부를 확인하세요.</div>
       </div>
       ${cbTaxOwnerDeductionHtml(ownerDedRows)}
       </div>

@@ -24,10 +24,8 @@ window._netWorthHistory = window._netWorthHistory || [];
 // 재무상태표 CRUD 직후에도 이 함수를 호출해 KPI와 차트 마지막 점을 일치시킨다.
 function updateNetWorthSnapshot() {
   const todayStr = _cfLocalDateKey(new Date());
-  const sumAssets = (arr) => arr.reduce((s, a) => {
-    if (a.grp === '금') return s + (a.qty||0) * (a.curP||0);
-    return s + (a.qty||0) * (a.curP||0) * (RATES[a.cur]||1);
-  }, 0);
+  // 평가액은 화면과 같은 assetValueKRW(core/data.js) — 배치 asset_value_krw 와 test_net_worth_snapshot.py 가 대조한다.
+  const sumAssets = (arr) => arr.reduce((s, a) => s + assetValueKRW(a), 0);
   const portfolio = sumAssets(getFilteredAssets('전체'));
   const bs = window._balanceSheet || {};
   const nonInvestmentAssets = (bs.assets||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
@@ -77,12 +75,12 @@ let _extLastGood=null,_assetsLastGood=null;
 const KV_REVERT_MSG='⚠️ 저장하지 못해 방금 변경을 되돌렸습니다. 네트워크 상태를 확인하고 다시 시도해 주세요.';
 function _extSnapshot(){
   return JSON.stringify({goalData,monthlyPLData,cfData,autoTransferData,cfDeletedKeys,
-    targetAlloc:window._targetAlloc||null,balanceSheet:window._balanceSheet||null,giftActual:window._giftActual||null,taxSaving:window._taxSaving||null});
+    targetAlloc:window._targetAlloc||null,balanceSheet:window._balanceSheet||null,giftActual:window._giftActual||null,taxSaving:window._taxSaving||null,cfBudget:window._cfBudget||null});
 }
 function _extRestore(snapshot){
   const d=JSON.parse(snapshot);
   goalData=d.goalData;monthlyPLData=d.monthlyPLData;cfData=d.cfData;autoTransferData=d.autoTransferData;cfDeletedKeys=d.cfDeletedKeys;
-  window._targetAlloc=d.targetAlloc;window._balanceSheet=d.balanceSheet;window._giftActual=d.giftActual;window._taxSaving=d.taxSaving||null;
+  window._targetAlloc=d.targetAlloc;window._balanceSheet=d.balanceSheet;window._giftActual=d.giftActual;window._taxSaving=d.taxSaving||null;window._cfBudget=d.cfBudget||null;
   try{
     localStorage.setItem('monthlyPLData',JSON.stringify(monthlyPLData));
     localStorage.setItem('cfData',JSON.stringify(cfData));
@@ -117,7 +115,7 @@ async function saveExtDataToKV() {
     if(typeof finMarkFresh==='function') finMarkFresh('ext','재무계획·현금흐름','Vercel KV',false,'원격 데이터 재로드 전 저장 차단');
     return {ok:false,blocked:true,status:null};
   }
-  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null, taxSaving: window._taxSaving || null,
+  const ext = { assetHistory: assetHistory, goalData: goalData, netWorthHistory: window._netWorthHistory || [], monthlyPLData: monthlyPLData, cfData: cfData, autoTransferData: autoTransferData, cfDeletedKeys: cfDeletedKeys, targetAlloc: window._targetAlloc || null, balanceSheet:window._balanceSheet || {assets:[],liabilities:[],cashTargetMonths:6}, giftActual: window._giftActual || null, taxSaving: window._taxSaving || null, cfBudget: window._cfBudget || null,
     // 배치가 쓴 월간 결산 보관을 그대로 다시 싣는다 — 빼면 앱 저장이 지난 결산을 지운다. 사용자 입력이 아니라 되돌리기 대상은 아니다.
     reportArchive: window._reportArchive || {} };
   const sent=_extSnapshot();
@@ -150,7 +148,7 @@ async function loadExtDataFromKV() {
   }
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const arrayFields=['assetHistory','goalData','netWorthHistory','monthlyPLData','cfData','autoTransferData','cfDeletedKeys'];
-    const objectFields=['targetAlloc','balanceSheet','giftActual','taxSaving'];
+    const objectFields=['targetAlloc','balanceSheet','giftActual','taxSaving','cfBudget'];
     const knownFields=[...arrayFields,...objectFields];
     const owns=key=>Object.prototype.hasOwnProperty.call(data,key);
     const balance=data.balanceSheet;
@@ -176,6 +174,7 @@ async function loadExtDataFromKV() {
     normalized.balanceSheet=owns('balanceSheet')&&data.balanceSheet?data.balanceSheet:{assets:[],liabilities:[],cashTargetMonths:6};
     normalized.giftActual=owns('giftActual')?data.giftActual:null;
     normalized.taxSaving=owns('taxSaving')?data.taxSaving:null;
+    normalized.cfBudget=owns('cfBudget')?data.cfBudget:null;
 
     assetHistory=_normalizeAssetHistoryRows(normalized.assetHistory);
     goalData=_normalizeGoalRows(normalized.goalData);
@@ -185,6 +184,7 @@ async function loadExtDataFromKV() {
     window._balanceSheet=_normalizeBalanceSheet(normalized.balanceSheet);
     window._giftActual=_normalizeGiftActual(normalized.giftActual);
     window._taxSaving=_normalizeTaxSaving(normalized.taxSaving);
+    window._cfBudget=_normalizeCfBudget(normalized.cfBudget);
     try {
       if(window._giftActual) localStorage.setItem('giftActual',JSON.stringify(window._giftActual));
       else localStorage.removeItem?.('giftActual');

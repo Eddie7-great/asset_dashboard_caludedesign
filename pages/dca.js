@@ -199,7 +199,7 @@ function cbRenderDca(){
       if(!active.length) return '';
       const WD=['일','월','화','수','목','금','토'];
       return `<section class="cb-panel cb-dca-upcoming" aria-label="앞으로 10일 매수 일정">
-        <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 10일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small></div>
+        <div class="cb-dca-upcoming-head"><span class="cb-panel-title">앞으로 10일 매수 일정</span><small>규칙상 예정일 · 휴장일은 다음 거래일로 이월 · 실제 체결은 증권사에서 확인</small><button type="button" class="cb-cal-link" onclick="cbGoCalendar(_cbDcaOwner)">달력에서 보기 ›</button></div>
         ${up.length?(()=>{
           // 10일을 빈 날까지 모두 칸으로 그려 카드 폭을 채운다 — 예정이 있는 날만 강조한다.
           const byKey=new Map(up.map(d=>[d.key,d])), start=cbDcaDateAt();
@@ -218,12 +218,12 @@ function cbRenderDca(){
     <div class="cb-panel cb-table-panel" style="padding:14px 16px">
       <div class="cb-dca-table-toolbar"><span class="cb-panel-title">적립식 규칙 <span style="color:var(--dim)">· ${items.length}개</span></span><button type="button" class="cf-fixed-dca-link" onclick="switchView('holdings')">보유 목록에서 수정 ›</button></div>
       <div class="cb-thead cb-dca-head">
-        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text')}</span><span>${cbSortBtn('dca','next','다음 매수','text')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text')}</span><span>${cbSortBtn('dca','monthly','월 환산')}</span>
+        <span>${cbSortBtn('dca','owner','소유주','text')}</span><span>${cbSortBtn('dca','name','종목','text')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','order','<span data-tip="정렬은 원화 환산 기준">회당 금액</span>')}</span><span>${cbSortBtn('dca','cycle','주기','text')}</span><span>${cbSortBtn('dca','next','다음 매수','text')}</span><span class="cb-mobile-secondary"><span data-tip="증권사 공식 안내와 시장 기준을 반영한 대략적인 주문·처리 시점입니다. 실제 체결은 증권사 앱에서 확인하세요.">예상 처리</span></span><span class="cb-mobile-secondary">${cbSortBtn('dca','qty','<span data-tip="현재가 기준으로 이번 한 회차에 매수될 것으로 예상되는 수량">예상 수량</span>')}</span><span class="cb-mobile-secondary">${cbSortBtn('dca','acct','계좌','text')}</span>
       </div>
       ${cbSortRows('dca',items,{
         owner:x=>cbOwnerRank(x.i.owner), name:x=>x.r.title||'', order:x=>cbDcaPerOrderKRW(x.i), cycle:x=>cbDcaRuleLabel(x.i),
         next:x=>x.i.dca&&x.schedule.nextDate?x.schedule.nextDate:null, qty:x=>x.schedule.expectedQty>0?x.schedule.expectedQty:null,
-        acct:x=>x.i.broker||null, monthly:x=>cbDcaPerMonthKRW(x.i),
+        acct:x=>x.i.broker||null,
       }).map(x=>{
         const r=x.r;
         const amtLabel = !dcaHasRule(x.i) ? '<span class="dca-amount is-missing">금액 미입력</span>' : x.i.dcaMode==='qty'
@@ -245,8 +245,7 @@ function cbRenderDca(){
           <span class="cb-mobile-secondary cb-dca-timing-cell cb-tip-block" data-tip="예상 처리 시점입니다. 실제 주문·체결 여부는 ${cbEsc(x.i.broker||'증권사')} 앱에서 확인하세요."><b>${cbEsc(x.timing.label)}</b><small>${cbEsc(x.timing.note)}</small></span>
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap)">${x.schedule.expectedQty>0?x.schedule.expectedQty.toLocaleString(undefined,{maximumFractionDigits:x.i.grp==='가상화폐'?6:4})+(x.i.grp==='가상화폐'?'개':'주'):'—'}</span>
           <span class="cb-mobile-secondary" style="color:var(--mut);font-size:var(--fs-cap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cbEsc(x.i.broker||'—')}</span>
-          <span style="font-weight:600">${cbDisp(cbDcaPerMonthKRW(x.i))}/월</span>
-        </div>`;}).join('') || '<div style="padding:16px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">진행 중인 적립식 규칙이 없습니다. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 등록하거나 다시 켜세요.</div>'}
+        </div>`;}).join('') || cbEmptyHtml('진행 중인 적립식 규칙이 없습니다','보유 목록의 적립식 칸을 누르면 주기와 금액을 정할 수 있습니다. 꺼 둔 규칙도 거기서 다시 켭니다.',[{label:'보유 목록에서 등록하기 ›',onclick:"switchView('holdings')"}],{compact:true})}
     </div>
     <div class="cb-panel cb-dca-allocation-card">
       <div class="cb-insight-title">월 환산 매수 배분${dcaAlloc.length?` <span class="cb-dca-allocation-count">${dcaAlloc.length}종목</span>`:''}</div>
@@ -264,7 +263,7 @@ function cbRenderDca(){
             <div class="cb-dca-allocation-meta"><span>${ownerF?'':cbEsc(x.owner)+' · '}${cbDisp(x.amount)}/월</span></div>
             <div class="cb-dca-allocation-track"><i style="width:${share.toFixed(2)}%;background:${cbOwnerColor(x.owner)}"></i></div>
           </div>`;
-        }).join('') || '<div class="cb-insight-empty">활성화된 DCA 규칙이 없습니다.</div>'}
+        }).join('') || '<div class="cb-insight-empty">규칙이 생기면 종목별 비중이 여기에 보입니다.</div>'}
       </div>
     </div>
     </div>`;

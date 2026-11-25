@@ -51,8 +51,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar, report2:cbRenderReport, reporty:cbRenderReportYear };
-const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정', report2:'월간 결산', reporty:'연간 결산' };
+const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar, report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart };
+const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정', report2:'월간 결산', reporty:'연간 결산', chart2:'차트 공부' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
@@ -70,16 +70,13 @@ function cbCls(i){
   if (i.cur === 'USD') return 'us';
   return 'kr';
 }
-function cbRate(cur){ return RATES[cur] != null ? RATES[cur] : 1; }
-// 가상화폐(cur=USD)는 현재가(curP)는 USD, 평단가(avgP)는 KRW(>=1000만) 또는 USD(<1000만)로 저장된다.
-// (script.js 대시보드 계산과 동일한 임계값 규칙) → 종목통화(USD) 기준 평단가로 정규화해 손익·표시를 일치시킨다.
-function cbAvgNative(i){
-  if (i.grp==='가상화폐' && i.cur==='USD' && i.avgP>0 && i.avgP>=10000000) return i.avgP / cbRate('USD');
-  return i.avgP||0;
-}
-function cbValKRW(i){ return (i.qty||0) * (i.curP||0) * cbRate(i.cur); }
-function cbCostKRW(i){ return i.costUnknown ? 0 : (i.qty||0) * cbAvgNative(i) * cbRate(i.cur); }
-function cbGainKRW(i){ return i.grp==='현금' || i.costUnknown ? 0 : cbValKRW(i) - cbCostKRW(i); }
+// 환율·평가액·매입금액의 단일 출처는 core/data.js(curRate·assetValueKRW·assetCostKRW·assetGainKRW·assetAvgNative)다.
+// 여기 cb* 는 이름만 남긴 별칭 — 식을 다시 적지 않는다(2026-11-25 숫자 일관성 점검).
+function cbRate(cur){ return curRate(cur); }
+function cbAvgNative(i){ return assetAvgNative(i); }
+function cbValKRW(i){ return assetValueKRW(i); }
+function cbCostKRW(i){ return assetCostKRW(i); }
+function cbGainKRW(i){ return assetGainKRW(i); }
 
 function cbDisp(vKrw){
   const c = _dispCur, v = vKrw / cbRate(c);
@@ -313,7 +310,10 @@ function cbBrokerLabel(i){ return String((i&&i.broker)||'미지정').trim() || '
 function cbMergeRows(rows){
   const m = new Map();
   rows.forEach(r=>{
-    const key = (r.i.owner||'') + '::' + cbStrip(r.i.tkr) + '::' + r.cls;
+    // 티커가 없는 현금은 통화별, 금은 단위별로 나눈다 — 예전엔 소유주마다 한 줄이 되어 '원화 150만 + 달러 1,234'가
+    // 수량 1,501,234 로, '3돈 + 17.5g' 이 20.5돈으로 보였다(금액 합은 맞았다). 주식·코인은 같은 티커면 그대로 합친다.
+    const unitKey = r.cls==='cash' ? '::' + String(r.i.cur||'KRW') : r.cls==='gold' ? '::' + String(r.i.unit||'g') : '';
+    const key = (r.i.owner||'') + '::' + cbStrip(r.i.tkr) + '::' + r.cls + unitKey;
     if (m.has(key)){
       const g = m.get(key);
       g.qty += (r.i.qty||0); g.val += r.val; g.cost += r.cost; g.gain += r.gain;
@@ -462,9 +462,7 @@ function cbSectorName(key){ return typeof sectorKo==='function' ? sectorKo(key) 
 function cbSectors(includeCrypto, ownerFilter){
   const base = (pfolioData||[]).filter(i=>i && i.grp!=='부동산' && (i.qty||0)>0
     && (!ownerFilter || i.owner===ownerFilter));
-  const itemValue = i => typeof _bubbleItemValueKRW==='function'
-    ? _bubbleItemValueKRW(i, curRate('USD'))
-    : cbValKRW(i);
+  const itemValue = i => cbValKRW(i);
   // 대시보드와 비중 차트 모두 현금·금까지 포함한 전체 포트폴리오를 분모로 사용한다.
   // 표시 목록은 섹터 집중도 성격에 맞게 주식(+선택 시 가상화폐)만 유지한다.
   const total = base.reduce((sum,i)=>sum+Math.max(0,itemValue(i)),0);
@@ -1522,7 +1520,7 @@ function cbHomeHoldings(rows){
     +`<td>${Number(r.qty||0).toLocaleString('ko-KR',{maximumFractionDigits:4})}</td>`
     // 취득가 미상은 cbCostKRW 가 0 을 돌려주므로 그대로 그리면 ₩0 이 찍힌다 — 평가손익 칸과 같은 가드를 쓴다.
     +`<td>${r.i.costUnknown?'—':cbDisp(r.cost)}</td>`
-    +`<td>${cbDisp(r.val)}</td>`
+    +`<td data-live-key="${liveKeyOf(r.i,true)}">${cbDisp(r.val)}</td>`
     // 비중은 검색하지 않은 소유주 범위(nw) 기준, 막대 길이는 가장 큰 종목 대비
     +`<td class="home-weight"><span class="home-weight-bar" aria-hidden="true"><i style="width:${maxVal>0?Math.max(2,r.val/maxVal*100).toFixed(1):0}%;background:${CB_CLS[r.cls]?.color||'var(--acc)'}"></i></span>${nw>0?(r.val/nw*100).toFixed(1):'0.0'}%</td>`
     +`<td style="${cbGainStyle(r.gain,r.i.costUnknown||r.i.grp==='현금')}">${r.i.costUnknown||r.i.grp==='현금'?'—':cbSignDisp(r.gain)}</td>`
@@ -1653,6 +1651,12 @@ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
 }
 // ───────────────────────── 라우팅 통합 ─────────────────────────
 function cbRerender(){
+  // 오늘 투자자산 기록(메모리)을 지금 시세로 맞춘 뒤 그린다 — 홈 '최근 30일' 추이·성과 '투자자산 추이'의 마지막 점이
+  // 홈 총액 카드와 같은 금액이어야 한다. 예전엔 자동 새로고침(10분)·환율 갱신 뒤에 기록이 그대로라 둘이 달랐다.
+  // 저장은 하지 않는다(KV 의 오늘 값은 전체 새로고침·다음 접속 때 saveNetWorthSnapshot 이 같은 계산으로 덮는다).
+  if (window._kvLoadState?.assets==='ready' && window._kvLoadState?.ext==='ready' && typeof updateNetWorthSnapshot==='function'){
+    try{ updateNetWorthSnapshot(); }catch(e){ console.warn('[snapshot sync]', e); }
+  }
   if (_cobaltActive && CB_VIEWS[_cobaltActive]){
     try{
       if(_cobaltActive==='sim2'&&document.getElementById('sim-result')){simUpdate();retUpdate();}
@@ -1738,6 +1742,8 @@ function cbResetViewState(){
   if (typeof _cbDivOpen!=='undefined') _cbDivOpen=new Set();   // 배당 표 펼친 줄
   if (typeof _cbGiftTab!=='undefined') _cbGiftTab='child';   // 가족 증여 자세히 보기 탭
   if (typeof _cbTaxMonthOpen!=='undefined') _cbTaxMonthOpen=null;   // 실현손익 내역 달 묶음 펼침
+  if (typeof _finMcSel!=='undefined') _finMcSel=null;   // 목표 달성 확률 — 고른 목표(가정 수익률은 설정이라 둔다)
+  if (typeof _cfBudgetEdit!=='undefined') _cfBudgetEdit=false;   // 현금 흐름 예산 입력 칸 — 저장 안 한 입력은 버린다
   _cdashShowAll=false;   // 홈 보유 표 펼침
   _cdashAllocOpen=null; _cdashSecOpen=null;   // 홈 자산군·섹터 종목 창
   _cbTableSort={};

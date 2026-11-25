@@ -78,10 +78,19 @@ def read_js_source(name):
     return '\n'.join(open(os.path.join(ROOT, p), encoding='utf-8').read() for p in parts)
 
 
+def asset_value_js():
+    """종목 한 줄의 원화 금액 — 단일 출처(core/data.js)의 함수 묶음(2026-11-25 숫자 일관성 점검)."""
+    import re
+    data_js = open(os.path.join(ROOT, 'core', 'data.js'), encoding='utf-8').read()
+    const = re.search(r'const CRYPTO_KRW_AVG_THRESHOLD = [^;]+;', data_js).group(0)
+    return '\n'.join([const] + [extract_js_function(data_js, n)
+                                 for n in ('curRate', 'assetAvgNative', 'assetValueKRW', 'assetCostKRW', 'assetGainKRW')])
+
+
 def js_entry():
     """script.js의 updateNetWorthSnapshot을 같은 입력으로 실행한 결과."""
     script_js = read_js_source('script.js')
-    parts = [extract_js_function(script_js, n)
+    parts = [asset_value_js()] + [extract_js_function(script_js, n)
              for n in ('filterByOwner', 'getFilteredAssets', '_cfLocalDateKey', 'updateNetWorthSnapshot')]
     harness = """
 const RATES = %s;
@@ -255,7 +264,7 @@ REPORT_GOALS = [
 def js_month_entry():
     cobalt_js = open(os.path.join(ROOT, 'cobalt.js'), encoding='utf-8').read()
     pages_js = open(os.path.join(ROOT, 'workspace-pages.js'), encoding='utf-8').read()
-    parts = [extract_js_function(cobalt_js, n) for n in ('cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW')]
+    parts = [asset_value_js()] + [extract_js_function(cobalt_js, n) for n in ('cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW')]
     finance_js = open(os.path.join(ROOT, 'finance.js'), encoding='utf-8').read()
     parts.append(extract_js_function(finance_js, 'finGoalAllocate'))
     parts.append(extract_js_function(pages_js, 'reportBuildEntry'))

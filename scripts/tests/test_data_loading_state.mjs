@@ -72,6 +72,7 @@ const context = {
   _normalizeBalanceSheet: value => value || {assets:[],liabilities:[],cashTargetMonths:6},
   _normalizeGiftActual: value => value,
   _normalizeTaxSaving: value => value || null,
+  _normalizeCfBudget: value => value || null,
   _normalizeMonthlyPLRows: value => value,
   _normalizeCfRows: value => value,
   _normalizeAutoTransfers: value => value,

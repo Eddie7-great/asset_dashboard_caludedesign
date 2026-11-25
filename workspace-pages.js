@@ -79,12 +79,26 @@ function acctToggleAll(){
   cbRenderAccounts(); cbRestoreFilterFocus('cb-acct2','data-acct-all','1');
 }
 function acctOwner(o){ _acctOwner=o; cbRenderAccounts(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
+// 빈 화면 한 벌(2026-11-25 시안) — 제목 한 줄 + 왜 비었는지 한 줄 + 다음 할 일 버튼. 화면마다 문구·모양이 달랐다.
+// actions: [{label, onclick}] — 첫 버튼이 주 버튼. 휴대폰은 조회 전용이라 등록 버튼을 숨긴다(.cb-empty-state .cb-btn).
+// (기본값 매개변수에 {} 를 쓰지 않는다 — 테스트의 함수 추출기가 첫 { 를 본문으로 읽는다.)
+function cbEmptyHtml(title, body, actions, opts){
+  opts=opts||{};
+  const btns=(actions||[]).filter(a=>a&&a.label).map((a,i)=>`<button type="button" class="cb-btn${i===0?' is-main':''}" onclick="${a.onclick}">${a.label}</button>`).join('');
+  return `<div class="cb-empty-state${opts.compact?' is-compact':''}" role="status"><b>${title}</b>${body?`<p>${body}</p>`:''}${btns?`<div class="cb-empty-actions">${btns}</div>`:''}</div>`;
+}
+// 보유 목록으로 가서 추가 창을 연다 — 빈 화면의 '종목 등록하기'가 쓴다.
+function cbEmptyAdd(grp){
+  switchView('holdings');
+  setTimeout(()=>{ if(typeof openAddModal==='function') openAddModal(grp||'주식'); },0);
+}
+const CB_EMPTY_ADD={label:'＋ 종목 등록하기',onclick:"cbEmptyAdd('주식')"};
 function cbRenderAccounts(){
   const el=document.getElementById('cb-acct2'); if(!el) return;
   const ownerF=finOwnerF(_acctOwner), data=acctGroups(ownerF);
   cbSetHead('계좌 종류별 평가액·손익·예상 배당 · 조회 전용이며 수정은 보유 목록에서 합니다',cbOwnerBtns(_acctOwner,'acctOwner'));
   if(!data.groups.length){
-    el.innerHTML=`<div class="cb-panel"><div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}보유 자산이 없습니다. 자산 관리 > 보유 목록에서 추가하면 계좌별로 묶어 보여 드립니다.</div></div>`;
+    el.innerHTML=`<div class="cb-panel">${cbEmptyHtml(`${ownerF?cbEsc(ownerF)+' 소유의 ':''}보유 자산이 없습니다`,'종목을 등록하면 증권사·계좌별로 묶어 평가액·손익·연 배당을 보여 드립니다.',[CB_EMPTY_ADD])}</div>`;
     return;
   }
   const gift=acctGiftCompare(data.groups,ownerF);
@@ -217,6 +231,8 @@ function calMove(delta){
   cbRestoreFilterFocus('cb-cal2','data-cal-move',String(delta));
 }
 function calToday(){ _calYm=null; _calDay=null; cbRenderCalendar(); cbRestoreFilterFocus('cb-cal2','data-cal-move','0'); }
+// 다른 화면의 일정 카드에서 '달력에서 보기 ›'(2026-11-25 시안) — 그 화면의 소유주를 이어 이번 달 달력을 연다.
+function cbGoCalendar(owner){ _calOwner=OWNERS.includes(owner)?owner:'전체'; _calYm=null; switchView('cal2'); }
 function calOwner(o){ _calOwner=o; _calDay=null; cbRenderCalendar(); cbRestoreFilterFocus('cb-head-widgets','data-owner',o); }
 function calPickDay(day){
   _calDay=_calDay===day?null:day;
@@ -291,7 +307,7 @@ function cbRenderCalendar(){
       </div>
       <div class="cb-panel cal-list-panel">
         <div class="cal-list-head"><span class="cb-panel-title">${_calDay==null?'이 달의 일정':`${ym.m+1}월 ${_calDay}일 일정`} <span style="color:var(--dim)">· ${listCount}건</span></span>${_calDay!=null?`<button type="button" class="cb-btn cal-day-clear" data-cal-day="${_calDay}" onclick="calPickDay(${_calDay})">이 달 전체 보기 ×</button>`:''}</div>
-        ${listRows?`<div class="cal-list">${listRows}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:`<div class="fin-empty">${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다. 적립식 규칙·자동이체·배당 종목이 있으면 여기에 모입니다.</div>`)}
+        ${listRows?`<div class="cal-list">${listRows}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:cbEmptyHtml(`${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다`,'적립식 규칙·자동이체·배당 종목이 있으면 날짜별로 여기에 모입니다.',[{label:'자동이체 등록하기',onclick:"switchView('cashflow');setTimeout(()=>cfOpenEntry('auto'),0)"}],{compact:true}))}
       </div>
     </div>
     <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 매일 사는 적립식은 달력 칸에서 빼고 목록 맨 위에 한 줄로 묶었습니다 — 날짜를 누르면 그날 것도 함께 보입니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;
@@ -402,7 +418,7 @@ function reportHoldingDiff(prevHoldings, curHoldings, ownerF){
   const order={new:0,more:1,less:2,out:3,split:4,cash:5};
   rows.sort((a,b)=>(order[a.kind]-order[b.kind])||Math.abs(b.dc||b.dv)-Math.abs(a.dc||a.dv));
   const trades=rows.filter(r=>r.kind!=='cash'&&r.kind!=='split').length;
-  return {rows,trades,flow,change:curTotal-prevTotal,market:(curTotal-prevTotal)-flow};
+  return {rows,trades,flow,change:curTotal-prevTotal,market:(curTotal-prevTotal)-flow,prevTotal,curTotal};
 }
 // 넣은 돈 vs 값이 오른 몫(2026-11-23, 사용자 결정) — 월간 결산 '무엇이 달라졌나'의 나눗셈(reportHoldingDiff)을 달마다 이어 붙인다.
 // 새 계산은 없다: flow = 그 달 매입금액(현금 포함) 변화 = 새로 넣거나 뺀 돈, market = 나머지 = 값이 오르내린 몫.
@@ -419,6 +435,21 @@ function reportFlowSeries(tl, ownerF, yms){
     const cur=byYm.get(ym), prev=byYm.get(reportPrevYm(ym)), live=!!(cur&&cur.src==='live');
     const d=cur&&prev&&cur.entry&&prev.entry?reportHoldingDiff(prev.entry.holdings,cur.entry.holdings,ownerF):null;
     return d?{ym,flow:d.flow,market:d.market,change:d.change,live}:{ym,none:true,live};
+  });
+}
+// 진짜 내 수익률(2026-11-25 시안) — 달마다 '값이 오르내린 몫 ÷ (월초 금액 + 넣은 돈의 절반)'(수정 디츠 방식 — 넣은 날을 모르니 달 중간에
+// 넣었다고 본다)으로 그 달 수익률을 내고 이어 곱한다(시간가중). 넣은 돈이 수익률을 부풀리지 않아 지수와 같은 잣대로 견줄 수 있다.
+// 나눗셈은 reportFlowSeries 와 같은 reportHoldingDiff 다 — 새 계산 규칙이 아니다. 종목 기록이 없는 달은 건너뛰고(none) 사슬을 끊지 않는다.
+function reportTwrSeries(tl, ownerF, yms){
+  const byYm=new Map((Array.isArray(tl)?tl:[]).map(m=>[m.ym,m]));
+  let cum=1, n=0;
+  return (yms||[]).map(ym=>{
+    const cur=byYm.get(ym), prev=byYm.get(reportPrevYm(ym)), live=!!(cur&&cur.src==='live');
+    const d=cur&&prev&&cur.entry&&prev.entry?reportHoldingDiff(prev.entry.holdings,cur.entry.holdings,ownerF):null;
+    const base=d?d.prevTotal+d.flow/2:0;
+    if(!d||!(base>0)) return {ym,none:true,live};
+    const r=d.market/base; cum*=1+r; n++;
+    return {ym,r,cum:cum-1,months:n,flow:d.flow,market:d.market,start:d.prevTotal,end:d.curTotal,live};
   });
 }
 function reportFlowTotals(series){
@@ -625,6 +656,18 @@ function reportYearCoverStats(year,start,last,base,ongoing,ownerF,todayKey){
   return `<div class="rep-cover-stats">${out.join('')}</div>`;
 }
 // ── 월간 ──
+// 인쇄·PDF(2026-11-25 시안) — 장 하나가 종이 한 장(A4 가로). 종이는 흰 바탕이라 지금 테마와 상관없이
+// 라이트 토큰으로 찍고(테마 속성만 잠깐 떼고) 인쇄 창이 닫히면 되돌린다. 저장된 테마 설정은 건드리지 않는다.
+// PDF 는 인쇄 창의 'PDF로 저장'으로 만든다 — 앱이 파일을 따로 만들지 않는다(서버로 보내지 않는다).
+const REPORT_PRINT_BTN='<button type="button" class="cb-btn rep-print-btn" onclick="reportPrint()" title="장마다 한 쪽씩 인쇄합니다. 인쇄 창에서 PDF로 저장할 수 있습니다.">인쇄·PDF</button>';
+function reportPrint(){
+  const theme=document.body.getAttribute('data-theme');
+  if(theme) document.body.removeAttribute('data-theme');
+  document.body.classList.add('rep-printing');
+  const done=()=>{ window.removeEventListener('afterprint',done); document.body.classList.remove('rep-printing'); if(theme) document.body.setAttribute('data-theme',theme); };
+  window.addEventListener('afterprint',done);
+  window.print();
+}
 function cbRenderReport(){
   const el=document.getElementById('cb-report2'); if(!el) return;
   const ownerF=finOwnerF(_reportOwner), todayKey=finLocalDateKey(new Date()), curYm=todayKey.slice(0,7);
@@ -634,10 +677,10 @@ function cbRenderReport(){
   // 달 선택 목록에서 보유 변화가 있었던 달에 점을 찍는다.
   const changed=new Set(); tl.forEach((m,i)=>{ const p=tl[i-1]; if(!p||!m.entry||!p.entry) return; const d=reportHoldingDiff(p.entry.holdings,m.entry.holdings,ownerF); if(d&&d.trades) changed.add(m.ym); });
   cbSetHead('한 달을 장으로 나눠 돌아봅니다 · 조회 전용 · 지난 달은 월말 종가 기준 기록입니다',
-    cbOwnerBtns(_reportOwner,'reportOwner')+reportHeadPick('rep-month','결산 달',tl.slice().reverse().map(m=>({value:m.ym,label:reportYmLabel(m.ym)+(m.ym===curYm?' (진행 중)':'')+(changed.has(m.ym)?' ●':'')})),ym,'reportMonth'));
+    cbOwnerBtns(_reportOwner,'reportOwner')+reportHeadPick('rep-month','결산 달',tl.slice().reverse().map(m=>({value:m.ym,label:reportYmLabel(m.ym)+(m.ym===curYm?' (진행 중)':'')+(changed.has(m.ym)?' ●':'')})),ym,'reportMonth')+(cur?REPORT_PRINT_BTN:''));
   if(!cur){
     el.classList.remove('rep-scroll');
-    el.innerHTML=`<div class="cb-panel"><div class="fin-empty">${who}의 결산 기록이 아직 없습니다. 보유 자산을 등록하면 이번 달부터 볼 수 있고, 월말 기록은 매일 자동으로 남습니다.</div></div>`;
+    el.innerHTML=`<div class="cb-panel">${cbEmptyHtml(`${who}의 결산 기록이 아직 없습니다`,'보유 자산을 등록하면 이번 달부터 볼 수 있고, 월말 기록은 매일 자동으로 남습니다.',[CB_EMPTY_ADD])}</div>`;
     return;
   }
   const live=cur.src==='live', mLabel=reportYmLabel(cur.ym), mShort=Number(cur.ym.slice(5))+'월', day=Number(cur.date.slice(8));
@@ -681,10 +724,10 @@ function cbRenderReportYear(){
   const prefer=todayKey.slice(5,7)==='01'?String(Number(curY)-1):curY;
   const year=years.includes(_reportYear)?_reportYear:(years.includes(prefer)?prefer:(years[years.length-1]||null));
   cbSetHead('한 해를 장으로 나눠 돌아봅니다 · 조회 전용 · 지난 달은 월말 종가 기준 기록입니다',
-    cbOwnerBtns(_reportOwner,'reportOwner')+reportHeadPick('rep-year','결산 해',years.slice().reverse().map(y=>({value:y,label:y+'년'+(y===curY?' (진행 중)':'')})),year,'reportYear'));
+    cbOwnerBtns(_reportOwner,'reportOwner')+reportHeadPick('rep-year','결산 해',years.slice().reverse().map(y=>({value:y,label:y+'년'+(y===curY?' (진행 중)':'')})),year,'reportYear')+(year?REPORT_PRINT_BTN:''));
   if(!year){
     el.classList.remove('rep-scroll');
-    el.innerHTML=`<div class="cb-panel"><div class="fin-empty">${who}의 결산 기록이 아직 없습니다.</div></div>`;
+    el.innerHTML=`<div class="cb-panel">${cbEmptyHtml(`${who}의 결산 기록이 아직 없습니다`,'보유 자산을 등록하면 올해부터 볼 수 있고, 월말 기록은 매일 자동으로 남습니다.',[CB_EMPTY_ADD])}</div>`;
     return;
   }
   const inYear=tl.filter(m=>m.ym.slice(0,4)===year), last=inYear[inYear.length-1], first=inYear[0];
