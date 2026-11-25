@@ -1653,3 +1653,5 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .fin-ice-seg.l3{box-shadow:inset -2px 0 0 var(--ice-gap)}
 /* 막대 바탕(리밸런싱 '현재 vs 목표', 계좌 트리 소유주 줄)도 검은 판 대신 글자색을 옅게 깐 바탕 */
 .fin-bullet-track,.fin-tree-row.lv0 .fin-tree-bar{background:color-mix(in srgb,var(--t1) 9%,transparent)}
+/* 보유 목록 자산군 합계 줄(원화 기준 · 총 평가 · 수익)은 오른쪽 정렬 — 머리 제목이 sr-only 라 왼쪽에 혼자 붙어 보였다(2026-11-25 사용자 요청). 휴대폰은 style.css 의 왼쪽 정렬 규칙을 그대로 둔다. */
+#view-holdings .holdings-group .pt-group-header{justify-content:flex-end}
