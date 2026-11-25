@@ -497,28 +497,22 @@ function trdLightHtml(l){
 const TRD_PAGES = ['trend2','value2','macro2','screen2'];
 function trdOnly(id){ TRD_PAGES.forEach(v=>{ if (v!==id){ const o = document.getElementById('cb-'+v); if (o) o.innerHTML = ''; } }); return document.getElementById('cb-'+id); }
 function trdRerender(){ const v = _cobaltActive; if (v==='trend2') cbRenderTrend(); else if (v==='value2') cbRenderValue(); else if (v==='macro2') cbRenderMacro(); else if (v==='screen2') cbRenderScreen(); }
-function trdSearchHtml(ph){
-  const chips = (_trdRecent.length ? _trdRecent : TRD_EXAMPLES).map(t=>`<button class="trd-chip" onclick="trdSearch('${t}')">${t}</button>`).join('');
-  return `<div class="cb-panel trd-search">
-      <form class="trd-form" onsubmit="event.preventDefault();trdSearch()">
-        <label class="sr-only" for="trd-q">미국 주식 티커 또는 이름</label>
-        <input id="trd-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="${ph}" value="${cbEsc(_trdQuery)}">
-        <button class="cb-btn" type="submit"${_trdBusy?' disabled':''}>${_trdBusy?'불러오는 중…':'판단하기'}</button>
-      </form>
-      <div class="trd-chips"><span>${_trdRecent.length?'최근':'예시'}</span>${chips}</div>
-      ${_trdErr ? `<p class="trd-err" role="alert">${cbEsc(_trdErr)}</p>` : ''}
-    </div>`;
+// 종목 상세는 종목 찾기 표에서 티커를 눌러 들어오므로 검색 카드를 두지 않는다(2026-11-26 사용자 요청) — 돌아가는 링크와 불러오기 상태·오류만.
+function trdSearchHtml(){
+  return `<button class="trd-back" onclick="switchView('screen2')">‹ 종목 찾기로</button>`
+    + (_trdBusy ? `<p class="trd-err" role="status">불러오는 중…</p>` : '')
+    + (_trdErr ? `<p class="trd-err" role="alert">${cbEsc(_trdErr)}</p>` : '');
 }
 function trdNumHtml(k, v, cls=''){ return `<div><span>${k}</span><b class="cb-num ${cls}">${v}</b></div>`; }
 // 추세추종 — 마크 미너비니 규칙만
 function cbRenderTrend(){
   const el = trdOnly('trend2'); if (!el) return;
-  cbSetHead('미국 주식을 검색하면 마크 미너비니의 추세추종 규칙으로 신호등과 판단을 보여 줍니다 · 규칙 확인용(투자 권유 아님)');
-  const search = trdSearchHtml('미국 주식 티커 또는 영문 이름 (예: NVDA, Apple)');
+  cbSetHead('고른 미국 주식을 마크 미너비니의 추세추종 규칙으로 신호등과 판단을 보여 줍니다 · 규칙 확인용(투자 권유 아님)');
+  const search = trdSearchHtml();
   const data = _trdTkr && _chsCache[_trdTkr];
   if (!data){
     _trdView = null;
-    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('종목을 검색해 보세요','미국 주식 하나를 고르면 일봉 2년치로 추세·큰 흐름·실적·시장 대비 강도·매수 자리·추격 위험을 신호등으로 보여 주고, 규칙에 따른 판단 한 단어를 적습니다.',[])}</div>` + trdNoteHtml();
+    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('고른 종목이 없습니다','종목 찾기 표에서 티커를 누르면 이 화면에서 자세히 봅니다.',[])}</div>` + trdNoteHtml();
     return;
   }
   const A = mnvAnalyze(data, {cur:'USD'}), all = A.bars, last = all[all.length-1], prev = all[all.length-2];
@@ -573,12 +567,12 @@ function valVerdict(Q, P){
 }
 function cbRenderValue(){
   const el = trdOnly('value2'); if (!el) return;
-  cbSetHead('미국 주식을 검색하면 그레이엄·버핏·멍거의 기준으로 좋은 회사인지, 값이 적당한지 봅니다 · 차트·타이밍은 보지 않음 · 규칙 확인용(투자 권유 아님)');
+  cbSetHead('고른 미국 주식이 그레이엄·버핏·멍거의 기준으로 좋은 회사인지, 값이 적당한지 봅니다 · 차트·타이밍은 보지 않음 · 규칙 확인용(투자 권유 아님)');
   trdLoadMacro();   // 10년 국채금리(현금 수익률과 비교)만 쓴다 — 시장 판단은 매크로 화면
-  const search = trdSearchHtml('미국 주식 티커 또는 영문 이름 (예: AAPL, Coca-Cola)');
+  const search = trdSearchHtml();
   const data = _trdTkr && _chsCache[_trdTkr];
   if (!data){
-    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('종목을 검색해 보세요','미국 주식 하나를 고르면 5년 재무로 회사 품질 4가지와 가격 3가지를 신호등으로 보여 주고, 가치투자 규칙에 따른 판단 한 단어를 적습니다.',[])}</div>` + valNoteHtml();
+    el.innerHTML = search + `<div class="cb-panel">${cbEmptyHtml('고른 종목이 없습니다','종목 찾기 표에서 티커를 누르면 이 화면에서 자세히 봅니다.',[])}</div>` + valNoteHtml();
     return;
   }
   const F = _trdFund[_trdTkr], Q = trdQuality(F), P = trdPrice(F, _trdMacro), W = valVerdict(Q, P);
