@@ -30,6 +30,10 @@
       /* 강조 숫자 카드(홈 투자자산 총액) */
       --kpi-hi-bg:#18213a;--kpi-hi-tx:#ffffff;--kpi-hi-mut:#c9d3e6;
       --acc:#2a6fdb;--on-acc:#ffffff;
+      /* 지금 보고 있는 화면을 알리는 글자·밑줄(세부 메뉴·보기 전환 탭) — 테마마다 바탕 빛에 맞춘다(2026-11-25) */
+      --nav-on:var(--acc);
+      /* 표 머리줄처럼 위에 붙는 줄 — 반투명 + 뒤 흐림이라 유리판과 같은 색으로 보인다(2026-11-25) */
+      --sticky-bg:rgba(255,255,255,.5);
       /* 움직임 토큰 — 나타날 때 이즈 아웃, 사라질 때 이즈 인. 스프링·바운스(1 을 넘는 곡선)는 쓰지 않는다 */
       --ease-out:cubic-bezier(.22,1,.36,1);--ease-in:cubic-bezier(.4,0,1,1);--dur-fast:150ms;--dur:240ms;--stagger:30ms;
       --acc2:#0f9488;--acc3:#7c3aed;
@@ -176,6 +180,8 @@
       --modal-bg:rgba(20,22,28,.97);--border-light:rgba(255,255,255,.09);--border-dark:rgba(255,255,255,.16);
       --gshadow:0 1px 2px rgba(0,0,0,.4),0 14px 36px rgba(0,0,0,.45);
       --acc:#7aa2ff;--on-acc:#0b1020;--acc2:#38bdf8;--acc3:#a78bfa;
+      /* 그라파이트(무채색) 바탕에서는 파란 밑줄이 따로 논다 — 지금 화면 표시는 밝은 회백색 */
+      --nav-on:#f2f4f7;--sticky-bg:rgba(30,32,38,.55);
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#c2c8d2;--t3:#a9b0bc;
@@ -201,7 +207,10 @@
       --modal-bg:rgba(12,32,56,.97);--border-light:rgba(255,255,255,.12);--border-dark:rgba(255,255,255,.18);
       --gshadow:0 1px 2px rgba(0,6,24,.3),0 14px 36px rgba(0,0,0,.30);
       --t1:#eef3ff;--t2:#c6d1ea;--t3:#a9b6d4;
-      --acc:#82a8ff;--on-acc:#0a1733;--acc-soft:rgba(130,168,255,.16);--acc-soft2:rgba(130,168,255,.30);
+      /* 강조색은 바탕 빛(아틱 시안)과 같은 청록 계열(2026-11-25 — 예전 남보라 #82a8ff 는 청록 바탕 위에서 따로 놀았다) */
+      --acc:#5cceea;--on-acc:#03222c;--acc-soft:rgba(92,206,234,.15);--acc-soft2:rgba(92,206,234,.30);--hover-bg:rgba(92,206,234,.07);
+      --nav-on:var(--acc);--sticky-bg:rgba(10,38,62,.5);
+      --acct-gen:#7fb8e6;
       --grid:rgba(170,200,255,.12);
       --tiptx:#0a1733;
       --side-tx:#eef3ff;--side-mut:#c6d1ea;--side-dim:#a9b6d4;
