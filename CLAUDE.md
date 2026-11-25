@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **이 문서는 지금 지켜야 할 규칙만 담는다.** 날짜별 작업 기록(왜 바뀌었는지, 예전에는 어땠는지)은 `docs/claude-history.md`, 사람이 읽는 증상 중심 판본은 `docs/invariants.md` 다. 규칙을 바꾸면 이 문서의 해당 주제 절을 고치고(새 날짜 절을 위에 덧붙이지 않는다), 바뀐 이유는 `docs/claude-history.md` 맨 위에 새 절로 적는다.
 
+**사용자와 일하는 방식과 사용자가 직접 고른 결정은 `docs/decisions.md` 에 한 표로 모은다** — 화면이 바뀌는 일은 시안(캡처)을 먼저 보여 주고 고르게 하고, 결과는 라이트·네이비·다크 세 테마 전후 캡처로 보여 주며, 병합·배포는 사용자가 말할 때만 한다. 사용자가 새로 고른 것이 생기면 그 표 맨 위에 한 줄을 넣는다(같은 커밋에서 이 문서의 해당 절도 고친다).
+
 ## Commands
 
 This is a Vercel-hosted single-page app — there is no build step.
@@ -224,7 +226,7 @@ Each file is a self-contained handler; they only call each other over HTTP (e.g.
 
 ## 화면별 규칙 (현재)
 
-날짜별 작업 기록에 흩어져 있던 규칙을 주제별로 모은 것이다. 각 규칙이 **왜** 생겼는지(예전 모습·사고 경위)는 `docs/claude-history.md` 에 날짜별로 남아 있다. '사용자 결정'이라고 적힌 것은 사용자가 고른 것이라 임의로 되돌리지 않는다.
+날짜별 작업 기록에 흩어져 있던 규칙을 주제별로 모은 것이다. 각 규칙이 **왜** 생겼는지(예전 모습·사고 경위)는 `docs/claude-history.md` 에 날짜별로 남아 있다. '사용자 결정'이라고 적힌 것은 사용자가 고른 것이라 임의로 되돌리지 않는다(날짜·PR 과 함께 `docs/decisions.md` 에 한 표로 있다).
 
 ### 디자인 토큰·글꼴·버튼·테마
 
