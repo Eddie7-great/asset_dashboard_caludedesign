@@ -74,7 +74,7 @@ assert.match(ws, /\.sim-view-tabs>button\.cb-btn\[aria-pressed=true\](?:,\.view-
 // 시작 버튼(＋추가·＋수입·＋새 목표 추가)은 2026-11-16 부터 파랑 채움이 아니라 일반 버튼과 같은 중립 톤이다.
 assert.match(style, /:root \{[^}]*--on-acc:#ffffff;/);
 assert.match(style, /\[data-theme="dark"\],\[data-theme="navy"\] \{[^}]*--on-acc:#0b1020;/);
-assert.match(style, /\[data-theme="navy"\] \{[^}]*--on-acc:#0a1733;/);
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--on-acc:#03222c;/);
 for (const sel of ['.holdings-add-btn', '.cf-entry-open', '.fin-goal-add-btn']) {
   const rule = ws.slice(ws.indexOf(sel + '{'), ws.indexOf('}', ws.indexOf(sel + '{')));
   assert.match(rule, /border:1px solid var\(--bd2\);background:var\(--inner\);color:var\(--tx\)/, sel + ' 는 중립 톤 버튼');
@@ -82,5 +82,41 @@ for (const sel of ['.holdings-add-btn', '.cf-entry-open', '.fin-goal-add-btn']) 
 }
 // 현금 흐름 섹션 전환도 밑줄형
 assert.match(ws, /\.cf-section-tabs \.cf-section-tab\.active\{background:transparent;[^}]*box-shadow:inset 0 -2px 0 var\(--acc\)/);
+
+// 테마 맞춤 다듬기(2026-11-25 사용자 요청)
+// 지금 화면 표시(세부 메뉴·보기 전환·현금 흐름·자산군 탭)는 --nav-on — 라이트 파랑·네이비 청록·다크 회백색
+assert.match(style, /:root \{[^}]*--nav-on:var\(--acc\);/);
+assert.match(style, /\[data-theme="dark"\],\[data-theme="navy"\] \{[^}]*--nav-on:#f2f4f7;/);
+assert.match(style, /\[data-theme="navy"\] \{[^}]*--acc:#5cceea;[^}]*--nav-on:var\(--acc\);/);
+assert.match(ws, /#page-sections a\[aria-current\]\{color:var\(--nav-on\);box-shadow:inset 0 -2px 0 var\(--nav-on\)\}/);
+assert.match(ws, /\.view-mode-bar>button\.cb-btn\[aria-pressed=true\]\{box-shadow:inset 0 -2px 0 var\(--nav-on\)\}/);
+assert.match(ws, /#cf-header-tabs\.cf-section-tabs \.cf-section-tab\.active\{color:var\(--nav-on\)/);
+// 브라우저 부품은 테마 밝기를 따르고, 입력란 예시 글씨는 보조 글자색
+assert.match(ws, /:root\{color-scheme:light\}\s*\[data-theme="dark"\],\[data-theme="navy"\]\{color-scheme:dark\}/);
+assert.match(ws, /::placeholder\{color:var\(--t3\)/);
+// 위에 붙는 표 머리줄은 반투명 --sticky-bg + 뒤 흐림(검은 띠 금지)
+for (const t of [':root', '[data-theme="dark"],[data-theme="navy"]', '[data-theme="navy"]']) {
+  const block = style.slice(style.indexOf(t + ' {'));
+  assert.match(block.slice(0, block.indexOf('}')), /--sticky-bg:rgba\(/, t + ' --sticky-bg');
+}
+assert.match(ws, /#view-holdings \.pt-table th,[^{]*\.cb-thead,[^{]*\{\s*background:var\(--sticky-bg\);[^}]*backdrop-filter:blur/);
+// 보유 목록 표 묶음은 바깥 카드 안에서 유리를 한 번 더 겹치지 않는다
+assert.match(ws, /#view-holdings \.holdings-card \.pt-group\{background:transparent;[^}]*backdrop-filter:none\}/);
+// 숫자 칸 화살표는 테마 글자색(마스크) — 브라우저 기본 흑백 금지, 리밸런싱 칸은 58px
+assert.match(ws, /input\[type=number\]::-webkit-inner-spin-button\{-webkit-appearance:none;[^}]*background-color:var\(--t3\)/);
+assert.match(ws, /\.fin-target-inputs input\{flex-basis:58px;width:58px/);
+// 화살표 버튼은 테두리 없음
+assert.match(ws, /\.nav-arrow-btn,[^{]*\{[^}]*border:0!important;background:transparent!important/);
+const idx = fs.readFileSync(new URL('index.html', root), 'utf8');
+assert.equal((idx.match(/class="tf-btn nav-arrow-btn"/g) || []).length, 2, '현금 흐름 달 이동 ◀ ▶');
+const wp = fs.readFileSync(new URL('workspace-pages.js', root), 'utf8');
+assert.equal((wp.match(/class="cb-btn nav-arrow-btn" data-cal-move/g) || []).length, 2, '일정 달 이동 ‹ ›');
+// 결산 리포트 장은 유리판, 다크·네이비의 먹색 장은 고정 남색을 쓰지 않는다
+assert.match(ws, /\.rep-page\{background:var\(--glass-sheen\),var\(--glass\)/);
+assert.match(ws, /\[data-theme="dark"\] \.rep-chapter\.is-ink,\[data-theme="navy"\] \.rep-chapter\.is-ink\{background:var\(--glass-sheen\),var\(--glass-hover\)/);
+// 보유 목록 자산군 묶음 머리줄에 탭과 같은 자산군 이름을 다시 쓰지 않는다(화면 낭독기용 제목만)
+const holdings = fs.readFileSync(new URL('core/holdings.js', root), 'utf8');
+assert.doesNotMatch(holdings, /pt-group-title f-row">\$\{grpName\}/);
+assert.match(holdings, /<h3 class="sr-only">\$\{grpName\} \$\{grpItems\.length\}종목<\/h3>/);
 
 console.log('ok - theme');

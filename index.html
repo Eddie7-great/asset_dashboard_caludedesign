@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
   <script defer src="https://cdn.plot.ly/plotly-2.26.0.min.js" integrity="sha384-xuh4dD2xC9BZ4qOrUrLt8psbgevXF2v+K+FrXxV4MlJHnWKgnaKoh74vd/6Ik8uF" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="style.css?v=69">
-  <link rel="stylesheet" href="workspace-ui.css?v=22">
+  <link rel="stylesheet" href="style.css?v=70">
+  <link rel="stylesheet" href="workspace-ui.css?v=23">
 <link rel="stylesheet" href="etf-explorer.css?v=4">
 </head>
 <body>
@@ -261,7 +261,7 @@
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
-                <div class="tf-btns"><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="prevCfMonth()" title="이전 달">◀</button><button class="tf-btn" style="padding:3px 9px;font-size:var(--fs-cap);line-height:1" onclick="nextCfMonth()" title="다음 달">▶</button></div>
+                <div class="tf-btns"><button type="button" class="tf-btn nav-arrow-btn" onclick="prevCfMonth()" title="이전 달" aria-label="이전 달">◀</button><button type="button" class="tf-btn nav-arrow-btn" onclick="nextCfMonth()" title="다음 달" aria-label="다음 달">▶</button></div>
               </div>
             </div>
             <div id="cf-comp-list" class="cf-comp-list" aria-live="polite"></div>
@@ -606,7 +606,7 @@
 <script defer src="core/transfers.js?v=2"></script>
 <script defer src="core/ui-shell.js?v=2"></script>
 <script defer src="core/stock-search.js?v=1"></script>
-<script defer src="core/holdings.js?v=1"></script>
+<script defer src="core/holdings.js?v=2"></script>
 <script defer src="core/cashflow.js?v=1"></script>
 <script defer src="core/live-prices.js?v=1"></script>
 <script defer src="core/ext-data.js?v=2"></script>
@@ -619,7 +619,7 @@
 <script defer src="backtest.js?v=5"></script>
 <script defer src="simulator.js?v=4"></script>
 <script defer src="etf-explorer.js?v=7"></script>
-<script defer src="workspace-pages.js?v=8"></script>
+<script defer src="workspace-pages.js?v=9"></script>
 <script defer src="pages/performance.js?v=2"></script>
 <script defer src="pages/family.js?v=1"></script>
 <script defer src="pages/risk.js?v=2"></script>
