@@ -497,15 +497,16 @@ function trdLightHtml(l){
 const TRD_PAGES = ['trend2','value2','macro2','screen2'];
 function trdOnly(id){ TRD_PAGES.forEach(v=>{ if (v!==id){ const o = document.getElementById('cb-'+v); if (o) o.innerHTML = ''; } }); return document.getElementById('cb-'+id); }
 function trdRerender(){ const v = _cobaltActive; if (v==='trend2') cbRenderTrend(); else if (v==='value2') cbRenderValue(); else if (v==='macro2') cbRenderMacro(); else if (v==='screen2') cbRenderScreen(); }
+function trdBackHtml(){ return `<button class="trd-back" onclick="switchView('screen2')">‹ 종목 찾기로</button>`; }
 function trdSearchHtml(ph){
   const chips = (_trdRecent.length ? _trdRecent : TRD_EXAMPLES).map(t=>`<button class="trd-chip" onclick="trdSearch('${t}')">${t}</button>`).join('');
-  return `<div class="cb-panel trd-search">
+  return trdBackHtml() + `<div class="cb-panel trd-search">
       <form class="trd-form" onsubmit="event.preventDefault();trdSearch()">
         <label class="sr-only" for="trd-q">미국 주식 티커 또는 이름</label>
         <input id="trd-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="${ph}" value="${cbEsc(_trdQuery)}">
         <button class="cb-btn" type="submit"${_trdBusy?' disabled':''}>${_trdBusy?'불러오는 중…':'판단하기'}</button>
       </form>
-      <div class="trd-chips"><span>${_trdRecent.length?'최근':'예시'}</span>${chips}<button class="trd-chip is-link" onclick="switchView('screen2')">신호 나온 종목 찾기 ›</button></div>
+      <div class="trd-chips"><span>${_trdRecent.length?'최근':'예시'}</span>${chips}</div>
       ${_trdErr ? `<p class="trd-err" role="alert">${cbEsc(_trdErr)}</p>` : ''}
     </div>`;
 }
@@ -629,6 +630,9 @@ const MAC_STANCE = {
 function cbRenderMacro(){
   const el = trdOnly('macro2'); if (!el) return;
   cbSetHead('금리·신용·달러·지수 추세로 지금 시장이 공격해도 되는 환경인지 봅니다 · 소로스·드러켄밀러 방식의 근사 · 규칙 확인용(투자 권유 아님)');
+  el.innerHTML = macBodyHtml();
+}
+function macBodyHtml(){
   trdLoadMacro();
   const MC = trdMacro(_trdMacro), S = MAC_STANCE[MC.light];
   const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'};
@@ -636,7 +640,7 @@ function cbRenderMacro(){
       <span class="trd-lamps" aria-label="${word[x.light]}">${['g','y','r'].map(c=>`<i class="trd-lamp is-${c}${x.light===c?' is-on':''}"></i>`).join('')}</span>
       <div class="trd-light-name">${x.name}</div><div class="mac-val">${cbEsc(x.text)}</div><div class="trd-light-text">${cbEsc(x.tip)}</div></div>`).join('')
     : `<div class="cb-panel">${cbEmptyHtml(_trdMacro===undefined?'시장 자료를 불러오는 중…':'시장 자료를 받지 못했습니다','미국 연준 경제 자료(FRED)에서 금리·신용·달러를 받습니다.',[])}</div>`;
-  el.innerHTML = `
+  return `
     <div class="cb-panel trd-hero is-${S.tone}">
       <div class="trd-verdict">
         <div class="trd-name">미국 시장 <small>${MC.asOf ? cbEsc(MC.asOf)+' 기준' : ''}</small></div>
@@ -667,7 +671,7 @@ function cbRenderMacro(){
 // 수백 종목의 일봉·재무를 화면에서 받으면 너무 느리므로, 매일 아침 GitHub Actions 배치가 계산해 data/screener.json 에 커밋한다(ETF 구성종목과 같은 방식).
 // 판정은 화면 함수와 같은 규칙(trdVerdict·valVerdict)을 배치가 그대로 돌린 결과다. 스타일은 섞지 않고 탭으로 나눈다.
 let _scr, _scrBusy = false, _scrTab = 'trend', _scrSector = '전체', _scrSig = 'all';
-const SCR_TABS = [['trend','추세추종 신호'],['value','가치투자 후보'],['both','둘 다 해당']];
+const SCR_TABS = [['trend','추세추종 신호'],['value','가치투자 후보'],['both','둘 다 해당'],['macro','매크로 · 시장']];
 async function scrLoad(){
   if (_scr!==undefined || _scrBusy) return;
   _scrBusy = true;
@@ -696,7 +700,8 @@ function cbRenderScreen(){
     return;
   }
   const {all, rows, tOk, vOk} = scrRows();
-  const cnt = {trend: all.filter(tOk).length, value: all.filter(vOk).length, both: all.filter(r=>tOk(r)&&vOk(r)).length};
+  const MC0 = trdMacro(_trdMacro);
+  const cnt = {trend: all.filter(tOk).length, value: all.filter(vOk).length, both: all.filter(r=>tOk(r)&&vOk(r)).length, macro: MC0.light==='n' ? '' : `<i class="trd-mini is-${MC0.light}"></i>`};
   const sectors = ['전체', ...[...new Set(all.map(r=>r.sector).filter(Boolean))].sort((a,b)=>cbSectorName(a).localeCompare(cbSectorName(b),'ko'))];
   const tabs = `<div class="sim-view-tabs scr-tabs" role="group" aria-label="투자 스타일">${SCR_TABS.map(([k,lab])=>`<button type="button" data-scr="tab:${k}" aria-pressed="${_scrTab===k}" class="cb-btn" onclick="scrPick('tab','${k}')">${lab} <em>${cnt[k]}</em></button>`).join('')}</div>`;
   const sigOpts = _scrTab==='trend' ? [['all','전체'],['buy','매수'],['wait','매수 대기']] : _scrTab==='value' ? [['all','전체'],['buy','매수 후보'],['graham','싼 회사']] : [];
@@ -705,6 +710,10 @@ function cbRenderScreen(){
   const pct = (v,d=1) => Number.isFinite(v) ? `${v>=0?'+':''}${v.toFixed(d)}%` : '—';
   const chip = (w) => `<span class="scr-sig is-${w[1]}">${w[0]}</span>`;
   const T = _scrTab;
+  if (T==='macro'){
+    el.innerHTML = `<div class="cb-panel scr-panel scr-panel-tabs"><div class="scr-top">${tabs}</div></div>` + macBodyHtml();
+    return;
+  }
   const cols = T==='value'
     ? [['t','티커','text'],['name','회사','text'],['sector','섹터','text'],['price','가격'],['chg','등락'],['v','신호','text'],['pe','PER'],['peMed','5년 중앙 PER'],['fcfY','현금 수익률'],['roeMin','ROE 최저'],['mcap','시가총액']]
     : T==='trend'
@@ -745,7 +754,7 @@ function cbRenderScreen(){
         <div class="scr-meta">${asOf?`${asOf.m}월 ${asOf.d}일 장 마감 기준 · `:''}${cbEsc(_scr.universe||'')} ${all.length}종목 중 <b>${rows.length}</b>개</div>
       </div>
       <div class="scr-filters">${sig}${sec}
-        ${MC.light!=='n' ? `<button class="scr-mac is-${MC.light}" onclick="switchView('macro2')" title="매크로 화면에서 자세히"><i class="trd-mini is-${MC.light}"></i>시장(매크로): ${MC.word} ›</button>` : ''}
+        ${MC.light!=='n' ? `<button class="scr-mac is-${MC.light}" data-scr="tab:macro" onclick="scrPick('tab','macro')" title="매크로 탭에서 자세히"><i class="trd-mini is-${MC.light}"></i>시장(매크로): ${MC.word} ›</button>` : ''}
       </div>
       <div class="cb-scroll scr-wrap"><table class="scr-table">
         <thead><tr>${cols.map(([k,lab,ty])=>`<th aria-sort="${cbAriaSort('scr',k)}"${ty==='text'?'':' class="is-num"'}>${cbSortBtn('scr',k,lab,ty||'num')}</th>`).join('')}</tr></thead>

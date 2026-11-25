@@ -1786,6 +1786,9 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .scr-panel{padding:14px 18px}
 .scr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .scr-top .scr-tabs{justify-content:flex-start;margin:0;flex:1}
+.scr-panel-tabs{padding-bottom:0}
+.scr-tabs .trd-mini{margin-left:4px;vertical-align:middle}
+.trd-back{border:0;background:none;padding:0 0 8px;color:var(--acc);font:inherit;font-size:var(--fs-body);font-weight:700;cursor:pointer}
 .scr-tabs em{font-style:normal;font-size:var(--fs-cap);color:var(--lab);margin-left:2px}
 .scr-meta{font-size:var(--fs-cap);color:var(--lab)}
 .scr-meta b{color:var(--tx)}
