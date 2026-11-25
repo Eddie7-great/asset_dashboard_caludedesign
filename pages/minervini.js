@@ -497,10 +497,9 @@ function trdLightHtml(l){
 const TRD_PAGES = ['trend2','value2','macro2','screen2'];
 function trdOnly(id){ TRD_PAGES.forEach(v=>{ if (v!==id){ const o = document.getElementById('cb-'+v); if (o) o.innerHTML = ''; } }); return document.getElementById('cb-'+id); }
 function trdRerender(){ const v = _cobaltActive; if (v==='trend2') cbRenderTrend(); else if (v==='value2') cbRenderValue(); else if (v==='macro2') cbRenderMacro(); else if (v==='screen2') cbRenderScreen(); }
-function trdBackHtml(){ return `<button class="trd-back" onclick="switchView('screen2')">‹ 종목 찾기로</button>`; }
 function trdSearchHtml(ph){
   const chips = (_trdRecent.length ? _trdRecent : TRD_EXAMPLES).map(t=>`<button class="trd-chip" onclick="trdSearch('${t}')">${t}</button>`).join('');
-  return trdBackHtml() + `<div class="cb-panel trd-search">
+  return `<div class="cb-panel trd-search">
       <form class="trd-form" onsubmit="event.preventDefault();trdSearch()">
         <label class="sr-only" for="trd-q">미국 주식 티커 또는 이름</label>
         <input id="trd-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="${ph}" value="${cbEsc(_trdQuery)}">
@@ -670,7 +669,9 @@ function macBodyHtml(){
 // 종목 찾기 — finviz 처럼 검색 없이 신호가 나온 종목을 표로(2026-11-26 사용자 요청).
 // 수백 종목의 일봉·재무를 화면에서 받으면 너무 느리므로, 매일 아침 GitHub Actions 배치가 계산해 data/screener.json 에 커밋한다(ETF 구성종목과 같은 방식).
 // 판정은 화면 함수와 같은 규칙(trdVerdict·valVerdict)을 배치가 그대로 돌린 결과다. 스타일은 섞지 않고 탭으로 나눈다.
-let _scr, _scrBusy = false, _scrTab = 'trend', _scrSector = '전체', _scrSig = 'all';
+let _scr, _scrBusy = false, _scrTab = 'trend', _scrSector = '전체', _scrCap = 'all', _scrSig = 'all';
+// 시가총액 범위(2026-11-26 사용자 요청) — 단위는 screener.json 의 mcap 과 같은 '억 달러'. 경계는 흔히 쓰는 초대형 2,000억·대형 100억·중형 20억 달러.
+const SCR_CAPS = [['all','전체',0,Infinity],['mega','초대형 · $2,000억 이상',2000,Infinity],['large','대형 · $100억~2,000억',100,2000],['mid','중형 · $20억~100억',20,100],['small','소형 · $20억 미만',0,20]];
 const SCR_TABS = [['trend','추세추종 신호'],['value','가치투자 후보'],['both','둘 다 해당'],['macro','매크로 · 시장']];
 async function scrLoad(){
   if (_scr!==undefined || _scrBusy) return;
@@ -679,7 +680,7 @@ async function scrLoad(){
   finally { _scrBusy = false; }
   trdRerender();
 }
-function scrPick(kind, v){ if (kind==='tab'){ _scrTab = v; _scrSig = 'all'; } else if (kind==='sector') _scrSector = v; else _scrSig = v; cbRenderScreen(); cbRestoreFilterFocus('cb-screen2', 'data-scr', kind+':'+v); }
+function scrPick(kind, v){ if (kind==='tab'){ _scrTab = v; _scrSig = 'all'; } else if (kind==='sector') _scrSector = v; else if (kind==='cap') _scrCap = SCR_CAPS.some(c=>c[0]===v) ? v : 'all'; else _scrSig = v; cbRenderScreen(); cbRestoreFilterFocus('cb-screen2', 'data-scr', kind+':'+v); }
 async function scrOpen(t, view){ switchView(view); await trdSearch(t); }
 const SCR_TREND_WORD = {buy:['매수','up'], wait:['매수 대기','acc']};
 const SCR_VALUE_WORD = {buy:['매수 후보','up'], graham:['싼 회사','acc']};
@@ -688,6 +689,8 @@ function scrRows(){
   const tOk = r => r.trend && SCR_TREND_WORD[r.trend.v], vOk = r => r.value && SCR_VALUE_WORD[r.value.v];
   let rows = all.filter(r => _scrTab==='trend' ? tOk(r) : _scrTab==='value' ? vOk(r) : tOk(r) && vOk(r));
   if (_scrSector!=='전체') rows = rows.filter(r => r.sector===_scrSector);
+  const cap = SCR_CAPS.find(c=>c[0]===_scrCap);
+  if (cap && cap[0]!=='all') rows = rows.filter(r => Number.isFinite(r.mcap) && r.mcap>=cap[2] && r.mcap<cap[3]);
   if (_scrSig!=='all') rows = rows.filter(r => (_scrTab==='value' ? r.value.v : r.trend.v)===_scrSig);
   return {all, rows, tOk, vOk};
 }
@@ -707,6 +710,7 @@ function cbRenderScreen(){
   const sigOpts = _scrTab==='trend' ? [['all','전체'],['buy','매수'],['wait','매수 대기']] : _scrTab==='value' ? [['all','전체'],['buy','매수 후보'],['graham','싼 회사']] : [];
   const sig = sigOpts.length ? `<div class="owner-tabs" role="group" aria-label="신호">${sigOpts.map(([k,lab])=>`<button class="owner-btn${_scrSig===k?' active':''}" data-scr="sig:${k}" aria-pressed="${_scrSig===k}" onclick="scrPick('sig','${k}')">${lab}</button>`).join('')}</div>` : '';
   const sec = `<label class="scr-sector"><span>섹터</span><select class="cb-input" onchange="scrPick('sector',this.value)">${sectors.map(s=>`<option value="${cbEsc(s)}"${s===_scrSector?' selected':''}>${s==='전체'?'전체':cbEsc(cbSectorName(s))}</option>`).join('')}</select></label>`;
+  const capSel = `<label class="scr-sector"><span>시가총액</span><select class="cb-input" onchange="scrPick('cap',this.value)">${SCR_CAPS.map(([k,lab])=>`<option value="${k}"${k===_scrCap?' selected':''}>${lab}</option>`).join('')}</select></label>`;
   const pct = (v,d=1) => Number.isFinite(v) ? `${v>=0?'+':''}${v.toFixed(d)}%` : '—';
   const chip = (w) => `<span class="scr-sig is-${w[1]}">${w[0]}</span>`;
   const T = _scrTab;
@@ -753,7 +757,7 @@ function cbRenderScreen(){
         ${tabs}
         <div class="scr-meta">${asOf?`${asOf.m}월 ${asOf.d}일 장 마감 기준 · `:''}${cbEsc(_scr.universe||'')} ${all.length}종목 중 <b>${rows.length}</b>개</div>
       </div>
-      <div class="scr-filters">${sig}${sec}
+      <div class="scr-filters">${sig}${sec}${capSel}
         ${MC.light!=='n' ? `<button class="scr-mac is-${MC.light}" data-scr="tab:macro" onclick="scrPick('tab','macro')" title="매크로 탭에서 자세히"><i class="trd-mini is-${MC.light}"></i>시장(매크로): ${MC.word} ›</button>` : ''}
       </div>
       <div class="cb-scroll scr-wrap"><table class="scr-table">
