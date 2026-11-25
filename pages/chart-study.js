@@ -301,7 +301,29 @@ function chsInProgress(bar, frame, now=new Date()){
   if (!bar || frame==='D') return false;
   return chsPeriodKey(bar.t, frame) === chsPeriodKey(Math.floor(now.getTime()/1000), frame);
 }
+// 비율 차트(2026-11-25 사용자 요청 — 'XLK/XLV') — 두 종목의 같은 기간 봉끼리 나눈다. 종가 = 앞 종가 ÷ 뒤 종가,
+// 시가도 같은 식, 고가·저가는 고가÷고가·저가÷저가(두 종목의 고점·저점 시각이 달라 근사값 — 시가·종가를 벗어나지 않게 넓힌다).
+// 거래량은 뜻이 없어 0. 한쪽에만 있는 날(휴장일이 다른 나라)은 뺀다.
+function chsRatioParts(tkr){ const p = String(tkr||'').split('/'); return p.length===2 && p[0] && p[1] ? p : null; }
+function chsRatioBars(A, B, frame){
+  const byKey = new Map(B.map(b=>[chsPeriodKey(b.t, frame), b]));
+  const out = [];
+  A.forEach(a=>{
+    const b = byKey.get(chsPeriodKey(a.t, frame)); if (!b) return;
+    const o = a.o/b.o, c = a.c/b.c;
+    out.push({t:a.t, o, c, h:Math.max(a.h/b.h, o, c), l:Math.min(a.l/b.l, o, c), v:0});
+  });
+  return out.filter(b=>[b.o,b.h,b.l,b.c].every(v=>Number.isFinite(v)&&v>0));
+}
 async function chsFetchBars(tkr, frame='D'){
+  const parts = chsRatioParts(tkr);
+  if (parts){
+    const [a, b] = await Promise.all(parts.map(t=>chsFetchBars(t, frame)));
+    const bars = chsRatioBars(a.bars, b.bars, frame);
+    const need = frame==='D' ? 30 : frame==='Y' ? 2 : 10;
+    if (bars.length < need) throw new Error(`두 종목이 함께 있는 ${(CHS_FRAMES[frame]||CHS_FRAMES.D).label}이 ${need}개보다 적습니다`);
+    return {bars, cur:'RATIO', curs:[a.cur, b.cur], symbol:tkr, bench:{}, at:Date.now()};
+  }
   const F = CHS_FRAMES[frame] || CHS_FRAMES.D;
   const r = await authFetch(`/api/price?type=ohlcv&tkr=${encodeURIComponent(tkr)}&range=${F.range}${F.interval!=='1d'?'&interval='+F.interval:''}`);
   const d = await r.json();
@@ -337,7 +359,7 @@ async function chsLoad(tkr, frame=_chsFrame){
 function chsNum(v, cur){
   if (v==null || !Number.isFinite(v)) return '—';
   const a = Math.abs(v);
-  const dig = (cur==='KRW'||cur==='JPY') ? 0 : a>=1000 ? 0 : a>=100 ? 1 : 2;
+  const dig = cur==='RATIO' ? (a>=100 ? 1 : a>=10 ? 2 : a>=1 ? 3 : 4) : (cur==='KRW'||cur==='JPY') ? 0 : a>=1000 ? 0 : a>=100 ? 1 : 2;
   return v.toLocaleString('ko-KR',{minimumFractionDigits:dig, maximumFractionDigits:dig});
 }
 function chsNiceStep(raw){
@@ -362,7 +384,8 @@ function chsTickLabel(d, frame){ return frame==='D'||frame==='W' ? `${d.m===1||f
 function chsChartSvg(view){
   const {bars, ind, off, cur, avg} = view, frame = view.frame || 'D', F = CHS_FRAMES[frame] || CHS_FRAMES.D, CHS_MA = chsMaList(frame);
   const n = bars.length, W = 1100, padL = 10, padR = 66;
-  const P = {price:{y:14,h:290}, vol:{y:312,h:52}, rsi:{y:396,h:86}, macd:{y:514,h:100}};
+  // 비율 차트는 거래량이 없어 그 자리를 가격 칸이 쓴다
+  const P = view.ratio ? {price:{y:14,h:350}, vol:{y:364,h:0}, rsi:{y:396,h:86}, macd:{y:514,h:100}} : {price:{y:14,h:290}, vol:{y:312,h:52}, rsi:{y:396,h:86}, macd:{y:514,h:100}};
   const H = 646, plotW = W-padL-padR, step = plotW/n;
   const X = i => padL + (i+0.5)*step;
   const sl = arr => arr.slice(off);
@@ -473,7 +496,7 @@ function chsChartSvg(view){
     ${prog}${xTicks}
     ${grid(pTicks, Yp, pFmt)}
     ${gcSvg}${bbSvg}${avgLine}${candles}${maLines}
-    ${panelLab(P.vol.y+2,'')}${vol}
+    ${view.ratio?'':panelLab(P.vol.y+2,'')+vol}
     ${panelLab(P.rsi.y,'RSI(14) · 과열·침체')}${rsiBand}${rsiLines}<path d="${chsPath(rsi,X,Yr)}" class="chs-rsi"/>${divSvg}
     ${panelLab(P.macd.y,'MACD(12,26,9) · 힘')}<line x1="${padL}" x2="${W-padR}" y1="${Ym(0)}" y2="${Ym(0)}" class="chs-ref"/><text x="${W-padR+8}" y="${Ym(0)+4}" class="chs-ax">0</text>${hist}<path d="${chsPath(mc,X,Ym)}" class="chs-macd"/><path d="${chsPath(sg,X,Ym)}" class="chs-signal"/>
     <line id="chs-cross" x1="0" x2="0" y1="${P.price.y}" y2="${P.macd.y+P.macd.h}" class="chs-cross" style="display:none"/>
@@ -498,7 +521,7 @@ function chsHover(evt, pre='chs'){
   tip.innerHTML = `<div class="chs-tip-date">${dateLab}${progLab}</div>`
     + row('시가', chsNum(b.o,cur)) + row('고가', chsNum(b.h,cur)) + row('저가', chsNum(b.l,cur))
     + row('종가', chsNum(b.c,cur)+(chg==null?'':` <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`))
-    + row('거래량', (b.v||0).toLocaleString('ko-KR'))
+    + (v.ratio ? '' : row('거래량', (b.v||0).toLocaleString('ko-KR')))
     + (v.maList||chsMaList(frame)).map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
     + (v.ind.gc && v.ind.gc.mid[g]!=null ? row('가우시안 가운데', chsNum(v.ind.gc.mid[g],cur), v.ind.gc.rising[g]?'is-up':'is-dn') : '')
     + (v.ind.bb && v.ind.bb.z[g]!=null ? row('평균에서', (v.ind.bb.z[g]>=0?'+':'')+v.ind.bb.z[g].toFixed(1)+'σ') : '')
@@ -509,16 +532,48 @@ function chsHover(evt, pre='chs'){
   tip.style.left = (px > box.width*0.6 ? px - tip.offsetWidth - 14 : px + 14) + 'px';
 }
 function chsOwner(o){ _chsOwner = o; cbRenderChart(); }
-function chsPick(t){ const row = chsHoldings(null).find(r=>r.tkr===t); _chsTkr = t; _chsPickInfo = row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:t, cur:''}; _chsSearchErr = null; chsRemember(t); cbRenderChart(); }
+function chsPick(t){ _chsTkr = t; _chsPickInfo = chsInfoFor(t); _chsSearchErr = null; chsRemember(t); cbRenderChart(); }
 function chsRemember(t){ const at = _chsRecent.indexOf(t); if (at>=0) _chsRecent.splice(at,1); _chsRecent.unshift(t); _chsRecent.length = Math.min(_chsRecent.length, CHS_RECENT_MAX); }
 function chsToggle(k){ if (!(k in _chsShow)) return; _chsShow[k] = !_chsShow[k]; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-show',k); }
 // 종목 검색 — 내 종목 이름·티커가 맞으면 바로, 국내 6자리 코드·미국 티커 모양이면 그대로 봉을 받아 보고,
 // 그 밖(회사 이름)이나 실패하면 앱의 종목 검색(/api/get-stock — 국내 네이버·해외 Yahoo)으로 티커를 찾는다.
 const CHS_KR_CODE = /^[0-9][0-9A-Z]{5}$/, CHS_US_TKR = /^[\^A-Z][A-Z0-9.\-=]{0,8}$/;
+// 비율 차트의 한쪽 이름을 티커로 — 내 종목 → 티커·코드 모양이면 그대로 → 종목 검색
+async function chsResolveOne(q){
+  const up = q.toUpperCase(), direct = chsApiTkr(up);
+  const hit = chsHoldings(null).find(r=>r.tkr===direct || r.name===q);
+  if (hit) return hit.tkr;
+  if (CHS_KR_CODE.test(direct) || (/^[\x20-\x7e]+$/.test(q) && q.length<=6 && CHS_US_TKR.test(direct))) return direct;
+  const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
+  const d = await r.json().catch(()=>null);
+  const sym = d && d.success && String(d.symbol||'').trim();
+  if (!sym) throw new Error(`'${q}' 종목을 찾지 못했습니다`);
+  return chsApiTkr(sym);
+}
+function chsInfoFor(t){
+  if (chsRatioParts(t)) return {tkr:t, name:t.replace('/',' / '), cur:'RATIO', ratio:true};
+  const row = chsHoldings(null).find(r=>r.tkr===t);
+  return row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:t, cur:''};
+}
 async function chsSearch(q){
   q = String(q==null ? (document.getElementById('chs-q')||{}).value||'' : q).trim();
   _chsQuery = q; _chsSearchErr = null;
   if (!q){ cbRenderChart(); return; }
+  // 'XLK/XLV' — 두 종목의 비율 차트
+  if (q.includes('/')){
+    const parts = q.split('/').map(x=>x.trim());
+    if (parts.length!==2 || !parts[0] || !parts[1]){ _chsSearchErr = '비율 차트는 두 종목을 / 하나로 이어 넣으세요 — 예: XLK/XLV'; cbRenderChart(); return; }
+    _chsSearchBusy = true; cbRenderChart();
+    try {
+      const [a, b] = await Promise.all(parts.map(chsResolveOne));
+      if (a===b) throw new Error('같은 종목끼리는 비율을 낼 수 없습니다');
+      const t = a+'/'+b, fr = _chsFrame==='Y' ? 'M' : _chsFrame;
+      _chsCache[chsCacheKey(t, fr)] = await chsFetchBars(t, fr);
+      _chsTkr = t; _chsPickInfo = chsInfoFor(t); _chsQuery = ''; chsRemember(t);
+    } catch(e){ _chsSearchErr = (e&&e.message)||'검색 실패'; }
+    finally { _chsSearchBusy = false; }
+    cbRenderChart(); return;
+  }
   const mine = chsHoldings(null), up = q.toUpperCase();
   const hit = mine.find(r=>r.tkr===chsApiTkr(up) || r.name===q);
   if (hit){ _chsQuery = ''; chsPick(hit.tkr); return; }
@@ -556,11 +611,13 @@ const CHS_GUIDE = [
   ['MACD', '12개·26개 봉 평균의 차이(MACD)와 그 9개 평균(시그널선) · 막대가 커지면 그쪽 힘이 세지는 중'],
   ['가우시안 채널', '가격을 아주 매끄럽게 만든 가운데 선(144봉, 4겹 필터) ± 하루 움직임 폭 × 1.414 · 가운데 선이 오르면 초록, 내리면 빨강 · 처음 144봉은 값이 안정되지 않아 비움'],
   ['볼린저 2σ', '20봉 평균 ± 표준편차(σ) 2배 · 가격은 대개 이 띠 안에 머묾 · 띠가 아주 좁아지면 큰 움직임 전 조용한 구간인 경우가 많음'],
+  ['비율 차트', "'XLK/XLV'처럼 / 로 두 종목을 넣으면 앞 종목 가격 ÷ 뒤 종목 가격 · 오르면 앞 종목이 상대적으로 강함 · 지표도 그 비율에 그대로 적용"],
   ['다이버전스', '가격은 더 높은 고점인데 RSI 는 더 낮은 고점 = Bear(오르는 힘이 약해짐), 반대 = Bull · 고점·저점은 오른쪽 5봉이 지나야 확정되므로 늦게 표시됨'],
 ];
 
 // 국기·자산 아이콘 — 내 종목이면 그 항목 그대로, 검색한 종목은 통화로 나라를 고른다
 function chsFlag(info, data){
+  if (info.ratio) return '';
   if (info.ref) return cbFlagCell({cls:cbCls(info.ref), i:info.ref},24,14);
   const cur = String((data&&data.cur)||info.cur||'').toUpperCase();
   const pseudo = {tkr:info.tkr, name:info.name, grp:'주식', cur:cur||'USD'};
@@ -581,7 +638,7 @@ function cbRenderChart(){
   const search = `<div class="chs-search">
       <form class="chs-form" onsubmit="event.preventDefault();chsSearch()">
         <label class="sr-only" for="chs-q">종목 이름·티커·코드</label>
-        <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="종목 검색 — 애플, AAPL, 삼성전자, 005930, SOXX" value="${cbEsc(_chsQuery)}">
+        <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="종목 검색 — 애플, AAPL, 005930 · 비율은 XLK/XLV" value="${cbEsc(_chsQuery)}">
         <button class="cb-btn" type="submit"${_chsSearchBusy?' disabled':''}>${_chsSearchBusy?'찾는 중…':'보기'}</button>
       </form>
       ${recent.length?`<div class="chs-recent" role="group" aria-label="최근 조회"><span>최근</span>${recent.map(t=>chip(t, t===_chsTkr)).join('')}</div>`:''}
@@ -591,8 +648,8 @@ function cbRenderChart(){
     el.innerHTML = `<div class="cb-panel chs-panel">${search}${cbEmptyHtml('볼 종목을 검색하세요','종목 이름이나 티커를 넣으면 그 종목의 봉 차트와 지표를 여기서 봅니다.',[])}</div>`;
     return;
   }
-  const info = _chsPickInfo && _chsPickInfo.tkr===_chsTkr ? _chsPickInfo : {tkr:_chsTkr, name:_chsTkr, cur:''};
-  const row = chsHoldings(ownerF).find(r=>r.tkr===_chsTkr) || null;
+  const info = _chsPickInfo && _chsPickInfo.tkr===_chsTkr ? _chsPickInfo : chsInfoFor(_chsTkr);
+  const row = info.ratio ? null : chsHoldings(ownerF).find(r=>r.tkr===_chsTkr) || null;
   const key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
   if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
   const sel = `<div class="owner-tabs chs-show" role="group" aria-label="겹쳐 그릴 지표">${CHS_OVERLAYS.map(([k,l])=>`<button class="owner-btn${_chsShow[k]?' active':''}" data-chs-show="${k}" aria-pressed="${_chsShow[k]}" onclick="chsToggle('${k}')">${l}</button>`).join('')}</div>`;
@@ -613,23 +670,27 @@ function cbRenderChart(){
     const avg = row && row.cur===cur ? chsAvg(row) : null;
     const last = all[all.length-1], prev = all[all.length-2], chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t);
     const inProgress = chsInProgress(last, frame);
-    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}, log:_chsLog};
+    const ratio = cur==='RATIO', rp = ratio ? chsRatioParts(_chsTkr) : null;
+    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}, log:_chsLog, ratio};
+    const curs = ratio && Array.isArray(data.curs) ? data.curs.filter(Boolean) : [];
+    const ratioNote = ratio ? `${cbEsc(rp[0])} 종가 ÷ ${cbEsc(rp[1])} 종가 — 선이 오르면 ${cbEsc(rp[0])}가 ${cbEsc(rp[1])}보다 강했다는 뜻입니다. 고가·저가는 근사값이고 거래량은 없습니다.${curs.length===2&&curs[0]!==curs[1]?` 두 종목 통화가 달라(${cbEsc(curs[0])}·${cbEsc(curs[1])}) 환율 변화는 빠진 각자 통화 기준 비교입니다.`:''}` : '';
     const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
     const MA = chsMaList(frame);
     const when = frame==='D' ? `${d.m}월 ${d.d}일 종가` : inProgress ? `이번 ${frame==='W'?'주':frame==='M'?'달':'해'} 진행 중 · 전 봉 대비` : '마지막 봉 종가 · 전 봉 대비';
     const fewBars = [...MA.filter(m=>all.length<m.n).map(m=>m.label), ...(all.length<=14?['RSI(14)']:[]), ...(all.length<34?['MACD']:[])];
     body = `<div class="chs-top">
-        <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${when} · Yahoo ${F.label}</small></div>
+        <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${ratio?'비율':cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${when} · Yahoo ${F.label}</small></div>
         <div class="chs-legend" aria-label="범례">${_chsShow.ma?MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label}${m.sub?` <small>${m.sub}</small>`:''}</span>`).join(''):''}${_chsShow.gc?'<span><i class="chs-sw is-gc"></i>가우시안 채널 <small>오름 초록 · 내림 빨강</small></span>':''}${_chsShow.bb?'<span><i class="chs-sw is-bb"></i>볼린저 ±2σ</span>':''}${_chsView.avgShown?'<span><i class="chs-sw is-avg"></i>내 평균 매입가</span>':avg?`<span class="chs-avg-off">내 평균 매입가 ${chsNum(avg.price,cur)} — 이 기간 가격 범위 밖</span>`:''}</div>
       </div>
+      ${ratio?`<p class="chs-note">${ratioNote}</p>`:''}
       ${fewBars.length||inProgress?`<p class="chs-note">${inProgress?`마지막 봉(옅은 바탕)은 아직 끝나지 않은 이번 ${frame==='W'?'주':frame==='M'?'달':'해'}입니다 — 끝날 때까지 모양이 바뀝니다. `:''}${fewBars.length?`${F.label}이 ${all.length}개뿐이라 ${fewBars.join('·')}은 그릴 수 없습니다.`:''}</p>`:''}
       <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${svg}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
       <div class="chs-reads" style="--chs-cols:${reads.length<=4?reads.length:Math.ceil(reads.length/2)}">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
   }
   el.innerHTML = `<div class="cb-panel chs-panel">
       ${search}
-      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}</div><div class="chs-tools">${sel}${ranges}${logBtn}${frames}</div></div>
+      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr&&!info.ratio?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}${info.ratio?'<span class="chs-mine">비율</span>':''}</div><div class="chs-tools">${sel}${ranges}${logBtn}${frames}</div></div>
       ${body}
     </div>
     <div class="cb-panel chs-guide">

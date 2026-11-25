@@ -350,7 +350,7 @@ function trdLights(A, close, E){
   const L = (key, name, light, text, tip) => ({key, name, light, text, tip});
   const chase = v.pivot && (v.state==='breakout' || v.state==='weak') ? (close/v.pivot-1)*100 : null;
   return [
-    L('mkt','시장 흐름', !A.mkt ? 'n' : A.mkt.stage===2 ? 'g' : A.mkt.stage===4 ? 'r' : 'y', A.mkt ? `S&P 500 ${A.mkt.name}` : '지수 자료 없음', '미너비니: 시장이 하락 단계면 좋은 종목도 실패하기 쉬워 새로 사지 않는다. 금리·달러(매크로)가 아니라 지수의 가격 흐름을 종목과 같은 4단계로 본다'),
+    L('mkt','시장 흐름', !A.mkt ? 'n' : A.mkt.stage===2 ? 'g' : A.mkt.stage===4 ? 'r' : 'y', A.mkt ? `S&P 500 ${cbEsc(A.mkt.name)}` : '지수 자료 없음', '미너비니: 시장이 하락 단계면 좋은 종목도 실패하기 쉬워 새로 사지 않는다. 금리·달러(매크로)가 아니라 지수의 가격 흐름을 종목과 같은 4단계로 본다'),
     L('trend','추세', t.score===8 ? 'g' : t.score>=6 ? 'y' : 'r', `조건 8개 중 ${t.score}개 통과`, '트렌드 템플릿 — 이동평균 순서·52주 고저·지수 대비 강도. 8개 모두여야 통과'),
     L('stage','큰 흐름', !st ? 'n' : st.stage===2 ? 'g' : st.stage===4 ? 'r' : 'y', st ? st.name : '판정 보류', '1 바닥 · 2 상승 · 3 천장 · 4 하락. 2단계에서만 산다'),
     L('earn','실적', ern.light, ern.text, `초록 = 전년 같은 분기보다 EPS·매출 ${TRD_EPS_MIN}% 이상 + 3년 연평균 ${TRD_ANNUAL_MIN}% 이상. 3분기 연속 증가율이 빨라지면(Code 33) 미너비니가 가장 반기는 실적. 출처 stockanalysis.com`),
@@ -562,7 +562,7 @@ function trdLightHtml(l){
   const word = {g:'좋음', y:'보통', r:'나쁨', n:'해당 없음'}[l.light];
   return `<div class="trd-light is-${l.light}" data-tip="${cbEsc(l.tip)}">
     <span class="trd-lamps" aria-label="${word}">${on('g')}${on('y')}${on('r')}</span>
-    <div class="trd-light-name">${l.name}</div><div class="trd-light-text">${cbEsc(l.text)}</div></div>`;
+    <div class="trd-light-name">${cbEsc(l.name)}</div><div class="trd-light-text">${cbEsc(l.text)}</div></div>`;
 }
 // 같은 검색 상자·같은 종목을 추세추종·가치투자가 함께 쓴다. 숨은 화면의 내용은 비워 같은 id(trd-q·trd-tip)가 겹치지 않게 한다.
 const TRD_PAGES = ['trend2','value2','macro2','screen2'];
@@ -710,7 +710,7 @@ function macBodyHtml(){
   const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'};
   const card = x => `<div class="trd-light mac-card is-${x.light}">
       <span class="trd-lamps" aria-label="${word[x.light]}">${['g','y','r'].map(c=>`<i class="trd-lamp is-${c}${x.light===c?' is-on':''}"></i>`).join('')}</span>
-      <div class="trd-light-name">${x.name}</div><div class="mac-val">${cbEsc(x.text)}</div><div class="trd-light-text">${cbEsc(x.tip)}</div></div>`;
+      <div class="trd-light-name">${cbEsc(x.name)}</div><div class="mac-val">${cbEsc(x.text)}</div><div class="trd-light-text">${cbEsc(x.tip)}</div></div>`;
   // 드러켄밀러의 세 렌즈: "시장을 세 가지로 본다 — 밸류에이션, 유동성, 경제"
   const LENS = [['liq','유동성','가장 중요 — 시장을 움직이는 건 이익이 아니라 연준과 돈의 흐름'],['eco','경제','주가가 크게 빠질 때는 거의 늘 침체가 있었다'],['val','값과 가격','비싼지, 그리고 지수 자체가 무엇을 말하는지']];
   const cards = MC.items.length ? LENS.map(([k,name,sub])=>{ const xs = MC.items.filter(x=>x.lens===k); return xs.length ? `<div class="mac-lens"><div class="trd-group-title"><b>${name}</b> <span>${sub}</span></div><div class="mac-cards">${xs.map(card).join('')}</div></div>` : ''; }).join('')
@@ -856,7 +856,7 @@ function cbRenderScreen(){
 }
 function trdMacroHtml(MC){
   const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'};
-  const items = MC.items.length ? MC.items.map(x=>`<li class="is-${x.light}" data-tip="${cbEsc(x.tip)}"><i class="trd-mini is-${x.light}" aria-label="${word[x.light]}"></i><b>${x.name}</b><span>${cbEsc(x.text)}</span></li>`).join('')
+  const items = MC.items.length ? MC.items.map(x=>`<li class="is-${x.light}" data-tip="${cbEsc(x.tip)}"><i class="trd-mini is-${x.light}" aria-label="${word[x.light]}"></i><b>${cbEsc(x.name)}</b><span>${cbEsc(x.text)}</span></li>`).join('')
     : `<li class="is-n"><span>${_trdMacroBusy || _trdMacro===undefined ? '시장 자료를 불러오는 중…' : '시장 자료(FRED)를 받지 못했습니다'}</span></li>`;
   return `<section class="cb-panel trd-macro is-${MC.light}" aria-label="시장 신호등">
     <div class="trd-macro-head">
