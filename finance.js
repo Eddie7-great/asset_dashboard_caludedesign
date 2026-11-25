@@ -903,6 +903,10 @@ function finTaxAwareSellPlan(rows, need, ctx){
   }
   return {rows:out, left, tax:out.reduce((s,x)=>s+x.tax,0), unknown:out.filter(x=>x.kind==='unknown').length};
 }
+// 자산군마다 접는 묶음(2026-11-25 사용자 요청) — 기본은 접힘, 펼친 자산군은 재렌더(시세 갱신·소유주 변경)에도 유지하고
+// 다른 화면으로 옮기면 cbResetViewState 가 비운다.
+const _finTsellOpen=new Set();
+function finTsellToggle(el){ const k=el?.dataset?.tsell; if(!k) return; if(el.open) _finTsellOpen.add(k); else _finTsellOpen.delete(k); }
 function finTaxAwareSellHtml(ta, ownerF){
   const th=Number(ta.threshold)||0;
   const reduce=ta.result.filter(x=>x.diff<-1&&Math.abs(x.drift)>th&&x.key!=='cash');
@@ -916,15 +920,15 @@ function finTaxAwareSellHtml(ta, ownerF){
   const rows=finRows(ownerF).filter(r=>r.cls!=='cash').map(r=>({i:r.i,val:r.val,gain:r.i.costUnknown?0:assetGainKRW(r.i),cls:r.cls}));
   const blocks=reduce.map(x=>{
     const plan=finTaxAwareSellPlan(rows.filter(r=>r.cls===x.key), -x.diff, ctx);
-    return `<div class="fin-tsell-block"><div class="fin-tsell-title"><i style="background:${x.color}"></i><b>${cbEsc(x.label)}</b> ${cbDisp(-x.diff)} 줄이기 <span>예상 세금 <b class="${plan.tax>0?'is-tax':plan.tax<0?'is-save':''}">${plan.tax<0?'−'+cbDisp(-plan.tax)+' (줄어듦)':cbDisp(plan.tax)}</b>${plan.unknown?` · 판단 안 함 ${plan.unknown}종목`:''}</span></div>
+    return `<details class="fin-tsell-block" data-tsell="${cbEsc(x.key)}"${_finTsellOpen.has(x.key)?' open':''} ontoggle="finTsellToggle(this)"><summary class="fin-tsell-title"><i style="background:${x.color}"></i><b>${cbEsc(x.label)}</b> ${cbDisp(-x.diff)} 줄이기 <em class="fin-tsell-count">${plan.rows.length}종목</em><span>예상 세금 <b class="${plan.tax>0?'is-tax':plan.tax<0?'is-save':''}">${plan.tax<0?'−'+cbDisp(-plan.tax)+' (줄어듦)':cbDisp(plan.tax)}</b>${plan.unknown?` · 판단 안 함 ${plan.unknown}종목`:''}</span><span class="fin-tsell-caret" aria-hidden="true"></span></summary>
+      <div class="fin-tsell-head" aria-hidden="true"><span></span><span>소유주</span><span>종목</span><span class="r">매도</span><span class="r">실현 손익</span><span class="r">예상 세금</span></div>
       <ol class="fin-tsell-list">${plan.rows.map((r,k)=>`<li><span class="fin-tsell-n">${k+1}</span>${cbOwnerTag(r.i.owner)}<span class="fin-tsell-name" title="${cbEsc(r.i.name||r.i.tkr)}">${cbEsc(r.i.name||r.i.tkr)}<small>${cbEsc(r.i.acc||'일반')} · ${label[r.kind]}</small></span>
         <span class="cb-num">${cbDisp(r.sell)}</span>
         <span class="cb-num fin-tsell-gain" style="${cbGainStyle(r.realized)}">${r.realized>0?'+':r.realized<0?'−':''}${cbDisp(Math.abs(r.realized))}</span>
         <span class="cb-num fin-tsell-tax">${r.kind==='unknown'?'—':r.tax>0?`<b class="is-tax">${cbDisp(r.tax)}</b>`:r.tax<0?`<b class="is-save">−${cbDisp(-r.tax)}</b><small>올해 이익과 상계</small>`:r.used>0?`0 <small${r.dep?' class="is-warn" data-tip="부양가족은 해외 실현이익이 소득 기준을 넘으면 본인 연말정산에서 부양가족 공제를 못 받을 수 있습니다(세금 화면 오른쪽 카드와 같은 기준)."':''}>공제 ${cbDisp(r.used)} 사용${r.dep?' · 부양가족 기준 넘음':''}</small>`:'0'}</span></li>`).join('')}</ol>
-      ${plan.left>=1?`<p class="fin-tsell-left">팔 수 있는 종목을 다 써도 ${cbDisp(plan.left)} 모자랍니다.</p>`:''}</div>`;
+      ${plan.left>=1?`<p class="fin-tsell-left">팔 수 있는 종목을 다 써도 ${cbDisp(plan.left)} 모자랍니다.</p>`:''}</details>`;
   }).join('');
   return `<div class="cb-panel fin-section fin-tsell"><div class="fin-section-head"><span><span data-tip="범위 밖으로 커진 자산군을 줄일 때, 그해 바로 생기는 세금이 적은 종목부터 고른 참고 순서입니다. 세율·공제는 세금 화면과 같은 규칙값이고, 올해 이미 실현한 해외 손익(세금 화면 기록)을 반영해 남은 공제를 씁니다.">줄일 때 세금이 적은 순서</span> <span style="color:var(--dim);font-weight:500">· ${ownerF?cbEsc(ownerF):'가구 전체'}</span></span><small>매도 금액 · 실현될 손익 · 예상 세금(해외 양도세)</small></div>
-    <div class="fin-tsell-head" aria-hidden="true"><span></span><span>소유주</span><span>종목</span><span class="r">매도</span><span class="r">실현 손익</span><span class="r">예상 세금</span></div>
     ${blocks}
     <small class="fin-disclaimer">지금 평가액 기준 참고값입니다. ISA·연금은 만기·인출 때 정산되는 세금이 따로 있고, 국내 상장 해외 ETF·가상화폐·금은 규칙값이 없어 세금을 계산하지 않았습니다. 거래비용·증권거래세는 빠져 있습니다.</small></div>`;
 }

@@ -154,7 +154,7 @@ Object.assign(context, {
 })
 context.window._netWorthHistory = []
 context.window._divDataCache = {}
-vm.runInContext("var _finMcRet=5, _finMcSel=null;", context)
+vm.runInContext("var _finMcRet=5, _finMcSel=null; const _finTsellOpen=new Set();", context)
 vm.runInContext(assetValueSource(), context)
 for (const name of ['cbAmtGridSvg', 'cbAxisTicks', 'cbAmtAxisPad', 'cbOwnerTag', 'cbGainStyle']) vm.runInContext(extractFunction(cobaltSource, name), context)
 vm.runInContext(extractFunction(scriptSource, 'allocateDividendTax'), context)

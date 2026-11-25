@@ -696,11 +696,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       if (!new Set(['1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max']).has(range)) {
         return res.status(400).json({ success: false, error: 'Invalid range' });
       }
+      // 봉 단위 — 차트 공부의 일봉(기본)·주봉·월봉. 년봉은 화면이 월봉을 해마다 묶는다(Yahoo 에 연 단위 봉이 없다).
+      const interval = singleQuery(req.query.interval) || '1d';
+      if (!new Set(['1d', '1wk', '1mo']).has(interval)) {
+        return res.status(400).json({ success: false, error: 'Invalid interval' });
+      }
 
       const KR_RE = /^[0-9A-Z]{6}$/i;
       // Yahoo 심볼 후보 (KR 단축코드면 .KS 시도, 실패 시 .KQ)
       async function fetchOhlcv(sym: string) {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=${encodeURIComponent(range)}`;
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${encodeURIComponent(range)}`;
         const r = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
         if (!r.ok) return null;
         const d = await r.json();
@@ -715,7 +720,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         for (let i = 0; i < ts.length; i++) {
           const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i], v = q.volume?.[i];
           if (o == null || h == null || l == null || c == null) continue;
-          const complete = Number.isFinite(session?.start) && Number.isFinite(session?.end)
+          // 주·월봉은 마지막 봉이 진행 중인 기간이다 — 버리지 않고 화면이 '진행 중'으로 표시한다(chsInProgress).
+          const complete = interval !== '1d' ? true : Number.isFinite(session?.start) && Number.isFinite(session?.end)
             ? ts[i]<session.start || Date.now()/1000>=session.end
             : ts[i]<Math.floor(Date.now()/86400000)*86400;
           bars.push({ t: ts[i], o, h, l, c, v: v ?? 0, adj: Number.isFinite(adj[i]) && adj[i]>0 ? adj[i] : null, complete });
@@ -766,7 +772,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
       const benchRes = await Promise.all(benchSyms.map(async (b) => {
         try {
-          const u = `https://query1.finance.yahoo.com/v8/finance/chart/${b.sym}?interval=1d&range=${encodeURIComponent(range)}`;
+          const u = `https://query1.finance.yahoo.com/v8/finance/chart/${b.sym}?interval=${interval}&range=${encodeURIComponent(range)}`;
           const r = await fetchWithTimeout(u, { headers: { 'User-Agent':'Mozilla/5.0' } });
           if (!r.ok) return { key: b.key, bars: [] as Array<{t:number;c:number}> };
           const d = await r.json();

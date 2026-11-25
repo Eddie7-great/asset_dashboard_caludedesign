@@ -18,8 +18,10 @@ assert.ok(block.length > 0, '휴대폰 다듬기 블록은 공통 블록 앞');
 // 적립식 남은 매수: 강조색 윗선 없음, 휴대폰은 한 줄 요약
 assert.match(block, /\.cb-dca-remaining-card\{box-shadow:none\}/);
 assert.match(block, /@media\(max-width:768px\)\{[\s\S]*\.cb-dca-remaining-card\{display:grid;grid-template-columns:minmax\(0,1fr\) auto/);
-// ETF 요약: 라벨 | 값 줄, etf-explorer.css(나중에 로드)의 margin-left 를 이기도록 .etf-toolbar> 로 한 단계 강하게
-assert.match(block, /\.etf-toolbar>\.etf-fund-value,\.etf-toolbar>\.etf-fund-stats\{display:grid;grid-template-columns:auto minmax\(0,1fr\)/);
-assert.match(block, /\.etf-toolbar>\.etf-fund-value>span:not\(:first-child\),\.etf-toolbar>\.etf-fund-stats>span:not\(:first-child\)\{margin-left:0\}/);
+// ETF 요약은 2026-11-25 숫자 카드(.etf-top)로 나눴다 — 예전 한 줄 머리(.etf-toolbar)의 휴대폰 규칙은 남기지 않는다
+assert.doesNotMatch(ws, /etf-toolbar|etf-fund-value|etf-fund-stats/);
+const etfCss = fs.readFileSync(new URL('../../etf-explorer.css', import.meta.url), 'utf8');
+assert.doesNotMatch(etfCss, /etf-toolbar|etf-fund-value|etf-fund-stats/);
+assert.match(etfCss, /@media\(max-width:768px\)\{\.etf-top\{grid-template-columns:1fr 1fr/);
 
 console.log('ok - mobile polish');

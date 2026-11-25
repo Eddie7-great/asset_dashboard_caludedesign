@@ -211,7 +211,7 @@ function _cbPerfTipEl(){
   let t = document.getElementById('cb-perf-tip');
   if(!t){
     t = document.createElement('div'); t.id = 'cb-perf-tip'; t.className = 'cb-chart-tip';
-    t.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;background:var(--tipbg);color:var(--tiptx);border:1px solid var(--tipbd);border-radius:9px;padding:9px 11px;box-shadow:0 12px 30px rgba(0,0,0,.36);font-size:var(--fs-cap);min-width:158px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;letter-spacing:0';
+    t.style.cssText = 'position:fixed;z-index:9999;display:none;pointer-events:none;background:var(--tipbg);color:var(--tiptx);border:1px solid var(--tipbd);border-radius:var(--r-md);padding:9px 11px;box-shadow:var(--tipshadow);font-size:var(--fs-cap);min-width:158px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;letter-spacing:0';
     document.body.appendChild(t);
   }
   return t;

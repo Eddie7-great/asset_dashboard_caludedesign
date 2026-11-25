@@ -210,24 +210,56 @@ function etfExposure(ticker,rows=cbAllRows(),doc=cbEtfDoc(),owner=_etfOwner,now=
   }).sort((a,b)=>b.total-a.total);
 }
 function etfPct(value){return Number.isFinite(value)?value.toFixed(2)+'%':'—';}
-function etfExposureHtml(ticker,holding){
-  const identity=etfIdentity(holding||{t:ticker}),owners=etfExposure(ticker);
-  return `<div class="etf-section-title"><b>${cbEsc(identity.name||'종목 선택')} · 소유주별 포트폴리오 비중</b><span>전체 포트폴리오와 종목 내 보유 비율</span></div>
-    <div class="etf-exposure-grid">${owners.map(o=>{
-      const approximate=o.uncertain.length>0,scale=Math.max(100,o.totalPct||0),unknownIndirect=approximate&&!o.routes.length;
-      const indirectLabel=unknownIndirect?'미확인':etfPct(o.indirectPct),totalLabel=unknownIndirect&&o.exposure===0?'미확인':etfPct(o.totalPct);
-      return `<details class="etf-owner-exposure" data-exposure-owner="${cbEsc(o.owner)}"><summary class="etf-owner-summary"><div class="etf-exposure-head"><b>${cbEsc(o.owner)}</b><span>전체 포트 ${o.valid?cbDisp(o.total):'—'}</span></div>
+// 소유주별 포트폴리오 비중 — 카드는 요약(비중·막대·직접:간접)만, 금액·ETF별 계산은 카드를 누르면 뜨는 창에서 본다
+// (2026-11-25 사용자 요청 — 예전에는 카드가 그 자리에서 길게 펼쳐져 이웃 카드와 높이가 어긋났다). 값은 etfExposure 그대로.
+let _etfExpOwner=null, _etfExpDown=false;
+function etfExposureParts(o, identity){
+  const approximate=o.uncertain.length>0,scale=Math.max(100,o.totalPct||0),unknownIndirect=approximate&&!o.routes.length;
+  const indirectLabel=unknownIndirect?'미확인':etfPct(o.indirectPct),totalLabel=unknownIndirect&&o.exposure===0?'미확인':etfPct(o.totalPct);
+  const summary=`<div class="etf-exposure-head"><b>${cbOwnerTag(o.owner)}</b><span>전체 포트 ${o.valid?cbDisp(o.total):'—'}</span></div>
         <div class="etf-exposure-total"><strong>${totalLabel}</strong><span>전체 포트에서 ${cbEsc(identity.name)} 비중${approximate?' · 확인 자료 기준':''}</span></div>
         <div class="etf-exposure-bar" role="img" aria-label="${cbEsc(o.owner)} 전체 포트 대비 직접 ${etfPct(o.directPct)}, ETF 간접 ${indirectLabel}${approximate?', 불완전한 ETF 자료 포함':''}"><i class="etf-direct" style="width:${o.valid?o.directPct/scale*100:0}%"></i><i class="etf-indirect" style="width:${o.valid?o.indirectPct/scale*100:0}%"></i></div>
         <div class="etf-exposure-legend"><span><i class="etf-direct"></i>직접 <b>${etfPct(o.directPct)}</b></span><span><i class="etf-indirect"></i>ETF 간접 <b>${indirectLabel}</b></span>${o.valid&&o.totalPct<=100?`<span class="etf-other">${approximate?'그 외·미확인':'나머지'} ${etfPct(100-o.totalPct)}</span>`:''}</div>
         ${o.valid&&o.totalPct>100?'<p class="etf-caption">명목 노출이 전체 포트 100%를 초과합니다. 막대는 총 노출에 맞춰 표시합니다.</p>':''}
-        <div class="etf-stock-split"><span>이 종목 보유분을 100%로 보면</span><b>${unknownIndirect?'자료 부족으로 비율 미확정':`직접 ${etfPct(o.directShare)} <em>:</em> 간접 ${etfPct(o.indirectShare)}`}</b></div>
-        <span class="etf-owner-toggle"><span class="etf-expand-label">금액·ETF별 계산 펼치기</span><span class="etf-collapse-label">계산 내역 접기</span>${approximate?' · 자료 확인 필요':''}</span></summary><div class="etf-exposure-details"><div class="etf-route-direct"><span>직접 보유 평가액</span><b>${o.valid?cbDisp(o.direct):'—'}</b></div>
+        <div class="etf-stock-split"><span>이 종목 보유분을 100%로 보면</span><b>${unknownIndirect?'자료 부족으로 비율 미확정':`직접 ${etfPct(o.directShare)} <em>:</em> 간접 ${etfPct(o.indirectShare)}`}</b></div>`;
+  const details=`<div class="etf-exposure-details"><div class="etf-route-direct"><span>직접 보유 평가액</span><b>${o.valid?cbDisp(o.direct):'—'}</b></div>
         ${o.routes.map(r=>`<div class="etf-exposure-route"><b>${cbEsc(r.name)}</b><span>ETF 평가액 ${cbDisp(r.etfValue)} × 편입 비중 ${etfPct(r.w)}</span><span><strong>${cbDisp(r.value)}</strong> · 전체 포트의 ${etfPct(o.valid?r.value/o.total*100:null)}</span><small>구성 기준 ${cbEsc(r.asOf||'미확인')}${r.reliable?'':' · '+cbEsc(r.label)}</small></div>`).join('')||'<p class="etf-caption">확인된 ETF 간접 보유가 없습니다.</p>'}
         ${approximate?`<p class="etf-exposure-warning">자료 확인 필요: ${o.uncertain.map(f=>cbEsc(f.name)+' ('+cbEsc(f.label)+')').join(' · ')}</p>`:''}</div>
-        ${!o.valid?'<p class="etf-exposure-warning">전체 포트 평가액을 확인할 수 없어 비중을 계산하지 않습니다.</p>':approximate?'<p class="etf-exposure-warning">일부·지연·미조회 ETF가 있어 간접 비중과 보유 비율은 확정값이 아닙니다.</p>':''}</details>`;
+        ${!o.valid?'<p class="etf-exposure-warning">전체 포트 평가액을 확인할 수 없어 비중을 계산하지 않습니다.</p>':approximate?'<p class="etf-exposure-warning">일부·지연·미조회 ETF가 있어 간접 비중과 보유 비율은 확정값이 아닙니다.</p>':''}`;
+  return {summary,details,approximate};
+}
+// 창은 유리 카드(.cb-panel — backdrop-filter 가 position:fixed 의 기준이 된다) 밖의 #etf-exp-pop-host 에 그린다.
+function etfExpPopHtml(ticker,holding){
+  if(_etfExpOwner==null) return '';
+  const identity=etfIdentity(holding||{t:ticker}),pop=etfExposure(ticker).find(o=>o.owner===_etfExpOwner);
+  if(!pop){_etfExpOwner=null;return '';}
+  const parts=etfExposureParts(pop,identity);
+  return `<div class="modal-overlay active etf-exp-pop-overlay" id="etf-exp-pop">
+      <div class="modal-content etf-exp-pop" role="dialog" aria-modal="true" aria-labelledby="etf-exp-pop-title">
+        <div class="etf-exp-pop-head"><b id="etf-exp-pop-title">${cbEsc(identity.name)} · ${cbEsc(pop.owner)}의 포트폴리오 비중</b><button type="button" class="modal-close etf-exp-pop-close" onclick="etfExpClose()" aria-label="닫기">×</button></div>
+        <div class="etf-exp-pop-body">${parts.summary}<div class="etf-exp-pop-sub">금액·ETF별 계산</div>${parts.details}</div>
+        <div class="etf-exp-pop-foot">간접 비중 = ETF 평가액 × 그 ETF 안의 공시 비중 ÷ 전체 포트 평가액 · 바깥을 누르거나 Esc 로 닫기</div>
+      </div></div>`;
+}
+function etfExposureHtml(ticker,holding){
+  const identity=etfIdentity(holding||{t:ticker}),owners=etfExposure(ticker);
+  return `<div class="etf-section-title"><b>${cbEsc(identity.name||'종목 선택')} · 소유주별 포트폴리오 비중</b><span>전체 포트폴리오와 종목 내 보유 비율 · 카드를 누르면 계산 내역</span></div>
+    <div class="etf-exposure-grid">${owners.map(o=>{
+      const parts=etfExposureParts(o,identity);
+      return `<button type="button" class="etf-owner-exposure" data-exposure-owner="${cbEsc(o.owner)}" aria-haspopup="dialog" onclick="etfExpOpen(this.dataset.exposureOwner)">${parts.summary}
+        <span class="etf-owner-toggle">금액·ETF별 계산 보기 ›${parts.approximate?' · 자료 확인 필요':''}</span></button>`;
     }).join('')||'<p class="sim-empty">선택한 소유주에게 포트폴리오가 없습니다.</p>'}</div>
     <p class="etf-caption">전체 포트 = 해당 소유주의 주식·ETF·가상화폐·금·현금 평가액 합계(부동산·부채 제외). 간접 비중 = ETF 평가액 × 해당 종목의 ETF 내 공시 비중 ÷ 전체 포트 평가액. 각 ETF의 직접 편입 주식만 합산하며 파생·레버리지의 전체 경제적 노출은 포함하지 않습니다.</p>`;
+}
+function etfExpOpen(owner){ _etfExpOwner=owner; etfRefreshResults(); document.querySelector('#etf-exp-pop .etf-exp-pop-close')?.focus(); }
+function etfExpClose(){
+  if(_etfExpOwner==null) return;
+  const owner=_etfExpOwner; _etfExpOwner=null; _etfExpDown=false; etfRefreshResults();
+  if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('etf-network','data-exposure-owner',owner);
+}
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('pointerdown',e=>{_etfExpDown=!!e.target&&e.target.id==='etf-exp-pop';},true);
+  document.addEventListener('click',e=>{if(e.target&&e.target.id==='etf-exp-pop'&&_etfExpDown)etfExpClose();_etfExpDown=false;});
 }
 // 이 ETF 의 구성종목 중 **직접 보유 중인 회사**만 모아 보여 준다.
 // '직접 보유만 보기' 체크박스와 같은 출처(cbDirectStockMap)를 써서 판정이 갈리지 않는다.
@@ -267,10 +299,13 @@ function cbRenderEtfExplorer(){
   const {fundValue,fundCost,fundGain,fundGainPct,fundQty,fundAvgPrice,fundUnit}=etfFundStats(fundRows);
   const fundPortfolioPct=etfPortfolioPct(fundValue,cbAllRows(),_etfOwner);
   root.innerHTML=`
-    <div class="cb-panel etf-toolbar"><label>보유 ETF<select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select></label>
-    <div class="etf-fund-value"><span>평가액</span><b>${cbDisp(fundValue)}</b><span>매입금액</span><b>${fundCost==null?'—':cbDisp(fundCost)}</b><span>평가손익</span><b style="${fundGain==null?'':cbUpDn(fundGain)}">${fundGain==null?'—':cbSignDisp(fundGain)+(fundGainPct==null?'':` <em>${(fundGainPct>=0?'+':'')+fundGainPct.toFixed(1)}%</em>`)}</b></div>
-    <div class="etf-fund-stats"><span>보유 수량</span><b>${fundQty.toLocaleString(undefined,{maximumFractionDigits:4})}${cbEsc(fundUnit)}</b><span>평균 매입단가</span><b>${fundAvgPrice==null?'—':cbDisp(fundAvgPrice)}</b><span>포트 비중</span><b>${fundPortfolioPct==null?'—':etfPct(fundPortfolioPct)}</b></div>
-    <div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span><span role="status">${cbEsc(_cbEtfLoading?'자료 확인 중…':etfLiveMessage(_etfCode))}</span></div><div class="etf-toolbar-summary"><div class="etf-counts"><span>보유 <b>${m.funds.length}</b></span><span>확인 <b>${counts.ok}</b></span><span>점검 <b>${counts.check}</b></span></div><span>선택 ETF · 조회된 주식 ${q.rows.length}종목 · 주식 비중 ${q.rows.length?etfPct(etfWeightSum(q.rows)):'미확인'}</span></div></div>
+    <div class="etf-top">
+    <section class="cb-panel etf-pick" aria-label="보유 ETF 선택"><label class="etf-pick-label" for="etf-fund">보유 ETF</label><select id="etf-fund" onchange="etfChoose(this.value)">${m.funds.map(f=>`<option value="${cbEsc(f.code)}"${f.code===_etfCode?' selected':''}>${cbEsc(f.name)} · ${cbEsc(f.code)}</option>`).join('')}</select>
+    <div class="etf-status ${q.reliable?'ok':''}"><b>${cbEsc(q.label)}</b><span>구성 기준 ${cbEsc(m.entry?.asOf||'미확인')}${q.active?' · 액티브':''}</span></div>
+    <div class="etf-pick-foot"><span class="etf-live" role="status">${cbEsc(_cbEtfLoading?'자료 확인 중…':etfLiveMessage(_etfCode))}</span><span class="etf-counts">보유 <b>${m.funds.length}</b> · 확인 <b>${counts.ok}</b> · 점검 <b>${counts.check}</b></span></div></section>
+    <div class="cb-panel holdings-kpi etf-kpi"><span>평가액</span><b>${cbDisp(fundValue)}</b><small>포트 비중 ${fundPortfolioPct==null?'—':etfPct(fundPortfolioPct)}</small></div>
+    <div class="cb-panel holdings-kpi etf-kpi"><span>평가손익</span><b style="${fundGain==null?'':cbUpDn(fundGain)}">${fundGain==null?'—':cbSignDisp(fundGain)}</b><small>${fundGainPct==null?'':`<em style="${cbUpDn(fundGain)}">${(fundGainPct>=0?'+':'')+fundGainPct.toFixed(1)}%</em> · `}매입금액 ${fundCost==null?'—':cbDisp(fundCost)}</small></div>
+    <div class="cb-panel holdings-kpi etf-kpi"><span>보유 수량</span><b>${fundQty.toLocaleString(undefined,{maximumFractionDigits:4})}${cbEsc(fundUnit)}</b><small>평균 매입단가 ${fundAvgPrice==null?'—':cbDisp(fundAvgPrice)}</small></div></div>
     ${window._etfLoadError?'<p class="etf-notice" role="status">자료 파일을 읽지 못했습니다. 마지막 정상 자료가 있으면 유지합니다. 다시 확인해 주세요.</p>':''}
     ${m.funds.length?'': '<p class="etf-notice">선택한 구성원에게 보유 ETF가 없습니다.</p>'}
     <div class="etf-layout"><section class="cb-panel etf-visual-card"><div class="etf-section-title"><b>구성 비중 분포</b><span>상위 12종목 · 막대를 눌러 상세 확인</span></div>
@@ -281,7 +316,7 @@ function cbRenderEtfExplorer(){
     ${m.history.length?`<label class="etf-compare">비교 기준<select id="etf-compare" onchange="_etfCompare=this.value;_etfPage=0;etfRefreshResults()">${m.history.map(s=>`<option value="${cbEsc(s.asOf+'|'+s.source)}"${s===m.previous?' selected':''}>${cbEsc(s.asOf)} · ${cbEsc(s.source)}</option>`).join('')}</select></label>`:''}
     <label class="etf-direct-only"><input type="checkbox" id="etf-direct-only"${_etfDirectOnly?' checked':''} onchange="etfDirectOnly(this.checked)">직접 보유 중인 종목만</label></div><div id="etf-results"></div></section>
     ${etfOverlapHtml(m)}</div>
-    <section class="cb-panel etf-network" id="etf-network"></section>
+    <section class="cb-panel etf-network" id="etf-network"></section><div id="etf-exp-pop-host"></div>
     ${etfInspectionHtml(m.funds)}
     <details class="cb-panel etf-method"><summary>출처·갱신 주기·변경 이력 기준</summary><p>출처 ${cbEsc(m.entry?.source||'미조회')}${link?` · <a href="${link}" target="_blank" rel="noopener noreferrer">운용사 원문 ↗</a>`:''} · 마지막 수집 ${cbEsc(m.entry?.fetchedAt||'기록 없음')} · 마지막 시도 ${cbEsc(m.entry?.lastAttempt||'기록 없음')}</p><p>한국·미국 장 마감 후 평일 두 차례 수집을 시도합니다(KST 18:30, 다음 날 07:30). 페이지를 열 때마다 원본을 다시 조회합니다(점검 ETF 는 행의 재조회 버튼으로 개별 조회). 국내는 FunETF, 해외는 지원 운용사와 대체 출처를 확인합니다. 실패하거나 기준일이 이전이면 마지막 정상 자료를 유지합니다. 화면 조회 이력은 현재 세션에, 정기 수집 이력은 서버에 보관합니다. 액티브 ETF는 2평일, 그 외는 5평일을 넘으면 지연으로 표시합니다(거래소 휴일 미반영). 기준일이 없으면 최신 여부를 확정하지 않습니다.</p><p>최근 30개 출처·기준일별 관찰 기록을 보관합니다. 같은 기준일의 수정 공시는 교체하며 과거 이력을 소급 생성하지 않습니다. 같은 출처의 전체 목록끼리만 편입·편출을 판정합니다. 비중 변화에는 가격 움직임도 포함되므로 실제 매매량·매매 시점을 뜻하지 않습니다. 파생·레버리지 ETF의 주식 목록은 전체 경제적 노출과 다를 수 있습니다.</p></details>`;
   etfRefreshResults();
@@ -351,9 +386,9 @@ function etfRefreshResults(){
   const network=document.getElementById('etf-network');if(!network)return;
   const selected=_etfSelected===null?'':(_etfSelected||cbStrip(m.quality.rows[0]?.t));
   const holding=m.quality.rows.find(h=>cbStrip(h.t)===selected)||diff.rows.find(h=>cbStrip(h.t)===selected);
-  const openOwners=new Set([...network.querySelectorAll('.etf-owner-exposure')].filter(el=>el.open).map(el=>el.dataset.exposureOwner));
   network.innerHTML=selected?etfExposureHtml(selected,holding):'<p class="sim-empty">구성종목을 선택하면 소유주별 비중을 확인할 수 있습니다.</p>';
-  network.querySelectorAll('.etf-owner-exposure').forEach(el=>{if(openOwners.has(el.dataset.exposureOwner))el.open=true;});
+  const host=document.getElementById('etf-exp-pop-host');
+  if(host) host.innerHTML=selected?etfExpPopHtml(selected,holding):'';
 }
 
 function etfInspectionHtml(funds){
