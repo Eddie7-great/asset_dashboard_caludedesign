@@ -2,7 +2,7 @@
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
-  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부'],['trend2','추세추종']]},
+  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부'],['trend2','추세추종'],['judge2','종합 판단']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
