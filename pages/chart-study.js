@@ -15,6 +15,19 @@ const _chsRecent = [];
 const CHS_RECENT_MAX = 5;
 // 겹쳐 그릴 지표(켜고 끄기) — 화면을 옮겨도 유지(메모리)
 const _chsShow = {ma:true, gc:true, bb:true, div:true};
+// 가격 눈금 — 기본 선형, '로그' 버튼으로 바꾼다(2026-11-26 사용자 결정 — 봉 단위와 상관없이 기본 선형). 지표 계산은 그대로, 눈금만 바뀐다.
+let _chsLog = false;
+function chsLogToggle(){ _chsLog = !_chsLog; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-log','1'); }
+// 로그 눈금 — 로그 공간에서 고르게 count 개를 잡아 1·1.2·1.5·2·2.5·3·4·5·6·8 ×10ⁿ 중 가까운 값으로 맞춘다(겹치면 하나만)
+function chsLogTicks(lo, hi, count){
+  const nice = [1,1.2,1.5,2,2.5,3,4,5,6,8,10], a = Math.log(lo), b = Math.log(hi), out = [];
+  for (let k = 0; k <= count; k++){
+    const v = Math.exp(a + (b-a)*k/count), p = Math.pow(10, Math.floor(Math.log10(v)));
+    const r = nice.reduce((best,m)=>Math.abs(Math.log(m*p/v)) < Math.abs(Math.log(best/v)) ? m*p : best, p);
+    if (r>=lo && r<=hi && !out.includes(+r.toPrecision(6))) out.push(+r.toPrecision(6));
+  }
+  return out;
+}
 const CHS_OVERLAYS = [['ma','이동평균'],['gc','가우시안 채널'],['bb','볼린저 2σ'],['div','다이버전스']];
 // 가우시안 채널 기본 설정 — 트레이딩뷰에서 널리 쓰는 DonovanWall 판(Ehlers 가우시안 필터): 4겹 · 144봉 · 띠 배수 1.414
 const CHS_GC = {poles:4, per:144, mult:1.414};
@@ -366,9 +379,18 @@ function chsChartSvg(view){
   const avgIn = !!(avg && avg.price>=lo*0.75 && avg.price<=hi*1.25);
   view.avgShown = avgIn;
   if (avgIn){ lo=Math.min(lo,avg.price); hi=Math.max(hi,avg.price); }
-  const padY = (hi-lo)*0.06 || hi*0.02; lo-=padY; hi+=padY;
-  const Yp = v => P.price.y + (hi-v)/(hi-lo)*P.price.h;
-  const pTicks = chsTicks(lo,hi,5), pStep = pTicks.length>1 ? pTicks[1]-pTicks[0] : 1;
+  const log = !!view.log && lo > 0;
+  let Yp, pTicks;
+  if (log){
+    const L = Math.log(lo), Hh = Math.log(hi), pad = (Hh-L)*0.06 || 0.02, l2 = L-pad, h2 = Hh+pad;
+    Yp = v => P.price.y + (h2-Math.log(Math.max(v, 1e-9)))/(h2-l2)*P.price.h;
+    pTicks = chsLogTicks(Math.exp(l2), Math.exp(h2), 6);
+  } else {
+    const padY = (hi-lo)*0.06 || hi*0.02; lo-=padY; hi+=padY;
+    Yp = v => P.price.y + (hi-v)/(hi-lo)*P.price.h;
+    pTicks = chsTicks(lo,hi,5);
+  }
+  const pStep = pTicks.length>1 ? Math.min(...pTicks.slice(1).map((v,k)=>v-pTicks[k])) : 1;
   const pFmt = v => v.toLocaleString('ko-KR',{maximumFractionDigits: pStep>=1 ? 0 : pStep>=0.1 ? 1 : 2});
   const grid = (ticks, Y, fmt) => ticks.map(v=>`<line x1="${padL}" x2="${W-padR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="chs-grid"/><text x="${W-padR+8}" y="${(Y(v)+4).toFixed(1)}" class="chs-ax">${fmt(v)}</text>`).join('');
   const bw = Math.max(1, Math.min(9, step*0.62)), hollow = bw >= 5;
@@ -447,7 +469,7 @@ function chsChartSvg(view){
   // 진행 중인 마지막 봉(이번 주·달·해)은 옅은 바탕으로 표시한다
   const prog = view.inProgress ? `<rect x="${(X(n-1)-step/2).toFixed(1)}" y="${P.price.y}" width="${step.toFixed(1)}" height="${P.macd.y+P.macd.h-P.price.y}" class="chs-prog"/>` : '';
   const panelLab = (y, t) => `<text x="${padL+4}" y="${y-8}" class="chs-plab">${t}</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="${F.label} 차트 — 가격·이동평균·가우시안 채널·볼린저·거래량·RSI·MACD">
+  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="${F.label} 차트(${log?'로그':'선형'} 눈금) — 가격·이동평균·가우시안 채널·볼린저·거래량·RSI·MACD">
     ${prog}${xTicks}
     ${grid(pTicks, Yp, pFmt)}
     ${gcSvg}${bbSvg}${avgLine}${candles}${maLines}
@@ -575,6 +597,7 @@ function cbRenderChart(){
   if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
   const sel = `<div class="owner-tabs chs-show" role="group" aria-label="겹쳐 그릴 지표">${CHS_OVERLAYS.map(([k,l])=>`<button class="owner-btn${_chsShow[k]?' active':''}" data-chs-show="${k}" aria-pressed="${_chsShow[k]}" onclick="chsToggle('${k}')">${l}</button>`).join('')}</div>`;
   const frames = `<div class="owner-tabs chs-frames" role="group" aria-label="봉 단위">${Object.entries(CHS_FRAMES).map(([k,f])=>`<button class="owner-btn${k===frame?' active':''}" data-chs-frame="${k}" aria-pressed="${k===frame}" onclick="chsFramePick('${k}')">${f.label}</button>`).join('')}</div>`;
+  const logBtn = `<div class="owner-tabs" role="group" aria-label="가격 눈금"><button class="owner-btn${_chsLog?' active':''}" data-chs-log="1" aria-pressed="${_chsLog}" onclick="chsLogToggle()" title="가격 눈금을 로그로 — 같은 % 움직임이 같은 높이">로그</button></div>`;
   const rangeKeys = Object.keys(F.ranges);
   // 년봉은 '전체' 하나뿐이지만 그대로 그린다. 봉 단위 버튼은 맨 오른쪽에 둔다 — 기간 버튼 수가 바뀌어도 누른 자리에서 움직이지 않게
   const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${rangeKeys.map(k=>`<button class="owner-btn${k===_chsRange?' active':''}" data-chs-range="${k}" aria-pressed="${k===_chsRange}" onclick="chsRangePick('${k}')">${F.ranges[k][0]}</button>`).join('')}</div>`;
@@ -590,7 +613,7 @@ function cbRenderChart(){
     const avg = row && row.cur===cur ? chsAvg(row) : null;
     const last = all[all.length-1], prev = all[all.length-2], chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t);
     const inProgress = chsInProgress(last, frame);
-    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}};
+    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}, log:_chsLog};
     const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
     const MA = chsMaList(frame);
@@ -606,7 +629,7 @@ function cbRenderChart(){
   }
   el.innerHTML = `<div class="cb-panel chs-panel">
       ${search}
-      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
+      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}</div><div class="chs-tools">${sel}${ranges}${logBtn}${frames}</div></div>
       ${body}
     </div>
     <div class="cb-panel chs-guide">

@@ -90,7 +90,7 @@ const plain = v => JSON.parse(JSON.stringify(v))
   assert.match(chart, /공부용 — 지난 가격을 요약한 것이라 매매 신호가 아닙니다/, "'공부용 — 매매 신호가 아니다' 문구 유지")
 
   // 버튼 줄: 기간 버튼은 하나뿐이어도 그리고, 봉 단위 버튼은 맨 오른쪽(눌러도 자리가 움직이지 않게)
-  assert.match(chart, /<div class="chs-tools">\$\{sel\}\$\{ranges\}\$\{frames\}<\/div>/)
+  assert.match(chart, /<div class="chs-tools">\$\{sel\}\$\{ranges\}\$\{logBtn\}\$\{frames\}<\/div>/)
   assert.doesNotMatch(chart, /rangeKeys\.length>1 \?/)
   // 200선 색은 무채색 토큰(라이트·다크 둘 다)
   assert.match(style, /--ma-120:#1f8fb3;--ma-200:#4a5160;/)
