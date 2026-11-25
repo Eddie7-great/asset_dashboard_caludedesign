@@ -100,7 +100,7 @@ const ctx = vm.createContext({
 })
 ctx.curSymbol = c => ctx.curMeta(c).symbol
 vm.runInContext(assetValueSource(), ctx)
-for (const n of ['filterByOwner', 'getFilteredAssets', 'fmtMoney', 'calcProfit', 'portfolioSortData', 'portfolioSortKeys', 'renderPortfolio', '_bubbleItemValueKRW', 'updateNetWorthSnapshot'])
+for (const n of ['filterByOwner', 'getFilteredAssets', 'fmtMoney', 'calcProfit', 'portfolioSortData', 'portfolioSortKeys', 'renderPortfolio', '_bubbleItemValueKRW', 'updateNetWorthSnapshot', '_splitRowKey', 'liveKeyOf'])
   vm.runInContext(extractFunction(script, n), ctx)
 for (const n of ['cbStrip', 'cbCls', 'cbRate', 'cbAvgNative', 'cbValKRW', 'cbCostKRW', 'cbGainKRW']) vm.runInContext(extractFunction(cobalt, n), ctx)
 vm.runInContext(extractFunction(finance, 'finGoalAllocate'), ctx)

@@ -25,7 +25,7 @@ const ctx = vm.createContext({
   Blob: class { constructor(parts, opt) { this.text = parts.join(''); this.type = opt.type; } },
   document: { getElementById: id => (id === 'fin-export-msg' ? says : null), createElement: () => ({ click() { clicks.push(this.download); }, remove() {} }), body: { appendChild() {} } },
 });
-for (const n of ['finCsvCell', 'finCsv', 'finExportSets', 'finExport', 'finExportPanelHtml']) vm.runInContext(pick(n), ctx);
+for (const n of ['finCsvCell', 'finCsv', 'finTaxFilingRows', 'finExportSets', 'finExport', 'finExportPanelHtml']) vm.runInContext(pick(n), ctx);
 
 // 칸 이스케이프: 쉼표·따옴표·줄바꿈은 따옴표로 감싸고, 수식처럼 보이는 글자는 무력화한다. 숫자(음수 포함)는 그대로
 assert.equal(ctx.finCsvCell('a,b'), '"a,b"');
@@ -38,7 +38,8 @@ const csv = ctx.finCsv(['가', '나'], [[1, 'x'], ['y', 2]]);
 assert.equal(csv, '﻿가,나\r\n1,x\r\ny,2\r\n', 'BOM + CRLF');
 
 const sets = ctx.finExportSets();
-assert.deepEqual(Object.keys(sets), ['holdings', 'cashflow', 'realized', 'networth', 'gifts']);
+assert.deepEqual(Object.keys(sets), ['holdings', 'cashflow', 'realized', 'networth', 'gifts', 'taxFiling']);
+assert.deepEqual(JSON.parse(JSON.stringify(sets.taxFiling.rows())), [], '세금 계산 함수가 없으면 빈 표(지어내지 않는다)');
 const h = JSON.parse(JSON.stringify(sets.holdings.rows()));
 assert.equal(sets.holdings.header.length, h[0].length, '머리글과 칸 수가 같다');
 assert.deepEqual(h[0], ['아내', '주식', 'A', '연금저축', '삼성, "전자"', '005930', 1, '주', 'KRW', 76000, 73500, 73500, 76000, -2500, '정상']);
@@ -68,4 +69,44 @@ assert.match(ctx.finExportPanelHtml(), /onclick="finExport\('cashflow'\)" disabl
 const exportSrc = pick('finExport') + pick('finExportSets');
 assert.doesNotMatch(exportSrc, /fetch\(|setKV|saveExtDataToKV|saveAssetsToKV|localStorage/, '서버로 보내거나 저장하지 않는다');
 assert.match(fin, /주문 전 증권사 시세를 확인하세요\.<\/p><\/div><\/div><\/div>\$\{finExportPanelHtml\(\)\}`;/, '데이터 상태 화면 하단');
+// 양도세 확인표(2026-11-25) — 세금 화면과 같은 cbTaxSummary 로 소유주·연도별 합계를 낸다. 일반 계좌 해외 기록만.
+const taxSrc = fs.readFileSync(new URL('../../pages/tax.js', import.meta.url), 'utf8');
+const pickTax = name => { const m = taxSrc.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`)); assert.ok(m, name); return m[0]; };
+const taxCtx = vm.createContext({
+  OWNERS, Number, Math, Array, Object, String, Map, Set,
+  _taxRuleValue: (path, fallback) => (path === 'dependent.basicDeductionIncomeLimitKrw' ? 1000000 : fallback),
+});
+vm.runInContext("const CB_TAX_ACCTS=['일반','연금저축','ISA']; const CB_TAX_FGN_DED=2500000; const CB_TAX_ISA_DED=2000000; const CB_TAX_DEPENDENT_OWNERS=['자녀1'];", taxCtx);
+vm.runInContext(pickTax('cbTaxAcctOf') + '\n' + pickTax('cbTaxSummary'), taxCtx);
+vm.runInContext(pick('finTaxFilingRows'), taxCtx);
+const filing = JSON.parse(JSON.stringify(taxCtx.finTaxFilingRows([
+  { month: '2026-07', category: 'foreign', account: '일반', owner: '본인', amt: -500000, memo: '' },
+  { month: '2026-03', category: 'foreign', account: '', owner: '본인', amt: 3500000, memo: 'AAPL' },
+  { month: '2026-05', category: 'domestic', account: '일반', owner: '본인', amt: 9999 },
+  { month: '2026-06', category: 'foreign', account: 'ISA', owner: '본인', amt: 7777 },
+  { month: '2026-04', category: 'foreign', account: '일반', owner: '자녀1', amt: 1200000, memo: 'QQQ' },
+  { month: '2025-12', category: 'foreign', account: '일반', owner: '아내', amt: 100000, memo: 'MSFT' },
+])));
+assert.deepEqual(filing, [
+  ['2026', '본인', '해외 매도', '2026-03', '일반', 'AAPL', 3500000, ''],
+  ['2026', '본인', '해외 매도', '2026-07', '일반', '', -500000, ''],
+  ['2026', '본인', '해외 실현손익 합계', '', '', '', 3000000, ''],
+  ['2026', '본인', '기본공제(1인)', '', '', '', 2500000, '사람마다 따로 적용'],
+  ['2026', '본인', '과세표준', '', '', '', 500000, '합계 − 기본공제, 0 미만은 0'],
+  ['2026', '본인', '예상 세액(지방세 포함)', '', '', '', 110000, '세율 22% · 앱 기록 기준 추정'],
+  ['2026', '자녀1', '해외 매도', '2026-04', '일반', 'QQQ', 1200000, ''],
+  ['2026', '자녀1', '해외 실현손익 합계', '', '', '', 1200000, ''],
+  ['2026', '자녀1', '기본공제(1인)', '', '', '', 2500000, '사람마다 따로 적용'],
+  ['2026', '자녀1', '과세표준', '', '', '', 0, '합계 − 기본공제, 0 미만은 0'],
+  ['2026', '자녀1', '예상 세액(지방세 포함)', '', '', '', 0, '세율 22% · 앱 기록 기준 추정'],
+  ['2026', '자녀1', '부양가족 소득금액 확인', '', '', '', 1200000, '기준 1,000,000원 — 넘으면 본인 연말정산 부양가족 공제에서 빠질 수 있음'],
+  ['2025', '아내', '해외 매도', '2025-12', '일반', 'MSFT', 100000, ''],
+  ['2025', '아내', '해외 실현손익 합계', '', '', '', 100000, ''],
+  ['2025', '아내', '기본공제(1인)', '', '', '', 2500000, '사람마다 따로 적용'],
+  ['2025', '아내', '과세표준', '', '', '', 0, '합계 − 기본공제, 0 미만은 0'],
+  ['2025', '아내', '예상 세액(지방세 포함)', '', '', '', 0, '세율 22% · 앱 기록 기준 추정'],
+], '최근 연도 먼저 · 소유주 순서 · 국내·ISA 기록은 빼고 세금 화면과 같은 합계');
+const taxSummaryCheck = taxCtx.cbTaxSummary([{ month: '2026-03', category: 'foreign', account: '일반', owner: '본인', amt: 3000000 }], null, [], '2026-12');
+assert.equal(taxSummaryCheck.buckets[0].genDue, 110000, '확인표의 세액은 세금 화면 cbTaxSummary 값 그대로');
+assert.match(fin, /taxFiling:\{label:'양도세 확인표'[\s\S]*?count:rows=>rows\.filter\(r=>r\[2\]==='해외 매도'\)\.length/, '버튼의 건수는 매도 기록 줄 수');
 console.log('PASS 내보내기(CSV)');

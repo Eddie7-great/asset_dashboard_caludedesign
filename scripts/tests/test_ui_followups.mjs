@@ -258,7 +258,7 @@ assert.equal(taxAxisContext.cbAmtAxisLab(200_000_000, 5_000_000), '2억', '딱 �
 assert.doesNotMatch(financeSource + extractFunction(cobaltSource, 'cbGiftChildChartSvg') + extractFunction(cobaltSource, 'cbGiftSpouseChartSvg') + extractFunction(cobaltSource, 'cbDivAxisLab') + simulatorSource, /cbTaxAxisLab/, '금액 그래프는 손익용 눈금 함수(cbTaxAxisLab)를 빌려 쓰지 않음')
 assert.match(cobaltSource, /const lastV=cum\[maxM\]\.fgnProfit, lx=xR\(maxM\)[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
 assert.match(cobaltSource, /title:'해외 기본공제', sub:'사용률 · 손실 상계 여력'[\s\S]*heroLab:'공제 사용률'[\s\S]*bar:deductionUsePct[\s\S]*\['남은 공제'/, '양도소득세 상단: 기본공제 사용률과 손실 상계 여력을 한 카드로(2026-11-25)')
-assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
+assert.match(cobaltSource, /class="cb-tax-hv-row">[\s\S]*?style="color:var\(--dn\)">−\$\{cbKrw\(x\.lossAbs\)\}/, '손실 상계 후보의 평가손실은 하락 색상')
 assert.match(styleSource, /\.cb-dividend-tip\{width:max-content;max-width:min\(760px,calc\(100vw - 24px\)\)\}/, '배당 월별 툴팁 폭은 종목명 길이를 따른다(고정 최소 폭 없음)')
 assert.match(styleSource, /\.cb-div-tip-name,\.cb-div-tip-ticker,\.cb-div-tip-row b\{white-space:nowrap\}/, '배당 툴팁 종목명·티커 줄바꿈 방지')
 assert.match(cobaltSource, /const showOwner=!_cbDivOwner\|\|_cbDivOwner==='전체'[\s\S]*cb-div-tip-owner/, '전체 배당 툴팁에서 소유주를 종목과 별도 필드로 표시')
@@ -267,7 +267,8 @@ assert.match(cobaltSource, /const score = Math\.max\(0, Math\.min\(100,/, '리�
 assert.match(cobaltSource, /<span class="cb-tax-actions"[\s\S]*class="btn-action"[\s\S]*onclick="cbTaxEdit\([\s\S]*class="btn-action"[\s\S]*onclick="cbTaxDel\(/, '양도소득세 관리 열을 자산 내역과 같은 수정·삭제 버튼으로 구성')
 assert.match(styleSource, /\.cb-tax-head-grid\{[\s\S]*grid-template-columns:22px 22px[\s\S]*\.cb-tax-head-grid>span:last-child\{grid-column:2\}/, '양도소득세 관리 제목을 삭제 버튼 위에 정렬')
 assert.match(styleSource, /\.cb-tax-bottom-grid\{display:grid;grid-template-columns:minmax\(0,1\.45fr\) minmax\(270px,\.85fr\)/, '실현손익 내역 폭을 줄이고 우측 절세 위젯 공간 확보')
-assert.match(cobaltSource, /연말 절세 여력[\s\S]*세금 없이 추가 실현 가능한 순이익[\s\S]*손실 상계 후보 TOP 3/, '양도소득세 연말 절세 여력 위젯 추가')
+assert.match(cobaltSource, /const harvestRows = cbTaxHarvestRows\(taxSummary\.buckets, harvestCandidates, taxSummary\.foreignRate\);[\s\S]*>손실 상계 후보<\/span>/, '연말 절세: 손실 상계 후보 종목별 목록(2026-11-25 — 예전 연말 절세 여력 패널을 대신)')
+assert.match(cobaltSource, /남은 공제 중 \$\{CB_TAX_DEPENDENT_OWNERS\.map\(cbEsc\)\.join\('·'\)\} 몫/, "'남은 공제'에 든 부양가족 몫을 밝힌다")
 assert.match(scriptSource, /holdings-owner-head/, '자산 내역 소유주 열 전용 정렬 클래스 적용')
 assert.match(styleSource, /#view-holdings \.pt-table th\.holdings-owner-head,[\s\S]*padding-left:14px!important/, '자산 내역 소유주·관리 열 여백 재균형')
 assert.match(scriptSource, /const _BUBBLE_THEME_TONES = \{[\s\S]*light:[\s\S]*dark:/, '비중 차트의 동일 색 구성 규칙을 밝은 본문·다크별 톤으로 적용')
@@ -473,7 +474,7 @@ assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!impor
   summaryContext._cfEsc = v => String(v == null ? '' : v)
   vm.createContext(summaryContext)
   vm.runInContext(extractFunction(scriptSource, 'cfScopeLabel'), summaryContext)
-  vm.runInContext(extractFunction(scriptSource, 'cfMonthSummaryHtml'), summaryContext)
+  for (const n of ['cfSavingRate', 'cfMonthSummaryHtml']) vm.runInContext(extractFunction(scriptSource, n), summaryContext)
   const html = summaryContext.cfMonthSummaryHtml(5_000_000, 3_000_000, { 식비: 1_000_000, '저축/투자': 2_000_000 })
   assert.match(html, /순현금흐름[\s\S]*?\+₩2,000,000/, '순현금흐름은 통장에 남은 돈')
   assert.match(html, /저축률[\s\S]*?80\.0%/, "저축률은 '저축/투자' 400만을 소비에서 되돌려 계산")
@@ -741,9 +742,10 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   delete ctx.divPayDateFor
 }
 // 2026-11-11 배당 상단 카드 — 보조 문구는 제목 줄 오른쪽, 연간 카드에는 세전/세후·소유주 표시가 없다
+// 2026-11-25 숫자 카드 한 벌 — 보조 문구는 값 아래 줄(다른 화면 숫자 카드와 같은 순서)로 옮겼다
 {
   const grid = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-div-summary-grid">'), cobaltSource.indexOf('cb-div-top3-card'))
-  assert.match(grid, /<div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 [\s\S]*?배당성장률<\/span><\/div>\s*<div class="cb-div-history-status"[^>]*>[\s\S]*?<\/div><\/div>\s*<div class="cb-div-summary-value"/, '보조 문구가 값보다 앞(제목 줄)에 온다')
+  assert.match(grid, /<div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 [\s\S]*?배당성장률<\/span><\/div><\/div>\s*<div class="cb-div-summary-value"[\s\S]*?<\/div>\s*<div class="cb-div-summary-sub cb-div-history-status"/, '숫자 카드 한 벌(2026-11-25): 제목 → 값 → 보조 문구 순, 보조 문구는 값 아래')
   const annual = grid.slice(0, grid.indexOf('월평균'))
   assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')

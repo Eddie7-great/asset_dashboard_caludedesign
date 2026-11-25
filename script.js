@@ -511,8 +511,11 @@ async function refreshMarketPrices(){
   // 국내 시세는 주 시세와 동시에 받아 두고(기다리는 시간 단축), 반영은 주 시세 뒤에 한다(덮는 순서는 예전 그대로).
   const domTickers=_domesticQuoteTickers();
   const domPrefetch=domTickers.length?_fetchDomesticQuotes(domTickers):null;
+  const priceBefore=typeof livePriceSnap==='function'?livePriceSnap():null;
   const primary=await liveRefresh();
   const domestic=await liveRefreshDomesticEtfs(domPrefetch);
+  // 다시 그린 뒤 바뀐 칸만 잠깐 밝힌다(첫 로딩 스플래시 중에는 안 보이므로 생략된다)
+  if(priceBefore&&typeof liveFlashApply==='function'&&!(typeof _boot!=='undefined'&&_boot)) liveFlashApply(livePriceChanged(priceBefore));
   const marketItems=(pfolioData||[]).filter(i=>i&&(i.grp==='주식'||i.grp==='가상화폐'));
   const stale=marketItems.filter(i=>i._priceStale).length;
   const hasForeign=marketItems.some(i=>!_isDomesticEquity(i));

@@ -38,6 +38,8 @@
       --ease-out:cubic-bezier(.22,1,.36,1);--ease-in:cubic-bezier(.4,0,1,1);--dur-fast:150ms;--dur:240ms;--stagger:30ms;
       --acc2:#0f9488;--acc3:#7c3aed;
       --acct-gen:#5b7fbf;--acct-isa:#2f9e8f;--acct-pen:#b7791f;
+      /* 차트 공부 이동평균선 20·60·120일 — dataviz validate_palette 라이트(흰 바탕) 통과, 2026-11-25 */
+      --ma-20:#d6a300;--ma-60:#6a4ce2;--ma-120:#1f8fb3;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--div-bar:#3f63c9;--flow-in:#3f63c9;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
@@ -183,6 +185,7 @@
       /* 그라파이트(무채색) 바탕에서는 파란 밑줄이 따로 논다 — 지금 화면 표시는 밝은 회백색 */
       --nav-on:#f2f4f7;--sticky-bg:rgba(30,32,38,.55);
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
+      --ma-20:#d28e05;--ma-60:#8f7cf0;--ma-120:#20a3b8;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#c2c8d2;--t3:#a9b0bc;
       --up:#34d399;--div-bar:#7d9bf0;--flow-in:#7d9bf0;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
@@ -1034,10 +1037,13 @@
     .cb-tax-head-grid>span:last-child{grid-column:2}
     .cb-tax-treatment{display:inline;min-width:0;padding:0;border:0!important;border-radius:0;background:transparent!important;font-size:var(--fs-micro);font-weight:800;white-space:nowrap;cursor:help}
     [data-tip].cb-tax-treatment{border-bottom:0}
-    .cb-tax-treatment.is-exempt{color:var(--acc2)}
-    .cb-tax-treatment.is-taxable{color:var(--dn)}
-    .cb-tax-treatment.is-separate{color:var(--purple,#a855f7)}
-    .cb-tax-treatment.is-deferred{color:var(--up)}
+    /* 세제 구분 표시는 계좌 칸과 같은 '계좌 색 네모 + 글자'(2026-11-25 시안) — 일반 --acct-gen · ISA --acct-isa · 연금 --acct-pen.
+       예전 보라(ISA)·초록(연금) 글자색은 다른 화면의 계좌 색과 달랐고, 초록은 손익색과도 겹쳤다. */
+    .cb-tax-treatment{color:var(--t2)}
+    .cb-tax-treatment::before{content:'';display:inline-block;width:8px;height:8px;border-radius:var(--r-sm);margin-right:5px;vertical-align:1px;background:var(--acct-gen)}
+    .cb-tax-treatment.is-taxable{color:var(--tx)}
+    .cb-tax-treatment.is-separate::before{background:var(--acct-isa)}
+    .cb-tax-treatment.is-deferred::before{background:var(--acct-pen)}
     
     .cb-num{font-family:var(--font-num)}
     /* 표 래퍼 + 고정 칼럼 헤더 — overflow-x:auto 는 세로 스크롤 컨텍스트도 만들어

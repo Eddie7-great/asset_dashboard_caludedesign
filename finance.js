@@ -11,6 +11,7 @@ let _finGoalEdit=null;
 let _finGoalFormOpen=false;
 let _finPlanOwner='전체';
 let _finNwTf='6M';
+let _finMcRet=5, _finMcSel=null;   // 목표 달성 확률 — 연 수익률 가정(%)·고른 목표 id(메모리, 시안 2026-11-25)
 let _finNwOwner='전체';   // 투자자산 추이 카드 전용 소유주 (성과 페이지는 자체 소유주 필터가 없다)
 
 // 같은 밀리초에 두 건을 추가해도 겹치지 않는 id (수정·삭제가 id 로 항목을 찾는다)
@@ -714,6 +715,109 @@ function finGoalCardHtml(r){
     <dl class="fin-goal-facts">${facts}</dl>
     <div class="fin-row-actions"><button data-id="${safeId}" onclick="finGoalEdit(this.dataset.id)">수정</button><button data-id="${safeId}" onclick="finGoalDelete(this.dataset.id)">삭제</button></div></div>`;
 }
+// ── 목표 달성 확률(2026-11-25 시안) — 몬테카를로 모의실험 ──
+// 가정: 가운데 경우가 연 mu 로 자라는 로그정규 월 수익률, 연 변동성 sigma 는 리스크 화면 '추정 연 변동성'과 같은 식
+// (자산군 상수 CB_VOL 의 평가액 가중평균, 레버리지·인버스는 배수만큼). 매달 말 monthly 를 더한다. 씨앗이 같아 다시 그려도 숫자가 같다.
+// 세금·수수료·물가·환율은 넣지 않는다. 예측이 아니라 '이 가정이면 이런 범위'를 보여 주는 참고값이다.
+function finMcRng(seed){ let s=(seed>>>0)||1; return ()=>{ s=(s*1664525+1013904223)>>>0; return (s+0.5)/4294967296; }; }
+function finGoalMonteCarlo(o){
+  const n=Math.max(100,o.n||2000), months=Math.max(1,Math.round(Number(o.months)||0));
+  const start=Math.max(0,Number(o.start)||0), monthly=Math.max(0,Number(o.monthly)||0), target=Number(o.target)||0;
+  const sg=Math.max(0,Number(o.sigma)||0), mu=Number(o.mu)||0;
+  const m0=Math.log(1+mu)/12, s0=sg/Math.sqrt(12), rnd=finMcRng(o.seed||1);
+  // 그림용 점은 60개 안팎만 — 30년 목표(360개월)도 가볍게.
+  const every=Math.max(1,Math.ceil(months/60)), marks=[];
+  for(let m=0;m<=months;m+=every) marks.push(m);
+  if(marks[marks.length-1]!==months) marks.push(months);
+  const at=marks.map(()=>new Float64Array(n));
+  let hit=0;
+  for(let k=0;k<n;k++){
+    let v=start, j=0;
+    if(marks[0]===0){ at[0][k]=v; j=1; }
+    for(let m=1;m<=months;m++){
+      const u1=rnd(), u2=rnd(), z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+      v=v*Math.exp(m0+s0*z)+monthly;
+      if(m===marks[j]){ at[j][k]=v; j++; }
+    }
+    if(v>=target) hit++;
+  }
+  const q=(arr,p)=>{ const a=Array.from(arr).sort((x,y)=>x-y); return a[Math.min(a.length-1,Math.max(0,Math.floor(p*(a.length-1))))]; };
+  const pts=marks.map((m,i)=>({m,p10:q(at[i],.1),p50:q(at[i],.5),p90:q(at[i],.9),paid:start+monthly*m}));
+  return {prob:target>0?hit/n:null, months, pts, final:pts[pts.length-1], n};
+}
+// 목표에 연결된 자산의 추정 연 변동성(0~) — 리스크 화면과 같은 식. 직접 입력은 알 수 없어 null, 현금은 0.
+function finGoalVol(goal){
+  const link=goal.linkClass||'investment';
+  if(link==='manual')return null; if(link==='cash')return 0;
+  const rows=finRows().filter(r=>link==='investment'||link==='net'||r.cls===link);
+  const tot=rows.reduce((s,r)=>s+r.val,0); if(!(tot>0))return null;
+  const vol=rows.reduce((s,r)=>{ const lev=typeof cbLeveragedInverseMeta==='function'?cbLeveragedInverseMeta(r.i):null; return s+r.val/tot*((typeof CB_VOL!=='undefined'&&CB_VOL[r.cls])||0)*(lev?lev.mult:1); },0);
+  // 전체 순자산 연결은 부동산 등 투자 밖 자산이 흔들리지 않는다고 보고 투자자산 몫만큼만 흔든다.
+  if(link==='net'){ const t=finBalanceTotals(); return t.net>0?vol*Math.min(1,t.investment/t.net):vol; }
+  return vol;
+}
+// 목표마다 모의실험 — 기한이 있고, 아직 달성 전이며, 연결 자산의 변동성을 아는 목표만. 나머지는 이유를 붙여 돌려준다.
+function finGoalMcRows(rows, muPct, now=new Date()){
+  return (rows||[]).map(r=>{
+    const g=r.g, st=r.st;
+    if(st.key==='done') return {r, skip:'이미 달성'};
+    if(!g.targetDate||r.days==null) return {r, skip:'기한 미정'};
+    if(r.days<=0) return {r, skip:'기한 경과'};
+    const sigma=finGoalVol(g); if(sigma==null) return {r, skip:'직접 입력 — 변동성 모름'};
+    const months=Math.max(1,Math.round(r.days/30.4375));
+    const seed=[...String(g.id||g.name||'')].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7);
+    const mc=finGoalMonteCarlo({start:r.cur, monthly:st.dca||0, months, mu:muPct/100, sigma, target:r.target, seed});
+    return {r, mc, sigma, monthly:st.dca||0};
+  });
+}
+function finMcTone(p){ return p>=.8?'is-good':p>=.5?'is-mid':'is-low'; }
+function finGoalMcChartSvg(x){
+  const W=560,H=230,T=12,B=26,R=14, mc=x.mc, pts=mc.pts, target=x.r.target;
+  const top=Math.max(target, ...pts.map(p=>p.p90))*1.05;
+  const step=(()=>{ const raw=top/4, mag=Math.pow(10,Math.floor(Math.log10(raw))); const n=raw/mag; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag; })();
+  const ticks=cbAxisTicks(0, Math.ceil(top/step)*step, step);
+  const max=ticks[ticks.length-1]||1;
+  const L=cbAmtAxisPad(ticks, 48);
+  const X=m=>L+(W-L-R)*m/mc.months, Y=v=>T+(H-T-B)*(1-v/max);
+  const line=k=>pts.map((p,i)=>`${i?'L':'M'}${X(p.m).toFixed(1)},${Y(p[k]).toFixed(1)}`).join(' ');
+  const band=pts.map((p,i)=>`${i?'L':'M'}${X(p.m).toFixed(1)},${Y(p.p90).toFixed(1)}`).join(' ')+' '+pts.slice().reverse().map(p=>`L${X(p.m).toFixed(1)},${Y(p.p10).toFixed(1)}`).join(' ')+' Z';
+  const now=new Date(), ym=m=>{ const d=new Date(now.getFullYear(),now.getMonth()+m,1); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}`; };
+  const xl=[0,Math.round(mc.months/2),mc.months].map((m,i)=>`<text x="${X(m).toFixed(1)}" y="${H-7}" font-size="12" style="fill:var(--lab)" text-anchor="${i===0?'start':i===2?'end':'middle'}">${i===0?'지금':ym(m)}</text>`).join('');
+  return `<svg class="fin-mc-svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${cbEsc(x.r.g.name)} 모의실험 범위. 목표일 가운데 경우 ${cbDisp(mc.final.p50)}, 나쁜 10% ${cbDisp(mc.final.p10)}, 좋은 10% ${cbDisp(mc.final.p90)}">
+    ${cbAmtGridSvg(ticks, Y, L, W-R)}
+    <path d="${band}" style="fill:var(--acc)" fill-opacity=".14"></path>
+    <path d="${line('paid')}" fill="none" style="stroke:var(--lab)" stroke-width="1.5" stroke-dasharray="4 4"></path>
+    <path d="${line('p50')}" fill="none" style="stroke:var(--acc)" stroke-width="2"></path>
+    <line x1="${L}" x2="${W-R}" y1="${Y(target).toFixed(1)}" y2="${Y(target).toFixed(1)}" style="stroke:var(--warn)" stroke-width="1.5" stroke-dasharray="6 4"></line>
+    <text x="${(W-R).toFixed(1)}" y="${(Y(target)-6).toFixed(1)}" font-size="12" text-anchor="end" style="fill:var(--warn)">목표 ${cbAmtAxisLab(target)}</text>
+    ${xl}</svg>`;
+}
+function finGoalMcHtml(rows){
+  const list=finGoalMcRows(rows,_finMcRet).filter(x=>x.mc||x.skip!=='이미 달성');
+  if(!list.length) return '';
+  const live=list.filter(x=>x.mc);
+  const sel=live.find(x=>String(x.r.g.id)===String(_finMcSel))||live[0]||null;
+  const pct=p=>(p*100).toFixed(0)+'%';
+  return `<div class="cb-panel fin-mc">
+    <div class="fin-section-head"><span><span data-tip="같은 가정으로 가상의 시장을 2,000번 돌려, 목표일에 목표 금액 이상이 된 비율입니다. 수익률·변동성 가정이 바뀌면 크게 달라지는 참고값이며 예측이 아닙니다.">목표 달성 확률 · 모의실험</span></span>
+      <small>연결 자산 변동성 · 연결 자산 월 적립 · 세금·수수료·물가 제외</small>
+      <span class="fin-mc-ret"><em>연 수익률 가정</em><span class="owner-tabs" role="group" aria-label="연 수익률 가정">${[3,5,7].map(v=>`<button type="button" class="owner-btn${_finMcRet===v?' active':''}" data-mc-ret="${v}" aria-pressed="${_finMcRet===v}" onclick="finMcSetRet(${v})">${v}%</button>`).join('')}</span></span></div>
+    <div class="fin-mc-body">
+      <div class="fin-mc-list">${list.map(x=>x.mc?`<button type="button" class="fin-mc-row${sel===x?' is-sel':''}" data-mc-goal="${cbEsc(String(x.r.g.id))}" aria-pressed="${sel===x}" onclick="finMcPick(this.dataset.mcGoal)">
+          <span class="fin-mc-name">${cbEsc(x.r.g.name)}<small>${cbEsc(x.r.g.targetDate)} · ${finGoalDday(x.r)}</small></span>
+          <b class="fin-mc-prob ${finMcTone(x.mc.prob)}">${pct(x.mc.prob)}</b>
+          <span class="fin-mc-track"><i class="${finMcTone(x.mc.prob)}" style="width:${(x.mc.prob*100).toFixed(1)}%"></i></span>
+          <small class="fin-mc-sub">가운데 ${cbDisp(x.mc.final.p50)} · 나쁜 10% ${cbDisp(x.mc.final.p10)}</small>
+        </button>`:`<div class="fin-mc-row is-skip"><span class="fin-mc-name">${cbEsc(x.r.g.name)}</span><b class="fin-mc-prob">—</b><small class="fin-mc-sub">${cbEsc(x.skip)}</small></div>`).join('')}</div>
+      ${sel?`<div class="fin-mc-chart"><div class="fin-mc-chart-head"><b>${cbEsc(sel.r.g.name)}</b><span>변동성 연 ${(sel.sigma*100).toFixed(0)}% · 월 적립 ${cbDisp(sel.monthly)}</span></div>
+        ${finGoalMcChartSvg(sel)}
+        <div class="fin-mc-legend"><span><i class="band"></i>10~90% 범위</span><span><i class="mid"></i>가운데 경우</span><span><i class="paid"></i>넣은 돈만(수익 0%)</span><span><i class="goal"></i>목표 금액</span></div></div>`:''}
+    </div>
+    <p class="fin-mc-note">수익률이 해마다 고르게 나오지 않는다는 점만 반영한 참고값입니다. 여러 목표가 같은 적립액을 함께 쓰면 목표마다 따로 본 값이라 실제보다 높게 나옵니다.</p>
+  </div>`;
+}
+function finMcSetRet(v){ _finMcRet=v; cbRenderPlan(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-plan2','data-mc-ret',String(v)); }
+function finMcPick(id){ _finMcSel=id; cbRenderPlan(); if(typeof cbRestoreFilterFocus==='function') cbRestoreFilterFocus('cb-plan2','data-mc-goal',id); }
 function finGoalContext(ownerF){
   const a=finTargetAnalysis(ownerF),cash=finCashSafety(ownerF);
   // 모바일은 재무 입력이 읽기 전용이라 저장 버튼 대신 현재 목표만 보여준다.
@@ -753,6 +857,77 @@ function finRebalBulletHtml(ta){
     +`<div class="fin-bullet-head"><span>현재 비중 vs 목표</span><small><i class="fin-bullet-key bar"></i>현재 <i class="fin-bullet-key target"></i>목표 <i class="fin-bullet-key band"></i>허용 ±${th}%p · 눈금 0–${max}%</small></div>`
     +rows.map(line).join('')+`</div>`;
 }
+// ── 세금 고려 매도 순서(2026-11-25 시안) ──
+// 줄여야 할 자산군에서 '지금 팔면 그해 바로 생기는 세금'이 적은 종목부터 고른다. 세율·공제는 cbTaxSummary(tax-rules.js) 값만 쓴다.
+// - ISA·연금 계좌 안 매도: 그 자리에서 내는 세금 없음(만기·인출 때 정산 — 이 계산 밖)
+// - 일반계좌 국내 주식(원화·국내 자산군): 세금 화면과 같은 소액주주 장내 비과세
+// - 일반계좌 해외 주식: 손실 종목부터(그 사람의 공제 여력을 늘린다), 이익은 그해 남은 기본공제를 먼저 쓰고 넘는 몫 × 세율
+// - 국내 상장 해외 ETF·가상화폐·금: 규칙값이 없어 세금을 판단하지 않는다(맨 뒤, '판단 안 함')
+function finSellKind(i){
+  const acc=getAccountDivTaxInfo(i.acc).type, cls=typeof cbCls==='function'?cbCls(i):'';
+  if(i.grp!=='주식') return 'unknown';
+  if(acc==='ISA'||acc==='연금') return 'shelter';
+  const krw=String(i.cur||'KRW').toUpperCase()==='KRW';
+  if(krw&&cls==='kr') return 'kr-exempt';
+  if(!krw) return 'foreign';
+  return 'unknown';
+}
+// ctx.excess: 소유주별 '올해 해외 실현손익 − 기본공제'(음수면 남은 공제). 팔 때마다 그 사람의 값이 움직이고,
+// 세금 변화 = (max(0, 뒤) − max(0, 앞)) × 세율 — 공제를 넘은 사람의 손실 매도는 세금을 줄인다(음수).
+// 순서는 매번 '이 종목을 지금 팔면 1원당 세금'이 가장 적은 것부터(같으면 손실이 큰 것부터) 고른다.
+function finTaxAwareSellPlan(rows, need, ctx){
+  const rate=Number(ctx&&ctx.rate)||0, ded=Number(ctx&&ctx.deduction)||0;
+  const excess=new Map(ctx&&ctx.excess||[]);
+  const exOf=o=>excess.has(o)?excess.get(o):-ded;
+  const rank={shelter:0,'kr-exempt':0,foreign:1,unknown:2};
+  let pool=(rows||[]).filter(r=>r&&r.val>0).map(r=>({...r,kind:finSellKind(r.i),ratio:r.gain/r.val}));
+  let left=Math.max(0,Number(need)||0);
+  const out=[];
+  const taxDelta=(c,sell)=>{ if(c.kind!=='foreign') return 0; const a=exOf(c.i.owner), b=a+c.ratio*sell; return (Math.max(0,b)-Math.max(0,a))*rate; };
+  while(left>=1&&pool.length){
+    const scored=pool.map(c=>{ const sell=Math.min(c.val,left); return {c,sell,per:taxDelta(c,sell)/sell}; })
+      .sort((x,y)=>rank[x.c.kind]-rank[y.c.kind]||x.per-y.per||x.c.ratio-y.c.ratio||y.c.val-x.c.val);
+    const {c,sell}=scored[0];
+    const realized=c.ratio*sell;
+    let tax=0, used=0;
+    if(c.kind==='foreign'){
+      const a=exOf(c.i.owner), b=a+realized;
+      tax=Math.round((Math.max(0,b)-Math.max(0,a))*rate);
+      if(realized>0) used=Math.max(0,Math.min(realized,-a));
+      excess.set(c.i.owner,b);
+    }
+    // 부양가족(세금 화면 CB_TAX_DEPENDENT_OWNERS)은 세금이 0 이어도 소득 기준을 넘으면 본인 연말정산 부양가족 공제에 영향 — 표시만 한다.
+    const depLimit=ctx&&ctx.depLimit, dep=depLimit>0&&(ctx.dependents||[]).includes(c.i.owner)&&c.kind==='foreign'&&exOf(c.i.owner)+ded>depLimit;
+    out.push({i:c.i,kind:c.kind,sell,realized,used,tax,dep});
+    left-=sell; pool=pool.filter(x=>x!==c);
+  }
+  return {rows:out, left, tax:out.reduce((s,x)=>s+x.tax,0), unknown:out.filter(x=>x.kind==='unknown').length};
+}
+function finTaxAwareSellHtml(ta, ownerF){
+  const th=Number(ta.threshold)||0;
+  const reduce=ta.result.filter(x=>x.diff<-1&&Math.abs(x.drift)>th&&x.key!=='cash');
+  if(!reduce.length) return '';
+  const year=String(new Date().getFullYear());
+  const list=(monthlyPLData||[]).filter(t=>String(t.month||'').startsWith(year));
+  const sum=typeof cbTaxSummary==='function'?cbTaxSummary(list,null,OWNERS,year):null;
+  const ctx={rate:sum?sum.foreignRate:0, deduction:sum?sum.foreignDeduction:0, excess:sum?sum.buckets.filter(b=>!b.isLegacy).map(b=>[b.label,b.genFgn-sum.foreignDeduction]):[],
+    depLimit:_taxRuleValue('dependent.basicDeductionIncomeLimitKrw',null,year), dependents:typeof CB_TAX_DEPENDENT_OWNERS!=='undefined'?CB_TAX_DEPENDENT_OWNERS:[]};
+  const label={shelter:'ISA·연금 안 — 지금 세금 없음','kr-exempt':'국내 주식 — 비과세',foreign:'해외 주식 — 양도세 대상',unknown:'세금 판단 안 함'};
+  const rows=finRows(ownerF).filter(r=>r.cls!=='cash').map(r=>({i:r.i,val:r.val,gain:r.i.costUnknown?0:assetGainKRW(r.i),cls:r.cls}));
+  const blocks=reduce.map(x=>{
+    const plan=finTaxAwareSellPlan(rows.filter(r=>r.cls===x.key), -x.diff, ctx);
+    return `<div class="fin-tsell-block"><div class="fin-tsell-title"><i style="background:${x.color}"></i><b>${cbEsc(x.label)}</b> ${cbDisp(-x.diff)} 줄이기 <span>예상 세금 <b class="${plan.tax>0?'is-tax':plan.tax<0?'is-save':''}">${plan.tax<0?'−'+cbDisp(-plan.tax)+' (줄어듦)':cbDisp(plan.tax)}</b>${plan.unknown?` · 판단 안 함 ${plan.unknown}종목`:''}</span></div>
+      <ol class="fin-tsell-list">${plan.rows.map((r,k)=>`<li><span class="fin-tsell-n">${k+1}</span>${cbOwnerTag(r.i.owner)}<span class="fin-tsell-name" title="${cbEsc(r.i.name||r.i.tkr)}">${cbEsc(r.i.name||r.i.tkr)}<small>${cbEsc(r.i.acc||'일반')} · ${label[r.kind]}</small></span>
+        <span class="cb-num">${cbDisp(r.sell)}</span>
+        <span class="cb-num fin-tsell-gain" style="${cbGainStyle(r.realized)}">${r.realized>0?'+':r.realized<0?'−':''}${cbDisp(Math.abs(r.realized))}</span>
+        <span class="cb-num fin-tsell-tax">${r.kind==='unknown'?'—':r.tax>0?`<b class="is-tax">${cbDisp(r.tax)}</b>`:r.tax<0?`<b class="is-save">−${cbDisp(-r.tax)}</b><small>올해 이익과 상계</small>`:r.used>0?`0 <small${r.dep?' class="is-warn" data-tip="부양가족은 해외 실현이익이 소득 기준을 넘으면 본인 연말정산에서 부양가족 공제를 못 받을 수 있습니다(세금 화면 오른쪽 카드와 같은 기준)."':''}>공제 ${cbDisp(r.used)} 사용${r.dep?' · 부양가족 기준 넘음':''}</small>`:'0'}</span></li>`).join('')}</ol>
+      ${plan.left>=1?`<p class="fin-tsell-left">팔 수 있는 종목을 다 써도 ${cbDisp(plan.left)} 모자랍니다.</p>`:''}</div>`;
+  }).join('');
+  return `<div class="cb-panel fin-section fin-tsell"><div class="fin-section-head"><span><span data-tip="범위 밖으로 커진 자산군을 줄일 때, 그해 바로 생기는 세금이 적은 종목부터 고른 참고 순서입니다. 세율·공제는 세금 화면과 같은 규칙값이고, 올해 이미 실현한 해외 손익(세금 화면 기록)을 반영해 남은 공제를 씁니다.">줄일 때 세금이 적은 순서</span> <span style="color:var(--dim);font-weight:500">· ${ownerF?cbEsc(ownerF):'가구 전체'}</span></span><small>매도 금액 · 실현될 손익 · 예상 세금(해외 양도세)</small></div>
+    <div class="fin-tsell-head" aria-hidden="true"><span></span><span>소유주</span><span>종목</span><span class="r">매도</span><span class="r">실현 손익</span><span class="r">예상 세금</span></div>
+    ${blocks}
+    <small class="fin-disclaimer">지금 평가액 기준 참고값입니다. ISA·연금은 만기·인출 때 정산되는 세금이 따로 있고, 국내 상장 해외 ETF·가상화폐·금은 규칙값이 없어 세금을 계산하지 않았습니다. 거래비용·증권거래세는 빠져 있습니다.</small></div>`;
+}
 function cbRenderPlan(){
   finEnsureState();const rebalance=document.getElementById('view-rebal2')?.classList.contains('active');
   const el=document.getElementById(rebalance?'cb-rebal2':'cb-plan2');if(!el)return;
@@ -767,11 +942,12 @@ function cbRenderPlan(){
   // 목표 비중 입력은 모바일에서 저장 버튼이 숨겨지므로 readonly 로 내려 오해를 줄인다.
   const ro=(typeof isMobileLayout==='function'&&isMobileLayout())?' readonly':'';
   const goalRows=rebalance?[]:finGoalRows();
-  const goalCards=goalRows.map(finGoalCardHtml).join('')||'<div class="fin-empty cb-panel">목표를 추가하면 현재 자산과 자동으로 연결해 진행률을 보여드립니다.</div>';
+  const goalCards=goalRows.map(finGoalCardHtml).join('')||('<div class="cb-panel">'+cbEmptyHtml('아직 목표가 없습니다','목표를 추가하면 지금 자산과 자동으로 연결해 진행률과 달성 속도를 보여 드립니다.',showGoalForm?[]:[{label:'＋ 첫 목표 추가하기',onclick:'finGoalOpenForm()'}])+'</div>');
   const acctTree=finAccountTree(accounts);
   el.innerHTML=rebalance?`${finMobileNote('목표 비중')}    <div class="cb-panel fin-section"><div class="fin-section-head"><span>목표 비중과 리밸런싱 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>투자자산 ${cbDisp(ta.total)} · 월 DCA ${cbDisp(ta.monthlyDca)}${ownerF?' · 목표 비중값은 가구 공통':''}</small></div><div class="fin-target-inputs">${ta.result.map(x=>`<label><span><i style="background:${x.color}"></i>${cbEsc(x.label)}</span><input id="fin-target-${x.key}" type="number" min="0" max="100" step="1" value="${x.targetPct}"${ro}><em>%</em></label>`).join('')}<label class="threshold"><span>허용 편차</span><input id="fin-target-threshold" type="number" min="1" max="20" value="${ta.threshold}"${ro}><em>%p</em></label><button onclick="finSaveTarget()">목표 저장</button></div><div class="fin-rebal-comparison"><div class="fin-rebal-main">${finRebalBulletHtml(ta)}<div class="fin-rebal-table"><div class="head"><span>자산군</span><span>현재</span><span>목표</span><span>편차</span><span>필요 조정액</span><span>월 DCA 보정안</span></div>${ta.result.map(x=>{const out=Math.abs(x.drift)>ta.threshold;return `<div class="${out?'warn':''}"><span><i style="background:${x.color}"></i>${cbEsc(x.label)}${out?'<em class="fin-rebal-out">범위 밖</em>':''}</span><span>${x.currentPct.toFixed(1)}%</span><span>${x.targetPct.toFixed(1)}%</span><span>${x.drift>=0?'+':'−'}${Math.abs(x.drift).toFixed(1)}%p</span><span>${Math.abs(x.diff)<1?'—':cbDisp(Math.abs(x.diff))+(x.diff>0?' 늘리기':' 줄이기')}</span><span>${x.dcaSuggestion>0?cbDisp(x.dcaSuggestion):'—'}</span></div>`;}).join('')}</div><small class="fin-disclaimer">조정액은 현재 평가액 기준의 단순 계산이며 매도·세금·거래비용을 반영하지 않습니다. DCA 보정안은 부족 자산군에 월 적립액을 비례 배분한 참고값입니다.</small></div>${finPortfolioReferences()}</div></div>
+    ${finTaxAwareSellHtml(ta,ownerF)}
     <div class="cb-panel fin-section"><div class="fin-section-head"><span>계좌 배치 진단 <span style="color:var(--dim);font-weight:500">· ${scope}</span></span><small>현재 규칙 버전 기준 · ISA 표시는 연간 현금흐름 참고 · 실행 전 증권사·세무 확인 필요</small></div>${finAccountTreeHtml(acctTree,accounts.reduce((sum,x)=>sum+x.value,0))}</div>`:`
-    ${finGoalContext(ownerF)}${goalRows.length?`<div class="fin-goal-overview">${finGoalProgressCard(goalRows)}${finGoalTimelineCard(goalRows)}</div>`:''}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 가구 공통 · 속도 판정은 연결 자산의 월 적립식 매수액과 견준 목표별 참고값(수익률 0% 가정)</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
+    ${finGoalContext(ownerF)}${goalRows.length?`<div class="fin-goal-overview">${finGoalProgressCard(goalRows)}${finGoalTimelineCard(goalRows)}</div>${finGoalMcHtml(goalRows)}`:''}<div class="fin-section-head standalone"><span>재무 목표</span><small>${goalData.length}개 목표 · 가구 공통 · 속도 판정은 연결 자산의 월 적립식 매수액과 견준 목표별 참고값(수익률 0% 가정)</small>${showGoalForm?'':'<button type="button" class="fin-goal-add-btn" onclick="finGoalOpenForm()">＋ 새 목표 추가</button>'}</div><div class="fin-goal-grid">${goalCards}</div>
     ${finMobileNote('목표·목표 비중')}
     ${showGoalForm?`<div class="cb-panel fin-section" id="fin-goal-form"><div class="fin-section-head"><span>${ge?'목표 수정':'새 목표 추가'}</span><small>전체 순자산·투자자산·자산군과 연결 가능</small></div><div class="fin-form-grid">
       <label>목표명<input id="fin-goal-name" value="${cbEsc(ge?.name||'')}" placeholder="예: 자녀 교육자금"></label><label>목표 금액(원)<input id="fin-goal-target" type="text" inputmode="numeric" placeholder="0" value="${Number(ge?.targetAmount)>0?Math.round(Number(ge.targetAmount)).toLocaleString():''}"></label><label class="fin-goal-date-field">목표일<span class="fin-goal-date-row"><input id="fin-goal-date" type="date" value="${cbEsc(ge?.targetDate||'')}"${ge&&!ge.targetDate?' disabled':''}><span class="fin-goal-nodate"><input id="fin-goal-nodate" type="checkbox" onchange="finGoalNoDateToggle()"${ge&&!ge.targetDate?' checked':''}>기한 미정</span></span></label>
@@ -838,7 +1014,40 @@ function finExportSets(){
       rows:()=>list(window._netWorthHistory).map(e=>[e.date,krw(finSnapshotInvestment(e)),...OWNERS.map(o=>krw(finSnapshotOwnerInvestment(e,o)))])},
     gifts:{label:'증여 기록장',header:['증여일','구분','금액(원)','메모'],
       rows:()=>gift.map(x=>[x.date,x.kind==='spouse'?'부부 증여':'자녀 증여',krw(x.amt),x.memo])},
+    taxFiling:{label:'양도세 확인표',header:['연도','소유주','항목','월','계좌','메모','금액(원)','비고'],
+      rows:()=>finTaxFilingRows(list(typeof monthlyPLData!=='undefined'?monthlyPLData:[])),
+      count:rows=>rows.filter(r=>r[2]==='해외 매도').length},
   };
+}
+// 양도세 확인표(2026-11-25 시안) — 해외 주식 양도소득 신고(다음 해 5월) 때 증권사 '신고용 자료'와 대조할 표.
+// 대상은 일반 계좌의 해외 매도 기록뿐이다(국내 상장 주식 소액주주·ISA·연금은 양도소득세 신고 대상이 아니다).
+// 합계·공제·과세표준·세액은 세금 화면과 같은 cbTaxSummary 한 곳에서 온다 — 여기서 세율·공제를 다시 적지 않는다.
+// 앱 기록은 월 단위 실현손익이라 거래별 양도가액·취득가액이 없다. 그래서 신고서 자체가 아니라 대조용이다.
+function finTaxFilingRows(pl){
+  if(typeof cbTaxSummary!=='function'||typeof cbTaxAcctOf!=='function') return [];
+  const krw=v=>{ const n=Number(v); return Number.isFinite(n)?Math.round(n):''; };
+  const target=pl.filter(x=>x&&/^\d{4}-\d{2}/.test(String(x.month||''))&&x.category!=='domestic'&&cbTaxAcctOf(x)==='일반');
+  const years=[...new Set(target.map(x=>String(x.month).slice(0,4)))].sort().reverse();
+  const deps=typeof CB_TAX_DEPENDENT_OWNERS!=='undefined'?CB_TAX_DEPENDENT_OWNERS:[];
+  const out=[];
+  years.forEach(y=>{
+    const yr=target.filter(x=>String(x.month).startsWith(y));
+    const owners=[...new Set(yr.map(x=>x.owner||'소유주 미지정'))].sort((a,b)=>(OWNERS.indexOf(a)+99)%99-(OWNERS.indexOf(b)+99)%99);
+    const sum=cbTaxSummary(yr,null,[],y+'-12');
+    owners.forEach(o=>{
+      yr.filter(x=>(x.owner||'소유주 미지정')===o).sort((a,b)=>String(a.month).localeCompare(String(b.month)))
+        .forEach(x=>out.push([y,o,'해외 매도',x.month,x.account||'일반',x.memo||'',krw(x.amt),'']));
+      const b=sum.buckets.find(r=>r.label===o)||{genFgn:0,genBase:0,genDue:0};
+      const dep=deps.includes(o);
+      const depLimit=dep&&typeof _taxRuleValue==='function'?_taxRuleValue('dependent.basicDeductionIncomeLimitKrw',null,y+'-12'):null;
+      out.push([y,o,'해외 실현손익 합계','','','',krw(b.genFgn),'']);
+      out.push([y,o,'기본공제(1인)','','','',krw(sum.foreignDeduction),'사람마다 따로 적용']);
+      out.push([y,o,'과세표준','','','',krw(b.genBase),'합계 − 기본공제, 0 미만은 0']);
+      out.push([y,o,'예상 세액(지방세 포함)','','','',krw(b.genDue),`세율 ${(sum.foreignRate*100).toFixed(0)}% · 앱 기록 기준 추정`]);
+      if(dep&&depLimit) out.push([y,o,'부양가족 소득금액 확인','','','',krw(Math.max(0,b.genFgn)),`기준 ${Math.round(depLimit).toLocaleString()}원 — 넘으면 본인 연말정산 부양가족 공제에서 빠질 수 있음`]);
+    });
+  });
+  return out;
 }
 function finExport(key){
   const set=finExportSets()[key], msg=document.getElementById('fin-export-msg');
@@ -853,16 +1062,16 @@ function finExport(key){
     const url=URL.createObjectURL(new Blob([finCsv(set.header,rows)],{type:'text/csv;charset=utf-8'}));
     const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
-    say(`${set.label} ${rows.length}건을 ${name} 파일로 내려받았습니다.`);
+    say(`${set.label} ${set.count?set.count(rows):rows.length}건을 ${name} 파일로 내려받았습니다.`);
   }catch(e){ console.error('[export]',e); say('파일을 만들지 못했습니다. 다른 브라우저에서 다시 시도해 주세요.'); }
 }
 function finExportPanelHtml(){
   const sets=finExportSets();
   return `<div class="cb-panel fin-section fin-export"><div class="fin-section-head"><span>내보내기(CSV)</span><small>엑셀에서 열 수 있는 표 파일 · 지금 화면에 불러온 기록 그대로</small></div>
-    <div class="fin-export-buttons">${Object.entries(sets).map(([key,set])=>{ let n=0; try{ n=set.rows().length; }catch(e){ n=0; }
+    <div class="fin-export-buttons">${Object.entries(sets).map(([key,set])=>{ let n=0; try{ const rows=set.rows(); n=set.count?set.count(rows):rows.length; }catch(e){ n=0; }
       return `<button type="button" class="cb-btn" onclick="finExport('${key}')"${n?'':' disabled'}>${set.label} <span>${n}건</span></button>`; }).join('')}</div>
     <p id="fin-export-msg" class="fin-export-msg" role="status" hidden></p>
-    <p class="fin-export-note">파일에는 금액과 계좌 정보가 그대로 담깁니다. 다른 사람과 공유하거나 공용 기기에 남기지 않도록 주의해 주세요. 내보내기는 기록을 바꾸지 않으며, 이 파일을 다시 불러오는 기능은 없습니다.</p></div>`;
+    <p class="fin-export-note">파일에는 금액과 계좌 정보가 그대로 담깁니다. 다른 사람과 공유하거나 공용 기기에 남기지 않도록 주의해 주세요. 내보내기는 기록을 바꾸지 않으며, 이 파일을 다시 불러오는 기능은 없습니다.<br><b>양도세 확인표</b>는 일반 계좌의 해외 매도 기록을 세금 화면과 같은 계산(합계·기본공제·과세표준·예상 세액)으로 묶은 대조용 표입니다. 신고는 증권사가 주는 '양도소득세 신고용 자료'를 기준으로 하세요.</p></div>`;
 }
 function cbRenderDataStatus(){
   const el=document.getElementById('cb-data2');if(!el)return;

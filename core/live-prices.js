@@ -108,8 +108,42 @@ function updateAvgpDecimalMode() {
   if (!avgpEl) return;
   avgpEl.dataset.decimal = '1';
   avgpEl.setAttribute('inputmode', 'decimal');
+  if (typeof updateAvgFxRow === 'function') updateAvgFxRow();
 }
 
+// 시세 바뀜 표시(2026-11-25 시안) — 새 시세로 현재가가 바뀐 줄의 현재가·평가액 칸만 0.6초 옅게 밝힌다(오르면 초록, 내리면 빨강).
+// 시세 조회 전후의 curP 를 견준다(새 계산 없음). 칸은 data-live-key 로 찾는다: 보유 목록은 줄마다(소유주·티커·계좌·증권사),
+// 홈은 계좌를 합친 줄이라 소유주·티커만. 움직임 줄이기 설정에서는 CSS 가 애니메이션을 끈다.
+function liveKeyOf(item, merged){
+  if(!item) return '';
+  return encodeURIComponent(merged?[item.owner||'',String(item.tkr||'').toUpperCase()].join('|'):_splitRowKey(item));
+}
+function livePriceSnap(){
+  return new Map((typeof pfolioData!=='undefined'?pfolioData:[]).filter(i=>i&&i.grp!=='현금').map(i=>[_splitRowKey(i),Number(i.curP)]));
+}
+function livePriceChanged(before){
+  const out=new Map();
+  (typeof pfolioData!=='undefined'?pfolioData:[]).forEach(i=>{
+    if(!i||i.grp==='현금') return;
+    const a=before.get(_splitRowKey(i)), b=Number(i.curP);
+    if(!(a>0)||!(b>0)||Math.abs(b-a)<=Math.abs(a)*1e-9) return;
+    const dir=b>a?'up':'down';
+    out.set(liveKeyOf(i),dir);
+    const mk=liveKeyOf(i,true); out.set(mk,out.has(mk)&&out.get(mk)!==dir?'mixed':dir);
+  });
+  return out;
+}
+function liveFlashApply(changed){
+  if(!changed||!changed.size) return 0;
+  let n=0;
+  document.querySelectorAll('[data-live-key]').forEach(el=>{
+    const dir=changed.get(el.getAttribute('data-live-key')); if(!dir||dir==='mixed') return;
+    el.classList.remove('is-live-up','is-live-dn'); void el.offsetWidth;
+    el.classList.add(dir==='up'?'is-live-up':'is-live-dn'); n++;
+    setTimeout(()=>el.classList.remove('is-live-up','is-live-dn'),700);
+  });
+  return n;
+}
 function flash(el,dir){if(!el)return;el.classList.remove('flash-up','flash-down','flash-neutral');void el.offsetWidth;el.classList.add(dir==='up'?'flash-up':dir==='down'?'flash-down':'flash-neutral');setTimeout(()=>el.classList.remove('flash-up','flash-down','flash-neutral'),1400);}
 
 // =============================================

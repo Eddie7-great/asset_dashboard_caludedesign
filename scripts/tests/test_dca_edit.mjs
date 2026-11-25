@@ -147,7 +147,7 @@ function makeCtx({ items, mobile = false, ready = true, save = async () => ({ ok
 const dcaPage = grab(cobalt, 'cbRenderDca');
 assert.match(dcaPage, /\.filter\(x=>\{ const st=dcaState\(x\.i\); return st==='on'\|\|st==='incomplete'; \}\)/, '켜 둔 규칙만 — 중단한 규칙은 빠진다(보유 목록 칸도 —)');
 assert.doesNotMatch(dcaPage, /cbDcaEdit\(|dca-rule-edit/, '이 화면에서는 고치지 않는다');
-assert.match(dcaPage, /진행 중인 적립식 규칙이 없습니다\. 자산 관리 › 보유 목록의 적립식 칸을 눌러 규칙을 등록하거나 다시 켜세요\./);
+assert.match(dcaPage, /cbEmptyHtml\('진행 중인 적립식 규칙이 없습니다','보유 목록의 적립식 칸을 누르면 주기와 금액을 정할 수 있습니다\. 꺼 둔 규칙도 거기서 다시 켭니다\.',\[\{label:'보유 목록에서 등록하기 ›',onclick:"switchView\('holdings'\)"\}\]/, '빈 목록은 빈 화면 한 벌(cbEmptyHtml) — 등록·재개 위치와 바로 가는 버튼')
 assert.match(dcaPage, /진행 중 규칙<\/div><div class="cb-dca-summary-value">\$\{active\.length\}<span>개<\/span><\/div>\$\{incomplete\?`<div class="cb-dca-summary-sub">금액 미입력 \$\{incomplete\}개는 빼고 셉니다<\/div>`:''\}/);
 assert.doesNotMatch(dcaPage, /위에서 보유 종목을 선택해/, '없는 기능을 가리키는 옛 안내를 지웠다');
 assert.match(grab(script, '_fixedCostDcaGroup'), /dcaState\(i\)==='on'/, '고정비 묶음도 같은 상태 함수');

@@ -39,6 +39,7 @@ function _cfRowYm(item){
 // 한 달의 자동이체 가상 금액(이미 기록된 달·건너뛴 달·종료 뒤는 뺀다) — renderCashFlow 의 예정 줄과 같은 규칙
 function _cfAutoTransferMonthTotals(y, m, ownerOk){
   let atIn=0, atOut=0;
+  const inByCat=Object.create(null), outByCat=Object.create(null);
   const daysInMonth = new Date(y, m, 0).getDate();
   const ymKey = y+'-'+String(m).padStart(2,'0');
   (typeof autoTransferData!=='undefined'?autoTransferData:[]).forEach(at=>{
@@ -71,9 +72,39 @@ function _cfAutoTransferMonthTotals(y, m, ownerOk){
     else if (at.cycle==='weekly') times=Math.floor(daysInMonth/7);
     else if (at.cycle==='daily') times=daysInMonth;
     const total = _effectiveAutoTransferAmt(at, y, m) * times;
-    if (at.type==='수입') atIn+=total; else atOut+=total;
+    if(!total) return;
+    const cat=at.cat||'기타';
+    if (at.type==='수입'){ atIn+=total; inByCat[cat]=(inByCat[cat]||0)+total; }
+    else { atOut+=total; outByCat[cat]=(outByCat[cat]||0)+total; }
   });
-  return {atIn, atOut};
+  return {atIn, atOut, inByCat, outByCat};
+}
+// 한 달 합계 — 월별 내역의 합계·수입/지출 구성·선택 달 요약·순현금흐름 추이·저축률 추이가 모두 이 한 곳을 쓴다(2026-11-25).
+// 예전에는 추이 그래프가 따로 더해서 날짜 '미정' 배당 줄을 빠뜨렸고(같은 달 순현금흐름이 요약과 달랐다),
+// 구성 목록의 수입 내역에는 예정된 수입 자동이체가 빠져 '수입 합계'와 카테고리 합이 맞지 않았다.
+function cfMonthTotals(y, m){
+  const ym=y+'-'+String(m).padStart(2,'0');
+  let tIn=0, tOut=0;
+  const incomeByCat=Object.create(null), expByCat=Object.create(null);
+  cfData.forEach(item=>{
+    if(_cfRowYm(item)!==ym||!cfRowCounts(item)) return;
+    const amt=Number(item.amt)||0;
+    if(item.type==='수입'){ tIn+=amt; incomeByCat[item.cat]=(incomeByCat[item.cat]||0)+amt; }
+    else { tOut+=amt; expByCat[item.cat]=(expByCat[item.cat]||0)+amt; }
+  });
+  const at=_cfAutoTransferMonthTotals(y,m,cfInScope);
+  tIn+=at.atIn; tOut+=at.atOut;
+  Object.entries(at.inByCat).forEach(([c,v])=>{ incomeByCat[c]=(incomeByCat[c]||0)+v; });
+  Object.entries(at.outByCat).forEach(([c,v])=>{ expByCat[c]=(expByCat[c]||0)+v; });
+  return {tIn, tOut, incomeByCat, expByCat};
+}
+// 저축률 — 소득에서 소비지출을 뺀 비율. '저축/투자'(FIN_SAVING_CATS) 지출은 자산 이동이라 소비에서 되돌린다.
+// 선택 달 요약과 저축률 추이가 같은 정의를 쓰도록 한 곳에 둔다. 수입이 0 인 달은 내지 않는다(null).
+function cfSavingRate(t){
+  const savingCats=(typeof FIN_SAVING_CATS!=='undefined')?FIN_SAVING_CATS:['저축/투자'];
+  const savingOut=savingCats.reduce((sum,cat)=>sum+(t.expByCat[cat]||0),0);
+  const kept=t.tIn-(t.tOut-savingOut);
+  return {savingOut, kept, rate:t.tIn>0?kept/t.tIn*100:null};
 }
 // 한 사람의 한 달 — 기록된 줄 + 자동이체 예정. 송금·추정 줄은 따로 센다.
 function cfPersonMonth(owner, ym){
@@ -711,18 +742,40 @@ document.addEventListener('mousedown', (e) => {
 function updateCfTrendChart() {
   let labels=[],netData=[],bgColors=[];
   window.cfTrendDetails={in:[],out:[]};
-  // 자동이체 월별 예상 금액 — 실체화·skip·종료 이후 제외 규칙은 _cfAutoTransferMonthTotals 한 곳
-  const calcAutoTransferForMonth=(y,m)=>_cfAutoTransferMonthTotals(y,m,cfInScope);
+  const rates=[];
+  // 달마다 cfMonthTotals 한 곳 — 선택 달 요약의 순현금흐름·저축률과 같은 값이다
   for(let i=5;i>=0;i--){
-    let d=new Date(cfYear,cfMonth-1-i,1);let y=d.getFullYear();let m=d.getMonth()+1;
-    labels.push(m + '월');let mIn=0,mOut=0;
-    cfData.forEach(item=>{let idate=new Date(item.date);if(idate.getFullYear()===y&&idate.getMonth()+1===m&&cfRowCounts(item)){if(item.type==='수입')mIn+=item.amt;else mOut+=item.amt;}});
-    // 자동이체 예상금액 포함 (실체화된 항목/skip/종료 이후는 calcAutoTransferForMonth에서 이미 제외됨)
-    const atAmts = calcAutoTransferForMonth(y, m);
-    mIn+=atAmts.atIn; mOut+=atAmts.atOut;
-    let net=mIn-mOut;netData.push(net);window.cfTrendDetails.in.push(mIn);window.cfTrendDetails.out.push(mOut);bgColors.push(net>=0?cssVar('--up','#4ade80'):cssVar('--dn','#fb7185'));
+    const d=new Date(cfYear,cfMonth-1-i,1), y=d.getFullYear(), m=d.getMonth()+1;
+    const t=cfMonthTotals(y,m), net=t.tIn-t.tOut;
+    labels.push(m + '월');
+    netData.push(net);window.cfTrendDetails.in.push(t.tIn);window.cfTrendDetails.out.push(t.tOut);
+    bgColors.push(net>=0?cssVar('--up','#4ade80'):cssVar('--dn','#fb7185'));
+    rates.push({y,m,tIn:t.tIn,...cfSavingRate(t)});
   }
   if(window.cfTrendChartInst){window.cfTrendChartInst.data.labels=labels;window.cfTrendChartInst.data.datasets[0].data=netData;window.cfTrendChartInst.data.datasets[0].backgroundColor=bgColors;window.cfTrendChartInst.update();}
+  const rateEl=document.getElementById('cf-rate-trend');
+  if(rateEl) rateEl.innerHTML=cfRateTrendHtml(rates);
+}
+
+// 저축률 추이(6개월) — 순현금흐름 막대와 눈금이 다른 숫자라 한 그래프에 겹치지 않고(두 눈금 금지) 따로 그린다.
+// 값은 cfSavingRate 그대로. 위 평균은 달 평균이 아니라 6개월 합계(남긴 돈 합 ÷ 수입 합)다 — 수입이 큰 달이 더 무겁다.
+function cfRateTrendHtml(rates){
+  const withIn=rates.filter(r=>r.rate!=null);
+  if(!withIn.length) return '<div class="cf-rate-empty">최근 6개월에 기록된 수입이 없어 저축률을 낼 수 없습니다.</div>';
+  const sumIn=withIn.reduce((s,r)=>s+r.tIn,0), sumKept=withIn.reduce((s,r)=>s+r.kept,0);
+  const avg=sumIn>0?sumKept/sumIn*100:null;
+  const won=v=>(v<0?'-₩':'₩')+Math.abs(Math.round(v)).toLocaleString();
+  const cols=rates.map((r,idx)=>{
+    const last=idx===rates.length-1;
+    if(r.rate==null) return `<div class="cf-rate-col is-none${last?' is-on':''}" title="${r.y}년 ${r.m}월 · 수입 기록 없음"><b>—</b><span class="cf-rate-bar"><i></i></span><small>${r.m}월</small></div>`;
+    const h=Math.max(0,Math.min(100,r.rate));
+    const neg=r.rate<0;
+    return `<div class="cf-rate-col${last?' is-on':''}${neg?' is-neg':''}" title="${r.y}년 ${r.m}월 · 수입 ${won(r.tIn)} 중 ${won(r.kept)} 남김">`
+      +`<b>${Math.round(r.rate)}%</b><span class="cf-rate-bar"><i style="height:${h.toFixed(1)}%"></i></span><small>${r.m}월</small></div>`;
+  }).join('');
+  return `<div class="cf-rate-head"><span data-tip="소득에서 소비지출을 뺀 비율입니다. '저축/투자' 지출은 자산으로 옮겨 간 돈이라 소비에서 뺍니다 — 선택 달 요약의 저축률과 같은 계산입니다.">저축률 추이</span>`
+    +(avg!=null?`<small>6개월 합계 <b>${avg.toFixed(1)}%</b></small>`:'')+`</div>`
+    +`<div class="cf-rate-cols" role="img" aria-label="최근 6개월 저축률 ${rates.map(r=>r.m+'월 '+(r.rate==null?'없음':Math.round(r.rate)+'%')).join(', ')}">${cols}</div>`;
 }
 
 function renderCashFlow() {
@@ -738,14 +791,15 @@ function renderCashFlow() {
   // owner 필터: owner 필드가 있는 항목만 해당 소유주로 필터링 (기존 항목은 owner 없으면 전체에 표시)
   // 부부 범위만 보인다. 부부 합계에서 송금은 본인 쪽 한 줄만 '합계 제외'로 보이고 아내 쪽 줄은 숨긴다.
   const f=allMonth.filter(i=>cfInScope(i.owner)&&!(_cfOwner==='전체'&&i.xferRole==='out')).sort((a,b)=>{if(a.date==='미정')return 1;if(b.date==='미정')return -1;return new Date(b.date)-new Date(a.date);});
-  let html='',tIn=0,tOut=0,expByCat=Object.create(null),incomeByCat=Object.create(null);
+  // 합계는 cfMonthTotals 한 곳 — 아래 표 그리기는 줄만 만든다(합계를 따로 더하지 않는다)
+  const {tIn,tOut,incomeByCat,expByCat}=cfMonthTotals(cfYear,cfMonth);
+  let html='';
   f.forEach(i=>{
     const realIdx=cfData.findIndex(x=>x===i);
     const amount=Number(i.amt)||0;
     if(i.xferRole){
       // 송금 묶음 줄 — 수정·삭제는 송금 기록 창 하나로 한다
       const moving=cfIsXferMove(i), excluded=!cfRowCounts(i);
-      if(!excluded){ if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;} }
       const sgn=excluded?'':(i.type==='수입'?'+':'-'), col=excluded?'var(--t3)':(i.type==='수입'?'var(--up)':'var(--dn)');
       const typeCell=moving?`<span class="cf-xfer-tag">송금</span>`:`<span style="color:var(--dn);font-weight:700">지출</span>`;
       const who=moving&&excluded?'부부':(i.owner||'-');
@@ -753,7 +807,6 @@ function renderCashFlow() {
       html+=`<tr class="${excluded?'cf-row-muted':''}"><td class="text-left">${_cfEsc(i.date.substring(5).replace('-','/'))}</td><td class="text-left">${typeCell}</td><td class="text-left"><span style="font-size:var(--fs-cap);color:var(--t3);white-space:nowrap">${_cfEsc(who)}</span></td><td class="text-left">${_cfEsc(i.cat)}</td><td class="text-left">${desc}</td><td style="color:${col}" class="text-right">${sgn}₩${amount.toLocaleString()}</td><td class="text-right"><span style="font-size:var(--fs-cap);color:var(--t3)">매월 기록</span></td><td class="text-right" style="white-space:nowrap"><button class="btn-action" type="button" aria-label="부부 송금 수정" onclick="cfXferOpen('${_cfEsc(i.xferMonth)}')">✎</button><button class="btn-action" type="button" aria-label="부부 송금 삭제" onclick="cfXferDelete('${_cfEsc(i.xferMonth)}')">✕</button></td></tr>`;
       return;
     }
-    if(i.type==='수입'){tIn+=amount;incomeByCat[i.cat]=(incomeByCat[i.cat]||0)+amount;}else{tOut+=amount;expByCat[i.cat]=(expByCat[i.cat]||0)+amount;}
     let cls=i.type==='수입'?'var(--up)':'var(--dn)',sign=i.type==='수입'?'+':'-';
     let fd=i.date==='미정'?'미정':i.date.substring(5).replace('-','/');
     // 주기 칸은 주기만 적는다 — '자동이체 · 매월 15일'은 칸 폭(88px)을 넘어 '자동이…'로 잘렸다(2026-11-24).
@@ -803,8 +856,6 @@ function renderCashFlow() {
     else if(at.cycle==='daily')times=daysInMonth;
     const effAmt = _effectiveAutoTransferAmt(at, cfYear, cfMonth);
     const total=effAmt*times;
-    if(at.type==='수입')tIn+=total;
-    else{tOut+=total;expByCat[at.cat]=(expByCat[at.cat]||0)+total;}
     const atCls = at.type === '수입' ? 'var(--up)' : 'var(--dn)';
     const atSign = at.type === '수입' ? '+' : '-';
     const cycleLbl = _getCycleLabel(at);
@@ -827,10 +878,12 @@ function renderCashFlow() {
     </tr>`;
   });
   const emptyColspan = '8';
-  document.getElementById('cf-table-body').innerHTML=html||`<tr><td colspan="${emptyColspan}" style="text-align:center;padding:20px">내역이 없습니다.</td></tr>`;
+  document.getElementById('cf-table-body').innerHTML=html||`<tr class="cf-empty-row"><td colspan="${emptyColspan}">${typeof cbEmptyHtml==='function'?cbEmptyHtml(`${cfMonth}월 기록이 없습니다`,'월급·생활비처럼 들어오고 나간 돈을 적으면 저축률과 구성이 계산됩니다. 매달 같은 돈은 자동이체로 한 번만 등록하세요.',[{label:'＋ 수입',onclick:"cfOpenEntry('in')"},{label:'－ 지출',onclick:"cfOpenEntry('out')"},{label:'자동이체',onclick:"cfOpenEntry('auto')"}],{compact:true}):'내역이 없습니다.'}</td></tr>`;
   const titleEl=document.getElementById('cf-widget-title-text');if(titleEl)titleEl.textContent=`수입/지출 구성 (${cfMonth}월)`;
   const compEl=document.getElementById('cf-comp-list');
-  if(compEl)compEl.innerHTML=cfCompositionHtml(incomeByCat,expByCat,tIn,tOut);
+  if(compEl)compEl.innerHTML=_cfBudgetEdit?cfBudgetFormHtml(expByCat):cfCompositionHtml(incomeByCat,expByCat,tIn,tOut,cfBudgetFor(_cfOwner));
+  const budgetBtn=document.getElementById('cf-budget-btn');
+  if(budgetBtn){budgetBtn.setAttribute('aria-expanded',String(!!_cfBudgetEdit));budgetBtn.textContent=_cfBudgetEdit?'예산 닫기':'예산';}
   const flowEl=document.getElementById('cf-couple-flow');
   if(flowEl)flowEl.innerHTML=cfCoupleFlowHtml(cfYear,cfMonth);
   const sumEl=document.getElementById('cf-month-summary');
@@ -845,27 +898,90 @@ function renderCashFlow() {
 // 이미 계산된 incomeByCat·expByCat 만 받는다(새 계산 없음). 색은 고정비 분포와 같은 cfColors.
 // 짧은 금액 — 단일 구현 shortWon(core/data.js)의 별칭(배당 막대 위 금액과 같은 모양).
 function cfShortWon(v){ return shortWon(v); }
-function cfCompositionHtml(incomeByCat, expByCat, tIn, tOut){
+// 카테고리 예산(2026-11-25 시안) — 보고 있는 범위(부부 합계·본인·아내)마다 따로 정한다. 저장은 ext_data.cfBudget.
+// '저축/투자'는 자산 이동이라 예산 대상이 아니다. 예산은 비교 기준일 뿐 다른 계산(고정비·현금 안전판)에 들어가지 않는다.
+let _cfBudgetEdit=false;
+const CF_BUDGET_CATS=['식비','문화/생활','교통/차량','주거/통신','관리비','교육','의료/건강','대출납입금','세금','기타'];
+function cfBudgetFor(scope){
+  const map=window._cfBudget?.scopes?.[scope];
+  return map&&Object.keys(map).length?map:null;
+}
+function cfBudgetToggle(){
+  _cfBudgetEdit=!_cfBudgetEdit;
+  renderCashFlow();
+  if(_cfBudgetEdit) document.querySelector('#cf-comp-list input')?.focus();
+  else document.getElementById('cf-budget-btn')?.focus();
+}
+function cfBudgetFormHtml(expByCat){
+  const savingCats=(typeof FIN_SAVING_CATS!=='undefined')?FIN_SAVING_CATS:['저축/투자'];
+  const cur=cfBudgetFor(_cfOwner)||{};
+  const cats=[...new Set([...CF_BUDGET_CATS,...Object.keys(expByCat||{}),...Object.keys(cur)])].filter(c=>c&&!savingCats.includes(c)&&c!==CF_XFER_CAT);
+  const rows=cats.map(c=>{
+    const spent=expByCat?.[c]||0;
+    return `<label class="cf-budget-field"><span class="cf-budget-cat"><i style="background:${cfColors[c]||'var(--lab)'}"></i>${_cfEsc(c)}</span>`
+      +`<input class="form-input" type="text" inputmode="numeric" data-budget-cat="${_cfEsc(c)}" value="${cur[c]?Math.round(cur[c]).toLocaleString():''}" placeholder="없음" aria-label="${_cfEsc(c)} 한 달 예산(원)">`
+      +`<small>이 달 ${spent>0?cfShortWon(spent):'0'}</small></label>`;
+  }).join('');
+  return `<div class="cf-budget-form"><div class="cf-comp-sub">${_cfEsc(cfScopeLabel())} · 카테고리별 한 달 예산 (원) — 비우면 예산 없음</div>`
+    +`<div class="cf-budget-grid">${rows}</div>`
+    +`<div class="cf-budget-actions"><span id="cf-budget-status" role="status"></span><button type="button" class="cb-btn" onclick="cfBudgetToggle()">취소</button><button type="button" class="cb-btn" onclick="cfBudgetSave()">예산 저장</button></div>`
+    +`<div class="cf-comp-note">저축/투자는 자산으로 옮겨 가는 돈이라 예산 대상에서 뺐습니다.</div></div>`;
+}
+async function cfBudgetSave(){
+  if(window._kvLoadState?.ext!=='ready'){ const st=document.getElementById('cf-budget-status'); if(st) st.textContent='재무 기록을 불러온 뒤 저장할 수 있습니다.'; return; }
+  const map={};
+  document.querySelectorAll('#cf-comp-list [data-budget-cat]').forEach(el=>{
+    const v=Number(String(el.value||'').replace(/[^\d]/g,''));
+    if(v>0) map[el.dataset.budgetCat]=v;
+  });
+  const prev=window._cfBudget;
+  const scopes={...(prev?.scopes||{})};
+  if(Object.keys(map).length) scopes[_cfOwner]=map; else delete scopes[_cfOwner];
+  window._cfBudget=_normalizeCfBudget({scopes});
+  _cfBudgetEdit=false;
+  renderCashFlow();
+  const res=await saveExtDataToKV();
+  if(!res?.ok&&!res?.reverted){ window._cfBudget=prev; renderCashFlow(); }
+  document.getElementById('cf-budget-btn')?.focus();
+}
+function cfCompositionHtml(incomeByCat, expByCat, tIn, tOut, budget){
   const won=v=>'₩'+Math.round(v).toLocaleString();
   const savingCats=(typeof FIN_SAVING_CATS!=='undefined')?FIN_SAVING_CATS:['저축/투자'];
   const inc=Object.entries(incomeByCat||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const exp=Object.entries(expByCat||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  // 예산만 있고 이 달 지출이 없는 카테고리도 0 으로 보인다(예산이 남았다는 것도 정보다)
+  const bud=budget||null;
+  if(bud) Object.keys(bud).forEach(c=>{ if(!exp.some(([k])=>k===c)) exp.push([c,0]); });
   if(!inc.length&&!exp.length) return '<div class="cf-comp-empty">이 달에 기록된 수입·지출이 없습니다.</div>';
   const incTxt=inc.slice(0,3).map(([c,v])=>`${_cfEsc(c)} ${cfShortWon(v)}`).join(' · ')+(inc.length>3?` 외 ${inc.length-3}`:'');
   const head=`<div class="cf-comp-head"><span>수입 <b class="c-up" title="${won(tIn)}">${cfShortWon(tIn)}</b>${incTxt?` <small>${incTxt}</small>`:''}</span>`
     +`<span>지출 <b title="${won(tOut)}">${cfShortWon(tOut)}</b></span></div>`;
   if(!exp.length) return head+'<div class="cf-comp-empty">이 달에 기록된 지출이 없습니다.</div>';
-  const max=exp[0][1];
+  // 막대 눈금은 지출과 예산 중 큰 값 — 예산 표시선이 막대 밖으로 나가지 않는다
+  const max=Math.max(...exp.map(([c,v])=>Math.max(v,bud?.[c]||0)))||1;
+  let budSum=0, budUsed=0, over=0, budCount=0;
   const rows=exp.map(([c,v])=>{
     const saving=savingCats.includes(c);
     const pct=tOut>0?v/tOut*100:0;
-    return `<div class="cf-comp-row${saving?' is-saving':''}" title="${_cfEsc(c)} ${won(v)} · 지출의 ${pct.toFixed(1)}%${saving?' · 자산 이동(소비 아님)':''}">`
+    const b=!saving&&bud?.[c]>0?bud[c]:0;
+    if(b){ budCount++; budSum+=b; budUsed+=v; if(v>b) over++; }
+    const use=b?v/b*100:null;
+    const tip=`${_cfEsc(c)} ${won(v)} · 지출의 ${pct.toFixed(1)}%`+(b?` · 예산 ${won(b)}의 ${Math.round(use)}%${v>b?` (${won(v-b)} 초과)`:` (${won(b-v)} 남음)`}`:'')+(saving?' · 자산 이동(소비 아님)':'');
+    const lastCol=bud
+      ? (b?`<span class="cf-comp-pct${v>b?' is-over':''}">${Math.round(use)}%</span>`:'<span class="cf-comp-pct">—</span>')
+      : `<span class="cf-comp-pct">${pct<1?'<1':Math.round(pct)}%</span>`;
+    return `<div class="cf-comp-row${bud?' has-b':''}${saving?' is-saving':''}${b&&v>b?' is-over':''}" title="${tip}">`
       +`<span class="cf-comp-name">${_cfEsc(c)}</span>`
-      +`<span class="cf-comp-track"><i style="width:${(v/max*100).toFixed(1)}%;background:${cfColors[c]||'var(--lab)'}"></i></span>`
-      +`<b class="cf-comp-amt">${cfShortWon(v)}</b><span class="cf-comp-pct">${pct<1?'<1':Math.round(pct)}%</span></div>`;
+      +`<span class="cf-comp-track"><i style="width:${(v/max*100).toFixed(1)}%;background:${cfColors[c]||'var(--lab)'}"></i>${b?`<em class="cf-comp-budget" style="left:${(b/max*100).toFixed(1)}%" aria-hidden="true"></em>`:''}</span>`
+      +`<b class="cf-comp-amt">${v>0?cfShortWon(v):'0'}${b?`<small> / ${cfShortWon(b)}</small>`:''}</b>${lastCol}</div>`;
   }).join('');
+  const budLine=bud&&budCount
+    ? `<div class="cf-comp-budget-sum"><span>예산 ${budCount}개 · <b>${cfShortWon(budUsed)}</b> / ${cfShortWon(budSum)} 사용</span>`
+      +(over?`<span class="is-over">${over}개 초과</span>`:'<span class="is-ok">모두 예산 안</span>')+`</div>`
+    : '';
+  const sub=bud?'<div class="cf-comp-sub">지출 — 큰 순서 · 세로선은 예산, 오른쪽 % 는 예산 대비</div>':'<div class="cf-comp-sub">지출 — 큰 순서</div>';
   const note=exp.some(([c])=>savingCats.includes(c))?'<div class="cf-comp-note">빗금 막대(저축/투자)는 자산으로 옮겨 간 돈이라 소비가 아닙니다.</div>':'';
-  return head+'<div class="cf-comp-sub">지출 — 큰 순서</div>'+rows+note;
+  return head+budLine+sub+rows+note;
 }
 
 // 선택한 달의 요약 — 이미 계산된 값만 쓴다(새 계산 없음).
@@ -873,11 +989,8 @@ function cfCompositionHtml(incomeByCat, expByCat, tIn, tOut){
 // 줄이지 않고, finMonthlyFixedCost·finNetWorthBridge 도 같은 이유로 제외한다.
 // 그래서 순현금흐름(통장에 남은 돈)과 저축률(소득 중 안 쓴 비율)은 서로 다른 숫자다.
 function cfMonthSummaryHtml(tIn, tOut, expByCat){
-  const savingCats = (typeof FIN_SAVING_CATS!=='undefined') ? FIN_SAVING_CATS : ['저축/투자'];
-  const savingOut = savingCats.reduce((sum,cat)=>sum+(expByCat[cat]||0),0);
+  const {savingOut, rate} = cfSavingRate({tIn,tOut,expByCat});   // 저축률 추이와 같은 정의
   const net = tIn - tOut;
-  const kept = tIn - (tOut - savingOut);                 // 소득 - 소비지출
-  const rate = tIn>0 ? kept/tIn*100 : null;
   const scope = cfScopeLabel();
   const won = v => (v<0?'-₩':'₩') + Math.abs(Math.round(v)).toLocaleString();
   const fx = (typeof finMonthlyFixedCost==='function')

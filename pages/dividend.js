@@ -347,14 +347,14 @@ function cbRenderDiv(){
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">월평균</div></div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율(YoC)">매입가 대비 배당률</span></div></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결 연도 2개 이상이면 연평균, 모자라면 최근 12개월 vs 직전 12개월로 냅니다. 상장 2년 미만·지급 이력 없는 종목은 빠집니다.">배당성장률</span></div>
-        <div class="cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title">평균 <span data-tip="지급 종목들의 주당 배당금 연평균 성장률(CAGR)을 배당수입 비중으로 가중평균한 값. 완결 연도 2개 이상이면 연평균, 모자라면 최근 12개월 vs 직전 12개월로 냅니다. 상장 2년 미만·지급 이력 없는 종목은 빠집니다.">배당성장률</span></div></div>
         <div class="cb-div-summary-value" style="${avgG==null?'color:var(--lab)':cbUpDn(avgG)}">${avgG==null?'—':(avgG>=0?'+':'')+avgG.toFixed(1)+'%'}</div>
+        <div class="cb-div-summary-sub cb-div-history-status" data-tip="${cbEsc(growthHistoryTip)}">${avgG==null&&rawHistoryList.length===0?'이력 조회 중':`산출 ${gList.length}/${list.length} · 원본 ${rawHistoryList.length}/${list.length}`}</div>
       </div>
       <div class="cb-panel cb-div-summary-card">
-        <div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div>
-        <div class="cb-div-history-status">상위 3종목 합계</div></div>
+        <div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="연간 예상 배당금 중 배당 수입이 큰 상위 3개 종목이 차지하는 비중입니다. 낮을수록 배당원이 잘 분산되어 있습니다.">배당 집중도</span></div></div>
         <div class="cb-div-summary-value">${top3DivShare.toFixed(1)}%</div>
+        <div class="cb-div-summary-sub">상위 3종목 합계</div>
       </div>
       <div class="cb-panel cb-div-summary-card cb-div-top3-card">
         <div class="cb-div-summary-title"><span data-tip="연간 예상 배당 수입 기여도가 큰 상위 3개 종목과 각 종목의 배당 수입 비중입니다.">상위 배당원 TOP 3</span></div>
@@ -432,7 +432,7 @@ function cbRenderDiv(){
         </div>`;}).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:var(--fs-cap)">배당 지급 종목이 없거나 배당 정보를 아직 불러오지 못했습니다.</div>'}
     </div>
     <div class="cb-panel cb-div-upcoming-card">
-      <div class="cb-insight-title">향후 90일 배당 일정</div>
+      <div class="cb-div-upcoming-head"><div class="cb-insight-title">향후 90일 배당 일정</div><button type="button" class="cb-cal-link" onclick="cbGoCalendar(_cbDivOwner)">달력에서 보기 ›</button></div>
       <div class="cb-div-upcoming-total"><span>예상 수입 합계</span><b>${cbDisp(upcomingDividendTotal)}</b></div>
       <div class="cb-div-upcoming-list">
         ${upcomingDividendShown.map(x=>{

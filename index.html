@@ -150,6 +150,7 @@
     <div id="view-perf2" class="view-section"><div class="cb-scroll" id="cb-perf2"></div></div>
     <div id="view-fam2" class="view-section"><div class="cb-scroll" id="cb-fam2"></div></div>
     <div id="view-risk2" class="view-section"><div class="cb-scroll" id="cb-risk2"></div></div>
+    <div id="view-chart2" class="view-section"><div class="cb-scroll" id="cb-chart2"></div></div>
     <div id="view-divm" class="view-section"><div class="cb-scroll" id="cb-divm"></div></div>
     <div id="view-gift2" class="view-section"><div class="cb-scroll" id="cb-gift2"></div></div>
     <div id="view-tax2" class="view-section"><div class="cb-scroll" id="cb-tax2"></div></div>
@@ -266,6 +267,7 @@
             <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
               <div class="cb-label f-between" style="align-items:center">
                 <span id="cf-widget-title-text">수입/지출 구성</span>
+                <button type="button" id="cf-budget-btn" class="cf-budget-btn" aria-expanded="false" aria-controls="cf-comp-list" onclick="cfBudgetToggle()">예산</button>
                 <div class="tf-btns"><button type="button" class="tf-btn nav-arrow-btn" onclick="prevCfMonth()" title="이전 달" aria-label="이전 달">◀</button><button type="button" class="tf-btn nav-arrow-btn" onclick="nextCfMonth()" title="다음 달" aria-label="다음 달">▶</button></div>
               </div>
             </div>
@@ -275,6 +277,7 @@
           <div class="glass-panel f-col cf-trend-panel">
             <div class="cb-label f-between" style="align-items:center;margin-bottom:8px">순현금흐름 추이 (6개월) <span style="font-size:var(--fs-cap);color:var(--acc);font-weight:600;letter-spacing:0">배당 수입 포함</span></div>
             <div class="chart-container"><canvas id="cfTrendChart" role="img" aria-label="월별 현금 흐름 추이 차트">월별 현금 흐름 추이 차트입니다.</canvas></div>
+            <div id="cf-rate-trend" class="cf-rate-trend" aria-live="polite"></div>
           </div>
           <div class="glass-panel" id="cf-div-panel" style="flex-shrink:0;display:none"></div>
         </div>
@@ -523,6 +526,10 @@
       </div>
       <div class="form-group f-col" style="flex:.8"><label class="form-label" for="add-avgp">평균단가</label><input type="text" class="form-input" id="add-avgp" placeholder="0" inputmode="decimal"></div>
     </div>
+    <!-- 외화 주식: 매수 평균 환율(선택, 2026-11-25 시안) — 성과 화면 '환율 효과'를 나누는 데만 쓴다. 평가액·손익 계산은 그대로 -->
+    <div class="form-row" id="row-avg-fx" style="display:none">
+      <div class="form-group f-col" style="flex:1"><label class="form-label" for="add-avgfx">매수 평균 환율 <small class="form-label-sub">선택 · <span id="add-avgfx-unit">1달러</span>당 원 · 모르면 비워 두세요</small></label><input type="text" class="form-input" id="add-avgfx" placeholder="예: 1,320" inputmode="decimal"></div>
+    </div>
     <div id="wrap-cost-unknown" style="display:none;margin:-1px 0 10px;padding:9px 11px;border:1px solid var(--border-light);border-radius:9px;background:var(--inner-bg)">
       <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-cap);font-weight:700;color:var(--t2);cursor:pointer">
         <input id="add-cost-unknown" type="checkbox" onchange="toggleCostUnknown()">
@@ -631,6 +638,7 @@
 <script defer src="pages/gift.js?v=4"></script>
 <script defer src="pages/tax.js?v=3"></script>
 <script defer src="pages/dca.js?v=3"></script>
+<script defer src="pages/chart-study.js?v=1"></script>
 <script defer src="cobalt.js?v=50"></script>
 </body>
 </html>
