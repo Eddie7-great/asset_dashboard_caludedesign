@@ -3,10 +3,22 @@
 // 지표마다 '지금 무엇을 말하는지'를 쉬운 말로 적는다. 공부용이다 — 매매 신호로 쓰지 않는다는 문구를 유지한다.
 // 계산은 아래 순수 함수(chsSma·chsEma·chsRsi·chsMacd·chsReadings)만 쓰고, 그리는 쪽은 그 결과를 그대로 옮긴다.
 // 장중 봉(complete:false)은 버린다 — 앱의 다른 시세와 같은 '직전 종가' 기준이다.
+// 2026-11-26 사용자 요청: 보유 종목 목록 대신 종목 검색(미국·국내), 지표 추가 — 가우시안 채널·볼린저(2σ)·RSI 다이버전스.
+// 소유주 버튼은 '내 종목' 바로가기와 내 평균 매입가의 범위만 정한다.
 
 let _chsTkr = null, _chsRange = '6M', _chsOwner = '전체', _chsFrame = 'D';
 const _chsCache = {}, _chsErr = {};
 let _chsLoading = null, _chsView = null;
+// 검색한 종목 — {tkr, name, cur}. 검색어·오류·최근 검색은 메모리에만.
+let _chsPickInfo = null, _chsQuery = '', _chsSearchErr = null, _chsSearchBusy = false;
+const _chsRecent = [];
+// 겹쳐 그릴 지표(켜고 끄기) — 화면을 옮겨도 유지(메모리)
+const _chsShow = {ma:true, gc:true, bb:true, div:true};
+const CHS_OVERLAYS = [['ma','이동평균'],['gc','가우시안 채널'],['bb','볼린저 2σ'],['div','다이버전스']];
+// 가우시안 채널 기본 설정 — 트레이딩뷰에서 널리 쓰는 DonovanWall 판(Ehlers 가우시안 필터): 4겹 · 144봉 · 띠 배수 1.414
+const CHS_GC = {poles:4, per:144, mult:1.414};
+// RSI 다이버전스 — 트레이딩뷰 기본 'RSI Divergence' 설정: 고점·저점 좌우 5봉, 두 점 사이 5~60봉
+const CHS_DIV = {lb:5, rb:5, min:5, max:60};
 // 봉 단위(2026-11-25 사용자 요청) — 일봉·주봉·월봉은 Yahoo 가 그 단위로 준 봉 그대로, 년봉은 월봉을 해마다 묶는다.
 // 지표의 '기간'은 봉 개수다: 주봉의 20선 = 20주 평균, RSI(14) = 최근 14주. 일봉 캐시 키는 티커 그대로(리스크 화면과 공유).
 // unit = 봉 하나의 이름(일·주·개월·년), perYear = 1년에 봉이 몇 개인지(고점 찾는 구간), ranges = 보이는 봉 수.
@@ -84,10 +96,82 @@ function chsLastCross(a, b){
   }
   return null;
 }
+// 가우시안 채널 — Ehlers 의 N겹 가우시안 필터를 (고가+저가+종가)/3 과 '하루 실제 움직임 폭(TR)'에 똑같이 걸고,
+// 가운데 선 ± 필터한 TR × 배수로 띠를 만든다. 가운데 선이 직전 봉보다 높으면 오름(up).
+// 필터는 앞 값을 이어 쓰는 식이라 처음 per 개 봉은 값이 안정되지 않는다 — 그 구간은 비운다(warm).
+function chsGaussFilter(x, alpha, poles){
+  const out = Array(x.length).fill(null), a1 = 1-alpha, c = [];
+  for (let k = 1; k <= poles; k++){ let comb = 1; for (let j = 0; j < k; j++) comb = comb*(poles-j)/(j+1); c.push((k%2 ? 1 : -1)*comb*Math.pow(a1,k)); }
+  const f = [];
+  for (let i = 0; i < x.length; i++){
+    let v = Math.pow(alpha,poles)*x[i];
+    for (let k = 1; k <= poles; k++) v += c[k-1]*(i-k>=0 ? f[i-k] : x[0]);
+    f.push(v); out[i] = v;
+  }
+  return out;
+}
+function chsGaussian(bars, cfg=CHS_GC){
+  const n = bars.length, {poles, per, mult} = cfg;
+  const empty = {mid:Array(n).fill(null), up:Array(n).fill(null), lo:Array(n).fill(null), rising:Array(n).fill(null), warm:per};
+  if (n <= per + 2) return empty;
+  const beta = (1-Math.cos(2*Math.PI/per)) / (Math.pow(1.414, 2/poles)-1);
+  const alpha = -beta + Math.sqrt(beta*beta + 2*beta);
+  const src = bars.map(b=>(b.h+b.l+b.c)/3);
+  const tr = bars.map((b,i)=>i ? Math.max(b.h-b.l, Math.abs(b.h-bars[i-1].c), Math.abs(b.l-bars[i-1].c)) : b.h-b.l);
+  const fm = chsGaussFilter(src, alpha, poles), ft = chsGaussFilter(tr, alpha, poles);
+  const out = {mid:[], up:[], lo:[], rising:[], warm:per};
+  for (let i = 0; i < n; i++){
+    if (i < per){ out.mid.push(null); out.up.push(null); out.lo.push(null); out.rising.push(null); continue; }
+    out.mid.push(fm[i]); out.up.push(fm[i]+ft[i]*mult); out.lo.push(fm[i]-ft[i]*mult); out.rising.push(fm[i] > fm[i-1]);
+  }
+  return out;
+}
+// 볼린저 밴드 — 20봉 평균 ± 2 × 표준편차(σ, 모집단 식 — 트레이딩뷰와 같음). z = 지금 가격이 평균에서 몇 σ 떨어졌나.
+function chsBollinger(closes, n=20, k=2){
+  const mid = chsSma(closes, n), up = [], lo = [], z = [], width = [];
+  closes.forEach((c,i)=>{
+    if (mid[i]==null){ up.push(null); lo.push(null); z.push(null); width.push(null); return; }
+    let ss = 0; for (let j = i-n+1; j <= i; j++) ss += (closes[j]-mid[i])**2;
+    const sd = Math.sqrt(ss/n);
+    up.push(mid[i]+k*sd); lo.push(mid[i]-k*sd); z.push(sd>0 ? (c-mid[i])/sd : 0); width.push(mid[i]>0 ? 2*k*sd/mid[i]*100 : null);
+  });
+  return {mid, up, lo, z, width};
+}
+// 고점·저점(피벗) — i 의 값이 왼쪽 lb 개보다 크고 오른쪽 rb 개 이상(저점은 반대). 오른쪽 rb 개 봉이 지나야 확정된다.
+function chsPivots(vals, lb, rb, kind){
+  const out = [];
+  for (let i = lb; i < vals.length-rb; i++){
+    const v = vals[i]; if (v==null) continue;
+    let ok = true;
+    for (let j = i-lb; j <= i+rb && ok; j++){
+      if (j===i) continue; const w = vals[j];
+      if (w==null){ ok = false; break; }
+      if (kind==='hi' ? (j<i ? w>=v : w>v) : (j<i ? w<=v : w<v)) ok = false;
+    }
+    if (ok) out.push(i);
+  }
+  return out;
+}
+// RSI 다이버전스(정규형) — 이어진 두 RSI 고점에서 가격은 더 높은데 RSI 는 더 낮으면 하락(bear),
+// 두 RSI 저점에서 가격은 더 낮은데 RSI 는 더 높으면 상승(bull). 가격은 그 봉의 고가·저가로 잰다.
+function chsDivergences(bars, rsi, cfg=CHS_DIV){
+  const out = [];
+  [['hi','bear'],['lo','bull']].forEach(([kind, word])=>{
+    const pv = chsPivots(rsi, cfg.lb, cfg.rb, kind);
+    for (let k = 1; k < pv.length; k++){
+      const a = pv[k-1], b = pv[k], gap = b-a;
+      if (gap < cfg.min || gap > cfg.max) continue;
+      if (kind==='hi' && bars[b].h > bars[a].h && rsi[b] < rsi[a]) out.push({kind:word, a, b});
+      if (kind==='lo' && bars[b].l < bars[a].l && rsi[b] > rsi[a]) out.push({kind:word, a, b});
+    }
+  });
+  return out.sort((x,y)=>x.b-y.b);
+}
 function chsIndicators(bars){
   const closes = bars.map(b=>b.c);
   const ma = {}; CHS_MA_N.forEach(n=>{ ma[n] = chsSma(closes, n); });
-  return {closes, ma, rsi:chsRsi(closes,14), macd:chsMacd(closes)};
+  const rsi = chsRsi(closes,14);
+  return {closes, ma, rsi, macd:chsMacd(closes), gc:chsGaussian(bars), bb:chsBollinger(closes), div:chsDivergences(bars, rsi)};
 }
 // 지금 읽기 — 마지막 봉 기준. 판정 단어는 화면 색(오름 --up · 내림 --dn · 보통 --lab)과 함께 쓴다.
 function chsReadings(bars, ind, avg, frame='D'){
@@ -105,13 +189,36 @@ function chsReadings(bars, ind, avg, frame='D'){
     : '봉이 적어 이동평균을 아직 못 그립니다';
   out.push({key:'trend', title:'추세 · 이동평균', tone:trendTone, word:trendWord, text:trendText,
     note: cross ? `${MA[0].label}이 ${MA[1].label}을 ${cross.kind==='golden'?'위로 뚫음(골든크로스)':'아래로 뚫음(데드크로스)'} · ${ago(cross.ago)}` : `최근 ${MA[0].label}·${MA[1].label} 교차 없음`});
-  // ② RSI
+  // ②-1 가우시안 채널 — 가운데 선 방향 + 가격이 띠 위·안·아래
+  const gc = ind.gc;
+  if (gc && gc.mid[i]!=null){
+    const pos = c > gc.up[i] ? 'above' : c < gc.lo[i] ? 'below' : 'in';
+    const rising = gc.rising[i];
+    let run = 0; for (let j = i; j > 0 && gc.rising[j]===rising; j--) run++;
+    out.push({key:'gc', title:'큰 흐름 · 가우시안 채널', tone:rising?'up':'dn', word:rising?'띠 오름':'띠 내림',
+      text:`가운데 선이 ${rising?'오르는':'내리는'} 중 · 가격은 띠 ${pos==='above'?'위':pos==='below'?'아래':'안'}`,
+      note:`${rising?'오름':'내림'}으로 바뀐 지 ${run}${frame==='D'?'거래일':u} · 띠 ${chsNum(gc.lo[i])}~${chsNum(gc.up[i])}`});
+  } else if (gc){
+    out.push({key:'gc', title:'큰 흐름 · 가우시안 채널', tone:'mid', word:'계산 못 함', text:`${F.label}이 ${bars.length}개 — 처음 ${gc.warm}개 봉은 값이 안정되지 않아 비웁니다`, note:'일봉·주봉에서 보세요'});
+  }
+  // ②-2 볼린저 — 평균에서 몇 σ
+  const bb = ind.bb;
+  if (bb && bb.z[i]!=null){
+    const z = bb.z[i], tone = z>=2 ? 'dn' : z<=-2 ? 'up' : 'mid';
+    const w = bb.width.slice(Math.max(0,i-F.perYear+1), i+1).filter(v=>v!=null), wMin = w.length ? Math.min(...w) : null;
+    out.push({key:'bb', title:'평균에서 거리 · 볼린저 2σ', tone, value:(z>=0?'+':'')+z.toFixed(1)+'σ',
+      word: z>=2 ? '띠 위로 벗어남' : z<=-2 ? '띠 아래로 벗어남' : Math.abs(z)<1 ? '평균 근처' : z>0 ? '평균보다 위' : '평균보다 아래',
+      text:`20${u} 평균에서 표준편차(σ)의 ${Math.abs(z).toFixed(1)}배 ${z>=0?'위':'아래'} — ±2σ 안에 대개 머뭅니다`,
+      note: wMin!=null && bb.width[i] <= wMin*1.1 ? `띠 폭 ${bb.width[i].toFixed(1)}% — 최근 1년 중 가장 좁은 편(큰 움직임 전 조용한 구간일 수 있음)` : `띠 폭 ${bb.width[i]!=null?bb.width[i].toFixed(1):'—'}% (평균 대비)`});
+  }
+  // ② RSI + 최근 다이버전스
   const r = ind.rsi[i];
   if (r!=null){
     const tone = r>=70 ? 'dn' : r<=30 ? 'up' : 'mid';
+    const dv = (ind.div||[]).filter(d=>i-d.b <= CHS_DIV.max).pop();
     out.push({key:'rsi', title:'과열·침체 · RSI(14)', tone, word:r>=70?'과열권':r<=30?'침체권':'보통',
       value:r.toFixed(0), text: r>=70 ? `최근 14${u} 동안 오른 힘이 내린 힘보다 훨씬 셉니다` : r<=30 ? `최근 14${u} 동안 내린 힘이 오른 힘보다 훨씬 셉니다` : '오른 힘과 내린 힘이 비슷한 범위입니다',
-      note:'70 이상 과열 · 30 이하 침체 — 강한 추세에서는 오래 머물 수 있음'});
+      note: dv ? `${dv.kind==='bear'?'하락 다이버전스(Bear)':'상승 다이버전스(Bull)'} · ${ago(i-dv.b)} — ${dv.kind==='bear'?'가격은 더 높은데 RSI 는 낮아짐':'가격은 더 낮은데 RSI 는 높아짐'}` : `최근 ${CHS_DIV.max}${frame==='D'?'거래일':u} 다이버전스 없음 · 70 이상 과열 · 30 이하 침체`});
   }
   // ③ MACD
   const m = ind.macd.macd[i], s = ind.macd.signal[i], h = ind.macd.hist[i], hp = ind.macd.hist[i-1];
@@ -247,8 +354,14 @@ function chsChartSvg(view){
   const sl = arr => arr.slice(off);
   const ma = CHS_MA.map(m=>({...m, vals:sl(ind.ma[m.n])}));
   // 가격 칸 — 고가·저가와 보이는 이동평균·평균 매입가를 모두 담는 범위
+  const show = view.show || _chsShow;
+  const gc = {mid:sl(ind.gc.mid), up:sl(ind.gc.up), lo:sl(ind.gc.lo), rising:sl(ind.gc.rising)};
+  const bb = {mid:sl(ind.bb.mid), up:sl(ind.bb.up), lo:sl(ind.bb.lo)};
   let lo = Math.min(...bars.map(b=>b.l)), hi = Math.max(...bars.map(b=>b.h));
-  ma.forEach(m=>m.vals.forEach(v=>{ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v); } }));
+  const widen = arr => arr.forEach(v=>{ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v); } });
+  if (show.ma) ma.forEach(m=>widen(m.vals));
+  if (show.gc){ widen(gc.up); widen(gc.lo); }
+  if (show.bb){ widen(bb.up); widen(bb.lo); }
   const avgIn = !!(avg && avg.price>=lo*0.75 && avg.price<=hi*1.25);
   view.avgShown = avgIn;
   if (avgIn){ lo=Math.min(lo,avg.price); hi=Math.max(hi,avg.price); }
@@ -264,7 +377,35 @@ function chsChartSvg(view){
     return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${Yp(b.h).toFixed(1)}" y2="${Yp(b.l).toFixed(1)}" class="${cls} chs-wick"/>`
       + `<rect x="${(x-bw/2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,y2-y1).toFixed(1)}" class="${cls}${up&&hollow?' is-hollow':''}"/>`;
   }).join('');
-  const maLines = ma.map(m=>`<path d="${chsPath(m.vals,X,Yp)}" class="chs-ma ${m.cls}"/>`).join('');
+  const maLines = show.ma ? ma.map(m=>`<path d="${chsPath(m.vals,X,Yp)}" class="chs-ma ${m.cls}"/>`).join('') : '';
+  // 가우시안 채널 — 오름(초록)·내림(빨강)이 바뀌는 구간마다 띠를 끊어 칠한다. 이웃 구간과 한 점을 겹쳐 틈이 없게.
+  let gcSvg = '';
+  if (show.gc){
+    const runs = []; let st = null;
+    gc.mid.forEach((v,i)=>{
+      if (v==null){ if (st!=null){ runs.push([st,i-1]); st=null; } return; }
+      if (st==null) st = i; else if (gc.rising[i]!==gc.rising[i-1]){ runs.push([st,i-1]); st = i; }
+    });
+    if (st!=null) runs.push([st, gc.mid.length-1]);
+    gcSvg = runs.map(([a,b])=>{
+      const a0 = a>0 && gc.mid[a-1]!=null ? a-1 : a, cls = gc.rising[b] ? 'is-up' : 'is-dn';
+      const idx = []; for (let k = a0; k <= b; k++) idx.push(k);
+      const top = idx.map(k=>`${X(k).toFixed(1)},${Yp(gc.up[k]).toFixed(1)}`).join(' L');
+      const bot = idx.slice().reverse().map(k=>`${X(k).toFixed(1)},${Yp(gc.lo[k]).toFixed(1)}`).join(' L');
+      const mid = idx.map(k=>`${X(k).toFixed(1)},${Yp(gc.mid[k]).toFixed(1)}`).join(' L');
+      return `<path d="M${top} L${bot} Z" class="chs-gc ${cls}"/><path d="M${mid}" class="chs-gc-mid ${cls}"/>`;
+    }).join('');
+  }
+  // 볼린저 — 위·아래 띠는 가는 점선, 사이는 아주 옅게
+  let bbSvg = '';
+  if (show.bb){
+    const idx = bb.up.map((v,i)=>v==null?null:i).filter(v=>v!=null);
+    if (idx.length > 1){
+      const top = idx.map(k=>`${X(k).toFixed(1)},${Yp(bb.up[k]).toFixed(1)}`).join(' L');
+      const bot = idx.slice().reverse().map(k=>`${X(k).toFixed(1)},${Yp(bb.lo[k]).toFixed(1)}`).join(' L');
+      bbSvg = `<path d="M${top} L${bot} Z" class="chs-bb-fill"/><path d="${chsPath(bb.up,X,Yp)}" class="chs-bb"/><path d="${chsPath(bb.lo,X,Yp)}" class="chs-bb"/>`;
+    }
+  }
   const avgLine = avgIn ? `<line x1="${padL}" x2="${W-padR}" y1="${Yp(avg.price).toFixed(1)}" y2="${Yp(avg.price).toFixed(1)}" class="chs-avg"/><text x="${padL+6}" y="${(Yp(avg.price)-6).toFixed(1)}" class="chs-avg-lab">내 평균 매입가 ${chsNum(avg.price,cur)}</text>` : '';
   // 거래량
   const vmax = Math.max(1, ...bars.map(b=>b.v||0));
@@ -275,6 +416,18 @@ function chsChartSvg(view){
   const rsiBand = `<rect x="${padL}" y="${Yr(100).toFixed(1)}" width="${plotW}" height="${(Yr(70)-Yr(100)).toFixed(1)}" class="chs-band is-hot"/><rect x="${padL}" y="${Yr(30).toFixed(1)}" width="${plotW}" height="${(Yr(0)-Yr(30)).toFixed(1)}" class="chs-band is-cold"/>`;
   const rsiLines = [70,30].map(v=>`<line x1="${padL}" x2="${W-padR}" y1="${Yr(v)}" y2="${Yr(v)}" class="chs-ref"/><text x="${W-padR+8}" y="${Yr(v)+4}" class="chs-ax">${v}</text>`).join('')
     + `<text x="${W-padR-6}" y="${Yr(100)+13}" class="chs-zone" text-anchor="end">과열</text><text x="${W-padR-6}" y="${Yr(0)-5}" class="chs-zone" text-anchor="end">침체</text>`;
+  // 다이버전스 — RSI 칸과 가격 칸에 두 점을 잇는 선 + 'Bear'/'Bull' 이름표(보이는 기간 안의 것만)
+  let divSvg = '';
+  if (show.div){
+    divSvg = (ind.div||[]).filter(d=>d.a>=off).map(d=>{
+      const a = d.a-off, b = d.b-off, bear = d.kind==='bear', cls = bear ? 'is-dn' : 'is-up';
+      const pa = bear ? bars[a].h : bars[a].l, pb = bear ? bars[b].h : bars[b].l;
+      const ry = Yr(ind.rsi[d.b]), lab = bear ? 'Bear' : 'Bull', ly = Math.max(P.rsi.y+1, Math.min(P.rsi.y+P.rsi.h-14, bear ? ry-16 : ry+4));
+      return `<line x1="${X(a).toFixed(1)}" x2="${X(b).toFixed(1)}" y1="${Yr(ind.rsi[d.a]).toFixed(1)}" y2="${ry.toFixed(1)}" class="chs-div ${cls}"/>`
+        + `<line x1="${X(a).toFixed(1)}" x2="${X(b).toFixed(1)}" y1="${Yp(pa).toFixed(1)}" y2="${Yp(pb).toFixed(1)}" class="chs-div ${cls}"/>`
+        + `<rect x="${(X(b)-17).toFixed(1)}" y="${ly.toFixed(1)}" width="34" height="13" rx="3" class="chs-div-tag ${cls}"/><text x="${X(b).toFixed(1)}" y="${(ly+10).toFixed(1)}" text-anchor="middle" class="chs-div-lab">${lab}</text>`;
+    }).join('');
+  }
   // MACD
   const mc = sl(ind.macd.macd), sg = sl(ind.macd.signal), hs = sl(ind.macd.hist);
   const mAbs = Math.max(1e-9, ...[...mc,...sg,...hs].filter(v=>v!=null).map(Math.abs));
@@ -293,12 +446,12 @@ function chsChartSvg(view){
   // 진행 중인 마지막 봉(이번 주·달·해)은 옅은 바탕으로 표시한다
   const prog = view.inProgress ? `<rect x="${(X(n-1)-step/2).toFixed(1)}" y="${P.price.y}" width="${step.toFixed(1)}" height="${P.macd.y+P.macd.h-P.price.y}" class="chs-prog"/>` : '';
   const panelLab = (y, t) => `<text x="${padL+4}" y="${y-8}" class="chs-plab">${t}</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="${F.label} 차트 — 가격·이동평균·거래량·RSI·MACD">
+  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="${F.label} 차트 — 가격·이동평균·가우시안 채널·볼린저·거래량·RSI·MACD">
     ${prog}${xTicks}
     ${grid(pTicks, Yp, pFmt)}
-    ${avgLine}${candles}${maLines}
+    ${gcSvg}${bbSvg}${avgLine}${candles}${maLines}
     ${panelLab(P.vol.y+2,'')}${vol}
-    ${panelLab(P.rsi.y,'RSI(14) · 과열·침체')}${rsiBand}${rsiLines}<path d="${chsPath(rsi,X,Yr)}" class="chs-rsi"/>
+    ${panelLab(P.rsi.y,'RSI(14) · 과열·침체')}${rsiBand}${rsiLines}<path d="${chsPath(rsi,X,Yr)}" class="chs-rsi"/>${divSvg}
     ${panelLab(P.macd.y,'MACD(12,26,9) · 힘')}<line x1="${padL}" x2="${W-padR}" y1="${Ym(0)}" y2="${Ym(0)}" class="chs-ref"/><text x="${W-padR+8}" y="${Ym(0)+4}" class="chs-ax">0</text>${hist}<path d="${chsPath(mc,X,Ym)}" class="chs-macd"/><path d="${chsPath(sg,X,Ym)}" class="chs-signal"/>
     <line id="chs-cross" x1="0" x2="0" y1="${P.price.y}" y2="${P.macd.y+P.macd.h}" class="chs-cross" style="display:none"/>
     <rect x="${padL}" y="${P.price.y}" width="${plotW}" height="${P.macd.y+P.macd.h-P.price.y}" fill="transparent" onmousemove="chsHover(event)" onmouseleave="chsHover(null)" data-chart-hit="chs"/>
@@ -324,6 +477,8 @@ function chsHover(evt, pre='chs'){
     + row('종가', chsNum(b.c,cur)+(chg==null?'':` <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`))
     + row('거래량', (b.v||0).toLocaleString('ko-KR'))
     + (v.maList||chsMaList(frame)).map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
+    + (v.ind.gc && v.ind.gc.mid[g]!=null ? row('가우시안 가운데', chsNum(v.ind.gc.mid[g],cur), v.ind.gc.rising[g]?'is-up':'is-dn') : '')
+    + (v.ind.bb && v.ind.bb.z[g]!=null ? row('평균에서', (v.ind.bb.z[g]>=0?'+':'')+v.ind.bb.z[g].toFixed(1)+'σ') : '')
     + row('RSI', v.ind.rsi[g]==null?'—':v.ind.rsi[g].toFixed(0))
     + row('MACD', v.ind.macd.macd[g]==null?'—':chsNum(v.ind.macd.macd[g],cur==='KRW'||cur==='JPY'?'USD':cur));
   tip.hidden = false;
@@ -331,7 +486,38 @@ function chsHover(evt, pre='chs'){
   tip.style.left = (px > box.width*0.6 ? px - tip.offsetWidth - 14 : px + 14) + 'px';
 }
 function chsOwner(o){ _chsOwner = o; cbRenderChart(); }
-function chsPick(t){ _chsTkr = t; cbRenderChart(); }
+function chsPick(t){ const row = chsHoldings(null).find(r=>r.tkr===t); _chsTkr = t; _chsPickInfo = row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:t, cur:''}; _chsSearchErr = null; chsRemember(t); cbRenderChart(); }
+function chsRemember(t){ const at = _chsRecent.indexOf(t); if (at>=0) _chsRecent.splice(at,1); _chsRecent.unshift(t); _chsRecent.length = Math.min(_chsRecent.length, 6); }
+function chsToggle(k){ if (!(k in _chsShow)) return; _chsShow[k] = !_chsShow[k]; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-show',k); }
+// 종목 검색 — 내 종목 이름·티커가 맞으면 바로, 국내 6자리 코드·미국 티커 모양이면 그대로 봉을 받아 보고,
+// 그 밖(회사 이름)이나 실패하면 앱의 종목 검색(/api/get-stock — 국내 네이버·해외 Yahoo)으로 티커를 찾는다.
+const CHS_KR_CODE = /^[0-9][0-9A-Z]{5}$/, CHS_US_TKR = /^[\^A-Z][A-Z0-9.\-=]{0,8}$/;
+async function chsSearch(q){
+  q = String(q==null ? (document.getElementById('chs-q')||{}).value||'' : q).trim();
+  _chsQuery = q; _chsSearchErr = null;
+  if (!q){ cbRenderChart(); return; }
+  const mine = chsHoldings(null), up = q.toUpperCase();
+  const hit = mine.find(r=>r.tkr===chsApiTkr(up) || r.name===q);
+  if (hit){ _chsQuery = ''; chsPick(hit.tkr); return; }
+  _chsSearchBusy = true; cbRenderChart();
+  let info = null;
+  try {
+    const direct = chsApiTkr(up);
+    if (CHS_KR_CODE.test(direct) || (/^[\x20-\x7e]+$/.test(q) && q.length<=6 && CHS_US_TKR.test(direct))){
+      try { const d = await chsFetchBars(direct, _chsFrame==='Y'?'M':_chsFrame); _chsCache[chsCacheKey(direct, _chsFrame==='Y'?'M':_chsFrame)] = d; info = {tkr:direct, name:direct, cur:d.cur}; } catch(e){ info = null; }
+    }
+    if (!info){
+      const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
+      const d = await r.json().catch(()=>null);
+      const sym = d && d.success && String(d.symbol||'').trim();
+      if (!sym) throw new Error('종목을 찾지 못했습니다 — 티커(AAPL)·6자리 코드(005930)·회사 이름으로 찾아 보세요');
+      info = {tkr:chsApiTkr(sym), name:String(d.name||sym), cur:String(d.currency||'').toUpperCase()};
+    }
+    _chsTkr = info.tkr; _chsPickInfo = info; _chsQuery = ''; chsRemember(info.tkr);
+  } catch(e){ _chsSearchErr = (e&&e.message)||'검색 실패'; }
+  finally { _chsSearchBusy = false; }
+  cbRenderChart();
+}
 function chsRangePick(r){ _chsRange = chsFrame().ranges[r] ? r : chsFrame().def; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-range',_chsRange); }
 // 봉 단위 바꾸기 — 보이는 기간은 그 단위의 기본값으로 돌린다(일봉 6개월 · 주봉 3년 · 월봉 10년 · 년봉 전체)
 function chsFramePick(f){ if (!CHS_FRAMES[f]) return; _chsFrame = f; _chsRange = CHS_FRAMES[f].def; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-frame',f); }
@@ -345,23 +531,49 @@ const CHS_GUIDE = [
   ['거래량', '그 봉 동안 거래된 주식 수 · 많을수록 그 움직임에 무게가 실림'],
   ['RSI(14)', '최근 14개 봉의 오른 폭 대 내린 폭(0~100) · 강한 추세에서는 70 위에 오래 머물기도 함'],
   ['MACD', '12개·26개 봉 평균의 차이(MACD)와 그 9개 평균(시그널선) · 막대가 커지면 그쪽 힘이 세지는 중'],
+  ['가우시안 채널', '가격을 아주 매끄럽게 만든 가운데 선(144봉, 4겹 필터) ± 하루 움직임 폭 × 1.414 · 가운데 선이 오르면 초록, 내리면 빨강 · 처음 144봉은 값이 안정되지 않아 비움'],
+  ['볼린저 2σ', '20봉 평균 ± 표준편차(σ) 2배 · 가격은 대개 이 띠 안에 머묾 · 띠가 아주 좁아지면 큰 움직임 전 조용한 구간인 경우가 많음'],
+  ['다이버전스', '가격은 더 높은 고점인데 RSI 는 더 낮은 고점 = Bear(오르는 힘이 약해짐), 반대 = Bull · 고점·저점은 오른쪽 5봉이 지나야 확정되므로 늦게 표시됨'],
 ];
 
+// 국기·자산 아이콘 — 내 종목이면 그 항목 그대로, 검색한 종목은 통화로 나라를 고른다
+function chsFlag(info, data){
+  if (info.ref) return cbFlagCell({cls:cbCls(info.ref), i:info.ref},24,14);
+  const cur = String((data&&data.cur)||info.cur||'').toUpperCase();
+  const pseudo = {tkr:info.tkr, name:info.name, grp:'주식', cur:cur||'USD'};
+  return cbFlagCell({cls:cbCls(pseudo), i:pseudo},24,14);
+}
 function cbRenderChart(){
   const el = document.getElementById('cb-chart2'); if (!el) return;
   if (_chsOwner!=='전체' && OWNERS.indexOf(_chsOwner)<0) _chsOwner = '전체';
   const ownerF = _chsOwner==='전체' ? null : _chsOwner;
   const list = chsHoldings(ownerF), F = chsFrame(), frame = CHS_FRAMES[_chsFrame] ? _chsFrame : 'D';
   if (!F.ranges[_chsRange]) _chsRange = F.def;
-  if (!_chsTkr || !list.some(r=>r.tkr===_chsTkr)) _chsTkr = list[0] ? list[0].tkr : null;
-  cbSetHead('내 종목의 봉 차트(일·주·월·년)로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
-  if (!list.length){
-    el.innerHTML = `<div class="cb-panel">${cbEmptyHtml(`${ownerF?cbEsc(ownerF)+'의 ':''}차트를 볼 주식·ETF가 없습니다`,'보유 목록에 종목을 등록하면 그 종목의 봉 차트와 지표를 여기서 볼 수 있습니다.',[CB_EMPTY_ADD])}</div>`;
+  // 처음 들어오면 내 종목 첫째(평가액 순)를 보여 주고, 그 뒤로는 검색한 종목을 유지한다
+  if (!_chsTkr && list[0]){ _chsTkr = list[0].tkr; _chsPickInfo = {tkr:list[0].tkr, name:list[0].name, cur:list[0].cur, ref:list[0].ref}; }
+  cbSetHead('미국·국내 종목을 검색해 봉 차트(일·주·월·년)로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
+  // 검색 줄 — 검색 상자 + 내 종목·최근 검색 바로가기(소유주 버튼이 '내 종목' 범위를 정한다)
+  const chip = (t, label, on) => `<button class="trd-chip${on?' is-on':''}" onclick="chsPick('${cbEsc(t)}')"${on?' aria-current="true"':''}>${cbEsc(label)}</button>`;
+  const recent = _chsRecent.filter(t=>!list.slice(0,8).some(r=>r.tkr===t));
+  const search = `<div class="chs-search">
+      <form class="trd-form chs-form" onsubmit="event.preventDefault();chsSearch()">
+        <label class="sr-only" for="chs-q">종목 이름·티커·코드</label>
+        <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="종목 검색 — 애플, AAPL, 삼성전자, 005930, SOXX" value="${cbEsc(_chsQuery)}">
+        <button class="cb-btn" type="submit"${_chsSearchBusy?' disabled':''}>${_chsSearchBusy?'찾는 중…':'보기'}</button>
+      </form>
+      ${list.length?`<div class="trd-chips"><span>${ownerF?cbEsc(ownerF)+' 종목':'내 종목'}</span>${list.slice(0,8).map(r=>chip(r.tkr, r.name.length>10?r.tkr:r.name, r.tkr===_chsTkr)).join('')}</div>`:''}
+      ${recent.length?`<div class="trd-chips"><span>최근</span>${recent.map(t=>chip(t, t, t===_chsTkr)).join('')}</div>`:''}
+      ${_chsSearchErr?`<p class="trd-err" role="alert">${cbEsc(_chsSearchErr)}</p>`:''}
+    </div>`;
+  if (!_chsTkr){
+    el.innerHTML = `<div class="cb-panel chs-panel">${search}${cbEmptyHtml('볼 종목을 검색하세요','종목 이름이나 티커를 넣으면 그 종목의 봉 차트와 지표를 여기서 봅니다.',[])}</div>`;
     return;
   }
-  const row = list.find(r=>r.tkr===_chsTkr), key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
+  const info = _chsPickInfo && _chsPickInfo.tkr===_chsTkr ? _chsPickInfo : {tkr:_chsTkr, name:_chsTkr, cur:''};
+  const row = chsHoldings(ownerF).find(r=>r.tkr===_chsTkr) || null;
+  const key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
   if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
-  const sel = `<label class="chs-pick"><span class="sr-only">종목</span><select class="cb-input" onchange="chsPick(this.value)">${list.map(r=>`<option value="${cbEsc(r.tkr)}"${r.tkr===_chsTkr?' selected':''}>${cbEsc(r.name)}${r.name!==r.tkr?' · '+cbEsc(r.tkr):''}</option>`).join('')}</select></label>`;
+  const sel = `<div class="owner-tabs chs-show" role="group" aria-label="겹쳐 그릴 지표">${CHS_OVERLAYS.map(([k,l])=>`<button class="owner-btn${_chsShow[k]?' active':''}" data-chs-show="${k}" aria-pressed="${_chsShow[k]}" onclick="chsToggle('${k}')">${l}</button>`).join('')}</div>`;
   const frames = `<div class="owner-tabs chs-frames" role="group" aria-label="봉 단위">${Object.entries(CHS_FRAMES).map(([k,f])=>`<button class="owner-btn${k===frame?' active':''}" data-chs-frame="${k}" aria-pressed="${k===frame}" onclick="chsFramePick('${k}')">${f.label}</button>`).join('')}</div>`;
   const rangeKeys = Object.keys(F.ranges);
   // 년봉은 '전체' 하나뿐이지만 그대로 그린다. 봉 단위 버튼은 맨 오른쪽에 둔다 — 기간 버튼 수가 바뀌어도 누른 자리에서 움직이지 않게
@@ -374,11 +586,11 @@ function cbRenderChart(){
     _chsView = null;
   } else {
     const all = data.bars, ind = chsIndicators(all), keep = Math.min(all.length, F.ranges[_chsRange][1]);
-    const off = all.length - keep, bars = all.slice(off), cur = data.cur || row.cur;
-    const avg = row.cur===cur ? chsAvg(row) : null;
+    const off = all.length - keep, bars = all.slice(off), cur = data.cur || info.cur || '';
+    const avg = row && row.cur===cur ? chsAvg(row) : null;
     const last = all[all.length-1], prev = all[all.length-2], chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t);
     const inProgress = chsInProgress(last, frame);
-    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress};
+    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}};
     const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
     const MA = chsMaList(frame);
@@ -386,14 +598,15 @@ function cbRenderChart(){
     const fewBars = [...MA.filter(m=>all.length<m.n).map(m=>m.label), ...(all.length<=14?['RSI(14)']:[]), ...(all.length<34?['MACD']:[])];
     body = `<div class="chs-top">
         <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${when} · Yahoo ${F.label}</small></div>
-        <div class="chs-legend" aria-label="범례">${MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label}${m.sub?` <small>${m.sub}</small>`:''}</span>`).join('')}${_chsView.avgShown?'<span><i class="chs-sw is-avg"></i>내 평균 매입가</span>':avg?`<span class="chs-avg-off">내 평균 매입가 ${chsNum(avg.price,cur)} — 이 기간 가격 범위 밖</span>`:''}</div>
+        <div class="chs-legend" aria-label="범례">${_chsShow.ma?MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label}${m.sub?` <small>${m.sub}</small>`:''}</span>`).join(''):''}${_chsShow.gc?'<span><i class="chs-sw is-gc"></i>가우시안 채널 <small>오름 초록 · 내림 빨강</small></span>':''}${_chsShow.bb?'<span><i class="chs-sw is-bb"></i>볼린저 ±2σ</span>':''}${_chsView.avgShown?'<span><i class="chs-sw is-avg"></i>내 평균 매입가</span>':avg?`<span class="chs-avg-off">내 평균 매입가 ${chsNum(avg.price,cur)} — 이 기간 가격 범위 밖</span>`:''}</div>
       </div>
       ${fewBars.length||inProgress?`<p class="chs-note">${inProgress?`마지막 봉(옅은 바탕)은 아직 끝나지 않은 이번 ${frame==='W'?'주':frame==='M'?'달':'해'}입니다 — 끝날 때까지 모양이 바뀝니다. `:''}${fewBars.length?`${F.label}이 ${all.length}개뿐이라 ${fewBars.join('·')}은 그릴 수 없습니다.`:''}</p>`:''}
       <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${svg}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
-      <div class="chs-reads">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
+      <div class="chs-reads" style="--chs-cols:${reads.length<=4?reads.length:Math.ceil(reads.length/2)}">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
   }
   el.innerHTML = `<div class="cb-panel chs-panel">
-      <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
+      ${search}
+      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
       ${body}
     </div>
     <div class="cb-panel chs-guide">

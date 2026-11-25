@@ -1655,6 +1655,24 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .chs-svg .chs-band.is-hot{fill:var(--dn);opacity:.07}
 .chs-svg .chs-band.is-cold{fill:var(--up);opacity:.07}
 .chs-svg .chs-cross{stroke:var(--t2);stroke-width:1;stroke-dasharray:3 3}
+/* 차트 공부 — 종목 검색·겹쳐 그릴 지표(2026-11-26) */
+.chs-search{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--bd)}
+.chs-search .trd-form{max-width:560px}
+.chs-search .trd-chips{margin:0}
+.chs-search .trd-chip.is-on{border-color:var(--acc);color:var(--acc)}
+.chs-mine{margin-left:8px;padding:1px 7px;border-radius:20px;border:1px solid var(--bd2);font-size:var(--fs-cap);font-weight:700;color:var(--lab)}
+.chs-sw.is-gc{height:8px;background:var(--up);opacity:.45}
+.chs-sw.is-bb{height:0;border-top:1.5px dashed var(--t3);background:none}
+.chs-svg .chs-gc{stroke:none;opacity:.13}
+.chs-svg .chs-gc.is-up{fill:var(--up)}.chs-svg .chs-gc.is-dn{fill:var(--dn)}
+.chs-svg .chs-gc-mid{fill:none;stroke-width:2.4;opacity:.85}
+.chs-svg .chs-gc-mid.is-up{stroke:var(--up)}.chs-svg .chs-gc-mid.is-dn{stroke:var(--dn)}
+.chs-svg .chs-bb{fill:none;stroke:var(--t3);stroke-width:1.1;stroke-dasharray:4 3}
+.chs-svg .chs-bb-fill{fill:var(--t3);opacity:.06;stroke:none}
+.chs-svg .chs-div{stroke-width:1.6}
+.chs-svg .chs-div.is-dn{stroke:var(--dn)}.chs-svg .chs-div.is-up{stroke:var(--up)}
+.chs-svg .chs-div-tag.is-dn{fill:var(--dn)}.chs-svg .chs-div-tag.is-up{fill:var(--up)}
+.chs-svg .chs-div-lab{fill:var(--on-acc);font-size:var(--fs-cap);font-weight:800}
 .chs-prog{fill:var(--acc);opacity:.07}
 .chs-note{margin:6px 0 0;font-size:var(--fs-cap);color:var(--lab)}
 .chs-tip{position:absolute;top:8px;z-index:3;min-width:180px;padding:9px 11px;border-radius:var(--r-md);background:var(--tipbg);border:1px solid var(--tipbd);box-shadow:var(--tipshadow);font-size:var(--fs-cap);color:var(--tiptx);pointer-events:none}
@@ -1663,7 +1681,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .chs-tip em{font-style:normal;font-weight:700;margin-left:4px}
 .chs-tip .chs-tip-date{display:block;font-weight:700;color:var(--tx);margin-bottom:2px}
 .chs-msg{padding:60px 0;text-align:center;color:var(--lab);font-size:var(--fs-body)}
-.chs-reads{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.chs-reads{display:grid;grid-template-columns:repeat(var(--chs-cols,4),minmax(0,1fr));gap:10px;margin-top:12px}
 .chs-read{padding:12px 13px;border-radius:var(--r-md);background:var(--inner-bg);border:1px solid var(--bd)}
 .chs-read-head{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-cap);color:var(--lab);font-weight:700}
 .chs-read-head b{font-size:var(--fs-card);color:var(--tx)}
