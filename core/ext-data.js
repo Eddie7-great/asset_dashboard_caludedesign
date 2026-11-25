@@ -241,7 +241,7 @@ function cssVar(name, fallback){
 function applyChartTheme(){
   if(typeof Chart==='undefined') return;
   const t1=cssVar('--t1','#0f172a'), t2=cssVar('--t2','#475569'),
-        glass=cssVar('--modal-bg','#ffffff'), border=cssVar('--panel-border','#e3e8ef'),
+        glass=cssVar('--tipbg','#ffffff'), border=cssVar('--tipbd','#e3e8ef'),
         grid=cssVar('--grid','rgba(120,120,120,.15)');
   Chart.defaults.color=t2;
   Chart.defaults.borderColor=grid;

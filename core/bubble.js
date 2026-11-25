@@ -535,12 +535,12 @@ function renderBubbleChart(mode) {
     // 바닥이다(10 일 때 화면 전체가 10px 로 내려앉았다). 13px 로도 안 들어가는 칸은 숨기고 호버로 확인한다.
     uniformtext: { minsize: 13, mode: 'hide' },
     hoverlabel: {
-      bgcolor: cssVar('--tipbg',isDark?'#f4f7fb':'#18213a'),
-      bordercolor: cssVar('--tipbd',isDark?'#ffffff':'#31405e'),
+      bgcolor: cssVar('--tipbg',isDark?'#14161c':'#fafcff'),
+      bordercolor: cssVar('--tipbd',isDark?'#3a3d44':'#d5dbe6'),
       font: {
         family: "'Manrope','Noto Sans KR',sans-serif",
         size: 13,
-        color: cssVar('--tiptx',isDark?'#111827':'#f8fafc')
+        color: cssVar('--tiptx',isDark?'#e7e9ee':'#18213a')
       }
     },
     transition: { duration: 450, easing: 'cubic-in-out' }

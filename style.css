@@ -39,12 +39,14 @@
       --acc2:#0f9488;--acc3:#7c3aed;
       --acct-gen:#5b7fbf;--acct-isa:#2f9e8f;--acct-pen:#b7791f;
       /* 차트 공부 이동평균선 20·60·120일 — dataviz validate_palette 라이트(흰 바탕) 통과, 2026-11-25 */
-      --ma-20:#d6a300;--ma-60:#6a4ce2;--ma-120:#1f8fb3;
+      --ma-20:#d6a300;--ma-60:#6a4ce2;--ma-120:#1f8fb3;--ma-200:#4a5160;
       --acc-soft:rgba(42,111,219,.10);--acc-soft2:rgba(42,111,219,.20);
       --t1:#18213a;--t2:#4a5878;--t3:#596783;
       --up:#178a52;--div-bar:#3f63c9;--flow-in:#3f63c9;--dn:#cf3d5c;--warn:#d97706;--gold:#b8860b;--purple:#7c3aed;
       --grid:rgba(24,40,80,.08);
-      --tipbg:#18213a;--tiptx:#f8fafc;--tipbd:#31405e
+      /* 말풍선·차트 설명 상자는 테마를 따른다(2026-11-25 사용자 요청 — 다크에서 어떤 건 흰 상자, 어떤 건 검은 상자였다).
+         모든 설명 상자(.table-float-tip·차트 hover·Chart.js·Plotly)가 이 세 토큰만 쓴다. */
+      --tipbg:var(--modal-bg);--tiptx:var(--t1);--tipbd:var(--border-dark);--tipshadow:0 8px 24px rgba(24,40,80,.16)
     }
 
 /* ── 접근성·입력 장치 보완 ─────────────────────────────── */
@@ -185,12 +187,12 @@
       /* 그라파이트(무채색) 바탕에서는 파란 밑줄이 따로 논다 — 지금 화면 표시는 밝은 회백색 */
       --nav-on:#f2f4f7;--sticky-bg:rgba(30,32,38,.55);
       --acct-gen:#8fb0ea;--acct-isa:#5fd0c0;--acct-pen:#e3b25c;
-      --ma-20:#d28e05;--ma-60:#8f7cf0;--ma-120:#20a3b8;
+      --ma-20:#d28e05;--ma-60:#8f7cf0;--ma-120:#20a3b8;--ma-200:#c9cfd8;
       --acc-soft:rgba(122,162,255,.13);--acc-soft2:rgba(122,162,255,.26);
       --t1:#e7e9ee;--t2:#c2c8d2;--t3:#a9b0bc;
       --up:#34d399;--div-bar:#7d9bf0;--flow-in:#7d9bf0;--dn:#f87171;--warn:#fbbf24;--gold:#fbbf24;--purple:#a78bfa;
       --grid:rgba(255,255,255,.08);
-      --tipbg:#f4f7fb;--tiptx:#111827;--tipbd:#ffffff;
+      --tipbg:var(--modal-bg);--tiptx:var(--t1);--tipbd:var(--border-dark);--tipshadow:0 12px 30px rgba(0,0,0,.42);
       --side-bg:var(--glass);--side-border:var(--glass-edge);--side-tx:#e7e9ee;--side-mut:#c2c8d2;--side-dim:#a9b0bc;
       --side-hover:rgba(255,255,255,.06);--side-active-bg:rgba(255,255,255,.12);--side-active-tx:#ffffff;
       --side-inner:rgba(255,255,255,.05);--side-line:rgba(255,255,255,.08);
@@ -215,7 +217,6 @@
       --nav-on:var(--acc);--sticky-bg:rgba(10,38,62,.5);
       --acct-gen:#7fb8e6;
       --grid:rgba(170,200,255,.12);
-      --tiptx:#0a1733;
       --side-tx:#eef3ff;--side-mut:#c6d1ea;--side-dim:#a9b6d4;
       --side-hover:rgba(255,255,255,.07);--side-active-bg:rgba(255,255,255,.16);
       --side-inner:rgba(255,255,255,.06);--side-line:rgba(170,200,255,.12);
@@ -250,7 +251,7 @@
       max-height:calc(100vh - 24px);overflow-y:auto;
       white-space:pre-line;word-break:keep-all;overflow-wrap:break-word;background:var(--tipbg);color:var(--tiptx);
       border:1px solid var(--tipbd);border-radius:var(--r-md);padding:8px 11px;
-      box-shadow:0 12px 30px rgba(0,0,0,.42);font-size:var(--fs-cap);font-weight:500;
+      box-shadow:var(--tipshadow);font-size:var(--fs-cap);font-weight:500;
       line-height:1.55;letter-spacing:0;pointer-events:none;box-sizing:border-box
     }
     .cb-chart-tip{word-break:keep-all;overflow-wrap:break-word}
@@ -268,10 +269,7 @@
       --mut:color-mix(in srgb,var(--tiptx) 82%,transparent);
       --lab:color-mix(in srgb,var(--tiptx) 68%,transparent);
       --dim:color-mix(in srgb,var(--tiptx) 58%,transparent);
-      --bd:color-mix(in srgb,var(--tiptx) 22%,transparent);
-      --up:color-mix(in srgb,var(--tiptx) 58%,#10b981 42%);
-      --dn:color-mix(in srgb,var(--tiptx) 58%,#ef476f 42%);
-      --warn:color-mix(in srgb,var(--tiptx) 58%,#f59e0b 42%)
+      --bd:color-mix(in srgb,var(--tiptx) 22%,transparent)
     }
     body{margin:0;padding:0;height:100vh;height:100dvh;overflow:hidden;background:var(--app-mesh),var(--app-base);background-attachment:fixed;font-family:var(--font-ui);color:var(--t1);letter-spacing:-0.01em;transition:background .3s,color .3s}
     .f-col{display:flex;flex-direction:column}.f-row{display:flex;align-items:center}.f-between{display:flex;justify-content:space-between;align-items:center}

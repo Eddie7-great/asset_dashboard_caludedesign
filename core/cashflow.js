@@ -770,12 +770,16 @@ function cfRateTrendHtml(rates){
     if(r.rate==null) return `<div class="cf-rate-col is-none${last?' is-on':''}" title="${r.y}년 ${r.m}월 · 수입 기록 없음"><b>—</b><span class="cf-rate-bar"><i></i></span><small>${r.m}월</small></div>`;
     const h=Math.max(0,Math.min(100,r.rate));
     const neg=r.rate<0;
-    return `<div class="cf-rate-col${last?' is-on':''}${neg?' is-neg':''}" title="${r.y}년 ${r.m}월 · 수입 ${won(r.tIn)} 중 ${won(r.kept)} 남김">`
-      +`<b>${Math.round(r.rate)}%</b><span class="cf-rate-bar"><i style="height:${h.toFixed(1)}%"></i></span><small>${r.m}월</small></div>`;
+    // 수입보다 지출이 큰 달(남긴 돈 < 0)은 비율이 −1,000%처럼 커져 뜻이 사라진다(분모인 수입이 작을 뿐이다).
+    // 비율 대신 '적자'라고만 적고, 모자란 금액·정확한 비율은 말풍선에만 둔다(2026-11-25). 6개월 합계 비율은 그대로.
+    const label=neg?'적자':`${Math.round(r.rate)}%`;
+    const tip=neg?`${r.y}년 ${r.m}월 · 수입 ${won(r.tIn)}보다 ${won(-r.kept)} 더 씀 (저축률 ${Math.round(r.rate).toLocaleString()}%)`:`${r.y}년 ${r.m}월 · 수입 ${won(r.tIn)} 중 ${won(r.kept)} 남김`;
+    return `<div class="cf-rate-col${last?' is-on':''}${neg?' is-neg':''}" title="${tip}">`
+      +`<b>${label}</b><span class="cf-rate-bar"><i style="height:${h.toFixed(1)}%"></i></span><small>${r.m}월</small></div>`;
   }).join('');
   return `<div class="cf-rate-head"><span data-tip="소득에서 소비지출을 뺀 비율입니다. '저축/투자' 지출은 자산으로 옮겨 간 돈이라 소비에서 뺍니다 — 선택 달 요약의 저축률과 같은 계산입니다.">저축률 추이</span>`
     +(avg!=null?`<small>6개월 합계 <b>${avg.toFixed(1)}%</b></small>`:'')+`</div>`
-    +`<div class="cf-rate-cols" role="img" aria-label="최근 6개월 저축률 ${rates.map(r=>r.m+'월 '+(r.rate==null?'없음':Math.round(r.rate)+'%')).join(', ')}">${cols}</div>`;
+    +`<div class="cf-rate-cols" role="img" aria-label="최근 6개월 저축률 ${rates.map(r=>r.m+'월 '+(r.rate==null?'없음':r.rate<0?'적자':Math.round(r.rate)+'%')).join(', ')}">${cols}</div>`;
 }
 
 function renderCashFlow() {
@@ -1006,7 +1010,7 @@ function cfMonthSummaryHtml(tIn, tOut, expByCat){
     + (savingOut>0?`<div class="cf-summary-row"><span style="padding-left:9px;color:var(--t3);font-size:var(--fs-cap)">└ 저축/투자 (자산 이동)</span><b style="font-size:var(--fs-body);color:var(--t2)">${won(savingOut)}</b></div>`:'')
     + `<div class="cf-summary-row is-net"><span>순현금흐름</span><b class="${net>0?'c-up':(net<0?'c-dn':'')}">${net===0?'₩0':(net>0?'+':'')+won(net)}</b></div>`
     + `<div class="cf-summary-row"><span data-tip="소득에서 소비지출을 뺀 비율입니다. '저축/투자' 지출은 통장에서 빠져나가도 자산으로 옮겨 간 돈이라 소비에서 제외합니다 — 그래서 순현금흐름과 다를 수 있습니다.">저축률</span>`
-    + `<b>${rate==null?'—':rate.toFixed(1)+'%'}</b></div>`
+    + `<b${rate!=null&&rate<0?` class="c-dn" title="저축률 ${Math.round(rate).toLocaleString()}% — 수입보다 지출이 커 비율 대신 적자로 표시"`:''}>${rate==null?'—':rate<0?'적자':rate.toFixed(1)+'%'}</b></div>`
     + `<div class="cf-summary-rate-track"><i style="width:${rate==null?0:Math.max(0,Math.min(100,rate)).toFixed(1)}%"></i></div>`
     + pending
     + `<div class="cf-summary-note">이 달에 기록된 내역과 예정된 자동이체를 합산한 값입니다. 수입이 없는 달은 저축률을 내지 않습니다.</div>`;

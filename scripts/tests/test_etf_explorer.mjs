@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {load} from 'cheerio';
 import { readSource } from './_source.mjs'
-const ctx=vm.createContext({console,Date,Map,Set,window:{},cbStrip:t=>String(t||'').replace(/\.(KS|KQ)$/,'')});
+const ctx=vm.createContext({console,Date,Map,Set,window:{},cbStrip:t=>String(t||'').replace(/\.(KS|KQ)$/,''),cbOwnerTag:o=>`<span class="cb-owner-tag">${o}</span>`});
 vm.runInContext(fs.readFileSync('etf-explorer.js','utf8'),ctx);
 const s=(holdings,extra={})=>({name:'Fund',asOf:'2026-09-07',source:'provider',coverage:'full',holdings,...extra});
 const h=(t,w)=>({t,n:t,w});
@@ -106,8 +106,19 @@ ctx.cbAllRows=()=>[row('본인','F',100,true)];ctx.cbEtfDoc=()=>partial;
 const unknownHtml=load(ctx.etfExposureHtml('NVDA',{t:'NVDA',n:'NVIDIA'}));
 assert.equal(unknownHtml('.etf-exposure-total strong').text(),'미확인');
 assert.match(unknownHtml('.etf-stock-split').text(),/비율 미확정/);
-assert.equal(unknownHtml('details.etf-owner-exposure > summary.etf-owner-summary').length,1,'The complete owner card is a native keyboard-operable disclosure');
-assert.equal(unknownHtml('details details').length,0,'No nested disclosure targets');
+// 소유주 카드는 창을 여는 버튼이다(2026-11-25 사용자 요청) — 카드 안에서 펼치지 않고, 계산 내역은 창(#etf-exp-pop)에만 있다.
+assert.equal(unknownHtml('button.etf-owner-exposure[aria-haspopup="dialog"]').length,1,'소유주 카드는 창을 여는 버튼');
+assert.equal(unknownHtml('details').length,0,'카드 안에서 펼치는 details 는 없다');
+assert.equal(unknownHtml('.etf-exposure-details').length,0,'계산 내역은 카드가 아니라 창에 그린다');
+assert.equal(ctx.etfExpPopHtml('NVDA',{t:'NVDA',n:'NVIDIA'}),'','고른 소유주가 없으면 창을 그리지 않는다');
+vm.runInContext("_etfExpOwner='본인'",ctx);
+const popHtml=load(ctx.etfExpPopHtml('NVDA',{t:'NVDA',n:'NVIDIA'}));
+assert.equal(popHtml('#etf-exp-pop[class~="modal-overlay"] [role="dialog"][aria-modal="true"]').length,1,'창은 modal-overlay + role=dialog');
+assert.equal(popHtml('.etf-exposure-details').length,1,'창 안에 금액·ETF별 계산');
+assert.equal(popHtml('.etf-exposure-total strong').text(),'미확인','창의 숫자는 카드와 같은 계산(etfExposure)');
+vm.runInContext("_etfExpOwner='없는 사람'",ctx);
+assert.equal(ctx.etfExpPopHtml('NVDA',{t:'NVDA',n:'NVIDIA'}),'','없어진 소유주면 창을 닫는다');
+assert.equal(vm.runInContext('_etfExpOwner',ctx),null);
 const toggleContext=vm.createContext({document:{activeElement:null},cbRestoreFilterFocus(){}});
 vm.runInContext(fs.readFileSync('etf-explorer.js','utf8'),toggleContext);
 vm.runInContext('etfRefreshResults=()=>{};cbRenderEtfExplorer=()=>{};',toggleContext);
@@ -150,8 +161,13 @@ assert.match(explorerSource,/class="etf-filters">[\s\S]{0,600}class="etf-compare
 assert.match(explorerSource,/<span>종목<\/span><span>비중<\/span><span>변화<\/span>/,'변화 칼럼을 상시 포함한다');
 assert.match(explorerSource,/const deltas=new Map\(diff\.rows\.map/,'변화는 비교 스냅샷을 티커로 찾아 붙인다');
 // 점검 ETF 는 본문을 가리지 않게 페이지 하단, 출처 바로 위로 내렸다.
-assert.match(explorerSource,/id="etf-network"><\/section>\s*\$\{etfInspectionHtml\(m\.funds\)\}\s*<details class="cb-panel etf-method">/,'점검 위젯은 소유주별 비중 뒤, 출처 앞이다');
-assert.match(explorerCss,/\.etf-fund-value\{display:flex;flex-direction:row/,'선택 ETF 평가액은 라벨과 값을 나란히 놓는다');
+assert.match(explorerSource,/id="etf-network"><\/section><div id="etf-exp-pop-host"><\/div>\s*\$\{etfInspectionHtml\(m\.funds\)\}\s*<details class="cb-panel etf-method">/,'점검 위젯은 소유주별 비중 뒤, 출처 앞이다 · 창 자리는 유리 카드 밖');
+// 보유 ETF 머리는 [선택·자료 상태] 카드 + 숫자 카드 셋(2026-11-25 사용자 요청 — 한 카드에 여러 정보가 섞여 있었다)
+assert.match(explorerSource,/<div class="etf-top">\s*<section class="cb-panel etf-pick"/,'선택 카드가 머리의 첫 칸');
+assert.equal((explorerSource.match(/class="cb-panel holdings-kpi etf-kpi"/g)||[]).length,3,'평가액·평가손익·보유 수량 숫자 카드 셋');
+assert.doesNotMatch(explorerSource,/etf-toolbar-summary|etf-fund-value|etf-fund-stats/,'예전 한 줄 머리는 없앴다');
+assert.doesNotMatch(explorerSource,/선택 ETF · 조회된 주식/,"'조회된 주식 비중'은 구성 비중 분포 카드 바닥과 같은 숫자라 머리에서 뺐다");
+assert.match(explorerCss,/\.etf-top\{display:grid;grid-template-columns:minmax\(300px,1\.5fr\) repeat\(3,minmax\(0,1fr\)\)/);
 // 점검 위젯은 '왜 점검인지'만 남긴다 — 소스 시도 이력은 툴바의 role="status" 줄에 계속 있다.
 assert.doesNotMatch(explorerSource,/state\?\.attempts\|\|\[\]/,'점검 행에서 소스 시도 이력을 빼 사유를 앞세운다');
 assert.match(explorerSource,/etf-inspection-row[\s\S]{0,400}\$\{cbEsc\(q\.label\)\} · 기준/,'이름과 한 줄 사유만 남긴다');

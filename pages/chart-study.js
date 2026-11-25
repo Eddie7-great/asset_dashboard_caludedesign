@@ -4,11 +4,32 @@
 // 계산은 아래 순수 함수(chsSma·chsEma·chsRsi·chsMacd·chsReadings)만 쓰고, 그리는 쪽은 그 결과를 그대로 옮긴다.
 // 장중 봉(complete:false)은 버린다 — 앱의 다른 시세와 같은 '직전 종가' 기준이다.
 
-let _chsTkr = null, _chsRange = '6M', _chsOwner = '전체';
+let _chsTkr = null, _chsRange = '6M', _chsOwner = '전체', _chsFrame = 'D';
 const _chsCache = {}, _chsErr = {};
 let _chsLoading = null, _chsView = null;
-const CHS_RANGES = {'3M':63, '6M':126, '1Y':252};
-const CHS_MA = [{n:20,label:'20일선',sub:'약 한 달',cls:'ma20'},{n:60,label:'60일선',sub:'약 석 달',cls:'ma60'},{n:120,label:'120일선',sub:'약 반년',cls:'ma120'}];
+// 봉 단위(2026-11-25 사용자 요청) — 일봉·주봉·월봉은 Yahoo 가 그 단위로 준 봉 그대로, 년봉은 월봉을 해마다 묶는다.
+// 지표의 '기간'은 봉 개수다: 주봉의 20선 = 20주 평균, RSI(14) = 최근 14주. 일봉 캐시 키는 티커 그대로(리스크 화면과 공유).
+// unit = 봉 하나의 이름(일·주·개월·년), perYear = 1년에 봉이 몇 개인지(고점 찾는 구간), ranges = 보이는 봉 수.
+const CHS_FRAMES = {
+  D:{label:'일봉', unit:'일', interval:'1d', range:'2y', perYear:252, ranges:{'3M':['3개월',63],'6M':['6개월',126],'1Y':['1년',252]}, def:'6M',
+     subs:['약 한 달','약 석 달','약 반년','약 10개월']},
+  W:{label:'주봉', unit:'주', interval:'1wk', range:'10y', perYear:52, ranges:{'1Y':['1년',52],'3Y':['3년',156],'5Y':['5년',260]}, def:'3Y',
+     subs:['약 5개월','약 1년 2개월','약 2년 3개월','약 4년']},
+  M:{label:'월봉', unit:'개월', interval:'1mo', range:'max', perYear:12, ranges:{'5Y':['5년',60],'10Y':['10년',120],'ALL':['전체',9999]}, def:'10Y',
+     subs:['약 1년 8개월','5년','10년','약 17년']},
+  Y:{label:'년봉', unit:'년', interval:'1mo', range:'max', perYear:1, ranges:{'ALL':['전체',9999]}, def:'ALL',
+     subs:['','','','']},
+};
+// 200선(2026-11-25 사용자 요청) — 가장 긴 흐름선. 색은 무채색(--ma-200)이라 오름·내림 봉 색과 겹치지 않는다.
+const CHS_MA_N = [20,60,120,200];
+function chsFrame(){ return CHS_FRAMES[_chsFrame] || CHS_FRAMES.D; }
+// 이동평균 이름표 — 봉 단위를 따른다(20일선·20주선·20개월선·20년선)
+function chsMaList(frame){
+  const f = CHS_FRAMES[frame] || CHS_FRAMES.D;
+  return CHS_MA_N.map((n,k)=>({n, label:`${n}${f.unit}선`, sub:f.subs[k], cls:'ma'+n}));
+}
+// 예전 이름 그대로 — 일봉 기준(리스크 화면·테스트가 쓰지 않아도 남겨 둔다)
+const CHS_MA = chsMaList('D');
 
 // ── 지표 계산(순수 함수) ──
 function chsSma(values, n){
@@ -65,30 +86,31 @@ function chsLastCross(a, b){
 }
 function chsIndicators(bars){
   const closes = bars.map(b=>b.c);
-  const ma = {}; CHS_MA.forEach(m=>{ ma[m.n] = chsSma(closes, m.n); });
+  const ma = {}; CHS_MA_N.forEach(n=>{ ma[n] = chsSma(closes, n); });
   return {closes, ma, rsi:chsRsi(closes,14), macd:chsMacd(closes)};
 }
 // 지금 읽기 — 마지막 봉 기준. 판정 단어는 화면 색(오름 --up · 내림 --dn · 보통 --lab)과 함께 쓴다.
-function chsReadings(bars, ind, avg){
+function chsReadings(bars, ind, avg, frame='D'){
   const i = bars.length-1; if (i < 1) return [];
-  const c = bars[i].c, out = [];
-  // ① 추세 — 가격이 세 선 위·아래 몇 개
-  const ab = CHS_MA.map(m=>ind.ma[m.n][i]==null ? null : c > ind.ma[m.n][i]);
+  const c = bars[i].c, out = [], F = CHS_FRAMES[frame] || CHS_FRAMES.D, u = F.unit, MA = chsMaList(frame);
+  const ago = k => k===0 ? ({D:'오늘',W:'이번 주',M:'이번 달',Y:'올해'})[frame] : frame==='D' ? `${k}거래일 전` : `${k}${u} 전`;
+  // ① 추세 — 가격이 이동평균선(20·60·120·200) 위·아래 몇 개
+  const ab = MA.map(m=>ind.ma[m.n][i]==null ? null : c > ind.ma[m.n][i]);
   const known = ab.filter(v=>v!=null), above = known.filter(Boolean).length;
   const cross = chsLastCross(ind.ma[20], ind.ma[60]);
   const trendTone = known.length && above===known.length ? 'up' : above===0&&known.length ? 'dn' : 'mid';
   const trendWord = trendTone==='up' ? '오름 추세' : trendTone==='dn' ? '내림 추세' : '엇갈림';
   const trendText = known.length
-    ? `가격이 ${CHS_MA.map((m,k)=>ab[k]==null?null:`${m.n}일선 ${ab[k]?'위':'아래'}`).filter(Boolean).join(' · ')}`
-    : '기간이 짧아 이동평균을 아직 못 그립니다';
+    ? `가격이 ${MA.map((m,k)=>ab[k]==null?null:`${m.label} ${ab[k]?'위':'아래'}`).filter(Boolean).join(' · ')}`
+    : '봉이 적어 이동평균을 아직 못 그립니다';
   out.push({key:'trend', title:'추세 · 이동평균', tone:trendTone, word:trendWord, text:trendText,
-    note: cross ? `20일선이 60일선을 ${cross.kind==='golden'?'위로 뚫음(골든크로스)':'아래로 뚫음(데드크로스)'} · ${cross.ago===0?'오늘':cross.ago+'거래일 전'}` : '최근 20일선·60일선 교차 없음'});
+    note: cross ? `${MA[0].label}이 ${MA[1].label}을 ${cross.kind==='golden'?'위로 뚫음(골든크로스)':'아래로 뚫음(데드크로스)'} · ${ago(cross.ago)}` : `최근 ${MA[0].label}·${MA[1].label} 교차 없음`});
   // ② RSI
   const r = ind.rsi[i];
   if (r!=null){
     const tone = r>=70 ? 'dn' : r<=30 ? 'up' : 'mid';
     out.push({key:'rsi', title:'과열·침체 · RSI(14)', tone, word:r>=70?'과열권':r<=30?'침체권':'보통',
-      value:r.toFixed(0), text: r>=70 ? '최근 14일 동안 오른 힘이 내린 힘보다 훨씬 셉니다' : r<=30 ? '최근 14일 동안 내린 힘이 오른 힘보다 훨씬 셉니다' : '오른 힘과 내린 힘이 비슷한 범위입니다',
+      value:r.toFixed(0), text: r>=70 ? `최근 14${u} 동안 오른 힘이 내린 힘보다 훨씬 셉니다` : r<=30 ? `최근 14${u} 동안 내린 힘이 오른 힘보다 훨씬 셉니다` : '오른 힘과 내린 힘이 비슷한 범위입니다',
       note:'70 이상 과열 · 30 이하 침체 — 강한 추세에서는 오래 머물 수 있음'});
   }
   // ③ MACD
@@ -97,18 +119,20 @@ function chsReadings(bars, ind, avg){
     const upSide = m > s, growing = hp!=null && Math.abs(h) > Math.abs(hp);
     out.push({key:'macd', title:'힘 · MACD', tone:upSide?'up':'dn', word:upSide?'오름 힘 우세':'내림 힘 우세',
       text:`MACD가 시그널선 ${upSide?'위':'아래'} · 막대가 ${growing?'커지는':'작아지는'} 중`,
-      note: m>0 ? '0선 위 — 짧은 평균(12일)이 긴 평균(26일)보다 높음' : '0선 아래 — 짧은 평균(12일)이 긴 평균(26일)보다 낮음'});
+      note: m>0 ? `0선 위 — 짧은 평균(12${u})이 긴 평균(26${u})보다 높음` : `0선 아래 — 짧은 평균(12${u})이 긴 평균(26${u})보다 낮음`});
   }
   // ④ 내 평균 매입가·고점
-  const hi = Math.max(...bars.slice(-252).map(b=>b.h));
+  // 고점 — 최근 1년(봉 perYear 개). 년봉은 봉 하나가 1년이라 전체 기간의 최고가를 쓴다.
+  const hiSpan = frame==='Y' ? bars : bars.slice(-F.perYear), hiWord = frame==='Y' ? '전체 기간' : '최근 1년';
+  const hi = Math.max(...hiSpan.map(b=>b.h));
   const fromHi = hi>0 ? (c/hi-1)*100 : null;
   if (avg && avg.price>0){
     const pct = (c/avg.price-1)*100;
     out.push({key:'avg', title:'내 평균 매입가', tone:pct>=0?'up':'dn', word:(pct>=0?'+':'')+pct.toFixed(1)+'%',
       text:`지금 가격이 내 평균 매입가보다 ${Math.abs(pct).toFixed(1)}% ${pct>=0?'높습니다':'낮습니다'}`,
-      note: fromHi!=null ? `최근 1년 고점보다 ${fromHi.toFixed(1)}%` : ''});
+      note: fromHi!=null ? `${hiWord} 고점보다 ${fromHi.toFixed(1)}%` : ''});
   } else if (fromHi!=null){
-    out.push({key:'avg', title:'고점과의 거리', tone:fromHi>-5?'up':'mid', word:fromHi.toFixed(1)+'%', text:'최근 1년 가장 높았던 가격과의 거리', note:''});
+    out.push({key:'avg', title:'고점과의 거리', tone:fromHi>-5?'up':'mid', word:fromHi.toFixed(1)+'%', text:`${hiWord} 가장 높았던 가격과의 거리`, note:''});
   }
   return out;
 }
@@ -133,20 +157,56 @@ function chsAvg(row){ return row && row.qty>0 && row.cost>0 ? {price:row.cost/ro
 
 // ── 시세 받기 ──
 // 2년 일봉 한 종목 — 리스크 화면의 '실제 흔들림' 카드도 같은 캐시(_chsCache)를 함께 쓴다. 끝나지 않은 봉은 버린다.
-async function chsFetchBars(tkr){
-  const r = await authFetch(`/api/price?type=ohlcv&tkr=${encodeURIComponent(tkr)}&range=2y`);
+// 봉의 기간 열쇠 — 같은 주(월요일)·달·해에 든 봉은 같은 열쇠. Yahoo 주·월봉은 이번 기간 봉 뒤에 오늘 줄을
+// 하나 더 붙여 줄 때가 있어 같은 열쇠끼리 합친다(시가는 앞, 종가는 뒤, 고가·저가는 넓게, 거래량은 더함).
+function chsPeriodKey(t, frame){
+  const d = new Date(t*1000), y = d.getUTCFullYear(), m = d.getUTCMonth();
+  if (frame==='Y') return String(y);
+  if (frame==='M') return y+'-'+m;
+  if (frame==='W'){ const dow = (d.getUTCDay()+6)%7; return String(Math.floor(t/86400) - dow); }
+  return String(Math.floor(t/86400));
+}
+function chsMergeBars(bars, frame){
+  const out = [];
+  bars.forEach(b=>{
+    const k = chsPeriodKey(b.t, frame), last = out[out.length-1];
+    if (last && last._k===k){ last.h = Math.max(last.h,b.h); last.l = Math.min(last.l,b.l); last.c = b.c; last.v = (last.v||0)+(b.v||0); last.tEnd = b.t; }
+    else out.push({_k:k, t:b.t, tEnd:b.t, o:b.o, h:b.h, l:b.l, c:b.c, v:b.v||0});
+  });
+  return out.map(({_k, ...b})=>b);
+}
+// 마지막 봉이 아직 끝나지 않은 기간(이번 주·이번 달·올해)인지 — 화면에 '진행 중'으로 적는다. 일봉은 서버가 이미 장중 봉을 뺐다.
+function chsInProgress(bar, frame, now=new Date()){
+  if (!bar || frame==='D') return false;
+  return chsPeriodKey(bar.t, frame) === chsPeriodKey(Math.floor(now.getTime()/1000), frame);
+}
+async function chsFetchBars(tkr, frame='D'){
+  const F = CHS_FRAMES[frame] || CHS_FRAMES.D;
+  const r = await authFetch(`/api/price?type=ohlcv&tkr=${encodeURIComponent(tkr)}&range=${F.range}${F.interval!=='1d'?'&interval='+F.interval:''}`);
   const d = await r.json();
-  const bars = (d&&d.success&&Array.isArray(d.bars) ? d.bars : [])
+  let bars = (d&&d.success&&Array.isArray(d.bars) ? d.bars : [])
     .filter(b=>b && b.complete!==false && [b.o,b.h,b.l,b.c].every(v=>Number.isFinite(v)&&v>0));
-  if (bars.length < 30) throw new Error('일봉이 30개보다 적습니다');
+  if (frame!=='D') bars = chsMergeBars(bars, frame);
+  const need = frame==='D' ? 30 : frame==='Y' ? 2 : 10;
+  if (bars.length < need) throw new Error(`${F.label}이 ${need}개보다 적습니다`);
   return {bars, cur:String(d.currency||'').toUpperCase(), symbol:d.symbol||tkr, at:Date.now()};
 }
-async function chsLoad(tkr){
-  if (!tkr || _chsCache[tkr] || _chsLoading===tkr) return;
-  _chsLoading = tkr; delete _chsErr[tkr];
-  try { _chsCache[tkr] = await chsFetchBars(tkr); }
-  catch(e){ _chsErr[tkr] = (e&&e.message)||'조회 실패'; }
-  finally { if (_chsLoading===tkr) _chsLoading = null; }
+function chsCacheKey(tkr, frame){ return frame==='D' ? tkr : frame+':'+tkr; }
+async function chsLoad(tkr, frame=_chsFrame){
+  const key = chsCacheKey(tkr, frame);
+  if (!tkr || _chsCache[key] || _chsLoading===key) return;
+  _chsLoading = key; delete _chsErr[key];
+  // 년봉은 월봉(같은 조회)을 해마다 묶는다 — 월봉 캐시가 있으면 다시 받지 않는다
+  try {
+    if (frame==='Y'){
+      const monthly = _chsCache[chsCacheKey(tkr,'M')] || (_chsCache[chsCacheKey(tkr,'M')] = await chsFetchBars(tkr,'M'));
+      const yearly = chsMergeBars(monthly.bars, 'Y');
+      if (yearly.length < 2) throw new Error('년봉이 2개보다 적습니다');
+      _chsCache[key] = {...monthly, bars:yearly};
+    } else _chsCache[key] = await chsFetchBars(tkr, frame);
+  }
+  catch(e){ _chsErr[key] = (e&&e.message)||'조회 실패'; }
+  finally { if (_chsLoading===key) _chsLoading = null; }
   if (_cobaltActive==='chart2') cbRenderChart();
 }
 
@@ -173,8 +233,11 @@ function chsPath(vals, X, Y){
   vals.forEach((v,i)=>{ if (v==null){ pen=false; return; } d += (pen?'L':'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); pen = true; });
   return d;
 }
+// 날짜 눈금 — 봉 단위마다 다른 간격: 일봉 = 달이 바뀌는 첫 봉(1년이면 두 달마다), 주봉 = 분기, 월봉·년봉 = 해.
+function chsTickKey(d, frame){ return frame==='D' ? d.y*12+d.m : frame==='W' ? d.y*4+Math.floor((d.m-1)/3) : d.y; }
+function chsTickLabel(d, frame){ return frame==='D'||frame==='W' ? `${d.m===1||frame==='W'&&d.m<=3?d.y+'년 ':''}${d.m}월` : `${d.y}년`; }
 function chsChartSvg(view){
-  const {bars, ind, off, cur, avg} = view;
+  const {bars, ind, off, cur, avg} = view, frame = view.frame || 'D', F = CHS_FRAMES[frame] || CHS_FRAMES.D, CHS_MA = chsMaList(frame);
   const n = bars.length, W = 1100, padL = 10, padR = 66;
   const P = {price:{y:14,h:290}, vol:{y:312,h:52}, rsi:{y:396,h:86}, macd:{y:514,h:100}};
   const H = 646, plotW = W-padL-padR, step = plotW/n;
@@ -215,16 +278,21 @@ function chsChartSvg(view){
   const mAbs = Math.max(1e-9, ...[...mc,...sg,...hs].filter(v=>v!=null).map(Math.abs));
   const Ym = v => P.macd.y + P.macd.h/2 - v/mAbs*(P.macd.h/2)*0.92;
   const hist = hs.map((v,i)=>v==null?'':`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Math.min(Ym(v),Ym(0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(Ym(v)-Ym(0)).toFixed(1)}" class="${v>=0?'chs-up':'chs-dn'} chs-hist"/>`).join('');
-  // 날짜 눈금 — 달이 바뀌는 첫 봉(1년이면 두 달마다)
-  const every = n > 180 ? 2 : 1; let lastM = null, k = 0;
+  // 날짜 눈금 — 봉 단위마다 다른 간격(chsTickKey), 눈금이 12개를 넘으면 건너뛴다
+  const keys = bars.map(b=>chsTickKey(chsDate(b.t), frame));
+  const changes = keys.filter((k,i)=>i>0 && k!==keys[i-1]).length;
+  const every = Math.max(1, Math.ceil(changes/12)); let k = 0;
   const xTicks = bars.map((b,i)=>{
-    const d = chsDate(b.t); if (d.m===lastM) return ''; lastM = d.m;
-    if (i===0 || (k++ % every)) return '';
-    return `<line x1="${X(i).toFixed(1)}" x2="${X(i).toFixed(1)}" y1="${P.price.y}" y2="${P.macd.y+P.macd.h}" class="chs-vgrid"/><text x="${X(i).toFixed(1)}" y="${H-8}" class="chs-ax" text-anchor="middle">${d.m===1?d.y+'년 ':''}${d.m}월</text>`;
+    if (i===0 || keys[i]===keys[i-1]) return '';
+    if ((k++ % every)) return '';
+    const d = chsDate(b.t);
+    return `<line x1="${X(i).toFixed(1)}" x2="${X(i).toFixed(1)}" y1="${P.price.y}" y2="${P.macd.y+P.macd.h}" class="chs-vgrid"/><text x="${X(i).toFixed(1)}" y="${H-8}" class="chs-ax" text-anchor="middle">${chsTickLabel(d, frame)}</text>`;
   }).join('');
+  // 진행 중인 마지막 봉(이번 주·달·해)은 옅은 바탕으로 표시한다
+  const prog = view.inProgress ? `<rect x="${(X(n-1)-step/2).toFixed(1)}" y="${P.price.y}" width="${step.toFixed(1)}" height="${P.macd.y+P.macd.h-P.price.y}" class="chs-prog"/>` : '';
   const panelLab = (y, t) => `<text x="${padL+4}" y="${y-8}" class="chs-plab">${t}</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="일봉 차트 — 가격·이동평균·거래량·RSI·MACD">
-    ${xTicks}
+  return `<svg viewBox="0 0 ${W} ${H}" class="chs-svg" role="img" aria-label="${F.label} 차트 — 가격·이동평균·거래량·RSI·MACD">
+    ${prog}${xTicks}
     ${grid(pTicks, Yp, pFmt)}
     ${avgLine}${candles}${maLines}
     ${panelLab(P.vol.y+2,'')}${vol}
@@ -243,14 +311,16 @@ function chsHover(evt){
   const x = (evt.clientX-rect.left)*scale, n = v.bars.length, step = (1100-10-66)/n;
   const i = Math.max(0, Math.min(n-1, Math.floor((x-10)/step)));
   const cx = 10+(i+0.5)*step; line.setAttribute('x1',cx); line.setAttribute('x2',cx); line.style.display='';
-  const b = v.bars[i], g = i+v.off, prev = v.allBars[g-1], d = chsDate(b.t), cur = v.cur;
+  const b = v.bars[i], g = i+v.off, prev = v.allBars[g-1], d = chsDate(b.t), cur = v.cur, frame = v.frame || 'D';
+  const dateLab = frame==='Y' ? `${d.y}년` : frame==='M' ? `${d.y}년 ${d.m}월` : frame==='W' ? `${d.y}년 ${d.m}월 ${d.d}일 주` : `${d.y}년 ${d.m}월 ${d.d}일`;
+  const progLab = v.inProgress && i===v.bars.length-1 ? ' · 진행 중' : '';
   const chg = prev ? (b.c/prev.c-1)*100 : null;
   const row = (k,val,cls='') => `<div><span>${k}</span><b class="cb-num ${cls}">${val}</b></div>`;
-  tip.innerHTML = `<div class="chs-tip-date">${d.y}년 ${d.m}월 ${d.d}일</div>`
+  tip.innerHTML = `<div class="chs-tip-date">${dateLab}${progLab}</div>`
     + row('시가', chsNum(b.o,cur)) + row('고가', chsNum(b.h,cur)) + row('저가', chsNum(b.l,cur))
     + row('종가', chsNum(b.c,cur)+(chg==null?'':` <em class="${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em>`))
     + row('거래량', (b.v||0).toLocaleString('ko-KR'))
-    + CHS_MA.map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
+    + chsMaList(frame).map(m=>row(m.label, chsNum(v.ind.ma[m.n][g],cur))).join('')
     + row('RSI', v.ind.rsi[g]==null?'—':v.ind.rsi[g].toFixed(0))
     + row('MACD', v.ind.macd.macd[g]==null?'—':chsNum(v.ind.macd.macd[g],cur==='KRW'||cur==='JPY'?'USD':cur));
   tip.hidden = false;
@@ -259,59 +329,73 @@ function chsHover(evt){
 }
 function chsOwner(o){ _chsOwner = o; cbRenderChart(); }
 function chsPick(t){ _chsTkr = t; cbRenderChart(); }
-function chsRangePick(r){ _chsRange = CHS_RANGES[r] ? r : '6M'; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-range',_chsRange); }
+function chsRangePick(r){ _chsRange = chsFrame().ranges[r] ? r : chsFrame().def; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-range',_chsRange); }
+// 봉 단위 바꾸기 — 보이는 기간은 그 단위의 기본값으로 돌린다(일봉 6개월 · 주봉 3년 · 월봉 10년 · 년봉 전체)
+function chsFramePick(f){ if (!CHS_FRAMES[f]) return; _chsFrame = f; _chsRange = CHS_FRAMES[f].def; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-frame',f); }
 
+// '읽는 법'은 항목마다 한 줄 요약(2026-11-25 사용자 요청 — 예전 두 문단 펼침은 장황했다)
 const CHS_GUIDE = [
-  ['봉(캔들)', '하루 가격을 막대 하나로 그립니다. 몸통은 시가에서 종가까지, 위아래 가는 선(꼬리)은 그날 가장 높았던 값과 낮았던 값입니다. 속이 빈 막대는 그날 오른 날, 꽉 찬 막대는 내린 날입니다.', '아래꼬리가 길면 장중에 많이 빠졌다가 다시 올라와 끝났다는 뜻입니다.'],
-  ['이동평균선', '최근 N일 종가의 평균을 이은 선입니다. 20일선은 약 한 달, 60일선은 약 석 달, 120일선은 약 반년의 평균 가격입니다.', '가격이 선 위에 있으면 그 기간 평균보다 비싸게 거래되는 중입니다. 짧은 선이 긴 선을 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스라고 부릅니다. 이미 지난 가격의 평균이라 늦게 반응합니다.'],
-  ['거래량', '그날 사고판 주식 수입니다.', '거래량이 많은 날의 움직임은 많은 사람이 그 가격에 동의했다는 뜻이라 무게가 더 실립니다.'],
-  ['RSI(14)', '최근 14일 동안 오른 날의 폭과 내린 날의 폭을 견줘 0~100으로 나타냅니다.', '70 이상은 짧은 기간 많이 올랐다는 과열, 30 이하는 많이 내렸다는 침체입니다. 강한 오름세에서는 70 위에 오래 머물기도 해서, 과열이 곧 하락을 뜻하지는 않습니다.'],
-  ['MACD', '12일과 26일 지수이동평균(최근 값에 무게를 더 준 평균)의 차이가 MACD 선, 그 9일 평균이 시그널선, 둘의 차이가 막대입니다.', 'MACD가 시그널선 위에 있으면 오르는 힘이 우세하고, 막대가 커지면 그 힘이 세지는 중입니다. 0선 위는 짧은 평균이 긴 평균보다 높다는 뜻입니다.'],
+  ['판단 기준', '추세 = 가격이 이동평균선 넷보다 모두 위면 오름, 모두 아래면 내림, 섞이면 엇갈림 · 과열·침체 = RSI 70 이상·30 이하 · 힘 = MACD 선이 시그널선 위면 오름 우세'],
+  ['기간·숫자', '기간은 봉 개수(주봉의 20선 = 20주 평균) · 20·60·120·200, 14, 12·26·9 는 널리 쓰는 기본값'],
+  ['봉', '한 봉 = 하루·한 주·한 달·한 해 · 몸통은 시가→종가, 꼬리는 최고·최저 · 빈 막대 오름, 찬 막대 내림'],
+  ['이동평균선', '최근 N개 봉 종가의 평균 · 가격이 선 위면 평균보다 비싸게 거래 중 · 짧은 선이 긴 선을 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스'],
+  ['거래량', '그 봉 동안 거래된 주식 수 · 많을수록 그 움직임에 무게가 실림'],
+  ['RSI(14)', '최근 14개 봉의 오른 폭 대 내린 폭(0~100) · 강한 추세에서는 70 위에 오래 머물기도 함'],
+  ['MACD', '12개·26개 봉 평균의 차이(MACD)와 그 9개 평균(시그널선) · 막대가 커지면 그쪽 힘이 세지는 중'],
 ];
 
 function cbRenderChart(){
   const el = document.getElementById('cb-chart2'); if (!el) return;
   if (_chsOwner!=='전체' && OWNERS.indexOf(_chsOwner)<0) _chsOwner = '전체';
   const ownerF = _chsOwner==='전체' ? null : _chsOwner;
-  const list = chsHoldings(ownerF);
+  const list = chsHoldings(ownerF), F = chsFrame(), frame = CHS_FRAMES[_chsFrame] ? _chsFrame : 'D';
+  if (!F.ranges[_chsRange]) _chsRange = F.def;
   if (!_chsTkr || !list.some(r=>r.tkr===_chsTkr)) _chsTkr = list[0] ? list[0].tkr : null;
-  cbSetHead('내 종목의 일봉으로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
+  cbSetHead('내 종목의 봉 차트(일·주·월·년)로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
   if (!list.length){
     el.innerHTML = `<div class="cb-panel">${cbEmptyHtml(`${ownerF?cbEsc(ownerF)+'의 ':''}차트를 볼 주식·ETF가 없습니다`,'보유 목록에 종목을 등록하면 그 종목의 봉 차트와 지표를 여기서 볼 수 있습니다.',[CB_EMPTY_ADD])}</div>`;
     return;
   }
-  const row = list.find(r=>r.tkr===_chsTkr), data = _chsCache[_chsTkr];
-  if (!data && !_chsErr[_chsTkr]) chsLoad(_chsTkr);
+  const row = list.find(r=>r.tkr===_chsTkr), key = chsCacheKey(_chsTkr, frame), data = _chsCache[key];
+  if (!data && !_chsErr[key]) chsLoad(_chsTkr, frame);
   const sel = `<label class="chs-pick"><span class="sr-only">종목</span><select class="cb-input" onchange="chsPick(this.value)">${list.map(r=>`<option value="${cbEsc(r.tkr)}"${r.tkr===_chsTkr?' selected':''}>${cbEsc(r.name)}${r.name!==r.tkr?' · '+cbEsc(r.tkr):''}</option>`).join('')}</select></label>`;
-  const ranges = `<div class="owner-tabs" role="group" aria-label="기간">${Object.keys(CHS_RANGES).map(k=>`<button class="owner-btn${k===_chsRange?' active':''}" data-chs-range="${k}" aria-pressed="${k===_chsRange}" onclick="chsRangePick('${k}')">${k==='3M'?'3개월':k==='6M'?'6개월':'1년'}</button>`).join('')}</div>`;
+  const frames = `<div class="owner-tabs chs-frames" role="group" aria-label="봉 단위">${Object.entries(CHS_FRAMES).map(([k,f])=>`<button class="owner-btn${k===frame?' active':''}" data-chs-frame="${k}" aria-pressed="${k===frame}" onclick="chsFramePick('${k}')">${f.label}</button>`).join('')}</div>`;
+  const rangeKeys = Object.keys(F.ranges);
+  // 년봉은 '전체' 하나뿐이지만 그대로 그린다. 봉 단위 버튼은 맨 오른쪽에 둔다 — 기간 버튼 수가 바뀌어도 누른 자리에서 움직이지 않게
+  const ranges = `<div class="owner-tabs" role="group" aria-label="보이는 기간">${rangeKeys.map(k=>`<button class="owner-btn${k===_chsRange?' active':''}" data-chs-range="${k}" aria-pressed="${k===_chsRange}" onclick="chsRangePick('${k}')">${F.ranges[k][0]}</button>`).join('')}</div>`;
   let body;
   if (!data){
-    body = _chsErr[_chsTkr]
-      ? `<div class="chs-msg">일봉을 받지 못했습니다(${cbEsc(_chsErr[_chsTkr])}). <button class="cb-btn" onclick="delete _chsErr['${cbEsc(_chsTkr)}'];cbRenderChart()">다시 시도</button></div>`
-      : `<div class="chs-msg" role="status">일봉을 받는 중…</div>`;
+    body = _chsErr[key]
+      ? `<div class="chs-msg">${F.label}을 받지 못했습니다(${cbEsc(_chsErr[key])}). <button class="cb-btn" onclick="delete _chsErr['${cbEsc(key)}'];cbRenderChart()">다시 시도</button></div>`
+      : `<div class="chs-msg" role="status">${F.label}을 받는 중…</div>`;
     _chsView = null;
   } else {
-    const all = data.bars, ind = chsIndicators(all), keep = Math.min(all.length, CHS_RANGES[_chsRange]);
+    const all = data.bars, ind = chsIndicators(all), keep = Math.min(all.length, F.ranges[_chsRange][1]);
     const off = all.length - keep, bars = all.slice(off), cur = data.cur || row.cur;
     const avg = row.cur===cur ? chsAvg(row) : null;
-    _chsView = {bars, allBars:all, ind, off, cur, avg};
     const last = all[all.length-1], prev = all[all.length-2], chg = prev ? (last.c/prev.c-1)*100 : 0, d = chsDate(last.t);
-    const reads = chsReadings(all, ind, avg);
+    const inProgress = chsInProgress(last, frame);
+    _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress};
+    const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
+    const MA = chsMaList(frame);
+    const when = frame==='D' ? `${d.m}월 ${d.d}일 종가` : inProgress ? `이번 ${frame==='W'?'주':frame==='M'?'달':'해'} 진행 중 · 전 봉 대비` : '마지막 봉 종가 · 전 봉 대비';
+    const fewBars = [...MA.filter(m=>all.length<m.n).map(m=>m.label), ...(all.length<=14?['RSI(14)']:[]), ...(all.length<34?['MACD']:[])];
     body = `<div class="chs-top">
-        <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${d.m}월 ${d.d}일 종가 · Yahoo 일봉</small></div>
-        <div class="chs-legend" aria-label="범례">${CHS_MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label} <small>${m.sub}</small></span>`).join('')}${_chsView.avgShown?'<span><i class="chs-sw is-avg"></i>내 평균 매입가</span>':avg?`<span class="chs-avg-off">내 평균 매입가 ${chsNum(avg.price,cur)} — 이 기간 가격 범위 밖</span>`:''}</div>
+        <div class="chs-price"><b class="cb-num">${chsNum(last.c,cur)}</b> <span class="chs-cur">${cbEsc(cur)}</span> <em class="cb-num ${chg>=0?'is-up':'is-dn'}">${chg>=0?'+':''}${chg.toFixed(2)}%</em><small>${when} · Yahoo ${F.label}</small></div>
+        <div class="chs-legend" aria-label="범례">${MA.map(m=>`<span><i class="chs-sw ${m.cls}"></i>${m.label}${m.sub?` <small>${m.sub}</small>`:''}</span>`).join('')}${_chsView.avgShown?'<span><i class="chs-sw is-avg"></i>내 평균 매입가</span>':avg?`<span class="chs-avg-off">내 평균 매입가 ${chsNum(avg.price,cur)} — 이 기간 가격 범위 밖</span>`:''}</div>
       </div>
+      ${fewBars.length||inProgress?`<p class="chs-note">${inProgress?`마지막 봉(옅은 바탕)은 아직 끝나지 않은 이번 ${frame==='W'?'주':frame==='M'?'달':'해'}입니다 — 끝날 때까지 모양이 바뀝니다. `:''}${fewBars.length?`${F.label}이 ${all.length}개뿐이라 ${fewBars.join('·')}은 그릴 수 없습니다.`:''}</p>`:''}
       <div class="chs-plot cb-chart-scroll"><div class="chs-plot-inner">${svg}<div id="chs-tip" class="chs-tip" hidden></div></div></div>
       <div class="chs-reads">${reads.map(r=>`<div class="chs-read is-${r.tone}"><div class="chs-read-head"><span>${r.title}</span>${r.value?`<b class="cb-num">${r.value}</b>`:''}</div><div class="chs-read-word">${r.word}</div><p>${r.text}</p>${r.note?`<small>${r.note}</small>`:''}</div>`).join('')}</div>`;
   }
   el.innerHTML = `<div class="cb-panel chs-panel">
-      <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${ranges}</div></div>
+      <div class="chs-head"><div class="cb-panel-title">${cbFlagCell({cls:cbCls(row.ref),i:row.ref},24,14)}${cbEsc(row.name)}${row.name!==row.tkr?` <span class="chs-tkr">${cbEsc(row.tkr)}</span>`:''}</div><div class="chs-tools">${sel}${ranges}${frames}</div></div>
       ${body}
     </div>
     <div class="cb-panel chs-guide">
       <div class="cb-panel-title">읽는 법</div>
-      <div class="chs-guide-grid">${CHS_GUIDE.map(([t,what,how])=>`<details class="chs-guide-item"><summary>${t}</summary><p>${what}</p><p>${how}</p></details>`).join('')}</div>
-      <small class="fin-callout">차트는 지난 가격을 요약한 것이고 앞날을 알려 주지 않습니다. 지표는 공부용이며 사고팔 때의 신호로 쓰지 마세요. 가격은 Yahoo 일봉(장이 끝난 날만)이라 증권사 화면과 조금 다를 수 있습니다.</small>
+      <dl class="chs-guide-list">${CHS_GUIDE.map(([t,line])=>`<div><dt>${t}</dt><dd>${line}</dd></div>`).join('')}</dl>
+      <small class="fin-callout">공부용 — 지난 가격을 요약한 것이라 매매 신호가 아닙니다. Yahoo Finance 가격(배당·분할 보정 전)이라 증권사 화면과 조금 다를 수 있습니다.</small>
     </div>`;
 }

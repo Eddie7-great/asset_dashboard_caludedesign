@@ -549,9 +549,9 @@ function cbRenderTax(){
               <summary class="cb-tax-month-sum">
                 <span class="cb-tax-month-name">${g.m}월</span>
                 <span class="cb-tax-month-count">${g.rows.length}건</span>
-                <span class="cb-tax-month-split">${g.dom?`국내 <b class="cb-num" style="${cbGainStyle(g.dom)}">${(g.dom>0?'+':'')+cbKrw(g.dom)}</b>`:''}${g.dom&&g.frn?' · ':''}${g.frn?`해외 <b class="cb-num" style="${cbGainStyle(g.frn)}">${(g.frn>0?'+':'')+cbKrw(g.frn)}</b>`:''}</span>
-                <span class="cb-num cb-tax-month-total" style="${cbGainStyle(g.total)}">${(g.total>0?'+':'')+cbKrw(g.total)}</span>
+                <span class="cb-num cb-tax-month-total cb-tip-block" style="${cbGainStyle(g.total)}"${g.dom&&g.frn?` data-tip="국내 ${(g.dom>0?'+':'')+cbKrw(g.dom)} · 해외 ${(g.frn>0?'+':'')+cbKrw(g.frn)}"`:''}>${(g.total>0?'+':'')+cbKrw(g.total)}</span>
                 <span class="cb-num cb-tax-month-cum" style="${cbGainStyle(g.cum)}">${g.cum>=0?'+':''}${cbKrw(g.cum)}</span>
+                <span class="cb-tax-month-caret" aria-hidden="true"></span>
               </summary>
               ${g.rows.map(t=>{ const taxId=Number(t.id), treatment=cbTaxTreatment(t), cumulative=annualCumulative.get(t)||0; return `
             <div class="cb-tax-hist-row">
