@@ -381,10 +381,13 @@ function renderAutoTransfers() {
 
 function toggleAtCycleFields() {
   const cycle = document.getElementById('at-cycle')?.value;
+  // 일회성 입력에서는 자동이체 결제일·요일 칸을 띄우지 않는다 — 예전엔 자동이체 → 일회성으로 돌아오면
+  // '날짜(일)' 칸이 남아 날짜 칸이 두 개처럼 보였다(2026-11-25).
+  const isAuto = !!document.getElementById('cfmode-auto')?.checked;
   const domRow = document.getElementById('at-dom-row');
   const dowRow = document.getElementById('at-dow-row');
-  if(domRow) domRow.style.display = cycle==='monthly'?'':'none';
-  if(dowRow) dowRow.style.display = cycle==='weekly'?'':'none';
+  if(domRow) domRow.style.display = isAuto&&cycle==='monthly'?'':'none';
+  if(dowRow) dowRow.style.display = isAuto&&cycle==='weekly'?'':'none';
 }
 
 function toggleCfMode() {
@@ -398,6 +401,9 @@ function toggleCfMode() {
   if(fixedFlag) fixedFlag.style.display = isAuto?'flex':'none';
   const giftFlag = document.getElementById('cf-gift-flag-group');
   if(giftFlag) giftFlag.style.display = isAuto?'flex':'none';
+  // 두 체크를 담은 묶음 — 일회성에서는 통째로 숨겨 둘째 줄에 빈 간격이 남지 않게 한다
+  const checks = document.getElementById('cf-entry-checks');
+  if(checks) checks.style.display = isAuto?'flex':'none';
   // 주기 관련 필드 표시
   toggleAtCycleFields();
 }

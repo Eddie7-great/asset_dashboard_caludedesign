@@ -797,27 +797,47 @@
     .cf-flow-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:8px;font-size:var(--fs-cap);color:var(--t2)}
     .cf-flow-foot>b{font-family:var(--font-num);font-size:var(--fs-body)}
     .cf-flow-foot>span{color:var(--t3)}
-    .cf-xfer-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-bottom:8px;padding:8px 10px;border-radius:var(--r-md);background:var(--inner-bg)}
-    .cf-xfer-form label{display:flex;flex-direction:column;gap:3px;font-size:var(--fs-cap);color:var(--t2)}
-    .cf-xfer-form .form-input{width:150px}
+    /* 송금 입력 상자(2026-11-25 여백 정리) — 제목·설명 한 줄 → 날짜·금액·버튼 한 줄. 아래 흐름 카드와 12px 띄운다. */
+    .cf-xfer-form{display:flex;flex-direction:column;gap:10px;margin:2px 0 12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--r-md);background:var(--inner-bg)}
+    .cf-xfer-form-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+    .cf-xfer-form-head>b{font-size:var(--fs-body);font-weight:700;color:var(--t1)}
+    .cf-xfer-form-head>span{font-size:var(--fs-cap);color:var(--t3)}
+    .cf-xfer-form-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px}
+    .cf-xfer-form label{display:flex;flex-direction:column;gap:4px;flex:1 1 150px;max-width:220px;font-size:var(--fs-cap);color:var(--t2)}
+    .cf-xfer-form .form-input{width:100%;height:36px;box-sizing:border-box}
+    .cf-xfer-form-actions{display:flex;gap:8px;margin-left:auto}
     .cf-xfer-form .btn-submit,.cf-xfer-form .cf-xfer-btn{height:36px}
-    .cf-xfer-form-title{align-self:center;font-weight:700;font-size:var(--fs-cap);color:var(--t1)}
+    .cf-xfer-btn{display:inline-flex;align-items:center;gap:5px}
+    .cf-xfer-btn.is-open{border-color:var(--acc);color:var(--acc)}
+    .cf-xfer-caret{font-style:normal;font-size:var(--fs-cap);line-height:1;color:var(--t3)}
+    .cf-xfer-btn.is-open .cf-xfer-caret{color:inherit}
     .cf-xfer-tag{font-size:var(--fs-cap);font-weight:700;color:var(--acc);background:var(--acc-soft);border-radius:var(--r-sm);padding:1px 6px}
     .cf-row-muted td{color:var(--t3)}
     .cf-chart-summary{margin-top:auto;padding-top:10px;border-top:1px dashed var(--border-dark);flex-shrink:0;display:flex;flex-direction:column;gap:6px}
     #cf-input-panel .cf-entry-form{max-width:none;display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:2px}
     #cf-input-panel .cf-entry-form .form-group{flex:0 0 auto;min-width:0;gap:4px}
     #cf-input-panel .cf-entry-form .form-input{width:100%;height:36px;box-sizing:border-box;padding:7px 8px;white-space:nowrap}
-    #cf-input-panel .cf-entry-owner{width:92px}
-    #cf-input-panel .cf-entry-date{width:132px}
-    #cf-input-panel .cf-entry-cycle{width:112px}
-    #cf-input-panel .cf-entry-day{width:72px}
-    #cf-input-panel .cf-entry-type{width:78px}
-    #cf-input-panel .cf-entry-category{width:132px}
-    #cf-input-panel .cf-entry-desc{flex:1 1 190px!important;min-width:170px!important}
-    #cf-input-panel .cf-entry-amount{width:110px}
-    #cf-input-panel #cf-fixed-flag-group{flex:0 0 auto;min-width:104px}
-    #cf-input-panel #btn-cf-submit{flex:0 0 auto;padding-left:15px;padding-right:15px}
+    /* 두 줄 고정(2026-11-25): 첫 줄 칸들은 폭을 나눠 줄을 채우고(flex-grow), .cf-entry-break 가 줄을 끊는다.
+       둘째 줄은 내용이 남는 폭을 갖고 금액·표시 체크·저장이 오른쪽에 붙는다. */
+    #cf-input-panel .cf-entry-form{row-gap:10px}
+    #cf-input-panel .cf-entry-owner{flex:1 1 84px!important;max-width:120px}
+    #cf-input-panel .cf-entry-date{flex:2 1 132px!important}
+    #cf-input-panel .cf-entry-cycle{flex:1.4 1 100px!important}
+    #cf-input-panel .cf-entry-day{flex:1 1 72px!important;max-width:110px}
+    #cf-input-panel .cf-entry-type{flex:1 1 76px!important;max-width:110px}
+    #cf-input-panel .cf-entry-category{flex:2 1 124px!important}
+    #cf-input-panel .cf-entry-break{flex:0 0 100%;height:0}
+    #cf-input-panel .cf-entry-desc{flex:1 1 150px!important;min-width:140px!important}
+    #cf-input-panel .cf-entry-amount{flex:0 1 130px!important;min-width:100px}
+    #cf-input-panel .cf-entry-checks{flex:0 0 auto;align-items:center;gap:12px;height:36px}
+    #cf-input-panel .cf-entry-checks>label{margin-top:0}
+    #cf-input-panel #btn-cf-submit{flex:0 0 auto;height:36px;padding-left:16px;padding-right:16px}
+    /* 입력 상자가 좁으면(약 560px 미만) 두 체크를 위아래로 쌓아 둘째 줄이 세 줄로 접히지 않게 한다 */
+    #cf-input-panel{container-type:inline-size}
+    @container (max-width:600px){
+      #cf-input-panel .cf-entry-checks{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px}
+      #cf-input-panel .cf-entry-checks>label{height:17px}
+    }
     .cf-section-tabs{display:inline-flex;align-self:flex-start;gap:3px;padding:3px;background:var(--inner-bg);border:1px solid var(--border-dark);border-radius:var(--r-md);flex-shrink:0}
     .cf-section-tab{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--t3);border-radius:var(--r-md);padding:6px 13px;font:700 var(--fs-cap)/1 var(--font-ui);cursor:pointer;white-space:nowrap}
     .cf-section-tab:hover{color:var(--t1);background:var(--hover-bg)}
@@ -1149,12 +1169,9 @@
     .cb-div-upcoming-note>li{padding-left:10px;text-indent:-10px}
     .cb-div-upcoming-note>li::before{content:'· '}
     .cb-tax-summary-grid{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:9px;align-items:stretch}
-    .cb-tax-summary-card>:first-child::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;background:var(--card-tone,var(--acc))}
     .cb-tax-summary-card{padding:12px 11px;display:flex;flex-direction:column;min-width:0}
-    .cb-tax-deduction-value{display:flex;align-items:center;margin-top:12px}
-    .cb-tax-deduction-track{height:var(--bar-h);border-radius:var(--r-md);background:var(--inner);overflow:hidden;margin-top:5px}
+    .cb-tax-deduction-track{height:var(--bar-h);border-radius:var(--r-md);background:var(--inner);overflow:hidden;margin-top:6px}
     .cb-tax-deduction-track>span{display:block;height:100%;border-radius:inherit;background:var(--warn)}
-    .cb-tax-deduction-remain{margin-top:auto;padding-top:7px;font-size:var(--fs-micro);color:var(--dim)}
     .cb-dash-table-toolbar{min-height:36px;box-sizing:border-box;margin:0 -16px;padding:0 16px 9px;background:var(--panelSolid)}
     .cb-risk-overview{display:grid;grid-template-columns:minmax(300px,320px) minmax(0,1fr);gap:10px;align-items:stretch}
     .cb-risk-score-card{width:auto;min-width:0;padding:14px 16px;display:flex;flex-direction:column;align-items:center}
@@ -1227,9 +1244,9 @@
       /* 넓은 화면에서는 긴 표를 따라 내려오도록 sticky — sticky 는 행 높이로 늘어나면 동작하지 않으므로 위쪽 정렬을 유지한다. */
       .cb-family-mix-card{position:sticky;top:0;align-self:start}
     }
-    @media (min-width:1400px){
-      /* 표(8칸)가 한 줄에 다 들어가는 폭에서 일정 카드를 오른쪽에 둔다 — 그보다 좁으면 표 위 가로 띠(workspace-ui.css).
-         표가 8칸으로 줄어 1760px → 1400px 로 낮추고 카드는 넓혔다(320px, 이름이 잘리지 않게). */
+    @media (min-width:1440px){
+      /* 표(9칸)가 한 줄에 다 들어가는 폭에서 일정 카드를 오른쪽에 둔다 — 그보다 좁으면 표 위 가로 띠(workspace-ui.css).
+         표가 8칸으로 줄어 1760px → 1400px 로 낮추고 카드는 넓혔다(320px, 이름이 잘리지 않게). 2026-11-25 시가수익률 칸을 더해 1440px. */
       .cb-div-detail-grid{grid-template-columns:minmax(0,1fr) 320px}
       .cb-div-upcoming-card{position:sticky;top:0;align-self:start}
     }

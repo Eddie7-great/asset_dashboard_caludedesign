@@ -152,6 +152,11 @@ function cfXferOpen(ym){
   if(amtEl){ amtEl.value=head?Number(head.amt).toLocaleString():''; amtEl.focus(); }
 }
 function cfXferClose(){ _cfXferFormOpen=false; _cfXferEditYm=''; renderCashFlow(); }
+// 송금 기록 버튼은 펴고 접는 한 버튼이다(2026-11-25 사용자 요청) — 펼친 채 다시 누르면 접고 포커스를 그 버튼에 돌려준다.
+function cfXferToggle(ym){
+  if(_cfXferFormOpen){ cfXferClose(); document.getElementById('cf-xfer-toggle')?.focus(); return; }
+  cfXferOpen(ym);
+}
 function cfXferSave(){
   if (isMobileLayout()) return;
   const date=document.getElementById('cf-xfer-date')?.value||'';
@@ -205,16 +210,19 @@ function cfCoupleFlowHtml(y, m){
     + step('지출',sg(me.expense,true),'c-dn')
     + `<div class="cf-flow-step is-total"><span>${CF_XFER_TO} 쪽에 남은 돈</span><b class="${meLeft>=0?'c-up':'c-dn'}">${meLeft<0?'-':''}${won(meLeft)}</b></div></div>`;
   const total=meLeft+wifeLeft;
-  const actions=isMobileLayout()?'':(recorded
-    ? `<button type="button" class="cf-xfer-btn" onclick="cfXferOpen('${ym}')">송금 수정</button>`
-    : `<button type="button" class="cf-xfer-btn" onclick="cfXferOpen()">⇄ 송금 기록</button>`);
-  const form=(_cfXferFormOpen&&!isMobileLayout())
-    ? `<div class="cf-xfer-form"><span class="cf-xfer-form-title">${CF_XFER_FROM} → ${CF_XFER_TO} 송금</span>`
+  const open=_cfXferFormOpen&&!isMobileLayout();
+  const actions=isMobileLayout()?'':`<button type="button" id="cf-xfer-toggle" class="cf-xfer-btn${open?' is-open':''}" aria-expanded="${open}" aria-controls="cf-xfer-form" onclick="cfXferToggle(${recorded?`'${ym}'`:''})">${recorded?'송금 수정':'⇄ 송금 기록'}<i class="cf-xfer-caret" aria-hidden="true">${open?'▴':'▾'}</i></button>`;
+  // 펼친 입력 상자 — 제목·설명 한 줄, 그 아래 날짜·금액·버튼 한 줄(2026-11-25 여백 정리)
+  const form=open
+    ? `<div class="cf-xfer-form" id="cf-xfer-form" role="group" aria-label="${CF_XFER_FROM} → ${CF_XFER_TO} 송금 기록">`
+      + `<div class="cf-xfer-form-head"><b>${CF_XFER_FROM} → ${CF_XFER_TO} 송금${_cfXferEditYm?' 수정':''}</b><span>한 달에 한 번, 받은 남은 돈을 적으면 ${CF_XFER_FROM} 지출은 자동으로 추정합니다.</span></div>`
+      + `<div class="cf-xfer-form-row">`
       + `<label>날짜 <input type="date" id="cf-xfer-date" class="form-input" data-no-comma="1"></label>`
       + `<label>받은 금액 <input type="text" id="cf-xfer-amt" class="form-input" inputmode="numeric" placeholder="0"></label>`
-      + `<button type="button" class="btn-submit" onclick="cfXferSave()">저장</button>`
+      + `<div class="cf-xfer-form-actions">`
       + (_cfXferEditYm?`<button type="button" class="cf-xfer-btn" onclick="cfXferDelete('${_cfXferEditYm}')">삭제</button>`:'')
-      + `<button type="button" class="cf-xfer-btn" onclick="cfXferClose()">취소</button></div>`
+      + `<button type="button" class="cf-xfer-btn" onclick="cfXferClose()">취소</button>`
+      + `<button type="button" class="btn-submit" onclick="cfXferSave()">저장</button></div></div></div>`
     : '';
   return `<div class="cb-label f-between cf-flow-head"><span>${m}월 우리 집 돈의 흐름</span>${actions}</div>`
     + form

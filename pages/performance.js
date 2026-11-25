@@ -63,8 +63,11 @@ function cbRenderPerf(){
   const rows = entities.map(e=>{
     const g = t => cbLastVal((benchData[t]||{data:{}}).data[e.key]);
     const rv = g(tf);
-    const alpha = (!e.isBench && rv!=null && spSel!=null) ? rv-spSel : null;
-    return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, mdd: mddOf(sel.data[e.key]) };
+    // S&P 500 대비 = 이 줄 수익률 − S&P 500 수익률. KOSPI 도 같은 식으로 적는다(2026-11-25 사용자 요청 — 예전엔 지수 줄이 모두 '—').
+    // S&P 500 자기 줄은 비교 기준이라 '기준'으로 적는다.
+    const isBase = e.key==='S&P 500';
+    const alpha = (!isBase && rv!=null && spSel!=null) ? rv-spSel : null;
+    return { e, vals: CB_PERF_TFS.map(t=>g(t)), alpha, isBase, mdd: mddOf(sel.data[e.key]) };
   });
   // 하단 표: 비교 지수 두 줄(S&P 500 → KOSPI)을 맨 위에 고정하고, 소유주는 선택 기간 수익률 높은 순(값 없는 줄은 끝).
   // 막대는 그 기간 수익률을 0 기준 좌우로 그린다.
@@ -128,7 +131,7 @@ function cbRenderPerf(){
             <span>구분</span>
             <span class="cb-perf-bar-head">${tf} 수익률</span>
             ${CB_PERF_TFS.map(t=>`<span style="${t===tf?'color:var(--acc);font-weight:800':''}">${t}</span>`).join('')}
-            <span><span data-tip="같은 기간 S&P 500 수익률 대비 차이 (포트폴리오 − S&P 500)">S&amp;P 대비</span></span>
+            <span><span data-tip="같은 기간 S&P 500 수익률과의 차이 (이 줄 − S&P 500). KOSPI 줄은 두 지수의 차이입니다.">S&amp;P 500 대비</span></span>
             <span><span data-tip="Max Drawdown — 선택 기간 중 고점 대비 최대 하락폭. 낙폭이 작을수록 하락장 방어력이 좋았다는 뜻입니다.">MDD</span></span>
           </div>
           ${sortedRows.map(r=>`
@@ -136,12 +139,12 @@ function cbRenderPerf(){
               <span class="cb-perf-detail-name">${swatch(r.e,11)}${cbEsc(r.e.label)}</span>
               ${cbPerfBarHtml(r.vals[tfIdx], perfBarMax, r.e.color)}
               ${r.vals.map((v,k)=>`<span class="cb-num" style="${csR(v)}"><span class="cb-perf-value${CB_PERF_TFS[k]===tf?' is-active':''}">${fmtR(v)}</span></span>`).join('')}
-              <span class="cb-num" style="${csR(r.alpha)}"><span class="cb-perf-value">${r.alpha==null?'—':fmtR(r.alpha)}</span></span>
+              <span class="cb-num" style="${r.isBase?'color:var(--lab)':csR(r.alpha)}"><span class="cb-perf-value">${r.isBase?'기준':(r.alpha==null?'—':fmtR(r.alpha))}</span></span>
               <span class="cb-num" style="${r.mdd==null||r.mdd>=0?'color:var(--lab)':'color:var(--dn)'}"><span class="cb-perf-value">${r.mdd==null?'—':r.mdd.toFixed(1)+'%'}</span></span>
             </div>`).join('')}
         </div>
       </div>
-      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
+      <div class="cb-perf-detail-note">※ 소유주별 라인은 <b>현재 보유 종목·비중을 기간 시작일부터 그대로 들고 있었다고 가정</b>한 가중 수익률(백캐스트)입니다. 기간 중 매수·매도 시점이 반영되지 않으므로 실제 실현 수익률과 다르며, S&amp;P 500 대비·MDD도 같은 가정 위에 있습니다. 데이터가 비어 있으면 사이드바의 "새로고침"을 눌러주세요.</div>
     </div>`;
   cbScrollChartsToLatest(el);
 }

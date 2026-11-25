@@ -175,7 +175,9 @@ assert.match(cobaltSource, /<div class="cb-chart-scroll"><div class="cb-perf-plo
 assert.match(workspaceSource, /@media\(max-width:768px\)\{\s*\.cb-perf-plot\{min-width:1040px\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{grid-column:1\/-1\}/, '휴대폰: 성과 그래프는 줄이지 않고 옆으로 밀어 보며, 배당 TOP 3 는 한 줄 전체')
 assert.doesNotMatch(cobaltSource, /rows\.find\(r=>r\.e\.key==='KOSPI'\), rows\.find\(r=>r\.e\.key==='아내'\)/, '좌우 두 표로 나누던 고정 배치를 남기지 않음(선택 기간 수익률 순 한 표)')
 assert.match(cobaltSource, /<div class="cb-perf-detail-table">[\s\S]*<div class="cb-perf-detail-row\$\{r\.e\.isBench\?' is-bench':''\}"/, '성과 비교 하단 기존 표 행 구조 유지(벤치마크 줄은 is-bench 표시)')
-assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률 대비 차이[\s\S]*>S&amp;P 대비<\/span><\/span>/, '성과 비교 초과수익 칼럼을 명확한 S&P 대비로 표기하고 밑줄 범위를 텍스트로 제한')
+assert.match(cobaltSource, /<span><span data-tip="같은 기간 S&P 500 수익률과의 차이[\s\S]*>S&amp;P 500 대비<\/span><\/span>/, "성과 비교 초과수익 칼럼은 'S&P 500 대비'(2026-11-25)")
+assert.match(cobaltSource, /const isBase = e\.key==='S&P 500';\s*const alpha = \(!isBase && rv!=null && spSel!=null\) \? rv-spSel : null;/, 'KOSPI 줄도 S&P 500 대비 차이를 적는다 — 지수 줄이라고 비우지 않는다')
+assert.match(cobaltSource, /r\.isBase\?'기준'/, "S&P 500 자기 줄은 '기준'")
 // 2026-11-23(사용자 결정): 홈 오른쪽 두 칸 = 평가손익 기여 TOP 막대 + 투자자산 최근 30일 추이(타일 지도·점 그림은 없앴다)
 assert.doesNotMatch(cobaltSource, /수익률 TOP 5|손실률 TOP 5|cbContribSteps|cb-wf-|cbContribTiles|cbMoverScatterSvg|cbFillScatter|cb-scatter-host/, '예전 TOP5 두 카드·폭포형·타일 지도·점 그림은 없앴다')
 assert.match(cobaltSource, /const cr=cbContribRank\(contributionEligible\);[\s\S]*평가손익 기여 TOP/, '기여 순위는 현금·시세 미조회를 뺀 같은 대상(contributionEligible)')
@@ -247,7 +249,7 @@ assert.equal(taxAxisContext.cbAmtAxisLab(110_000_000, 10_000_000), '1.1억', '1,
 assert.equal(taxAxisContext.cbAmtAxisLab(200_000_000, 5_000_000), '2억', '딱 떨어지는 억은 그대로')
 assert.doesNotMatch(financeSource + extractFunction(cobaltSource, 'cbGiftChildChartSvg') + extractFunction(cobaltSource, 'cbGiftSpouseChartSvg') + extractFunction(cobaltSource, 'cbDivAxisLab') + simulatorSource, /cbTaxAxisLab/, '금액 그래프는 손익용 눈금 함수(cbTaxAxisLab)를 빌려 쓰지 않음')
 assert.match(cobaltSource, /const lastV=cum\[maxM\]\.fgnProfit, lx=xR\(maxM\)[\s\S]*class="cb-tax-end-label"/, '마지막 등록 월 끝점에 누적 금액 표시')
-assert.match(cobaltSource, /해외 기본공제 사용률[\s\S]*잔여 공제/, '양도소득세 상단에 기본공제 사용률 위젯 추가')
+assert.match(cobaltSource, /title:'해외 기본공제', sub:'사용률 · 손실 상계 여력'[\s\S]*heroLab:'공제 사용률'[\s\S]*bar:deductionUsePct[\s\S]*\['남은 공제'/, '양도소득세 상단: 기본공제 사용률과 손실 상계 여력을 한 카드로(2026-11-25)')
 assert.match(cobaltSource, /미실현 손실 후보 합계[\s\S]*color:var\(--dn\)[\s\S]*손실 상계 후보 TOP 3[\s\S]*color:var\(--dn\)/, '절세 위젯의 손실 금액을 하락 색상으로 통일')
 assert.match(styleSource, /\.cb-dividend-tip\{width:max-content;max-width:min\(760px,calc\(100vw - 24px\)\)\}/, '배당 월별 툴팁 폭은 종목명 길이를 따른다(고정 최소 폭 없음)')
 assert.match(styleSource, /\.cb-div-tip-name,\.cb-div-tip-ticker,\.cb-div-tip-row b\{white-space:nowrap\}/, '배당 툴팁 종목명·티커 줄바꿈 방지')
@@ -375,9 +377,9 @@ assert.doesNotMatch(cobaltSource, /월 환산 매수 배분 TOP 5|dcaTopAlloc/, 
 assert.match(cobaltSource, /배당 비중[\s\S]*x\.incomeKRW\/divAnnual\*100/, '배당 종목 내역에 종목별 배당 수입 비중 칼럼 추가')
 assert.match(cobaltSource, /향후 90일 배당 일정[\s\S]*과거 지급 패턴/, '배당 내역 옆에 향후 90일 배당 일정 위젯 추가')
 assert.match(styleSource, /@media \(min-width:1420px\)\{\s*\.cb-dca-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}[\s\S]*@media \(min-width:1600px\)\{\s*\.cb-family-detail-grid\{grid-template-columns:minmax\(0,1fr\) 280px\}/, '넓은 화면에서 가족 자산·DCA 표와 보조 위젯을 좌우 배치')
-assert.match(styleSource, /@media \(min-width:1400px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 320px\}/, '배당 표(8칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
+assert.match(styleSource, /@media \(min-width:1440px\)\{[^@]*\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 320px\}/, '배당 표(9칸)가 한 줄에 다 들어갈 때만 일정 위젯을 우측 배치')
 assert.doesNotMatch(workspaceSource, /\.cb-div-detail-grid\{grid-template-columns:minmax\(0,1fr\) 270px\}/, '1180px 부터 일정 위젯을 오른쪽에 붙이던 규칙(표를 화면 밖으로 밀던 원인)을 두지 않음')
-assert.match(workspaceSource, /@media\(max-width:1399px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
+assert.match(workspaceSource, /@media\(max-width:1439px\)\{\s*\.cb-div-detail-grid>\.cb-div-upcoming-card\{order:-1\}/, '좁은 화면에서는 일정 카드를 표 위로')
 // 좁은 폭(1280~1599px)에서 이름이 잘리던 세 곳: 홈 자산 배분 목록(금액을 이름 아래로), 배당 표·홈 보유 표(티커를 이름 아래로)
 assert.match(workspaceSource, /@media\(min-width:769px\) and \(max-width:1439px\)\{\s*#cb-cdash \.cb-home-allocation-row\{grid-template-columns:9px minmax\(0,1fr\) 50px 11px;[\s\S]*?#cb-cdash \.cb-home-allocation-row>span:nth-child\(3\)\{grid-column:2;grid-row:2\}/, '홈 자산 배분: 1440px 미만에서는 금액을 이름 아래 줄로')
 assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.cb-div-row \.cb-asset-inline\{flex-direction:column;/, '배당 표: 1600px 미만에서는 티커를 이름 아래로')
@@ -388,9 +390,9 @@ assert.match(workspaceSource, /@media\(max-width:1599px\)\{\s*\.home-asset\{disp
   const template = workspaceSource.match(/\.cb-div-head,\.cb-div-row\{display:grid;grid-template-columns:([^;]+);/)
   assert.ok(template, '배당 표 격자 틀')
   const tracks = template[1].trim().split(/\s+(?![^(]*\))/)
-  assert.equal(tracks.length, 8, '배당 표 8칸(소유주·국기·종목 + 숫자 5칸)')
+  assert.equal(tracks.length, 9, '배당 표 9칸(소유주·국기·종목 + 숫자 6칸, 2026-11-25 시가수익률)')
   const cells = (divTable.match(/\n          <(?:span|div)[ >]/g) || []).length
-  assert.equal(cells, 8, '행의 칸 수와 격자 칸 수가 같음(펼친 줄은 한 줄 전체)')
+  assert.equal(cells, 9, '행의 칸 수와 격자 칸 수가 같음(펼친 줄은 한 줄 전체)')
 }
 assert.match(cobaltSource, /cb-family-table-toolbar[\s\S]*전체 투자자산[\s\S]*cb-family-head/, '가족 투자자산 표 제목·검색줄과 칼럼 헤더에 연속 고정 클래스 적용')
 assert.match(cobaltSource, /cb-div-table-toolbar[\s\S]*배당 종목 내역[\s\S]*cb-div-head/, '배당 내역 제목과 칼럼 헤더에 연속 고정 클래스 적용')
@@ -417,10 +419,18 @@ const upcomingAnnual = upcomingContext.cbUpcomingDividendSchedule([
 assert.equal(upcomingAnnual.length, 1, '연 1회 배당은 예정 일정에도 1건만 잡힌다')
 assert.equal(upcomingAnnual[0].dateLabel, '12월 예정', '연간 주기의 기본 지급월은 12월')
 assert.equal(upcomingAnnual[0].amount, 120_000, '연 1회 지급은 회차 금액을 분기로 쪼개지 않는다')
-assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s\S]*해외 기본공제 사용률[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 참고합계·해외·공제·국내·ISA·연금 순으로 배치')
+assert.match(cobaltSource, /세액 참고 합계[\s\S]*일반 · 해외주식[\s\S]*'해외 기본공제'[\s\S]*일반 · 국내주식[\s\S]*ISA 계좌[\s\S]*연금저축 계좌/, '양도소득세 상단 위젯을 참고합계·해외·공제·국내·ISA·연금 순으로 배치')
+{
+  // 여섯 장 모두 같은 뼈대 — 대표 숫자·세부 줄이 같은 높이에서 시작한다(2026-11-25)
+  const top = cobaltSource.slice(cobaltSource.indexOf('<div class="cb-tax-summary-grid">'), cobaltSource.indexOf('${taxSummary.legacy?'))
+  assert.equal((top.match(/\$\{cbTaxCardHtml\(\{/g) || []).length, 6, '세금 상단 카드는 cbTaxCardHtml 6장')
+  assert.doesNotMatch(top, /cb-tax-ded-col|cb-tax-half-card|style="display:flex;justify-content:space-between/, '반 높이 카드·인라인 줄 스타일을 다시 쓰지 않는다')
+  assert.match(cobaltSource, /heroLab:'연간 현금흐름 참고세액'/, "ISA '연간 현금흐름 참고' 표기는 줄이지 않는다")
+  assert.match(workspaceSource, /\.cb-tax-card-row>b\{[^}]*white-space:nowrap/, '세부 줄 값은 줄바꿈하지 않는다')
+  assert.match(workspaceSource, /@media\(min-width:769px\) and \(max-width:1439px\)\{#cb-tax2>\.cb-tax-summary-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}\}/, '1440px 미만은 3열')
+}
 assert.match(cobaltSource, /id="cb-tax-pl"[\s\S]*inputmode="numeric"[\s\S]*data-no-comma="1"[\s\S]*oninput="handlePLAmtInput\(this\)"/, '양도소득세 수정 금액 입력에도 음수 허용 실시간 쉼표 포맷 적용')
-assert.match(styleSource, /\.cb-tax-deduction-value\{[\s\S]*margin-top:12px\}[\s\S]*\.cb-tax-deduction-track\{[^}]*margin-top:5px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
-assert.match(styleSource, /\.cb-tax-deduction-remain\{margin-top:auto/, '해외 기본공제 잔여액을 카드 하단에 배치')
+assert.match(styleSource, /\.cb-tax-deduction-track\{[^}]*margin-top:6px\}/, '해외 기본공제 사용률 막대를 퍼센티지 바로 아래에 배치')
 assert.match(cobaltSource, /cb-tax-hist-head">\s*<span>월<\/span><span>소유주<\/span><span>시장<\/span><span>계좌<\/span><span><span[^>]*>세제 구분<\/span><\/span><span class="cb-tax-memo-head">메모<\/span>/, '양도소득세 세제 구분을 계좌와 메모 사이에 배치')
 assert.match(workspaceSource, /\.cb-tax-hist-head,\.cb-tax-hist-row,\.cb-tax-month-sum\{display:grid;grid-template-columns:[^;]*minmax\(160px,2\.6fr\)[^;]*;column-gap:12px/, '실현손익 기록 표는 격자 — 메모 칸만 남는 폭을 독차지하지 않는다')
 assert.doesNotMatch(cobaltSource, /cb-tax-memo-(head|cell)" style="flex:1/, '메모 칸에 flex:1 을 다시 쓰지 않는다')
@@ -696,6 +706,16 @@ assert.match(financeSource, /비교용 예시이며 맞춤 추천이 아닙니�
   assert.strictEqual(new Set(h).size, 1, `고정비 등록 줄 컨트롤 높이 불일치: ${h.join('/')}`)
 }
 
+// 현금 흐름 입력(2026-11-25 사용자 요청): 송금 기록 버튼은 펴고 접는 한 버튼, 수입·지출 입력은 두 줄 고정
+{
+  const cashflowSource = readSource('script.js')
+  const htmlSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+  assert.match(cashflowSource, /function cfXferToggle\(ym\)\{\s*if\(_cfXferFormOpen\)\{ cfXferClose\(\);/, '송금 기록 버튼을 다시 누르면 접는다')
+  assert.match(cashflowSource, /id="cf-xfer-toggle" class="cf-xfer-btn\$\{open\?' is-open':''\}" aria-expanded="\$\{open\}" aria-controls="cf-xfer-form" onclick="cfXferToggle\(/, '송금 기록 버튼은 aria-expanded 토글')
+  assert.match(htmlSource, /cf-entry-category[\s\S]*?<div class="cf-entry-break" aria-hidden="true"><\/div>\s*<div class="form-group f-col cf-entry-desc">/, '카테고리 뒤에서 줄을 끊어 두 줄로 고정')
+  assert.match(htmlSource, /<div class="cf-entry-checks" id="cf-entry-checks"[^>]*>\s*<label id="cf-fixed-flag-group"[\s\S]*?<label id="cf-gift-flag-group"[\s\S]*?<\/div>\s*<button class="btn-submit" id="btn-cf-submit"/, '두 체크는 한 묶음으로 저장 버튼 앞에')
+  assert.match(cashflowSource, /const isAuto = !!document\.getElementById\('cfmode-auto'\)\?\.checked;[\s\S]{0,240}domRow\.style\.display = isAuto&&cycle==='monthly'/, '일회성 입력에서는 자동이체 결제일 칸을 띄우지 않는다')
+}
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
 
 const lateMonth=upcomingContext.cbUpcomingDividendSchedule([{tkr:"TEST",incomeKRW:120,d:{months:[8],payDay:null}}],90,"2026-09-20T00:00:00");
@@ -719,7 +739,8 @@ assert.equal(lateMonth[0].boundary,true,"90일 경계 월의 불확실성을 보
   const annual = grid.slice(0, grid.indexOf('월평균'))
   assert.doesNotMatch(annual, /basisLabel|ownerF|세전|세금|cb-div-history-status/, '연간 배당 수입 카드에 세전/세후·소유주 표시를 두지 않는다')
   assert.match(workspaceSource, /@media\(min-width:769px\)\{\s*\.cb-div-summary-grid\{display:flex;flex-wrap:wrap;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-summary-card\{flex:1 1 auto;[^}]*\}\s*\.cb-div-summary-grid>\.cb-div-top3-card\{flex:4 1 300px;max-width:400px\}/, '넓은 화면에서 TOP 3 카드는 폭 상한이 있어 종목명과 금액이 멀어지지 않는다')
-  assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(170px,2\.4fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(124px,\.9fr\) minmax\(76px,\.7fr\) minmax\(88px,\.8fr\) minmax\(98px,\.8fr\);column-gap:8px;align-items:center;min-width:950px;/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다')
+  assert.match(workspaceSource, /\.cb-dca-head,\.cb-dca-row\{display:grid;grid-template-columns:62px minmax\(170px,2\.4fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(84px,\.8fr\) minmax\(124px,\.9fr\) minmax\(76px,\.7fr\) minmax\(88px,\.8fr\);column-gap:8px;align-items:center;min-width:840px;/, '적립식 규칙 표는 격자 — 종목 칸이 남는 폭을 독차지하지 않는다(월 환산 칸 없음, 2026-11-25)')
+  assert.doesNotMatch(cobaltSource, /cbSortBtn\('dca','monthly'/, "적립식 표에 '월 환산' 칸을 다시 넣지 않는다 — 오른쪽 매수 배분 카드와 같은 값")
   assert.match(cobaltSource, /<div class="cb-thead cb-dca-head">\s*<span>\$\{cbSortBtn\('dca','owner','소유주','text'\)\}<\/span><span>\$\{cbSortBtn\('dca','name','종목','text'\)\}<\/span>/, "머리줄 '종목'은 들여쓰지 않아 국기와 같은 선에서 시작한다")
   assert.match(workspaceSource, /\.fin-tree\.is-acct\{grid-template-columns:/, '계좌별 내역은 트리 한 격자 — 계좌 줄과 종목 줄이 같은 칸 틀(subgrid)을 쓴다')
   assert.doesNotMatch(workspaceSource, /\.acct-row|\.acct-holding\{/, '예전 계좌별 표 규칙은 지웠다')
@@ -891,4 +912,4 @@ assert.match(cobaltSource, /const pos=Math\.max\(minPos,\.\.\.vs\.filter\(v=>v>0
   assert.doesNotMatch(one, /대비/, '비교할 점이 없으면 대비 칸을 그리지 않는다')
 }
 console.log('PASS: 2026-11-23 작은 것들·표지·리밸런싱 표')
-for (const v of ['totalDue', 'genDue', 'isaDue']) assert.match(cobaltSource, new RegExp(`color:var\\(\\$\\{${v}>0\\?'--dn':'--lab'\\}\\)`), `${v} 0원은 회색`)
+for (const v of ['totalDue', 'genDue', 'isaDue']) assert.match(cobaltSource, new RegExp(`heroTone:${v}>0\\?'var\\(--dn\\)':'var\\(--lab\\)'`), `${v} 0원은 회색`)
