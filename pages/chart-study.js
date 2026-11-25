@@ -12,6 +12,7 @@ let _chsLoading = null, _chsView = null;
 // 검색한 종목 — {tkr, name, cur}. 검색어·오류·최근 검색은 메모리에만.
 let _chsPickInfo = null, _chsQuery = '', _chsSearchErr = null, _chsSearchBusy = false;
 const _chsRecent = [];
+const CHS_RECENT_MAX = 5;
 // 겹쳐 그릴 지표(켜고 끄기) — 화면을 옮겨도 유지(메모리)
 const _chsShow = {ma:true, gc:true, bb:true, div:true};
 const CHS_OVERLAYS = [['ma','이동평균'],['gc','가우시안 채널'],['bb','볼린저 2σ'],['div','다이버전스']];
@@ -487,7 +488,7 @@ function chsHover(evt, pre='chs'){
 }
 function chsOwner(o){ _chsOwner = o; cbRenderChart(); }
 function chsPick(t){ const row = chsHoldings(null).find(r=>r.tkr===t); _chsTkr = t; _chsPickInfo = row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:t, cur:''}; _chsSearchErr = null; chsRemember(t); cbRenderChart(); }
-function chsRemember(t){ const at = _chsRecent.indexOf(t); if (at>=0) _chsRecent.splice(at,1); _chsRecent.unshift(t); _chsRecent.length = Math.min(_chsRecent.length, 6); }
+function chsRemember(t){ const at = _chsRecent.indexOf(t); if (at>=0) _chsRecent.splice(at,1); _chsRecent.unshift(t); _chsRecent.length = Math.min(_chsRecent.length, CHS_RECENT_MAX); }
 function chsToggle(k){ if (!(k in _chsShow)) return; _chsShow[k] = !_chsShow[k]; cbRenderChart(); cbRestoreFilterFocus('cb-chart2','data-chs-show',k); }
 // 종목 검색 — 내 종목 이름·티커가 맞으면 바로, 국내 6자리 코드·미국 티커 모양이면 그대로 봉을 받아 보고,
 // 그 밖(회사 이름)이나 실패하면 앱의 종목 검색(/api/get-stock — 국내 네이버·해외 Yahoo)으로 티커를 찾는다.
@@ -550,20 +551,19 @@ function cbRenderChart(){
   const list = chsHoldings(ownerF), F = chsFrame(), frame = CHS_FRAMES[_chsFrame] ? _chsFrame : 'D';
   if (!F.ranges[_chsRange]) _chsRange = F.def;
   // 처음 들어오면 내 종목 첫째(평가액 순)를 보여 주고, 그 뒤로는 검색한 종목을 유지한다
-  if (!_chsTkr && list[0]){ _chsTkr = list[0].tkr; _chsPickInfo = {tkr:list[0].tkr, name:list[0].name, cur:list[0].cur, ref:list[0].ref}; }
+  if (!_chsTkr && list[0]){ _chsTkr = list[0].tkr; _chsPickInfo = {tkr:list[0].tkr, name:list[0].name, cur:list[0].cur, ref:list[0].ref}; chsRemember(_chsTkr); }
   cbSetHead('미국·국내 종목을 검색해 봉 차트(일·주·월·년)로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
-  // 검색 줄 — 검색 상자 + 내 종목·최근 검색 바로가기(소유주 버튼이 '내 종목' 범위를 정한다)
-  const chip = (t, label, on) => `<button class="trd-chip${on?' is-on':''}" onclick="chsPick('${cbEsc(t)}')"${on?' aria-current="true"':''}>${cbEsc(label)}</button>`;
-  const recent = _chsRecent.filter(t=>!list.slice(0,8).some(r=>r.tkr===t));
+  // 검색 줄 — 검색 상자 · 보기 · 최근 조회 5개를 한 줄에(2026-11-26 사용자 요청 — '내 종목' 목록은 뺐다)
+  const chip = (t, on) => `<button class="trd-chip${on?' is-on':''}" onclick="chsPick('${cbEsc(t)}')"${on?' aria-current="true"':''}>${cbEsc(t)}</button>`;
+  const recent = _chsRecent.slice(0, CHS_RECENT_MAX);
   const search = `<div class="chs-search">
-      <form class="trd-form chs-form" onsubmit="event.preventDefault();chsSearch()">
+      <form class="chs-form" onsubmit="event.preventDefault();chsSearch()">
         <label class="sr-only" for="chs-q">종목 이름·티커·코드</label>
         <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="종목 검색 — 애플, AAPL, 삼성전자, 005930, SOXX" value="${cbEsc(_chsQuery)}">
         <button class="cb-btn" type="submit"${_chsSearchBusy?' disabled':''}>${_chsSearchBusy?'찾는 중…':'보기'}</button>
       </form>
-      ${list.length?`<div class="trd-chips"><span>${ownerF?cbEsc(ownerF)+' 종목':'내 종목'}</span>${list.slice(0,8).map(r=>chip(r.tkr, r.name.length>10?r.tkr:r.name, r.tkr===_chsTkr)).join('')}</div>`:''}
-      ${recent.length?`<div class="trd-chips"><span>최근</span>${recent.map(t=>chip(t, t, t===_chsTkr)).join('')}</div>`:''}
-      ${_chsSearchErr?`<p class="trd-err" role="alert">${cbEsc(_chsSearchErr)}</p>`:''}
+      ${recent.length?`<div class="chs-recent" role="group" aria-label="최근 조회"><span>최근</span>${recent.map(t=>chip(t, t===_chsTkr)).join('')}</div>`:''}
+      ${_chsSearchErr?`<p class="trd-err chs-err" role="alert">${cbEsc(_chsSearchErr)}</p>`:''}
     </div>`;
   if (!_chsTkr){
     el.innerHTML = `<div class="cb-panel chs-panel">${search}${cbEmptyHtml('볼 종목을 검색하세요','종목 이름이나 티커를 넣으면 그 종목의 봉 차트와 지표를 여기서 봅니다.',[])}</div>`;

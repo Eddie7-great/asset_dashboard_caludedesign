@@ -1656,10 +1656,14 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .chs-svg .chs-band.is-cold{fill:var(--up);opacity:.07}
 .chs-svg .chs-cross{stroke:var(--t2);stroke-width:1;stroke-dasharray:3 3}
 /* 차트 공부 — 종목 검색·겹쳐 그릴 지표(2026-11-26) */
-.chs-search{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--bd)}
-.chs-search .trd-form{max-width:560px}
-.chs-search .trd-chips{margin:0}
+.chs-search{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--bd)}
+.chs-form{display:flex;gap:8px;flex:0 1 520px;min-width:280px}
+.chs-form input{flex:1;min-width:0;height:var(--btn-h)}
+.chs-recent{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:var(--fs-cap);color:var(--lab)}
+.chs-recent>span{margin-right:2px}
+.chs-search .trd-chip{height:var(--btn-h)}
 .chs-search .trd-chip.is-on{border-color:var(--acc);color:var(--acc)}
+.chs-search .chs-err{flex-basis:100%;margin:0}
 .chs-mine{margin-left:8px;padding:1px 7px;border-radius:20px;border:1px solid var(--bd2);font-size:var(--fs-cap);font-weight:700;color:var(--lab)}
 .chs-sw.is-gc{height:8px;background:var(--up);opacity:.45}
 .chs-sw.is-bb{height:0;border-top:1.5px dashed var(--t3);background:none}
