@@ -312,28 +312,45 @@ const TRD_VERDICTS = {
   hold:{word:'관망', tone:'mid'},
   sell:{word:'매도 · 피하기', tone:'dn'},
 };
-function trdLights(A, close){
-  const t = A.tpl, st = A.stage, v = A.vcp;
+// 실적 — stockanalysis.com 분기 표(전년 같은 분기 대비 EPS·매출 증가율). 미너비니는 추세가 좋은 종목 중 실적이 강한 것만 산다.
+// 기준 숫자(EPS +25%·매출 +20%)는 잠정 — 책 원문 대조 전이며 화면에 '잠정'으로 적는다.
+const TRD_EPS_MIN = 25, TRD_REV_MIN = 20;
+function trdEarnings(E){
+  const q = E && Array.isArray(E.quarters) ? E.quarters.filter(x=>x && Number.isFinite(x.epsGrowth)) : [];
+  if (q.length < 1) return {light:'n', text:'실적 자료를 받지 못함', ok:null};
+  const [a, b] = q, accel = b && Number.isFinite(b.epsGrowth) ? a.epsGrowth > b.epsGrowth : null;
+  const revOk = Number.isFinite(a.revGrowth) ? a.revGrowth >= TRD_REV_MIN : null;
+  const pct = v => (v>=0?'+':'')+v.toFixed(0)+'%';
+  const light = a.eps<=0 || a.epsGrowth<=0 ? 'r' : a.epsGrowth>=TRD_EPS_MIN && revOk!==false ? 'g' : 'y';
+  const text = `최근 분기 EPS ${pct(a.epsGrowth)}${Number.isFinite(a.revGrowth)?` · 매출 ${pct(a.revGrowth)}`:''}${accel==null?'':accel?' · 빨라지는 중':' · 느려지는 중'}`;
+  return {light, text, ok: light==='g', bad: light==='r', q:a, accel};
+}
+function trdLights(A, close, E){
+  const t = A.tpl, st = A.stage, v = A.vcp, ern = trdEarnings(E);
   const L = (key, name, light, text, tip) => ({key, name, light, text, tip});
   const chase = v.pivot && (v.state==='breakout' || v.state==='weak') ? (close/v.pivot-1)*100 : null;
   return [
     L('trend','추세', t.score===8 ? 'g' : t.score>=6 ? 'y' : 'r', `조건 8개 중 ${t.score}개 통과`, '트렌드 템플릿 — 이동평균 순서·52주 고저·지수 대비 강도. 8개 모두여야 통과'),
     L('stage','큰 흐름', !st ? 'n' : st.stage===2 ? 'g' : st.stage===4 ? 'r' : 'y', st ? st.name : '판정 보류', '1 바닥 · 2 상승 · 3 천장 · 4 하락. 2단계에서만 산다'),
+    L('earn','실적', ern.light, ern.text, `전년 같은 분기보다 EPS ${TRD_EPS_MIN}%·매출 ${TRD_REV_MIN}% 이상 늘면 초록(잠정 기준 — 책 원문 대조 전). 증가 속도가 빨라지면 더 좋다. 출처 stockanalysis.com`),
     L('rs','시장보다 강한가', t.rsGap==null ? 'n' : t.rsGap>0 ? 'g' : t.rsGap>-5 ? 'y' : 'r', t.rsGap==null ? '지수 자료 없음' : `S&P 500보다 ${t.rsGap>=0?'+':''}${t.rsGap.toFixed(1)}%p`, '최근 1년(최근 석 달에 무게)을 S&P 500 과 비교 — 책의 시장 전체 순위를 대신함'),
     L('base','매수 자리', v.state==='breakout' ? 'g' : v.state==='forming'||v.state==='weak' ? 'y' : 'n',
       {breakout:'거래량 실린 돌파', weak:'돌파했지만 거래량 부족', forming:`자리 만드는 중 · 피벗까지 ${v.toPivot!=null?v.toPivot.toFixed(1):'—'}%`, none:'아직 없음'}[v.state], 'VCP — 흔들림이 갈수록 줄다가 고점(피벗)을 거래량 실어 넘는 자리'),
     L('chase','추격 위험', chase==null ? 'n' : chase>TRD_CHASE_PCT ? 'r' : 'g', chase==null ? '해당 없음' : chase>TRD_CHASE_PCT ? `피벗보다 ${chase.toFixed(1)}% 위 — 늦음` : `피벗에서 ${chase.toFixed(1)}% — 아직 안쪽`, `피벗보다 ${TRD_CHASE_PCT}% 넘게 오른 뒤에는 쫓아 사지 않는다`),
   ];
 }
-function trdVerdict(A, close, risk){
-  const t = A.tpl, st = A.stage, v = A.vcp, lights = trdLights(A, close);
+function trdVerdict(A, close, risk, E){
+  const t = A.tpl, st = A.stage, v = A.vcp, lights = trdLights(A, close, E), ern = trdEarnings(E);
   const chased = lights.find(l=>l.key==='chase').light==='r';
   const s = st && st.stage, n = x => chsNum(x,'USD');
   let k, why;
-  if (s===4 || s===3 || t.score<=3){
+  if (s===4 || s===3 || t.score<=3 || (ern.bad && t.score<8)){
     k = 'sell'; why = s===4 ? '하락 단계입니다. 규칙으로는 사지 않고, 갖고 있다면 정리를 검토하는 구간입니다.'
       : s===3 ? '오르던 흐름이 꺾이는 천장 단계입니다. 규칙으로는 새로 사지 않고 이익을 지키는 구간입니다.'
-      : `추세 조건을 ${t.score}개만 통과했습니다. 규칙으로는 사지 않는 종목입니다.`;
+      : t.score<=3 ? `추세 조건을 ${t.score}개만 통과했습니다. 규칙으로는 사지 않는 종목입니다.`
+      : '이익이 줄고 있고 추세 조건도 다 맞추지 못했습니다. 규칙으로는 사지 않는 종목입니다.';
+  } else if (t.score===8 && s===2 && ern.bad){
+    k = 'hold'; why = '차트는 좋지만 최근 분기 이익이 줄었습니다. 미너비니는 실적이 받쳐 주는 종목만 사므로 지켜봅니다.';
   } else if (t.score===8 && s===2 && v.state==='breakout' && !chased){
     k = 'buy'; why = `조건 8개를 모두 통과했고 피벗 $${n(v.pivot)}을 거래량을 싣고 넘었습니다. 손절선은 $${n(risk.stop)}(−${risk.riskPct.toFixed(1)}%)입니다.`;
   } else if (t.score===8 && s===2 && (v.state==='forming' || v.state==='weak')){
@@ -347,10 +364,22 @@ function trdVerdict(A, close, risk){
       : chased ? `좋은 종목이지만 이미 피벗보다 ${TRD_CHASE_PCT}% 넘게 올랐습니다. 쫓아 사지 않고 다음 자리를 기다립니다.`
       : '상승 추세는 맞지만 아직 매수 자리(VCP)가 보이지 않습니다. 자리가 생길 때까지 지켜봅니다.';
   }
-  return {key:k, ...TRD_VERDICTS[k], why, lights};
+  if ((k==='buy'||k==='wait') && ern.ok===null) why += ' 실적은 확인하지 못했으니 따로 확인하세요.';
+  else if ((k==='buy'||k==='wait') && ern.light==='y') why += ' 다만 실적 증가가 기준보다 약합니다 — 미너비니라면 더 강한 종목을 찾습니다.';
+  // 장중에 보지 않아도 따라 할 수 있게 — 미리 걸어 둘 주문(2026-11-25 사용자 질문: 전일 종가 보고 진입해도 되나)
+  const order = k==='wait' && v.state==='forming' ? {kind:'wait', pivot:v.pivot, stop:risk.stop}
+    : k==='buy' ? {kind:'buy', maxBuy:v.pivot*(1+TRD_CHASE_PCT/100), stop:risk.stop} : null;
+  return {key:k, ...TRD_VERDICTS[k], why, lights, order};
 }
 
 // ── 화면(trend2) ──
+const _trdEarn = {};
+// 분기 실적 — /api/price?type=earnings(stockanalysis 공개 표). 실패하면 null — 실적 불만 회색이 되고 다른 판단은 그대로다.
+async function trdFetchEarnings(tkr){
+  const r = await authFetch('/api/price?type=earnings&tkr=' + encodeURIComponent(tkr));
+  const d = await r.json().catch(()=>null);
+  return d && d.success && Array.isArray(d.quarters) ? d : null;
+}
 let _trdTkr = null, _trdQuery = '', _trdErr = null, _trdBusy = false, _trdView = null;
 const _trdRecent = [];
 const TRD_EXAMPLES = ['NVDA','AAPL','MSFT','AMZN','META','TSLA'];
@@ -370,7 +399,9 @@ async function trdSearch(q){
       tkr = sym;
     }
     if (!/^[A-Z][A-Z.\-]{0,5}$/.test(tkr) || /\.(KS|KQ|T)$/.test(tkr)) throw new Error('미국 주식만 볼 수 있습니다');
+    const ep = _trdEarn[tkr] ? null : trdFetchEarnings(tkr).then(e=>{ _trdEarn[tkr] = e; }).catch(()=>{ _trdEarn[tkr] = null; });
     if (!_chsCache[tkr]) _chsCache[tkr] = await chsFetchBars(tkr, 'D');
+    if (ep) await ep;
     if (String(_chsCache[tkr].cur||'').toUpperCase()!=='USD') throw new Error('미국 주식(달러 종목)만 볼 수 있습니다');
     _trdTkr = tkr;
     const at = _trdRecent.indexOf(tkr); if (at>=0) _trdRecent.splice(at,1);
@@ -407,7 +438,7 @@ function cbRenderTrend(){
     return;
   }
   const A = mnvAnalyze(data, {cur:'USD'}), all = A.bars, last = all[all.length-1], prev = all[all.length-2];
-  const risk = mnvRisk(A.vcp, last.c, 0, null), V = trdVerdict(A, last.c, risk);
+  const risk = mnvRisk(A.vcp, last.c, 0, null), V = trdVerdict(A, last.c, risk, _trdEarn[_trdTkr]);
   const keep = Math.min(all.length, MNV_RANGES[_mnvRange][1]), off = all.length-keep;
   const ind = chsIndicators(all); MNV_MA.forEach(m=>{ ind.ma[m.n] = A.ma[m.n]; });
   _trdView = {bars:all.slice(off), allBars:all, ind, off, cur:'USD', avg:null, frame:'D', A, risk, maList:MNV_MA, pre:'trd', noRs:true};
@@ -420,6 +451,9 @@ function cbRenderTrend(){
         <div class="trd-name">${cbEsc(_trdTkr)} <small>${d.m}월 ${d.d}일 종가 기준</small></div>
         <div class="trd-word"><i class="trd-dot"></i>${V.word}</div>
         <p class="trd-why">${cbEsc(V.why)}</p>
+        ${V.order ? `<div class="trd-order"><b>${V.order.kind==='wait'?'오늘 밤 걸어 둘 주문':'다음 장에 산다면'}</b>${V.order.kind==='wait'
+          ? `<span>$${chsNum(V.order.pivot,'USD')}에 닿으면 <em class="is-up">매수</em></span><span>산 뒤 $${chsNum(V.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`
+          : `<span>$${chsNum(V.order.maxBuy,'USD')}까지만 <em class="is-up">매수</em>(피벗 +${TRD_CHASE_PCT}%)</span><span>$${chsNum(V.order.stop,'USD')} 아래로 내려가면 <em class="is-dn">매도</em></span>`}<small>증권사의 감시·스톱 주문으로 걸어 두면 장중에 보지 않아도 됩니다 · 거래량 조건은 걸 수 없음</small></div>` : ''}
         <small class="trd-who">마크 미너비니의 규칙으로 본 판단 · 앱의 의견이나 투자 권유가 아닙니다</small>
       </div>
       <div class="trd-nums">
@@ -441,10 +475,11 @@ function trdNoteHtml(){
   return `<div class="cb-panel trd-note">
     <div class="cb-panel-title">판단 방법과 한계</div>
     <ul>
-      <li><b>매수</b> = 추세 8개 통과 + 2단계 + 피벗을 거래량 실어 돌파 + 피벗에서 ${TRD_CHASE_PCT}% 안쪽. <b>매수 대기</b> = 8개 통과 + 2단계 + 자리 만드는 중. <b>매도·피하기</b> = 3·4단계 또는 조건 3개 이하. 나머지는 <b>관망</b>.</li>
+      <li><b>매수</b> = 추세 8개 통과 + 2단계 + 피벗을 거래량 실어 돌파 + 피벗에서 ${TRD_CHASE_PCT}% 안쪽. <b>매수 대기</b> = 8개 통과 + 2단계 + 자리 만드는 중. <b>매도·피하기</b> = 3·4단계, 조건 3개 이하, 또는 이익 감소 + 조건 미달. 차트가 좋아도 이익이 줄면 <b>관망</b>. 나머지는 <b>관망</b>.</li>
       <li>그대로 옮긴 것: 50·150·200일선과 52주 고저 조건, 2단계에서만 사기, 손절 최대 −10%.</li>
       <li>대신한 것: 시장 전체 순위(IBD 상대강도) 대신 S&amp;P 500 과 비교 · 단계와 VCP 는 사람이 눈으로 보는 것을 규칙으로 근사.</li>
-      <li>못 하는 것: 실적(EPS·매출 성장) · 시장 전체 분위기 · 장중 판단. 마감된 일봉(Yahoo)만 씁니다.</li>
+      <li>실적: 전년 같은 분기 대비 EPS·매출 증가율(stockanalysis.com). 초록 기준(EPS +25%·매출 +20%)은 잠정이며 책 원문 대조 전입니다. 이익률·실적 서프라이즈는 아직 보지 않습니다.</li>
+      <li>못 하는 것: 시장 전체 분위기 · 장중 거래량 판단. 마감된 일봉(Yahoo)만 씁니다.</li>
     </ul>
     <small class="fin-callout">출처: Mark Minervini, 《Trade Like a Stock Market Wizard》(2013), 《Think &amp; Trade Like a Champion》(2017). 지난 가격으로 규칙을 확인한 결과이며 앞으로의 가격을 맞히지 않습니다.</small>
   </div>`;

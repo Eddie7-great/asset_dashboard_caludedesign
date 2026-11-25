@@ -1720,6 +1720,11 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-word{display:flex;align-items:center;gap:12px;margin-top:8px;font-size:var(--fs-kpi);font-weight:800;color:var(--hero-tone)}
 .trd-dot{width:22px;height:22px;border-radius:50%;background:var(--hero-tone);box-shadow:0 0 0 6px color-mix(in srgb,var(--hero-tone) 22%,transparent)}
 .trd-why{margin:8px 0 0;font-size:var(--fs-body);color:var(--tx);line-height:1.6;max-width:720px}
+.trd-order{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin-top:12px;padding:10px 12px;border-radius:var(--r-md);background:var(--inner-bg);border:1px dashed var(--bd2);font-size:var(--fs-body)}
+.trd-order>b{font-weight:800}
+.trd-order em{font-style:normal;font-weight:800}
+.trd-order em.is-up{color:var(--up)}.trd-order em.is-dn{color:var(--dn)}
+.trd-order small{flex-basis:100%;font-size:var(--fs-cap);color:var(--lab)}
 .trd-who{display:block;margin-top:8px;font-size:var(--fs-cap);color:var(--lab)}
 .trd-nums{display:flex;flex-direction:column;gap:2px}
 .trd-nums>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-body)}
@@ -1728,7 +1733,7 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-nums b{font-size:var(--fs-card);font-weight:800}
 .trd-nums b em{font-style:normal;font-size:var(--fs-cap);font-weight:700;margin-left:4px}
 .trd-nums b.is-up,.trd-nums em.is-up{color:var(--up)}.trd-nums b.is-dn,.trd-nums em.is-dn{color:var(--dn)}
-.trd-lights{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}
+.trd-lights{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:12px}
 .trd-light{padding:14px 15px;border-radius:var(--r-lg);background:var(--glass);border:1px solid var(--bd);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));display:flex;flex-direction:column;gap:6px;min-width:0}
 .trd-lamps{display:inline-flex;gap:6px;padding:5px 7px;border-radius:20px;background:var(--seg-bg);align-self:flex-start}
 .trd-lamp{width:14px;height:14px;border-radius:50%;background:var(--bd2);opacity:.45}
