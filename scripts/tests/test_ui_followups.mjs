@@ -455,13 +455,15 @@ assert.match(styleSource, /touch-action:pan-x pan-y/, '모바일 표 내부의 �
 // 점은 비중과 무관하게 모든 소유주 라벨에 붙는다 — 10% 미만(자녀1·아버지)만 점이 빠져 범례가 어긋났다.
 assert.doesNotMatch(scriptSource, /showOwnerDot/, '소유주 점을 비중으로 숨기는 조건을 두지 않는다')
 assert.match(styleSource, /\.cb-risk-overview\{[^}]*grid-template-columns:minmax\(300px,320px\) minmax\(0,1fr\)/, '리스크 점수 카드를 넓히고 우측 진단 카드에 남은 폭 배분')
-// 선택 달 요약(#cf-month-summary)은 더 이상 독립 패널이 아니라 우측 차트 열의 첫
-// 카드(수입/지출 구성) 하단에 붙는다 — 총수입/지출/순현금흐름이 두 위젯에 중복
-// 표시되던 것을 없앴고, 차트 열이 그 행까지 통째로 차지해 세로 폭이 커진다.
-assert.match(indexSource, /id="cf-input-panel" class="glass-panel cf-entry-panel"[\s\S]*id="cf-couple-flow" class="glass-panel cf-flow-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="f-col cf-chart-column"[\s\S]*id="cf-comp-list"[\s\S]*id="cf-month-summary" class="cf-chart-summary"/, '입력부 옆에는 내역·차트 열만 두고, 선택 달 요약은 차트 카드 하단에 통합')
+// 현금 흐름 월별 화면(2026-11-26 사용자 결정): 1행 = 생키(가로 전체), 2행 = 상세 내역(왼쪽, 예전 폭) | 월 요약 + 6개월 누적 막대(오른쪽).
+// 입력 칸·수입/지출 구성·순현금흐름 추이·저축률 추이 카드는 없앴다 — 총수입·총지출·순현금흐름은 월 요약(cfMonthSummaryHtml)이 유일한 출처.
+assert.match(indexSource, /id="cf-couple-flow" class="glass-panel cf-flow-panel"[\s\S]*class="glass-panel cf-detail-panel"[\s\S]*class="cf-detail-scroll"[\s\S]*class="f-col cf-chart-column"[\s\S]*class="glass-panel f-col cf-sum-panel"[\s\S]*id="cf-month-summary" class="cf-chart-summary"[\s\S]*id="cf-stack"/, '생키 → 상세 내역 | 월 요약 + 누적 막대')
+assert.doesNotMatch(indexSource, /id="cf-input-panel"|id="cf-comp-list"|id="cfTrendChart"|id="cf-rate-trend"|id="cf-budget-btn"/, '예전 입력 칸·구성·추이·저축률·예산은 없앴다')
 assert.doesNotMatch(indexSource, /id="cf-tot-in"|id="cf-tot-out"|id="cf-tot-net"/, '차트 카드의 총수입·총지출·순현금흐름 중복 표시를 없앤다 — cfMonthSummaryHtml 이 유일한 출처')
-assert.match(styleSource, /\.cf-grid \{[\s\S]*grid-template-columns: minmax\(0,1fr\) minmax\(460px,\.72fr\)[\s\S]*\.cf-entry-panel\{grid-column:1;grid-row:1[\s\S]*\.cf-detail-panel\{grid-column:1;grid-row:3[\s\S]*\.cf-chart-column\{grid-column:2;grid-row:1\/4[\s\S]*\.cf-flow-panel\{grid-column:1;grid-row:2/, '차트 열이 입력부·부부 흐름·내역 세 행 높이를 모두 차지한다')
-assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!important;overflow-x:visible!important\}/, '좁아진 입력 줄은 가로 스크롤 대신 접힌다')
+assert.match(workspaceSource, /#cf-monthly-section \.cf-flow-panel\{grid-column:1\/-1;grid-row:1;/, '생키는 가로 전체')
+assert.match(workspaceSource, /#cf-monthly-section \.cf-detail-panel\{grid-column:1;grid-row:2;[^}]*contain:size;/, '상세 내역은 오른쪽 열 높이에 맞추고 카드 안에서만 스크롤(화면을 늘리지 않는다)')
+assert.match(workspaceSource, /\.cf-detail-scroll\{flex:1 1 auto;min-height:0;overflow:auto;/)
+assert.match(workspaceSource, /#cf-monthly-section \.cf-chart-column\{grid-column:2;grid-row:2;/)
 // 저축률은 순현금흐름과 다른 숫자다 — '저축/투자' 지출은 자산 이동이라 소비에서 되돌린다.
 // (finMonthlyFixedCost·finNetWorthBridge 가 같은 이유로 제외하는 그 카테고리다)
 {
@@ -479,8 +481,7 @@ assert.match(styleSource, /#cf-input-panel \.cf-entry-form\{flex-wrap:wrap!impor
   assert.match(html, /순현금흐름[\s\S]*?\+₩2,000,000/, '순현금흐름은 통장에 남은 돈')
   assert.match(html, /저축률[\s\S]*?80\.0%/, "저축률은 '저축/투자' 400만을 소비에서 되돌려 계산")
   assert.match(html, /자동이체 2건<\/b>이 고정비로 분류되지 않았습니다/, '미분류 자동이체를 그 자리에서 안내')
-  assert.match(html, /2026년 9월 요약/, '선택한 달을 제목에 표시')
-  assert.match(html, /부부 합계/, "'전체' 탭은 부부 합계로 표시")
+  assert.match(extractFunction(scriptSource, 'renderCashFlow'), /sumTitle\.textContent=`\$\{cfMonth\}월 요약 · \$\{cfScopeLabel\(\)\}`/, "선택한 달·범위('부부 합계')는 카드 머리줄 제목")
   const noIncome = summaryContext.cfMonthSummaryHtml(0, 120000, { 식비: 120000 })
   assert.match(noIncome, /저축률[\s\S]*?—/, '수입이 없으면 저축률을 내지 않는다')
 }
@@ -685,7 +686,6 @@ assert.match(styleSource, /\.cb-thead\{[^}]*background:var\(--panelSolid\)[\s\S]
 // ── PC 입력란 폭 상한 · 페이지 컴팩트화 ───────────────────────────
 assert.match(styleSource, /\.fin-form-grid\{[^}]*minmax\(148px,192px\)[^}]*align-items:end/, '목표·재무 입력란 폭 상한과 하단 정렬')
 assert.match(styleSource, /\.cf-fixed-form\{[^}]*minmax\(160px,300px\)[^}]*justify-content:start\}/, '고정비 항목 입력란이 남은 폭을 전부 흡수하지 않게 상한')
-assert.match(styleSource, /#cf-input-panel \.form-row\{max-width:1020px\}/, '현금 흐름 수입·지출 입력 줄 폭 상한')
 // 실현손익 기록 줄: 라벨을 입력 왼쪽에 두고 한 줄로. 실현손익은 고정 폭, 메모만 남는 폭을 쓴다.
 assert.match(workspaceSource, /\.cb-tax-entry-form\{display:flex;flex-wrap:wrap;align-items:center/, '실현손익 기록 입력을 한 줄 flex 로 배치')
 assert.match(workspaceSource, /\.cb-tax-entry-form>label\{display:flex;flex-direction:row;align-items:center/, '라벨을 드롭다운 왼쪽에 둔다')
@@ -715,15 +715,19 @@ assert.match(financeSource, /비교용 예시이며 맞춤 추천이 아닙니�
   assert.strictEqual(new Set(h).size, 1, `고정비 등록 줄 컨트롤 높이 불일치: ${h.join('/')}`)
 }
 
-// 현금 흐름 입력(2026-11-25 사용자 요청): 송금 기록 버튼은 펴고 접는 한 버튼, 수입·지출 입력은 두 줄 고정
+// 현금 흐름 기록 창(2026-11-26 사용자 결정): ＋ 수입 = [내 수입 | N월 아내 월급·송금], － 지출 = [한 번 | 자동이체 (매달)]
 {
   const cashflowSource = readSource('script.js')
-  const htmlSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
-  assert.match(cashflowSource, /function cfXferToggle\(ym\)\{\s*if\(_cfXferFormOpen\)\{ cfXferClose\(\);/, '송금 기록 버튼을 다시 누르면 접는다')
-  assert.match(cashflowSource, /id="cf-xfer-toggle" class="cf-xfer-btn\$\{open\?' is-open':''\}" aria-expanded="\$\{open\}" aria-controls="cf-xfer-form" onclick="cfXferToggle\(/, '송금 기록 버튼은 aria-expanded 토글')
-  assert.match(htmlSource, /cf-entry-category[\s\S]*?<div class="cf-entry-break" aria-hidden="true"><\/div>\s*<div class="form-group f-col cf-entry-desc">/, '카테고리 뒤에서 줄을 끊어 두 줄로 고정')
-  assert.match(htmlSource, /<div class="cf-entry-checks" id="cf-entry-checks"[^>]*>\s*<label id="cf-fixed-flag-group"[\s\S]*?<label id="cf-gift-flag-group"[\s\S]*?<\/div>\s*<button class="btn-submit" id="btn-cf-submit"/, '두 체크는 한 묶음으로 저장 버튼 앞에')
-  assert.match(cashflowSource, /const isAuto = !!document\.getElementById\('cfmode-auto'\)\?\.checked;[\s\S]{0,240}domRow\.style\.display = isAuto&&cycle==='monthly'/, '일회성 입력에서는 자동이체 결제일 칸을 띄우지 않는다')
+  const render = extractFunction(cashflowSource, 'cfEntryRender')
+  assert.match(render, /\[\['mine','내 수입'\],\['wife',`\$\{Number\(e\.ym\.slice\(5\)\)\}월 \$\{CF_XFER_FROM\} 월급·송금`\]\]:\[\['once','한 번'\],\['auto','자동이체 \(매달\)'\]\]/, '수입·지출 탭 이름')
+  assert.match(render, /aria-pressed="\$\{e\.tab===k\}"/, '탭은 aria-pressed 밑줄형')
+  assert.match(render, /tabs\.hidden=editing;/, '수정할 때는 탭을 바꾸지 않는다')
+  const fields = extractFunction(cashflowSource, 'cfEntryFieldsHtml')
+  assert.match(fields, /id="cf-w-pay"[\s\S]*id="cf-w-sent"[\s\S]*id="cf-w-date"[\s\S]*id="cf-w-result" role="status"/, '아내 탭: 월급·보낸 돈·보낸 날 → 아내 지출(자동)')
+  assert.match(fields, /id="cf-e-cycle" onchange="cfEntryCycle\(\)"[\s\S]*id="cf-e-dom-group"[\s\S]*id="cf-e-dow-group" hidden/, '자동이체 탭: 주기에 따라 결제일·요일')
+  assert.match(fields, /id="cf-e-fixed" checked> 고정비에 포함/, '자동이체는 기본으로 고정비에 포함')
+  assert.match(extractFunction(cashflowSource, 'cfEntryCycle'), /dom\.hidden=c!=='monthly';[\s\S]*dow\.hidden=c!=='weekly';/)
+  assert.match(cashflowSource, /addEventListener\('pointerdown',e=>\{_cfEntryDownOutside=[\s\S]*_cfEntryDownOutside\)cfEntryClose\(\)/, '안에서 누른 채 끌고 나오면 닫지 않는다')
 }
 console.log('PASS 후속 UI·INDEX ETF·현금 흐름·배당 상세')
 

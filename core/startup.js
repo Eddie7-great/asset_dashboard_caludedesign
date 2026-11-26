@@ -32,6 +32,7 @@ document.addEventListener('keydown', function(e) {
     if (typeof cbTaxHoldClose === 'function') cbTaxHoldClose();
     if (typeof cbDashPopClose === 'function') cbDashPopClose();
     if (typeof etfExpClose === 'function') etfExpClose();
+    if (typeof cfEntryClose === 'function') cfEntryClose();
     if (typeof closeREModal === 'function') closeREModal();
     if (typeof closeLiabModal === 'function') closeLiabModal();
     closeCfDetails();
@@ -89,7 +90,6 @@ function applyPortfolioSort(table, st) {
 
 function initDashboard(){
   initCfDropdowns();
-  document.getElementById('cf-date').value=_cfLocalDateKey(currentCfDate);
 
   // IME 한글 조합 이벤트 리스너 (조합 중 검색 방지)
   const searchInput = document.getElementById('add-search');
@@ -110,16 +110,6 @@ function initDashboard(){
       }
       searchStockByApi();
     });
-  }
-
-  // Chart.js 는 CDN 에서 온다. 로드에 실패했는데 여기서 그대로 new Chart 를 하면
-  // initDashboard 가 통째로 중단되고, 그 아래의 KV 로드(loadAssetsFromKV)까지 실행되지 않아
-  // 차트뿐 아니라 자산·순자산·배당이 전부 빈 화면이 된다. 차트만 포기하고 나머지는 띄운다.
-  if (typeof Chart === 'undefined') {
-    window.cfTrendChartInst = null;
-  } else {
-
-    window.cfTrendChartInst=new Chart(document.getElementById('cfTrendChart').getContext('2d'),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const idx=c.dataIndex,mIn=window.cfTrendDetails.in[idx]||0,mOut=window.cfTrendDetails.out[idx]||0,net=c.raw,sign=net<0?'-₩':'₩';return[` 순현금흐름: ${sign}${Math.abs(net).toLocaleString()}`,` 총 수입: ₩${mIn.toLocaleString()}`,` 총 지출: ₩${mOut.toLocaleString()}`];}}}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(150,150,150,.15)',borderDash:[2,2]},ticks:{callback:v=>v===0?'₩0':(v<0?'-₩':'₩')+Math.abs(v/10000).toLocaleString()+'만'}}}}});
   }
 
   // 테마 복원 — 3테마 (default/light/dark), 저장값 없으면 기본

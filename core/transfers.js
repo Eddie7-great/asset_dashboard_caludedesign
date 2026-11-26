@@ -165,20 +165,22 @@ function _getCycleLabel(at) {
   return s;
 }
 
-function addAutoTransfer() {
+// 자동이체 등록 — 현금 흐름 기록 창의 '지출 > 자동이체 (매달)' 탭이 값을 넘긴다(2026-11-26: 입력 칸 대신 창).
+// v = {type, cat, desc, amt, cycle, dom, dow, owner, isFixedCost, isGift}
+function addAutoTransfer(v) {
   if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  const type = document.getElementById('cf-type').value;
-  const cat = document.getElementById('cf-cat').value;
-  const desc = document.getElementById('cf-desc').value.trim();
-  const amt = parseFloat((document.getElementById('cf-amt').value||'').replace(/,/g,''))||0;
-  const cycle = document.getElementById('at-cycle').value;
-  const dom = parseInt(document.getElementById('at-dom').value)||1;
-  const dow = parseInt(document.getElementById('at-dow').value)||1;
-  const owner = document.getElementById('cf-owner-input')?.value || (_cfOwner==='전체'?'':_cfOwner);
-  const isFixedCost = !!document.getElementById('cf-fixed-flag')?.checked;
+  v = v || {};
+  const type = v.type === '수입' ? '수입' : '지출';
+  const cat = v.cat || '기타';
+  const desc = String(v.desc || '').trim();
+  const amt = Number(v.amt) || 0;
+  const cycle = ['daily','weekly','monthly','month-end'].includes(v.cycle) ? v.cycle : 'monthly';
+  const dom = parseInt(v.dom) || 1;
+  const dow = Number.isInteger(v.dow) ? v.dow : 1;
+  const owner = v.owner;
+  const isFixedCost = !!v.isFixedCost;
   // '증여 이체' 체크 — 가족 증여 화면의 '자동이체를 증여로 연결' 목록에는 이 표식이 있는 지출만 나타난다
-  const isGift = type==='지출' && !!document.getElementById('cf-gift-flag')?.checked;
+  const isGift = type==='지출' && !!v.isGift;
   if (!desc||!amt) { alert('내용과 금액을 입력하세요.'); return; }
   if (!OWNERS.includes(owner)) { alert('소유주를 선택하세요.'); return; }
   const today = new Date();
@@ -198,10 +200,6 @@ function addAutoTransfer() {
   saveCfData();
   saveExtDataToKV();
   renderCashFlow();
-  const descEl=document.getElementById('cf-desc');if(descEl)descEl.value='';
-  const amtEl=document.getElementById('cf-amt');if(amtEl)amtEl.value='';
-  const fixedEl=document.getElementById('cf-fixed-flag');if(fixedEl)fixedEl.checked=false;
-  const giftEl=document.getElementById('cf-gift-flag');if(giftEl)giftEl.checked=false;
   renderFixedCostView();
 }
 
@@ -379,71 +377,6 @@ function renderAutoTransfers() {
   }).join('');
 }
 
-function toggleAtCycleFields() {
-  const cycle = document.getElementById('at-cycle')?.value;
-  // 일회성 입력에서는 자동이체 결제일·요일 칸을 띄우지 않는다 — 예전엔 자동이체 → 일회성으로 돌아오면
-  // '날짜(일)' 칸이 남아 날짜 칸이 두 개처럼 보였다(2026-11-25).
-  const isAuto = !!document.getElementById('cfmode-auto')?.checked;
-  const domRow = document.getElementById('at-dom-row');
-  const dowRow = document.getElementById('at-dow-row');
-  if(domRow) domRow.style.display = isAuto&&cycle==='monthly'?'':'none';
-  if(dowRow) dowRow.style.display = isAuto&&cycle==='weekly'?'':'none';
-}
-
-function toggleCfMode() {
-  const isAuto = document.getElementById('cfmode-auto')?.checked;
-  // 날짜 vs 주기 필드
-  const dateGrp = document.getElementById('cf-date-group');
-  const cycleGrp = document.getElementById('cf-cycle-group');
-  const fixedFlag = document.getElementById('cf-fixed-flag-group');
-  if(dateGrp) dateGrp.style.display = isAuto?'none':'';
-  if(cycleGrp) cycleGrp.style.display = isAuto?'':'none';
-  if(fixedFlag) fixedFlag.style.display = isAuto?'flex':'none';
-  const giftFlag = document.getElementById('cf-gift-flag-group');
-  if(giftFlag) giftFlag.style.display = isAuto?'flex':'none';
-  // 두 체크를 담은 묶음 — 일회성에서는 통째로 숨겨 둘째 줄에 빈 간격이 남지 않게 한다
-  const checks = document.getElementById('cf-entry-checks');
-  if(checks) checks.style.display = isAuto?'flex':'none';
-  // 주기 관련 필드 표시
-  toggleAtCycleFields();
-}
-
-// 입력 폼 펼침/접힘 — 폼은 기본으로 접혀 있고, 버튼을 누르거나 내역을 수정할 때만 편다.
-// 저장·편집 로직(submitCfEntry/editCF/resetCfForm)은 그대로이며 여기서는 보이기만 바꾼다.
-function cfShowEntry(){
-  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
-  if(body) body.hidden=false;
-  if(close) close.hidden=false;
-}
-function cfOpenEntry(kind){
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-  if (typeof resetCfForm==='function') resetCfForm();
-  const auto=kind==='auto';
-  const radio=document.getElementById(auto?'cfmode-auto':'cfmode-oneshot');
-  if(radio && !radio.checked){ radio.checked=true; toggleCfMode(); }
-  const typeEl=document.getElementById(auto?'at-type':'cf-type');
-  if(typeEl && !auto) typeEl.value=kind==='in'?'수입':'지출';
-  cfShowEntry();
-  document.getElementById(auto?'at-amt':'cf-amt')?.focus();
-}
-function cfCloseEntry(){
-  if (typeof resetCfForm==='function') resetCfForm();
-  const body=document.getElementById('cf-entry-body'), close=document.getElementById('cf-entry-close');
-  if(body) body.hidden=true;
-  if(close) close.hidden=true;
-}
-
-function submitCfEntry() {
-  if (isMobileLayout()) return; // 모바일은 조회 전용
-
-  const isAuto = document.getElementById('cfmode-auto')?.checked;
-  if(isAuto) {
-    addAutoTransfer();
-  } else {
-    addCashFlow();
-  }
-}
-
 function _cfEsc(value) { return escHtml(value); }
 
 function _cfMonthKey(date=new Date()) {
@@ -462,9 +395,7 @@ function switchCashFlowSection(section, btn) {
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
   });
   if (_cfSection === 'fixed') renderFixedCostView();
-  else requestAnimationFrame(()=>{
-    if(window.cfTrendChartInst) window.cfTrendChartInst.resize();
-  });
+  else requestAnimationFrame(()=>{ if(typeof cfFlowRender==='function') cfFlowRender(); });   // 숨어 있던 동안 폭이 0 이었다
 }
 
 function _autoTransferActiveInMonth(at, y, m) {
