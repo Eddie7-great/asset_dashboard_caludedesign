@@ -12,7 +12,7 @@ let _chsLoading = null, _chsView = null;
 // 검색한 종목 — {tkr, name, cur}. 검색어·오류·최근 검색은 메모리에만.
 let _chsPickInfo = null, _chsQuery = '', _chsSearchErr = null, _chsSearchBusy = false;
 const _chsRecent = [];
-const CHS_RECENT_MAX = 5;
+const CHS_RECENT_MAX = 3; // 최근 조회 3개 — 새로 보면 맨 앞, 가장 오래된 것이 빠진다(2026-11-26 사용자 요청)
 // 겹쳐 그릴 지표(켜고 끄기) — 화면을 옮겨도 유지(메모리)
 const _chsShow = {ma:true, gc:true, bb:true, div:true};
 // 가격 눈금 — 기본 선형, '로그' 버튼으로 바꾼다(2026-11-26 사용자 결정 — 봉 단위와 상관없이 기본 선형). 지표 계산은 그대로, 눈금만 바뀐다.
