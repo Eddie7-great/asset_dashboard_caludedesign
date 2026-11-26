@@ -18,7 +18,7 @@ assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)return _reportOwner;/);
 assert.match(nav, /if\(id==='report2'\|\|id==='reporty'\)_reportOwner=owner;/);
 assert.match(html, /id="menu-report2" onclick="switchView\('report2',this\)">[\s\S]*?결산 리포트<\/button>/);
 assert.match(html, /<div id="view-reporty" class="view-section"><div class="cb-scroll" id="cb-reporty">/);
-assert.match(cobalt, /report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart \};/);
+assert.match(cobalt, /report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart[, }]/);
 assert.doesNotMatch(cobalt, /지난달 결산 보기/, '홈의 지난달 결산 보기 링크는 없앴다(2026-11-18 3차, 사용자 결정 — 메뉴로 간다)');
 
 // ── 조회 전용 ──
