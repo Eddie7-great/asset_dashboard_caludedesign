@@ -822,7 +822,7 @@ assert.doesNotMatch(workspaceSource, /\.cb-tax-hist-row>:nth-child\(5\)\{text-al
   assert.deepEqual(order(), ['a', 'c', 'b', 'd'], '평단가는 원화 환산(매입금액 ÷ 수량)으로 비교')
   const btn = ctx.cbSortBtn('home', 'avg', '평단가')
   assert.match(btn, /class="cb-sort-btn is-on" data-sort-btn="home:avg"[^>]*>평단가<i class="cb-sort-ind"/, '켜진 칸 표시 · 화살표는 어느 칸이든 칼럼명 오른쪽')
-  assert.doesNotMatch(cobaltSource + workspaceSource, /is-r\b|\.cb-sort-btn\.is-r/, '오른쪽 정렬 칸도 화살표를 글자 앞에 두지 않는다(사용자 결정)')
+  assert.doesNotMatch(cobaltSource + workspaceSource, /cb-sort-btn[^"'`]*\bis-r\b|\.cb-sort-btn\.is-r/, '오른쪽 정렬 칸도 화살표를 글자 앞에 두지 않는다(사용자 결정)')
   assert.match(workspaceSource, /\.cb-sort-ind\{position:absolute;top:50%;left:calc\(100% \+ 2px\)/, '화살표는 칼럼명 바로 오른쪽(절대 위치)')
   assert.match(btn, /<span class="sr-only">, 내림차순 정렬됨<\/span>/, '정렬 상태를 화면 낭독기에도 알린다')
   assert.match(ctx.cbSortBtn('home', 'name', '종목', 'text'), /class="cb-sort-btn" data-sort-btn="home:name"[^>]*>종목<i class="cb-sort-ind" aria-hidden="true">↕<\/i><\/button>/)

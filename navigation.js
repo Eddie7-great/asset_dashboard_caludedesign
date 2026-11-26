@@ -2,7 +2,7 @@
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
-  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부']]},
+  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부'],['screen2','종목 찾기']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
@@ -11,7 +11,8 @@ const APP_NAV = [
 ];
 // 페이지 통폐합(2026-11-19): 세부 메뉴에 따로 없는 화면이 속한 세부 메뉴. 화면 id·#view= 주소는 그대로라 옛 링크도 열린다.
 // 적립식 매수(dca2)는 2026-11-23 투자 계획에서 보유 목록의 넷째 보기로 옮겼다(사용자 결정) — 조회 화면과 수정하는 곳(보유 목록 적립식 칸)을 한 메뉴에 둔다.
-const NAV_HOST = {acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
+// 종목 찾기(2026-11-26 사용자 결정): 한 화면 안 탭(추세추종·가치투자·둘 다·매크로). 종목 상세(추세추종·가치투자)는 표에서 티커를 눌러 들어가는 화면이라 세부 메뉴에 따로 두지 않는다.
+const NAV_HOST = {trend2:'screen2', value2:'screen2', macro2:'screen2', acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
 // 한 세부 메뉴 안의 보기 전환(같은 보유·같은 결산을 묶음만 바꿔 본다) — 머리줄 아래 오른쪽 밑줄형 줄(#view-mode-bar).
 // 현금 흐름의 월별·고정비·일정은 머리줄의 #cf-header-tabs 가 맡는다.
 const NAV_MODES = {

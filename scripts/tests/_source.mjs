@@ -35,6 +35,7 @@ export const SOURCE_PARTS = {
     'pages/tax.js',
     'pages/dca.js',
     'pages/chart-study.js',
+    'pages/minervini.js',
     'cobalt.js',
   ],
 }

@@ -12,7 +12,7 @@ const src = read('workspace-pages.js'), nav = read('navigation.js'), html = read
 assert.equal((nav.match(/\{menu:'/g) || []).length, 8, '상위 메뉴 8개');
 // 페이지 통폐합(2026-11-19): 계좌별 보기는 보유 목록의 보기 전환, 일정은 현금 흐름 탭이다(세부 메뉴에서 빠지고 NAV_HOST 로 속한다).
 assert.match(nav, /holdings:\[\['holdings','종목별'\],\['acct2','계좌별'\],\['fam2','구성원별'\],\['dca2','적립식'\]\]/);
-assert.match(nav, /const NAV_HOST = \{acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'\};/);
+assert.match(nav, /const NAV_HOST = \{trend2:'screen2', value2:'screen2', macro2:'screen2', acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'\};/);
 assert.match(cobalt, /acct2:cbRenderAccounts, cal2:cbRenderCalendar[,}]/);
 assert.ok(html.indexOf('workspace-pages.js') > html.indexOf('etf-explorer.js') && html.indexOf('workspace-pages.js') < html.indexOf('cobalt.js?'), 'cobalt.js 앞에 로드');
 assert.match(html, /<div id="view-acct2" class="view-section"><div class="cb-scroll" id="cb-acct2">/);
