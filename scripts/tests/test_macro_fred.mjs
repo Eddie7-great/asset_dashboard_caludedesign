@@ -29,7 +29,7 @@ const J = x => JSON.parse(JSON.stringify(x))
 
 // ── 키·비밀값이 코드에 없다 ──
 assert.doesNotMatch(src, /api\.stlouisfed\.org|api_key/i, 'API 키가 필요한 주소를 쓰지 않는다')
-assert.deepEqual([...M.FRED_SERIES], ['DGS10', 'T10Y2Y', 'BAA10Y', 'DTWEXBGS'])
+assert.deepEqual([...M.FRED_SERIES], ['DGS10', 'T10Y2Y', 'BAA10Y', 'DTWEXBGS', 'DGS2', 'DFF', 'WALCL', 'SP500', 'SAHMREALTIME', 'VIXCLS'])
 assert.equal(M.FRED_CSV_URL, 'https://fred.stlouisfed.org/graph/fredgraph.csv')
 
 // ── CSV 읽기 ──
@@ -40,8 +40,8 @@ assert.throws(() => M.parseFredCsv('observation_date,DGS10\n2026-11-25,', 'DGS10
 
 // ── 가짜 FRED + 가짜 KV ──
 const mkCsv = (id, rows) => `observation_date,${id}\n` + rows.map(([d, v]) => `${d},${v}`).join('\n') + '\n'
-const series = (base, step, endDay = '2026-11-25') => { const out = []; const end = Date.parse(endDay + 'T00:00:00Z'); for (let i = 300; i >= 0; i -= 1) { const t = end - i * 86400000; const wd = new Date(t).getUTCDay(); if (wd === 0 || wd === 6) continue; out.push([new Date(t).toISOString().slice(0, 10), +(base + step * (300 - i)).toFixed(4)]) } return out }
-let fredData = { DGS10: series(4.0, 0.0004), T10Y2Y: series(0.2, 0.001), BAA10Y: series(1.6, 0.0002), DTWEXBGS: series(118, 0.01) }
+const series = (base, step, endDay = '2026-11-25', span = 390) => { const out = []; const end = Date.parse(endDay + 'T00:00:00Z'); for (let i = span; i >= 0; i -= 1) { const t = end - i * 86400000; const wd = new Date(t).getUTCDay(); if (wd === 0 || wd === 6) continue; out.push([new Date(t).toISOString().slice(0, 10), +(base + step * (span - i)).toFixed(4)]) } return out }
+let fredData = { DGS10: series(4.0, 0.0004), T10Y2Y: series(0.2, 0.001), BAA10Y: series(1.6, 0.0002), DTWEXBGS: series(118, 0.01), DGS2: series(3.9, 0.0002), DFF: series(3.88, 0), WALCL: series(6700000, -300), SP500: series(6000, 2), SAHMREALTIME: [['2026-09-01', 0.27], ['2026-10-01', 0.3]], VIXCLS: series(18, -0.001) }
 const kv = new Map(); let sets = 0, fredCalls = [], fredFail = new Set()
 const fakeFetch = async (url, init) => {
   const u = String(url)
@@ -70,7 +70,7 @@ assert.equal(fredCalls.length, 0)
 // 첫 확인 — 네 지표 모두 저장
 let r = await M.refreshFredCache({ now: thuAfter, fetchImpl: fakeFetch })
 assert.equal(r.cacheUpdated, true); assert.equal(sets, 1)
-assert.deepEqual([...fredCalls].sort(), ['BAA10Y', 'DGS10', 'DTWEXBGS', 'T10Y2Y'])
+assert.deepEqual([...fredCalls].sort(), [...M.FRED_SERIES].sort())
 for (const id of M.FRED_SERIES) assert.equal(r.report[id].status, 'updated')
 const first = JSON.parse(kv.get(M.CACHE_KEY))
 assert.equal(first.series.DGS10.date, '2026-11-25'); assert.ok(first.series.DGS10.fetchedAt)
@@ -109,6 +109,9 @@ assert.equal(P.success, true); assert.equal(P.t10, 4.2); assert.equal(P.series.D
 assert.equal(P.series.DGS10.change, +(4.2 - P.series.DGS10.prevValue).toFixed(4))
 assert.ok(Number.isFinite(P.curve.min12m) && Number.isFinite(P.credit.ago3m) && Number.isFinite(P.dxy.ago3m))
 assert.equal(M.macroPayload(null).success, false, '자료가 없으면 지어내지 않는다')
+assert.ok(P.spx && P.spx.close > P.spx.ma200 && P.spx.ma200 > P.spx.ma200ago, '200일선은 마지막 200개 평균, 20거래일 전 평균과 비교')
+assert.ok(P.bs.ago6m > P.bs.now && P.fed.now === 3.88 && P.sahm.now === 0.3 && Number.isFinite(P.vix.now))
+assert.equal(P.series.SAHMREALTIME.staleDays, 75); assert.equal(P.series.WALCL.staleDays, 14); assert.equal(P.series.DGS10.staleDays, 7)
 
 // ── HTTP: 세션 GET 은 KV 만 읽고, 예약 실행만 FRED 를 부른다 ──
 process.env.SESSION_SECRET = 'test-session-secret-that-is-long-enough'
@@ -139,11 +142,13 @@ assert.doesNotMatch(page, /fred\.stlouisfed\.org/, '브라우저는 FRED 를 부
 const pick = name => { const i = page.indexOf(`function ${name}(`); assert.ok(i >= 0, name); let d = 0, j = page.indexOf('{', i); for (let k = j; k < page.length; k += 1) { if (page[k] === '{') d += 1; else if (page[k] === '}') { d -= 1; if (!d) return page.slice(i, k + 1) } } }
 const constLine = name => page.split('\n').find(l => l.startsWith(`const ${name} =`))
 const ctx = vm.createContext({ cbEsc: s => String(s), Date, Number, Math, String, Object, Array })
-vm.runInContext([constLine('TRD_MACRO'), pick('trdMacro'), pick('macSrcHtml'), 'this.trdMacro=trdMacro;this.macSrcHtml=macSrcHtml;'].join('\n'), ctx)
+vm.runInContext([constLine('TRD_MACRO'), constLine('TRD_MACRO_X'), pick('trdMacro'), pick('macSrcHtml'), 'this.trdMacro=trdMacro;this.macSrcHtml=macSrcHtml;'].join('\n'), ctx)
 const mc = ctx.trdMacro(P)
-assert.deepEqual(J(mc.items.map(x => x.key)), ['rate', 'curve', 'credit', 'dxy'])
-assert.equal(mc.items[0].light, 'n', '10년물은 기존 판정 기준이 없어 참고값')
-assert.equal(mc.judged, 3)
+assert.deepEqual(J(mc.items.map(x => x.key)).sort(), ['bs', 'credit', 'curve', 'dxy', 'fed', 'rate', 'sahm', 'spx', 'vix'])
+assert.equal(mc.items.find(x => x.key === 'rate').light, 'n', '10년물은 기존 판정 기준이 없어 참고값')
+assert.equal(mc.judged, 8)
+assert.equal(mc.items.find(x => x.key === 'fed').src.source, 'FRED · DGS2 · DFF')
+for (const lens of ['liq', 'eco', 'val']) assert.equal(mc.items.filter(x => x.lens === lens).length, 3, '세 묶음 모두 3장')
 // 기존 기준: 3개월 +1%p 빨강 · 5% 이상 노랑 / 달러 3개월 +5% 빨강 · +2% 노랑 / 금리차 역전 노랑
 const L = m => J(ctx.trdMacro({ series: {}, ...m }).items.map(x => x.light))
 assert.deepEqual(L({ credit: { now: 2.0, ago3m: 0.9 } }), ['r'])
@@ -154,6 +159,15 @@ assert.deepEqual(L({ dxy: { now: 102, ago3m: 100 } }), ['y'])
 assert.deepEqual(L({ curve: { now: -0.1, min12m: -0.3 } }), ['y'])
 assert.deepEqual(L({ curve: { now: 0.4, min12m: -0.2 } }), ['r'])
 assert.deepEqual(L({ curve: { now: 0.4, min12m: 0.1 } }), ['g'])
+// 되살린 카드도 기존 기준 그대로: 2년물이 기준금리보다 0.25%p 넘게 높으면 빨강 · 연준 자산 6개월 −3% 이하 빨강 · 200일선 아래 + 내림 빨강
+assert.deepEqual(L({ t2: 4.2, fed: { now: 3.9 } }), ['r']); assert.deepEqual(L({ t2: 4.0, fed: { now: 3.9 } }), ['g'])
+assert.deepEqual(L({ bs: { now: 96, ago6m: 100 } }), ['r']); assert.deepEqual(L({ bs: { now: 99, ago6m: 100 } }), ['y']); assert.deepEqual(L({ bs: { now: 99, ago6m: null } }), [])
+assert.deepEqual(L({ spx: { close: 90, ma200: 100, ma200ago: 101 } }), ['r'])
+// 새 두 장: 삼의 법칙 0.5 (원문) · VIX 20/30 (관례)
+assert.deepEqual(L({ sahm: { now: 0.5 } }), ['r']); assert.deepEqual(L({ sahm: { now: 0.3 } }), ['g'])
+assert.deepEqual(L({ vix: { now: 31 } }), ['r']); assert.deepEqual(L({ vix: { now: 22 } }), ['y']); assert.deepEqual(L({ vix: { now: 15 } }), ['g'])
+assert.match(ctx.macSrcHtml({ ...P.series.WALCL }), /직전 대비 [+-]\d+\.\d{2}%</, '연준 자산은 % 로만')
+assert.doesNotMatch(ctx.macSrcHtml({ ...P.series.SAHMREALTIME, date: '2026-10-01' }), /오래됨/, '월간 지표는 75일까지 오래됨 아님')
 const html = ctx.macSrcHtml(P.series.DTWEXBGS)
 assert.match(html, /FRED · DTWEXBGS/); assert.match(html, /\d{4}\.\d{2}\.\d{2} 자료/); assert.match(html, /직전 대비/)
 assert.match(ctx.macSrcHtml({ ...P.series.DGS10, date: '2020-01-02' }), /오래됨/)

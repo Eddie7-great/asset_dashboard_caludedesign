@@ -7,7 +7,11 @@ const { authenticateRequest, sendAuthFailure, safeEqual } = require('./_auth.js'
 //  - 브라우저는 FRED 를 부르지 않는다. 화면은 이 함수의 GET(로그인 세션)으로 KV 에 저장된 값만 읽는다.
 //  - 새로 받는 일은 Vercel 예약 실행(vercel.json crons, 미국 평일 장 마감 뒤 하루 한 번)만 한다 — Authorization: Bearer CRON_SECRET.
 //  - 받은 최신 관측일이 저장된 날짜와 같으면 KV 를 다시 쓰지 않는다. 받기에 실패하면 마지막 정상 값을 그대로 둔다.
-export const FRED_SERIES = ['DGS10', 'T10Y2Y', 'BAA10Y', 'DTWEXBGS'] as const;
+// 처음 네 개(2026-11-26 사용자 지정) + 빈칸 채우기 다섯 카드용 여섯 개(같은 날 사용자 선택): 2년물·기준금리(앞으로의 금리),
+// 연준 총자산(주 1회), S&P 500(200일선), 삼의 법칙(월 1회), VIX.
+export const FRED_SERIES = ['DGS10', 'T10Y2Y', 'BAA10Y', 'DTWEXBGS', 'DGS2', 'DFF', 'WALCL', 'SP500', 'SAHMREALTIME', 'VIXCLS'] as const;
+// 자료가 '오래됐다'고 볼 날 수 — 공표 주기가 다르다(달러 지수·연준 자산은 주 1회, 삼의 법칙은 다음 달 초에 지난달 값).
+export const STALE_DAYS: Record<string, number> = { DTWEXBGS: 14, WALCL: 14, SAHMREALTIME: 75 };
 export const FRED_CSV_URL = 'https://fred.stlouisfed.org/graph/fredgraph.csv';
 export const CACHE_KEY = 'macro_fred';
 export const CHECK_KEY = 'macro_fred_checked';
@@ -145,13 +149,21 @@ function valueOnOrBefore(obs: Obs[], day: string): number | null {
 function monthsBefore(day: string, n: number): string {
   const d = new Date(day + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - n); return isoDay(d.getTime());
 }
+// S&P 500 200일선 — 마지막 200개 관측(거래일) 평균과, 20거래일 전의 같은 평균(오르는 중인지).
+const MA_DAYS = 200, MA_LOOKBACK = 20;
+function spx200(e: SeriesEntry | undefined) {
+  const xs = e && Array.isArray(e.obs) ? e.obs.map(o => o[1]) : [];
+  if (xs.length < MA_DAYS + MA_LOOKBACK) return null;
+  const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  return { close: xs[xs.length - 1], ma200: avg(xs.slice(-MA_DAYS)), ma200ago: avg(xs.slice(-MA_DAYS - MA_LOOKBACK, -MA_LOOKBACK)) };
+}
 export function macroPayload(cache: MacroCache | null) {
   const S = cache && cache.series || {};
   const pub = (id: string) => {
     const e = S[id]; if (!e || !DATE_RE.test(e.date) || !Number.isFinite(e.value)) return null;
     return { id, date: e.date, value: e.value, prevDate: e.prevDate, prevValue: e.prevValue,
       change: Number.isFinite(e.prevValue as number) ? +(e.value - (e.prevValue as number)).toFixed(4) : null,
-      fetchedAt: e.fetchedAt, source: `FRED · ${id}` };
+      fetchedAt: e.fetchedAt, source: `FRED · ${id}`, staleDays: STALE_DAYS[id] || 7 };
   };
   const series: Record<string, any> = {};
   for (const id of FRED_SERIES) { const p = pub(id); if (p) series[id] = p; }
@@ -165,6 +177,12 @@ export function macroPayload(cache: MacroCache | null) {
     curve: series.T10Y2Y ? { now: series.T10Y2Y.value, min12m: min12m('T10Y2Y') } : null,
     credit: series.BAA10Y ? { now: series.BAA10Y.value, ago3m: ago3m('BAA10Y') } : null,
     dxy: series.DTWEXBGS ? { now: series.DTWEXBGS.value, ago3m: ago3m('DTWEXBGS') } : null,
+    t2: series.DGS2 ? series.DGS2.value : null,
+    fed: series.DFF ? { now: series.DFF.value } : null,
+    bs: series.WALCL ? { now: series.WALCL.value, ago6m: valueOnOrBefore(S.WALCL.obs || [], monthsBefore(S.WALCL.date, 6)) } : null,
+    spx: spx200(S.SP500),
+    sahm: series.SAHMREALTIME ? { now: series.SAHMREALTIME.value } : null,
+    vix: series.VIXCLS ? { now: series.VIXCLS.value } : null,
   };
 }
 
