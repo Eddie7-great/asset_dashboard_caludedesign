@@ -315,14 +315,31 @@ function chsRatioBars(A, B, frame){
   });
   return out.filter(b=>[b.o,b.h,b.l,b.c].every(v=>Number.isFinite(v)&&v>0));
 }
+// 원화·엔화 등 봉을 달러로 — 같은 기간의 환율 종가(1달러당 그 통화)로 시가·고가·저가·종가를 나눈다. 환율이 없는 날은 뺀다.
+function chsToUsd(bars, fxBars, frame){
+  const fx = new Map(fxBars.map(b=>[chsPeriodKey(b.t, frame), b.c]));
+  return bars.map(b=>{ const r = fx.get(chsPeriodKey(b.t, frame)); return r>0 ? {...b, o:b.o/r, h:b.h/r, l:b.l/r, c:b.c/r} : null; }).filter(Boolean);
+}
 async function chsFetchBars(tkr, frame='D'){
   const parts = chsRatioParts(tkr);
   if (parts){
-    const [a, b] = await Promise.all(parts.map(t=>chsFetchBars(t, frame)));
+    let [a, b] = await Promise.all(parts.map(t=>chsFetchBars(t, frame)));
+    // 통화가 다르면 둘 다 달러로 바꿔 나눈다(2026-11-26 사용자 결정 — 환율 반영·달러 기준).
+    // 같은 통화로 맞추면 원화든 달러든 비율은 같다. 환율은 Yahoo 'KRW=X'(1달러당 원) 같은 날 종가.
+    let fx = null;
+    if (a.cur && b.cur && a.cur!==b.cur){
+      const toUsd = async d => {
+        if (d.cur==='USD') return d;
+        const r = await chsFetchBars(d.cur+'=X', frame);
+        return {...d, bars:chsToUsd(d.bars, r.bars, frame), cur:'USD'};
+      };
+      fx = {from:[a.cur, b.cur], base:'USD'};
+      [a, b] = await Promise.all([toUsd(a), toUsd(b)]);
+    }
     const bars = chsRatioBars(a.bars, b.bars, frame);
     const need = frame==='D' ? 30 : frame==='Y' ? 2 : 10;
     if (bars.length < need) throw new Error(`두 종목이 함께 있는 ${(CHS_FRAMES[frame]||CHS_FRAMES.D).label}이 ${need}개보다 적습니다`);
-    return {bars, cur:'RATIO', curs:[a.cur, b.cur], symbol:tkr, bench:{}, at:Date.now()};
+    return {bars, cur:'RATIO', fx, symbol:tkr, bench:{}, at:Date.now()};
   }
   const F = CHS_FRAMES[frame] || CHS_FRAMES.D;
   const r = await authFetch(`/api/price?type=ohlcv&tkr=${encodeURIComponent(tkr)}&range=${F.range}${F.interval!=='1d'?'&interval='+F.interval:''}`);
@@ -672,8 +689,8 @@ function cbRenderChart(){
     const inProgress = chsInProgress(last, frame);
     const ratio = cur==='RATIO', rp = ratio ? chsRatioParts(_chsTkr) : null;
     _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}, log:_chsLog, ratio};
-    const curs = ratio && Array.isArray(data.curs) ? data.curs.filter(Boolean) : [];
-    const ratioNote = ratio ? `${cbEsc(rp[0])} 종가 ÷ ${cbEsc(rp[1])} 종가 — 선이 오르면 ${cbEsc(rp[0])}가 ${cbEsc(rp[1])}보다 강했다는 뜻입니다. 고가·저가는 근사값이고 거래량은 없습니다.${curs.length===2&&curs[0]!==curs[1]?` 두 종목 통화가 달라(${cbEsc(curs[0])}·${cbEsc(curs[1])}) 환율 변화는 빠진 각자 통화 기준 비교입니다.`:''}` : '';
+    const fx = ratio && data.fx && Array.isArray(data.fx.from) ? data.fx.from : null;
+    const ratioNote = ratio ? `${cbEsc(rp[0])} 종가 ÷ ${cbEsc(rp[1])} 종가 — 선이 오르면 ${cbEsc(rp[0])}가 ${cbEsc(rp[1])}보다 강했다는 뜻입니다. 고가·저가는 근사값이고 거래량은 없습니다.${fx?` 두 종목 통화가 달라(${cbEsc(fx[0])}·${cbEsc(fx[1])}) 날마다의 환율로 둘 다 달러로 바꿔 나눴습니다 — 환율 변화까지 들어간 비교입니다.`:''}` : '';
     const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
     const MA = chsMaList(frame);
