@@ -35,10 +35,10 @@ vm.runInContext(nav, ctx);
 const groups = JSON.parse(vm.runInContext('JSON.stringify(APP_NAV)', ctx));
 assert.equal(groups.length, 8, '상위 메뉴 8개 그대로');
 const sections = groups.flatMap(g => g.views.map(v => v[0]));
-assert.deepEqual(sections, ['cdash', 'holdings', 'perf2', 'risk2', 'bubble', 'chart2', 'divm', 'plan2', 'rebal2', 'sim2', 'cashflow', 'tax2', 'gift2', 'report2']);
+assert.deepEqual(sections, ['cdash', 'holdings', 'perf2', 'risk2', 'bubble', 'chart2', 'screen2', 'divm', 'plan2', 'rebal2', 'sim2', 'cashflow', 'tax2', 'gift2', 'report2']);
 const hosted = JSON.parse(vm.runInContext('JSON.stringify(NAV_HOST)', ctx));
 const modes = JSON.parse(vm.runInContext('JSON.stringify(NAV_MODES)', ctx));
-assert.equal(sections.length + Object.keys(hosted).length, 20, '화면 20개(데이터 상태 제외) — 세부 메뉴 14(차트 공부 2026-11-25 추가) + 보기·탭으로 오가는 6');
+assert.equal(sections.length + Object.keys(hosted).length, 24, '화면 24개(데이터 상태 제외) — 세부 메뉴 15(차트 공부 2026-11-25·종목 찾기 2026-11-26 추가) + 보기·탭·종목 상세로 오가는 9');
 for (const [view, host] of Object.entries(hosted)) {
   assert.ok(html.includes(`id="view-${view}"`), `${view} 화면은 그대로 있다(옛 #view= 주소)`);
   assert.ok(sections.includes(host), `${view} 의 자리 ${host} 는 세부 메뉴`);

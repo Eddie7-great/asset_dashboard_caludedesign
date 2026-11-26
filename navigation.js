@@ -2,7 +2,7 @@
 const APP_NAV = [
   {menu:'dashboard',title:'홈',views:[['cdash','홈']]},
   {menu:'holdings',title:'자산 관리',views:[['holdings','보유 목록']]},
-  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부']]},
+  {menu:'perf2',title:'투자 분석',views:[['perf2','성과'],['risk2','리스크'],['bubble','구성'],['chart2','차트 공부'],['screen2','종목 찾기']]},
   {menu:'divm',title:'배당',views:[['divm','배당']]},
   {menu:'plan2',title:'투자 계획',views:[['plan2','목표'],['rebal2','리밸런싱'],['sim2','투자 시뮬레이터']]},
   {menu:'cashflow',title:'현금 흐름',views:[['cashflow','현금 흐름']]},
@@ -12,7 +12,7 @@ const APP_NAV = [
 // 페이지 통폐합(2026-11-19): 세부 메뉴에 따로 없는 화면이 속한 세부 메뉴. 화면 id·#view= 주소는 그대로라 옛 링크도 열린다.
 // 적립식 매수(dca2)는 2026-11-23 투자 계획에서 보유 목록의 넷째 보기로 옮겼다(사용자 결정) — 조회 화면과 수정하는 곳(보유 목록 적립식 칸)을 한 메뉴에 둔다.
 // 종목 찾기(2026-11-26 사용자 결정): 한 화면 안 탭(추세추종·가치투자·둘 다·매크로). 종목 상세(추세추종·가치투자)는 표에서 티커를 눌러 들어가는 화면이라 세부 메뉴에 따로 두지 않는다.
-const NAV_HOST = {acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
+const NAV_HOST = {trend2:'screen2', value2:'screen2', macro2:'screen2', acct2:'holdings', fam2:'holdings', dca2:'holdings', etf2:'bubble', reporty:'report2', cal2:'cashflow'};
 // 한 세부 메뉴 안의 보기 전환(같은 보유·같은 결산을 묶음만 바꿔 본다) — 머리줄 아래 오른쪽 밑줄형 줄(#view-mode-bar).
 // 현금 흐름의 월별·고정비·일정은 머리줄의 #cf-header-tabs 가 맡는다.
 const NAV_MODES = {
@@ -21,10 +21,7 @@ const NAV_MODES = {
   report2:[['report2','월간'],['reporty','연간']],
 };
 let _navModeLast={}, _navKeepOwner=false, _navAssetQ='';
-// 종목 찾기(screen2)와 그 상세(추세추종·가치투자·매크로)는 실제 데이터 수집이 없어 메뉴에서 숨긴다(2026-11-26 사용자 결정) —
-// 코드는 남기고, 옛 주소로 들어오면 홈으로 보낸다. 데이터가 준비되면 이 목록을 비우고 APP_NAV 에 ['screen2','종목 찾기'], NAV_HOST 에 trend2·value2·macro2:'screen2' 를 다시 넣는다.
-const NAV_HIDDEN = ['screen2','trend2','value2','macro2'];
-function navResolve(id){ return id==='snap'||id==='dashboard'||id==='balance2'||NAV_HIDDEN.includes(id)?'cdash':id; }
+function navResolve(id){ return id==='snap'||id==='dashboard'||id==='balance2'?'cdash':id; }
 function navHost(id){ id=navResolve(id); return NAV_HOST[id]||id; }
 function navGroup(id){ const host=navHost(id); return APP_NAV.find(g=>g.views.some(v=>v[0]===host)); }
 // 세부 메뉴를 누르면 그 메뉴에서 마지막으로 본 보기로 간다(메모리에만, 처음엔 첫 보기).
