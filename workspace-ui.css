@@ -1609,8 +1609,13 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 /* ===== 차트 공부(chart2, 2026-11-25 시안) — pages/chart-study.js. 봉·이동평균·거래량·RSI·MACD 를 한 SVG 의 네 칸에, 칸마다 자기 눈금 =====
    오른 봉은 속이 빈 막대(폭 5px 이상), 내린 봉은 꽉 찬 막대 — 색만으로 오르내림을 가르지 않는다. 색은 손익 토큰(--up/--dn). */
 .chs-panel{padding:16px 18px}
-.chs-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.chs-head .cb-panel-title{display:flex;align-items:center;gap:4px}
+/* 제목과 지표·기간·봉 버튼은 한 줄(2026-11-26 사용자 요청) — 긴 이름(비율 'A / B')은 줄이고 마우스를 올리면 전체 */
+.chs-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
+.chs-head .cb-panel-title{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0}
+.chs-head .cb-panel-title>*{flex:none}
+.chs-head .cb-panel-title>.chs-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chs-head .chs-tools{flex:none}
+@media (max-width:1100px){.chs-head{flex-wrap:wrap}.chs-head .chs-tools{flex:1 1 auto}}
 .chs-tkr{color:var(--lab);font-weight:600;font-size:var(--fs-cap)}
 .chs-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .chs-pick select{max-width:260px}
@@ -1661,8 +1666,8 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .chs-cmp{display:inline-flex;align-items:center;gap:6px;flex:none;font-size:var(--fs-body);color:var(--tx);cursor:pointer;white-space:nowrap}
 .chs-search .trd-chip{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chs-form input{flex:1;min-width:0;height:var(--btn-h)}
-/* 최근 조회는 검색·비교와 같은 줄 오른쪽(2026-11-26 사용자 요청) — 남는 폭만 쓰고, 모자라면 칩이 줄어들며 이름 끝을 줄인다 */
-.chs-recent{display:flex;align-items:center;gap:6px;flex:1 1 0;min-width:0;flex-wrap:nowrap;overflow:hidden;font-size:var(--fs-cap);color:var(--lab)}
+/* 최근 조회는 검색·비교와 같은 줄, 오른쪽 끝에 붙여 비교 체크와 띄운다(2026-11-26 사용자 요청) — 남는 폭만 쓰고, 모자라면 칩이 줄어들며 이름 끝을 줄인다 */
+.chs-recent{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:1 1 0;min-width:0;margin-left:24px;flex-wrap:nowrap;overflow:hidden;font-size:var(--fs-cap);color:var(--lab)}
 .chs-recent>.trd-chip{flex:0 1 auto;min-width:56px}
 .chs-recent>span{margin-right:2px;flex:none}
 .chs-search .trd-chip{height:var(--btn-h)}

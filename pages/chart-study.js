@@ -726,7 +726,7 @@ function cbRenderChart(){
   }
   el.innerHTML = `<div class="cb-panel chs-panel">
       ${search}
-      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}${cbEsc(info.name)}${info.name!==info.tkr&&!info.ratio?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}${info.ratio?'<span class="chs-mine">비율</span>':''}</div><div class="chs-tools">${sel}${ranges}${logBtn}${frames}</div></div>
+      <div class="chs-head"><div class="cb-panel-title">${chsFlag(info, data)}<span class="chs-name" title="${cbEsc(info.name)}">${cbEsc(info.name)}</span>${info.name!==info.tkr&&!info.ratio?` <span class="chs-tkr">${cbEsc(info.tkr)}</span>`:''}${row?'<span class="chs-mine">보유</span>':''}${info.ratio?'<span class="chs-mine">비율</span>':''}</div><div class="chs-tools">${sel}${ranges}${logBtn}${frames}</div></div>
       ${body}
     </div>
     <div class="cb-panel chs-guide">
