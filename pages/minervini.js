@@ -794,7 +794,11 @@ function cbRenderScreen(){
   cbSetHead('검색하지 않아도 규칙상 매수 신호가 나온 미국 주식을 골라 보여 줍니다 · 스타일마다 따로 · 규칙 확인용(투자 권유 아님)');
   scrLoad();
   if (!_scr){
-    el.innerHTML = `<div class="cb-panel">${cbEmptyHtml(_scr===undefined?'종목 목록을 불러오는 중…':'종목 목록이 아직 없습니다','매일 아침 7:30(한국 시간) 미국 장 마감 자료로 다시 계산합니다.',[])}</div>`;
+    // 종목 목록(스크리너 배치)이 아직 없어도 매크로 탭은 자기 자료(/api/macro)로 열린다 — 탭 줄이 없으면 시장 신호등에 갈 길이 없었다.
+    const MCe = trdMacro(_trdMacro); trdLoadMacro();
+    const tabsE = `<div class="sim-view-tabs scr-tabs" role="group" aria-label="투자 스타일">${SCR_TABS.map(([k,lab])=>`<button type="button" data-scr="tab:${k}" aria-pressed="${_scrTab===k}" class="cb-btn" onclick="scrPick('tab','${k}')">${lab}${k==='macro' && MCe.light!=='n' ? ` <em><i class="trd-mini is-${MCe.light}"></i></em>` : ''}</button>`).join('')}</div>`;
+    el.innerHTML = `<div class="cb-panel scr-panel scr-panel-tabs"><div class="scr-top">${tabsE}</div></div>` + (_scrTab==='macro' ? macBodyHtml()
+      : `<div class="cb-panel">${cbEmptyHtml(_scr===undefined?'종목 목록을 불러오는 중…':'종목 목록이 아직 없습니다','매일 아침 7:30(한국 시간) 미국 장 마감 자료로 다시 계산합니다.',[])}</div>`);
     return;
   }
   const {all, rows, tOk, vOk} = scrRows();

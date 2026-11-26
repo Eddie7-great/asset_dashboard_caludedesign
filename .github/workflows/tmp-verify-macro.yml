@@ -19,7 +19,7 @@ jobs:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
         run: |
-          cat > /tmp/v.cjs <<'JS'
+          cat > ./v.cjs <<'JS'
           const ts = require('typescript'), fs = require('fs'), Module = require('module'), path = require('path');
           const file = path.resolve('api/macro.ts');
           const out = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -35,4 +35,4 @@ jobs:
             console.log('SECOND RUN cacheUpdated =', r2.cacheUpdated);
           })().catch(e => { console.error(e); process.exit(1); });
           JS
-          node /tmp/v.cjs
+          node ./v.cjs
