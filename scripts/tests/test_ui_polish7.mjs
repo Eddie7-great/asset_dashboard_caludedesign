@@ -102,24 +102,23 @@ const plain = v => JSON.parse(JSON.stringify(v))
   assert.match(priceTs, /chart\/\$\{encodeURIComponent\(sym\)\}\?interval=\$\{interval\}&range=/)
 }
 
-// ── 저축률: 적자 달은 '적자', 정확한 비율은 말풍선 ──
+// ── 저축률: 적자 달은 '적자', 정확한 비율은 말풍선(2026-11-26 부터 6개월 누적 막대 cfStackHtml 의 위 숫자) ──
 {
-  const ctx = vm.createContext({ Math })
-  vm.runInContext(extractFunction(script, 'cfRateTrendHtml'), ctx)
-  const rates = [
-    { y: 2026, m: 8, tIn: 120000, kept: -1100000, rate: -1016.7 },
-    { y: 2026, m: 9, tIn: 5000000, kept: 1000000, rate: 20 },
-    { y: 2026, m: 10, tIn: 0, kept: -300000, rate: null },
-  ]
-  const html = ctx.cfRateTrendHtml(rates)
+  const ctx = vm.createContext({ Math, Number, String, cfColors: { 기타: '#94a3c8', '아내 지출(추정)': '#f2a33c', '저축/투자': '#81c784' }, ownerColors: { 본인: '#2a78d6' },
+    CF_XFER_EST_CAT: '아내 지출(추정)', CF_XFER_TO: '본인', CF_FLOW_REST_COLOR: '#3f63c9', cfShortWon: v => `${Math.round(v / 10000)}만`, _cfEsc: v => String(v) })
+  vm.runInContext(extractFunction(script, 'cfStackHtml'), ctx)
+  const row = (m, tIn, tOut, rate, kept) => ({ y: 2026, m, tIn, tOut, sv: 0, est: 0, xfer: 0, spend: tOut, left: tIn - tOut, kept, rate })
+  const html = ctx.cfStackHtml([row(8, 120000, 1220000, -1016.7, -1100000), row(9, 5000000, 4000000, 20, 1000000), row(10, 0, 300000, null, -300000)])
   assert.match(html, /<b>적자<\/b>/, '수입보다 지출이 큰 달은 적자')
   assert.doesNotMatch(html, /<b>-1017%<\/b>/, '−1,017% 같은 비율을 크게 적지 않는다')
   assert.match(html, /title="2026년 8월 · 수입 ₩120,000보다 ₩1,100,000 더 씀 \(저축률 -1,017%\)"/, '정확한 비율은 말풍선')
   assert.match(html, /<b>20%<\/b>/)
-  assert.match(html, /aria-label="최근 6개월 저축률 8월 적자, 9월 20%, 10월 없음"/)
-  assert.match(html, /cf-rate-col is-neg/)
-  // 카드가 내용만큼 늘어난다(예전 220px 고정 바닥이 막대를 카드 밖으로 밀어냈다)
-  assert.match(ws, /\.cf-trend-panel\{flex:1 0 auto;min-height:0\}/)
+  assert.match(html, /aria-label="최근 6개월 수입 나눔 — 8월 적자, 9월 저축률 20%, 10월 수입 없음"/)
+  assert.match(html, /cf-stack-col is-neg/)
+  // 막대 높이는 그 달 수입(지출이 더 크면 지출) 대비 — 적자 달 쓴 돈 조각이 100%
+  assert.match(html, /height:100\.00%;background:#94a3c8" title="8월 쓴 돈 ₩1,220,000/)
+  // 카드가 내용만큼 늘어난다(오른쪽 열은 스크롤하지 않는다)
+  assert.match(ws, /\.cf-stack-panel\{flex:none;/)
 }
 
 // ── 실현손익 접힌 달 줄: 월 합계만, 화살표는 관리 칸 ──

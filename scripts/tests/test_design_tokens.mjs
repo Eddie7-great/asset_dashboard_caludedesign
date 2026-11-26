@@ -42,7 +42,7 @@ for (const sel of ['.cb-btn', '.api-btn']) {
   assert.match(rule, /background:var\(--inner\)/, `${sel} 는 중립 톤`);
   assert.doesNotMatch(rule, /acc-soft/, `${sel} 에 파랑 바탕을 다시 쓰지 않는다`);
 }
-for (const sel of ['.holdings-add-btn', '.fin-goal-add-btn', '.cf-entry-open,.cf-entry-close']) {
+for (const sel of ['.holdings-add-btn', '.fin-goal-add-btn', '.cf-entry-open']) {
   assert.ok(ws.includes(`${sel}{`) && new RegExp(`${sel.replace(/[.,]/g, '\\$&')}\\{[^}]*min-height:var\\(--btn-h\\)`).test(ws), `${sel} 높이는 --btn-h`);
 }
 for (const sel of ['.cb-fam-card-track', '.cb-dca-allocation-track', '.cb-fin-income-track', '.fin-meter', '.cb-tax-deduction-track', '.cb-meter']) {

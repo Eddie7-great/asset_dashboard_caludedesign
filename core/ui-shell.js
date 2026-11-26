@@ -8,7 +8,6 @@
 // UI 상태
 // =============================================
 let currentOwner = '전체';
-window.cfTrendDetails = {in:[],out:[]};
 
 const now = new Date();
 const days = ['일','월','화','수','목','금','토'];
@@ -273,11 +272,10 @@ function switchView(viewId, btn) {
     document.querySelectorAll('#cf-owner-bar .owner-btn').forEach(b=>b.classList.remove('active'));
     const allCfBtn=document.getElementById('cf-owner-'+_cfOwner)||document.getElementById('cf-owner-전체');
     if(allCfBtn)allCfBtn.classList.add('active');
-    const ownerInput=document.getElementById('cf-owner-input');if(ownerInput)ownerInput.value=_cfOwner!=='전체'?_cfOwner:'본인';
     resetFixedCostForm();
     switchCashFlowSection('monthly',document.getElementById('cf-section-tab-monthly'));
   }
-  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true)).catch(e=>console.warn('[autoAddDividendCashFlow]',e));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>{if(window.cfTrendChartInst)window.cfTrendChartInst.resize();renderCashFlow();});}
+  if (viewId==='cashflow'){fetchDivData().then(()=>autoAddDividendCashFlow(true)).catch(e=>console.warn('[autoAddDividendCashFlow]',e));renderAutoTransfers();renderCfDivPanel();renderFixedCostView();requestAnimationFrame(()=>renderCashFlow());}
   if (viewId==='holdings'){
     const hOwner = currentOwner;
     _holdingsBrokerFilter = '전체';

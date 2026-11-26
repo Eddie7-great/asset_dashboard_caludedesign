@@ -44,18 +44,20 @@ assert.match(cobalt, /data-chart-hit="perf:\$\{i\}"/, '성과 비교 차트 히�
 // 터치가 흉내 내는 mouseout 이 방금 연 설명을 즉시 닫아버리던 문제를 막는 유예 창.
 assert.match(script, /TOUCH_MOUSE_GRACE[\s\S]*mouseFromTouch/, '터치 직후 흉내 마우스 이벤트를 무시');
 // Chart.js CDN 이 죽어도 initDashboard 가 끝까지 돌아야 한다 — 여기서 멈추면 KV 로드까지
-// 실행되지 않아 자산·순자산·배당이 전부 빈 화면이 된다.
-assert.match(script, /if \(typeof Chart === 'undefined'\) \{\s*\n\s*window\.cfTrendChartInst = null;\s*\n\s*\} else \{/, 'Chart.js 로드 실패 시 현금 흐름 차트 생성을 건너뛴다');
+// 실행되지 않아 자산·순자산·배당이 전부 빈 화면이 된다. 2026-11-26 현금 흐름 추이 차트를 HTML 누적 막대로
+// 바꾸면서 Chart.js 로 그리는 차트는 하나도 남지 않았다 — 다시 들일 때는 typeof Chart 가드부터 둔다.
+assert.doesNotMatch(script, /new Chart\(/, 'Chart.js 차트 인스턴스를 가드 없이 만들지 않는다(지금은 사용처 없음)');
 // 모바일에서 헤더 소제목을 통째로 숨기면 '전일 종가 기준' 같은 면책 문구가 사라진다 → 토글로 대체.
 assert.match(html, /id="page-sub-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="main-title-sub"[^>]*aria-label=/, '모바일 설명 토글 버튼');
 assert.match(css, /body\.head-sub-open #main-title-sub\{display:block/, '토글을 열면 모바일에서도 소제목이 보인다');
 assert.match(cobalt, /function cbSetHead[\s\S]*page-sub-toggle[\s\S]*cbHeadSubOpen\(false\)/, '화면을 옮기면 이전 화면 설명은 접는다');
 
 const canvases = [...html.matchAll(/<canvas\b([^>]*)>([\s\S]*?)<\/canvas>/g)];
-// 레거시 뷰 7개를 걷어내면서 캔버스는 현금 흐름의 둘만 남았고, 2026-11-23 수입/지출 구성 도넛을
-// HTML 막대 목록(#cf-comp-list)으로 바꾸면서 추이 차트 하나만 남았다. Cobalt 페이지는 인라인 SVG 다.
-assert.ok(canvases.length >= 1, `expected at least 1 canvas, found ${canvases.length}`);
-assert.match(html, /id="cf-comp-list"[^>]*aria-live="polite"/, '수입/지출 구성은 읽을 수 있는 막대 목록');
+// 레거시 뷰 7개를 걷어내면서 캔버스는 현금 흐름의 둘만 남았고, 2026-11-23 수입/지출 구성 도넛을 HTML 막대 목록으로,
+// 2026-11-26 추이 차트를 6개월 누적 막대(HTML)로 바꾸면서 하나도 남지 않았다. Cobalt 페이지는 인라인 SVG 다.
+assert.equal(canvases.length, 0, `expected no canvas, found ${canvases.length}`);
+assert.match(html, /id="cf-couple-flow"[^>]*aria-live="polite"/, '돈의 흐름(생키)은 바뀌면 읽힌다');
+assert.match(html, /id="cf-stack"[^>]*aria-live="polite"/, '6개월 누적 막대는 바뀌면 읽힌다');
 // 보이지 않는 캔버스에 Chart 인스턴스를 만들어 갱신하는 패턴을 다시 들이지 않는다
 // (예전 gaugeUs·gaugeCrypto·historyChart·miniDivChart·familyBarChart 가 그랬다).
 assert.doesNotMatch(html, /<canvas\b[^>]*style="[^"]*display:\s*none/, '숨겨진 캔버스 금지');

@@ -1,4 +1,4 @@
-// 입력 폼 접기: 현금 흐름·목표 입력 폼은 버튼·수정 시에만 펴고, 저장 로직은 그대로다.
+// 입력 폼 접기: 목표 입력 폼은 버튼·수정 시에만 편다. 현금 흐름은 기록 창(2026-11-26)이다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { readSource } from './_source.mjs'
@@ -9,11 +9,12 @@ const script = readSource('script.js');
 const finance = fs.readFileSync(new URL('finance.js', root), 'utf8');
 const style = fs.readFileSync(new URL('style.css', root), 'utf8');
 
-// 현금 흐름 — 버튼 줄 + 기본으로 접힌 폼(같은 입력란·같은 저장 버튼을 감쌀 뿐)
-assert.match(html, /class="cf-entry-bar"[\s\S]*cfOpenEntry\('in'\)[\s\S]*cfOpenEntry\('out'\)[\s\S]*cfOpenEntry\('auto'\)[\s\S]*<div id="cf-entry-body" hidden>[\s\S]*id="btn-cf-submit" onclick="submitCfEntry\(\)"[\s\S]*<\/div>\s*<!-- 자동이체 목록/);
-assert.match(script, /function cfOpenEntry\(kind\)\{\n\s*if \(isMobileLayout\(\)\) return;[\s\S]*resetCfForm\(\)[\s\S]*cfmode-auto':'cfmode-oneshot'[\s\S]*toggleCfMode\(\)[\s\S]*cfShowEntry\(\)/, '버튼은 편집 상태를 비우고 방식·유형을 맞춘 뒤 폼을 편다');
-assert.match(script, /function editCF\(idx\)\{\n\s*if \(isMobileLayout\(\)\) return;[^\n]*\n(?:\s*if\(cfData\[idx\]&&cfData\[idx\]\.xferRole\) return cfXferOpen\([^\n]*\n)?\s*cfShowEntry\(\);/, '수정하면 접힌 폼이 자동으로 펴진다');
-assert.match(script, /function cfCloseEntry\(\)\{[\s\S]*resetCfForm\(\)[\s\S]*body\.hidden=true/, '닫기는 편집 상태도 해제한다');
+// 현금 흐름 — 입력 칸은 화면에 두지 않고 생키 카드의 ＋ 수입 / － 지출 이 기록 창을 연다(2026-11-26 사용자 결정)
+assert.doesNotMatch(html, /id="cf-input-panel"|id="cf-entry-body"|btn-cf-submit/, '화면에 상주하는 입력 칸은 없앴다');
+assert.match(html, /<div class="modal-overlay" id="cf-entry-modal" aria-hidden="true">/, '기록 창');
+assert.match(script, /function cfEntryOpen\(kind, tab, editIdx\)\{\n\s*if \(isMobileLayout\(\)\) return;/, '휴대폰은 조회 전용');
+assert.match(script, /function editCF\(idx\)\{\n\s*if \(isMobileLayout\(\)\) return;[\s\S]*?cfEntryOpen\('in','wife'\)[\s\S]*?cfEntryOpen\(/, '수정하면 같은 기록 창이 그 기록으로 열린다');
+assert.match(script, /function cfEntryClose\(\)\{[\s\S]*_cfEntry=null;/, '닫기는 편집 상태도 해제한다');
 
 // 목표 — 수정 중이거나, 추가를 눌렀거나, 목표가 하나도 없을 때만 폼을 그린다
 assert.match(finance, /const showGoalForm=!!ge\|\|_finGoalFormOpen\|\|!\(goalData\|\|\[\]\)\.length;/);

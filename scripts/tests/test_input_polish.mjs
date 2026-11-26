@@ -93,7 +93,7 @@ assert.doesNotMatch(script, /applyCommaFormatting/, '벗어날 때만 쉼표를 
 assert.match(script, /el\.addEventListener\('input', \(\) => \(el\.getAttribute\('inputmode'\) === 'decimal' \? handleDecimalInput\(el\) : handleAmtInput\(el\)\)\);/, '모드는 이벤트 때 읽는다')
 assert.match(index, /id="add-qty" placeholder="0" inputmode="decimal"/, '소수 수량(모으기)')
 assert.match(index, /id="add-avgp" placeholder="0" inputmode="decimal">/, '달러 단가 소수')
-assert.match(index, /id="cf-amt"[^>]*inputmode="numeric"|inputmode="numeric"[^>]*id="cf-amt"/)
-assert.match(index, /id="at-amt"[^>]*inputmode="numeric"/)
+// 현금 흐름 금액 칸은 기록 창(2026-11-26)이 그린다 — 전역 처리(MutationObserver)가 새로 그린 칸도 잡는다
+for (const id of ['cf-e-amt', 'cf-w-pay', 'cf-w-sent']) assert.match(script, new RegExp(`id="${id}" inputmode="numeric"`), `${id} 입력 중 쉼표`)
 assert.match(script, /input\.setAttribute\('inputmode','decimal'\);/, '보유 목록 인라인 수정 칸도 입력 중 쉼표')
 console.log('ok - 입력 중 쉼표: 화이트리스트 제거·소수 칸')
