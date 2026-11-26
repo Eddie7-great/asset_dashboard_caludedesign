@@ -307,7 +307,7 @@ function cbRenderCalendar(){
       </div>
       <div class="cb-panel cal-list-panel">
         <div class="cal-list-head"><span class="cb-panel-title">${_calDay==null?'이 달의 일정':`${ym.m+1}월 ${_calDay}일 일정`} <span style="color:var(--dim)">· ${listCount}건</span></span>${_calDay!=null?`<button type="button" class="cb-btn cal-day-clear" data-cal-day="${_calDay}" onclick="calPickDay(${_calDay})">이 달 전체 보기 ×</button>`:''}</div>
-        ${listRows?`<div class="cal-list">${listRows}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:cbEmptyHtml(`${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다`,'적립식 규칙·자동이체·배당 종목이 있으면 날짜별로 여기에 모입니다.',[{label:'자동이체 등록하기',onclick:"switchView('cashflow');setTimeout(()=>cfOpenEntry('auto'),0)"}],{compact:true}))}
+        ${listRows?`<div class="cal-list">${listRows}</div>`:(_calDay!=null?`<div class="fin-empty">이 날 일정이 없습니다.</div>`:cbEmptyHtml(`${ownerF?cbEsc(ownerF)+' 소유의 ':''}이 달 일정이 없습니다`,'적립식 규칙·자동이체·배당 종목이 있으면 날짜별로 여기에 모입니다.',[{label:'자동이체 등록하기',onclick:"switchView('cashflow');setTimeout(()=>cfEntryOpen('out','auto'),0)"}],{compact:true}))}
       </div>
     </div>
     <p class="cal-foot">배당은 과거 지급 패턴과 현재 보유 수량으로 추정한 세전 금액이며, 지급일을 모르는 종목은 날짜 칸에 넣지 않고 '지급일 미정'으로 둡니다. 적립 매수는 휴장일을 반영한 예정일이고 실제 체결 기록이 아닙니다. 매일 사는 적립식은 달력 칸에서 빼고 목록 맨 위에 한 줄로 묶었습니다 — 날짜를 누르면 그날 것도 함께 보입니다. 세금 신고 기한은 세금 규칙 자료에 등록돼 있지 않아 표시하지 않습니다.</p>`;

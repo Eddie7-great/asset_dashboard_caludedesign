@@ -1743,7 +1743,6 @@ function cbResetViewState(){
   if (typeof _cbGiftTab!=='undefined') _cbGiftTab='child';   // 가족 증여 자세히 보기 탭
   if (typeof _cbTaxMonthOpen!=='undefined') _cbTaxMonthOpen=null;   // 실현손익 내역 달 묶음 펼침
   if (typeof _finMcSel!=='undefined') _finMcSel=null;   // 목표 달성 확률 — 고른 목표(가정 수익률은 설정이라 둔다)
-  if (typeof _cfBudgetEdit!=='undefined') _cfBudgetEdit=false;   // 현금 흐름 예산 입력 칸 — 저장 안 한 입력은 버린다
   if (typeof _finTsellOpen!=='undefined') _finTsellOpen.clear();   // 리밸런싱 '세금이 적은 순서' 펼친 자산군
   if (typeof _etfExpOwner!=='undefined') _etfExpOwner=null;   // ETF 속 종목 — 소유주 비중 창
   _cdashShowAll=false;   // 홈 보유 표 펼침

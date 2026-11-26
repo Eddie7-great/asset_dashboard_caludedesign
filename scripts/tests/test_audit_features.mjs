@@ -214,7 +214,7 @@ const near = (a, b, eps = 1e-9, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg
   ]
   ctx._autoTransferMonthlyOccurrences = () => [15]
   ctx._effectiveAutoTransferAmt = at => at.amt
-  load(ctx, script, ['cfInScope', 'cfIsXferMove', 'cfRowCounts', '_cfRowYm', '_cfAutoTransferMonthTotals', 'cfMonthTotals', 'cfSavingRate'])
+  load(ctx, script, ['cfInScope', 'cfIsXferMove', 'cfRowCounts', '_cfRowYm', '_cfAutoTransferMonthAmount', '_cfAutoTransferMonthTotals', 'cfMonthTotals', 'cfSavingRate'])
   const t = plain(ctx.cfMonthTotals(2026, 11))
   assert.equal(t.tIn, 5_000_000 + 30_000 + 400_000, "날짜 '미정' 배당·수입 자동이체 포함, 부부 송금·자녀 제외")
   assert.equal(t.tOut, 1_000_000 + 2_000_000 + 100_000)
@@ -223,22 +223,14 @@ const near = (a, b, eps = 1e-9, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg
   const sr = plain(ctx.cfSavingRate(t))
   assert.equal(sr.savingOut, 2_000_000); assert.equal(sr.kept, 5_430_000 - 1_100_000); near(sr.rate, 4_330_000 / 5_430_000 * 100)
   assert.equal(ctx.cfSavingRate({ tIn: 0, tOut: 5, expByCat: {} }).rate, null, '수입이 없는 달은 저축률을 내지 않는다')
-  assert.match(script, /function updateCfTrendChart\(\) \{[\s\S]*?cfMonthTotals\(/, '6개월 추이도 같은 합계 함수')
-  assert.match(script, /const \{tIn,tOut,incomeByCat,expByCat\}=cfMonthTotals\(cfYear,cfMonth\)/, '화면 요약·구성도 같은 합계 함수')
+  assert.match(script, /function cfStackRows\(y, ?m\)\{[\s\S]*?cfMonthTotals\(/, '6개월 누적 막대도 같은 합계 함수')
+  assert.match(script, /const \{tIn,tOut,expByCat\}=cfMonthTotals\(cfYear,cfMonth\)/, '화면 요약도 같은 합계 함수')
 }
 
-// ── 예산 저장값 정리 ──
+// ── 예산 기능은 없앴다(2026-11-26 사용자 결정) — 저장값도 함께 지운다: 저장 payload·로드·되돌리기 어디에도 남기지 않는다 ──
 {
-  const ctx = vm.createContext({ Math, Number, Object, Array, String })
-  ctx._boundedStoredText = (v, n) => String(v ?? '').trim().slice(0, n)
-  ctx._safeStoredNumber = (v, { min, max }) => { const n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : 0 }
-  load(ctx, script, ['_normalizeCfBudget'])
-  assert.equal(ctx._normalizeCfBudget(null), null)
-  assert.equal(ctx._normalizeCfBudget({ scopes: [] }), null)
-  assert.deepEqual(plain(ctx._normalizeCfBudget({ scopes: { 전체: { 식비: 800000.4, 교통: -1, 기타: 2e9 }, 자녀1: { 식비: 1 }, 본인: {} } })), { scopes: { 전체: { 식비: 800000 } } }, '음수·상한 초과·모르는 범위·빈 범위는 버린다')
-  assert.match(script, /window\._cfBudget=_normalizeCfBudget\(normalized\.cfBudget\)/, '불러올 때 정리')
-  assert.match(script, /const objectFields=\[[^\]]*'cfBudget'\]/, '저장 payload·로드 필드에 함께')
-  assert.match(script, /function _extSnapshot\(\)\{[\s\S]*?cfBudget/, '저장 실패 되돌리기 대상')
+  assert.doesNotMatch(script, /cfBudget|_normalizeCfBudget/, '예산 저장값을 읽거나 쓰는 코드가 남지 않는다')
+  assert.doesNotMatch(cobalt, /_cfBudgetEdit/, '예산 입력 상태가 남지 않는다')
 }
 
 // ── 시세 바뀜 표시: 오른 칸·내린 칸만, 같은 종목 여러 계좌가 엇갈리면 합친 줄은 표시하지 않음 ──
@@ -276,10 +268,10 @@ const near = (a, b, eps = 1e-9, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg
 
 console.log('test_audit_features: ok')
 
-// 화면을 옮기면 고른 목표·예산 입력 칸은 비운다(가정 수익률·스트레스 시나리오는 설정이라 둔다)
+// 화면을 옮기면 고른 목표는 비운다(가정 수익률·스트레스 시나리오는 설정이라 둔다)
 {
   const reset = extractFunction(cobalt, 'cbResetViewState')
-  assert.match(reset, /_finMcSel=null;/); assert.match(reset, /_cfBudgetEdit=false;/)
+  assert.match(reset, /_finMcSel=null;/)
   assert.doesNotMatch(reset, /_finMcRet=|_cbStress=/)
 }
 console.log('test_audit_features: reset ok')

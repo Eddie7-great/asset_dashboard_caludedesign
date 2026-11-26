@@ -12,8 +12,6 @@
 .form-group .form-input{width:100%}.form-label,.fin-form-grid label{font-size:var(--fs-cap);line-height:1.5}
 .fin-form-grid label{gap:6px}
 .fin-section-head{gap:10px;flex-wrap:wrap}.fin-section-head>small{line-height:1.5}
-#cf-input-panel .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(144px,170px));gap:10px;align-items:end;justify-content:start;max-width:none}
-#cf-input-panel .form-row>.form-group{min-width:0!important;gap:5px}#cf-input-panel .form-row>.btn-submit{height:36px;justify-self:start;white-space:nowrap}
 .cf-fixed-form{grid-template-columns:repeat(auto-fit,minmax(132px,180px));gap:12px;align-items:end}.cf-fixed-form button{height:36px;white-space:nowrap;justify-self:start}
 /* 고정비 등록 한 줄(2026-11-24): 소유주·카테고리·항목·금액·주기·결제일·시작 월·증여 이체·등록이 1280px 이상에서 한 줄이다.
    항목 칸만 남는 폭을 갖고, 대출 조건 칸(fieldset)은 켜지면 그 아래 한 줄 전체(order). */
@@ -124,9 +122,6 @@
 .fin-rebal-table>div>span:first-child{position:sticky;left:0;z-index:1;background:var(--panelSolid)}.fin-rebal-table>div.warn>span:first-child{background:linear-gradient(var(--dnSoft),var(--dnSoft)),var(--panelSolid)}.fin-rebal-table::before{content:'옆으로 밀어 필요 조정액·월 DCA 보정안 보기 →';position:sticky;left:0;display:block;padding:0 2px 6px;font-size:var(--fs-micro);color:var(--dim)}}
 @media(max-width:520px){#cb-cdash .cb-dash-insight-grid{grid-template-columns:1fr}.home-table-column .cb-dash-table-toolbar{flex-wrap:wrap}.home-table-column input{max-width:100%;width:100%}}
 @media(max-width:768px){#page-sections{grid-column:1/-1;width:100%;box-sizing:border-box}}
-#cf-input-panel .form-row:has(#btn-cf-submit){grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
-#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{grid-column:span 2}
-#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group:has(#cf-amt){grid-column:span 1}
 .sim-view-tabs{display:flex;gap:7px;margin-bottom:10px}.sim-view-tabs button[aria-pressed=true]{background:var(--accSoft);color:var(--acc)}
 /* Keep descriptive titles together and group controls without space-between gaps. */
 #page-head{justify-content:flex-start;flex-wrap:wrap;gap:8px!important}
@@ -165,7 +160,7 @@
 .cb-risk-score-card{width:auto!important;box-sizing:border-box;min-width:0}
 .cb-risk-priorities{align-self:stretch;margin:10px 0;font-size:var(--fs-micro);line-height:1.5}.cb-risk-priorities p{padding:5px 0;margin:0;border-bottom:1px solid var(--bd)}.cb-risk-priorities span{display:block;color:var(--mut)}.cb-risk-priorities small{display:block;margin-top:8px;color:var(--lab)}
 .fin-price-help p{font-size:var(--fs-micro);line-height:1.5;color:var(--mut)}.fin-price-issues>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:var(--fs-micro)}.fin-price-issues small{color:var(--lab)}
-@media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}#cf-input-panel .form-row:has(#btn-cf-submit){display:flex;flex-wrap:nowrap;gap:6px}#cf-input-panel .form-row:has(#btn-cf-submit)>.form-group{min-width:0}#cf-input-panel .form-input{padding:7px 6px;font-size:var(--fs-micro)}#cf-input-panel #btn-cf-submit{min-width:48px;padding:7px}#cf-input-panel .form-row:has(#at-cycle:not([style*="display:none"])) .form-group{min-width:0}}
+@media(min-width:769px){#cf-monthly-section{grid-template-columns:minmax(0,1fr) minmax(390px,.65fr)}}
 @media(max-width:768px){.etf-inspection-row{grid-template-columns:1fr auto}.etf-inspection-row>span{grid-column:1/-1}.cb-risk-priorities{margin:10px 0}}
 
 
@@ -259,16 +254,8 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 }
 .holdings-kpi b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ===== 현금 흐름 입력 폼 접기 (2026-10-30) ===== */
-.cf-entry-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.cf-entry-bar-title{font-size:var(--fs-card);font-weight:700;color:var(--tx)}
-.cf-entry-bar-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
-.cf-entry-open,.cf-entry-close{min-height:var(--btn-h);padding:0 14px;border-radius:var(--r-md);font:700 var(--fs-body) var(--font-ui);cursor:pointer}
-.cf-entry-open{border:1px solid var(--bd2);background:var(--inner);color:var(--tx)}
-.cf-entry-close{border:1px solid var(--bd2);background:var(--panel);color:var(--mut)}
-.cf-entry-close[hidden]{display:none}
-#cf-entry-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)}
-#cf-entry-body[hidden]{display:none}
+/* ===== 현금 흐름 ＋ 수입 / － 지출 (생키 카드 오른쪽 위, 2026-11-26) — 시작 버튼과 같은 중립 톤 ===== */
+.cf-entry-open{min-height:var(--btn-h);padding:0 14px;border:1px solid var(--bd2);background:var(--inner);color:var(--tx);border-radius:var(--r-md);font:700 var(--fs-body) var(--font-ui);cursor:pointer;white-space:nowrap}
 .fin-goal-add-btn{margin-left:auto;min-height:var(--btn-h);padding:0 14px;border:1px solid var(--bd2);background:var(--inner);color:var(--tx);border-radius:var(--r-md);font:700 var(--fs-body) var(--font-ui);cursor:pointer}
 
 /* ===== 적립식 매수: 앞으로 30일 일정 (2026-10-30) ===== */
@@ -484,7 +471,6 @@ button.cb-dash-kpi:hover{border-color:var(--bd2);background:var(--glass-hover)}
 /* 예전 작은 회색 제목(자간 넓은 10.5~12px)들도 같은 카드 제목 모양으로 — 현금 흐름 카드(.cb-label)·
    재무 섹션 머리(.fin-section-head>span) */
 .cb-label,.fin-section-head>span{font-size:var(--fs-card);letter-spacing:0;color:var(--tx);font-weight:700}
-#cf-entry-body .cb-label{font-size:var(--fs-cap);font-weight:600;color:var(--mut)}
 /* 시뮬레이터 종류 전환은 밑줄형 탭 — 두 버튼이 모두 칠해져 보여 어느 쪽이 선택인지 헷갈렸다 */
 .sim-view-tabs,.view-mode-bar{gap:4px;justify-content:flex-end;border-bottom:1px solid var(--bd);margin-bottom:12px}
 .sim-view-tabs>button.cb-btn,.view-mode-bar>button.cb-btn{background:transparent;border:0;border-radius:0;color:var(--t3);font-size:var(--fs-body);font-weight:500;min-height:40px;padding:0 14px;box-shadow:none}
@@ -922,63 +908,108 @@ button,input,select,textarea{font-family:var(--font-ui)}
 /* 링크 기본색 — 색을 정하지 않은 링크는 브라우저 기본 파랑(#0000ee)이라 다크 테마에서 읽히지 않는다 */
 :where(a){color:var(--acc)}
 
+/* ===== 현금 흐름 월별 화면(2026-11-26 사용자 결정) =====
+   1행 = 생키(가로 전체) · 2행 = 상세 내역(왼쪽, 예전 폭) | 월 요약 + 6개월 누적 막대(오른쪽).
+   상세 내역은 contain:size — 내역이 길어져도 행 높이(= 오른쪽 열 높이)를 늘리지 않고 카드 안에서만 스크롤한다.
+   화면 자체는 높이를 고정하지 않는다(생키가 가로를 다 쓰므로 한 화면에 다 들어가지 않는다). */
+#view-cashflow.active:has(>#cf-monthly-section:not(.cf-section-hidden)){height:auto}
+#cf-monthly-section.cf-grid{grid-template-rows:auto auto;height:auto;flex:none;align-items:stretch}
+#cf-monthly-section .cf-flow-panel{grid-column:1/-1;grid-row:1;min-width:0;padding:14px 16px}
+#cf-monthly-section .cf-detail-panel{grid-column:1;grid-row:2;min-width:0;min-height:420px;contain:size;overflow:hidden;padding:12px 14px}
+#cf-monthly-section .cf-chart-column{grid-column:2;grid-row:2;min-width:0;gap:12px;overflow:visible}
+.cf-detail-head{flex:none;align-items:center;gap:10px;margin-bottom:8px}
+#cf-detail-title small{margin-left:8px;font-size:var(--fs-cap);font-weight:500;color:var(--t3)}
+.cf-detail-scroll{flex:1 1 auto;min-height:0;overflow:auto;position:relative}
+#cf-detail-table thead{position:sticky;top:0;z-index:3;box-shadow:0 1px 0 var(--bd)}
+#cf-detail-table thead th{position:static;background:transparent}
+/* 월 요약 — 오른쪽 열 맨 위. 예전 차트 카드 밑에 붙던 점선 윗줄·바닥 붙임은 없앤다 */
+.cf-sum-panel{flex:none;padding:12px 14px}
+.cf-sum-head{align-items:center;margin-bottom:8px}
+.cf-sum-panel .cf-chart-summary{margin-top:0;padding-top:0;border-top:0;display:flex;flex-direction:column;gap:6px}
+/* 생키 카드 */
+.cf-flow-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.cf-flow-actions{display:flex;gap:6px;flex:none}
+.cf-sankey{margin:2px 0 4px}
+.cf-sankey-svg{display:block;height:auto;overflow:visible}
+.cf-sk-link{fill-opacity:.36;transition:fill-opacity var(--dur-fast) var(--ease-out)}
+[data-theme="dark"] .cf-sk-link,[data-theme="navy"] .cf-sk-link{fill-opacity:.42}
+.cf-sk-link:hover{fill-opacity:.6}
+.cf-sk-l{font-size:var(--fs-cap);font-weight:700;fill:var(--t1)}
+.cf-sk-l.is-b{font-weight:800}
+.cf-sk-v{font-size:var(--fs-cap);font-weight:500;fill:var(--t2);font-variant-numeric:tabular-nums}
+.cf-sk-l.is-in,.cf-sk-v.is-in,.cf-sk-xfer{paint-order:stroke;stroke:var(--modal-bg);stroke-width:3px;stroke-opacity:.6;stroke-linejoin:round}
+.cf-sk-xfer{font-size:var(--fs-cap);font-weight:800;fill:var(--t1)}
+.cf-flow-note{margin:4px 0 0;font-size:var(--fs-cap);line-height:1.5;color:var(--t3)}
+.cf-flow-note b{color:var(--t2);font-weight:700}
+.cf-flow-warn{margin:4px 0 0;font-size:var(--fs-cap);line-height:1.5;color:var(--warn);font-weight:700}
+/* 휴대폰 — 생키 대신 두 목록 */
+.cf-sk-list{display:flex;flex-direction:column;gap:6px}
+.cf-sk-list-head{margin-top:4px;font-size:var(--fs-cap);font-weight:700;color:var(--lab)}
+.cf-sk-row{display:grid;grid-template-columns:minmax(96px,auto) minmax(40px,1fr) auto;align-items:center;gap:8px;font-size:var(--fs-body)}
+.cf-sk-name{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2)}
+.cf-sk-name>i{flex:none;width:8px;height:8px;border-radius:var(--r-sm)}
+.cf-sk-track{height:var(--bar-h);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
+.cf-sk-track>i{display:block;height:100%;border-radius:var(--r-sm)}
+.cf-sk-row>b{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.cf-sk-list-xfer{padding:6px 10px;border-radius:var(--r-md);background:var(--inner-bg);font-size:var(--fs-cap);color:var(--t2)}
+.cf-sk-list-xfer b{color:var(--t1)}
+/* 6개월 누적 막대 — 막대 하나 = 그 달 수입 100%(지출이 더 크면 지출 100%) */
+.cf-stack-panel{flex:none;padding:12px 14px}
+.cf-stack-head{align-items:center;margin-bottom:6px}
+.cf-stack-avg{font-size:var(--fs-cap);font-weight:500;color:var(--t2);white-space:nowrap}
+.cf-stack-avg b{color:var(--t1);font-weight:800}
+.cf-stack-chart{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;padding:4px 0}
+.cf-stack-col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.cf-stack-col>b{font-size:var(--fs-cap);font-weight:800;color:var(--t2);font-variant-numeric:tabular-nums}
+.cf-stack-col.is-on>b{color:var(--t1)}
+.cf-stack-col.is-neg>b{color:var(--dn)}
+.cf-stack-bar{display:flex;flex-direction:column;justify-content:flex-end;width:100%;max-width:46px;height:170px;border-radius:var(--r-sm);overflow:hidden;background:var(--inner);opacity:.82}
+.cf-stack-bar>i{display:block;width:100%;flex:none}
+.cf-stack-col.is-on .cf-stack-bar{opacity:1;box-shadow:0 0 0 2px var(--acc)}
+.cf-stack-col.is-neg .cf-stack-bar{box-shadow:inset 0 -3px 0 var(--dn)}
+.cf-stack-col.is-neg.is-on .cf-stack-bar{box-shadow:0 0 0 2px var(--acc),inset 0 -3px 0 var(--dn)}
+.cf-stack-col.is-none .cf-stack-bar{background:repeating-linear-gradient(135deg,var(--inner) 0 3px,transparent 3px 7px)}
+.cf-stack-col>small{font-size:var(--fs-cap);color:var(--t2)}
+.cf-stack-col>em{font-style:normal;font-size:var(--fs-cap);font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cf-stack-col>em.c-dn{color:var(--dn)}
+.cf-stack-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:var(--fs-cap);color:var(--t2)}
+.cf-stack-legend i{display:inline-block;width:10px;height:10px;border-radius:var(--r-sm);margin-right:4px;vertical-align:-1px}
+.cf-stack-note{margin:6px 0 0;font-size:var(--fs-cap);line-height:1.5;color:var(--t3)}
+.cf-stack-bar>i.is-saving,.cf-stack-legend i.is-saving,.cf-sk-track>i.is-saving{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.6) 0 3px,transparent 3px 6px)}
+@media (max-width:1100px){
+  #cf-monthly-section .cf-flow-panel,#cf-monthly-section .cf-detail-panel,#cf-monthly-section .cf-chart-column{grid-column:1;grid-row:auto}
+  #cf-monthly-section .cf-detail-panel{contain:none;min-height:0;max-height:560px}
+}
+@media (max-width:768px){
+  #cf-monthly-section .cf-detail-panel{max-height:520px}
+  #cf-detail-title small{display:none}
+  .cf-flow-actions{display:none}
+  .cf-stack-bar{height:130px}
+}
+/* 수입·지출 기록 창 — 생키 카드의 ＋ 수입 / － 지출 이 연다. 탭은 시뮬레이터와 같은 밑줄형(.sim-view-tabs) */
+.cf-entry-modal{width:440px;max-width:92vw;gap:12px}
+.cf-entry-modal .sim-view-tabs.cf-entry-tabs{justify-content:flex-start;margin:-4px 0 0}
+.cf-entry-tabs[hidden]{display:none}
+.cf-entry-fields{display:flex;flex-direction:column;gap:10px}
+.cf-entry-fields .form-row{margin-bottom:0;flex-wrap:nowrap;gap:10px}
+.cf-entry-fields .form-row>.form-group{flex:1;min-width:0}
+.cf-entry-fields .form-group{min-width:0}
+.cf-entry-fields .form-input{width:100%;box-sizing:border-box;height:36px}
+.cf-entry-fields [hidden]{display:none!important}
+.cf-entry-lead{margin:0;font-size:var(--fs-cap);line-height:1.5;color:var(--t2)}
+.cf-entry-result{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 10px;padding:10px 12px;border-radius:var(--r-md);background:var(--inner-bg)}
+.cf-entry-result>span{font-size:var(--fs-cap);color:var(--t2)}
+.cf-entry-result>b{font-size:var(--fs-title);font-weight:800;font-variant-numeric:tabular-nums;color:var(--t1)}
+.cf-entry-result>small{flex-basis:100%;font-size:var(--fs-cap);color:var(--t3)}
+.cf-entry-result>small.is-warn{color:var(--warn);font-weight:700}
+.cf-entry-checks{display:flex;flex-wrap:wrap;gap:4px 16px}
+.cf-entry-checks .cf-fixed-check{display:inline-flex;height:28px;margin-top:0;font-size:var(--fs-body)}
+.cf-entry-foot{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.cf-entry-foot>button{height:36px}
+.cf-entry-foot .cf-entry-del{margin-right:auto;color:var(--dn)}
+.cf-entry-foot .cf-entry-del[hidden]{display:none}
+
 /* ===== 가독성 점검 (2026-11-17 3차) — 가짜 데이터로 전 화면을 띄워 확인한 잘림·빈칸·막대 ===== */
-/* 현금 흐름 '수입/지출 구성': 막대(카테고리) 수만큼 높이를 준다 — 높이가 모자라면 Chart.js 가 이름표를 건너뛴다.
-   넘치는 만큼은 오른쪽 열(.cf-chart-column)이 스크롤한다. 휴대폰은 기존 240px 규칙이 덮는다. */
-.cf-comp-panel{flex:2 0 auto;min-height:0}
-.cf-comp-list{flex:1 0 auto;min-height:0;font-size:var(--fs-body)}
-/* 수입/지출 구성(2026-11-23) — 수입 한 줄 + 지출 큰 순서 막대. 금액·비율을 글자로 적는다. */
-.cf-comp-head{display:flex;flex-wrap:wrap;gap:4px 18px;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--bd)}
-.cf-comp-head b{font-weight:800;margin-left:4px}.cf-comp-head small{margin-left:6px;font-size:var(--fs-cap);color:var(--lab)}
-.cf-comp-sub{font-size:var(--fs-cap);color:var(--lab);font-weight:700;margin:2px 0 4px}
-.cf-comp-row{display:grid;grid-template-columns:minmax(64px,auto) minmax(60px,1fr) 64px 36px;align-items:center;gap:8px;padding:3px 0}
-.cf-comp-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2)}
-.cf-comp-track{height:var(--bar-h-lg,12px);border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
-.cf-comp-track i{display:block;height:100%;border-radius:var(--r-sm)}
-.cf-comp-row.is-saving .cf-comp-track i{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 3px,transparent 3px 7px)}
-.cf-comp-amt{text-align:right;font-variant-numeric:tabular-nums}.cf-comp-pct{text-align:right;color:var(--lab);font-size:var(--fs-cap);font-variant-numeric:tabular-nums}
-.cf-comp-note,.cf-comp-empty{font-size:var(--fs-cap);color:var(--lab);margin-top:6px}
-.cf-trend-panel{flex:1 0 auto;min-height:0}
-.cf-trend-panel .chart-container{min-height:150px}
-/* 카테고리 예산·저축률 추이(2026-11-25 시안) — 값은 cfMonthTotals·cfSavingRate 그대로, 예산은 비교 기준선일 뿐이다 */
-.cf-budget-btn{height:28px;padding:0 10px;margin:0 6px 0 auto;border:1px solid var(--bd2);border-radius:var(--r-md);background:var(--inner);color:var(--tx);font:inherit;font-size:var(--fs-cap);font-weight:700;cursor:pointer}
-.cf-budget-btn[aria-expanded="true"]{border-color:var(--acc);color:var(--acc)}
-.cf-comp-track{position:relative}
-.cf-comp-budget{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--tx);opacity:.75}
-.cf-comp-row.has-b{grid-template-columns:minmax(64px,auto) minmax(60px,1fr) 104px 40px}
-.cf-comp-amt small{font-size:var(--fs-cap);font-weight:600;color:var(--lab)}
-.cf-comp-row.is-over .cf-comp-amt{color:var(--dn)}
-.cf-comp-pct.is-over{color:var(--dn);font-weight:800}
-.cf-comp-budget-sum{display:flex;justify-content:space-between;gap:8px;margin:0 0 6px;font-size:var(--fs-cap);color:var(--t2)}
-.cf-comp-budget-sum b{color:var(--tx);font-weight:800}
-.cf-comp-budget-sum .is-over{color:var(--dn);font-weight:800}
-.cf-comp-budget-sum .is-ok{color:var(--up);font-weight:700}
-.cf-budget-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
-.cf-budget-field{display:grid;grid-template-columns:minmax(76px,auto) minmax(0,1fr);align-items:center;gap:2px 8px}
-.cf-budget-field input{height:30px;text-align:right;font-variant-numeric:tabular-nums}
-.cf-budget-field small{grid-column:2;text-align:right;font-size:var(--fs-cap);color:var(--lab)}
-.cf-budget-cat{display:flex;align-items:center;gap:6px;color:var(--t2);white-space:nowrap}
-.cf-budget-cat i{width:8px;height:8px;border-radius:var(--r-sm);flex:none}
-.cf-budget-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px}
-#cf-budget-status{margin-right:auto;font-size:var(--fs-cap);color:var(--dn)}
-.cf-trend-panel .chart-container{flex:1 0 150px}
-/* 저축률 추이가 카드 밖으로 나가던 문제(2026-11-25) — 카드 기본 높이를 내용 높이로 둔다(넘치면 오른쪽 열이 스크롤). 적자 달은 막대 바닥에 빨간 선 */
-.cf-rate-col.is-neg .cf-rate-bar{box-shadow:inset 0 -3px 0 var(--dn)}
-.cf-rate-trend{flex:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-dark)}
-.cf-rate-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-size:var(--fs-cap);font-weight:700;color:var(--lab)}
-.cf-rate-head b{color:var(--tx);font-weight:800}
-.cf-rate-cols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;align-items:end}
-.cf-rate-col{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
-.cf-rate-col b{font-size:var(--fs-cap);font-weight:800;color:var(--t2);font-variant-numeric:tabular-nums}
-.cf-rate-col small{font-size:var(--fs-cap);color:var(--lab)}
-.cf-rate-bar{display:flex;align-items:flex-end;width:100%;max-width:30px;height:44px;border-radius:var(--r-sm);background:var(--inner);overflow:hidden}
-.cf-rate-bar i{display:block;width:100%;background:var(--acc);opacity:.5;border-radius:var(--r-sm)}
-.cf-rate-col.is-on b{color:var(--tx)}
-.cf-rate-col.is-on .cf-rate-bar i{opacity:1}
-.cf-rate-col.is-neg b{color:var(--dn)}
-.cf-rate-col.is-none .cf-rate-bar{background:repeating-linear-gradient(135deg,var(--inner) 0 3px,transparent 3px 7px)}
-.cf-rate-empty{margin-top:8px;font-size:var(--fs-cap);color:var(--lab)}
-@media (max-width:768px){.cf-budget-btn{display:none}}
 /* 보유 목록 두 줄 행 — 윗줄 이름·증권사·주기, 아랫줄 티커·계좌·회당 금액. 한 줄에 이어 쓰면 'TIGER 미…'로 잘렸다. */
 #view-holdings .holdings-inline-cell.holdings-asset-cell{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:1px;align-items:center;white-space:nowrap}
 #view-holdings .holdings-asset-cell>.holdings-asset-flag{grid-row:1/3;grid-column:1}
@@ -2143,7 +2174,7 @@ input:disabled::placeholder{opacity:.5}
 #cf-header-tabs.cf-section-tabs .cf-section-tab.active{color:var(--nav-on);box-shadow:inset 0 -2px 0 var(--nav-on)}
 .holdings-tab[aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--nav-on)}
 /* ④ 위에 붙는 머리줄 */
-#view-holdings .pt-table th,.home-table-column thead th,.cb-thead,#cf-fixed-table thead,.cf-fixed-table-toolbar,
+#view-holdings .pt-table th,.home-table-column thead th,.cb-thead,#cf-fixed-table thead,#cf-detail-table thead,.cf-fixed-table-toolbar,
 .cb-family-table-toolbar,.cb-div-table-toolbar,.cb-dca-table-toolbar,.cb-dash-table-toolbar{
   background:var(--sticky-bg);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%)}
 .cb-family-table-panel .cb-family-head,.cb-div-history-panel .cb-div-head{background:var(--sticky-bg)!important;box-shadow:0 1px 0 var(--bd)!important;-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%)}
