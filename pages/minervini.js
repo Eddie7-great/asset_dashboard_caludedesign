@@ -404,30 +404,40 @@ function trdVerdict(A, close, risk, E){
 // ── 가치투자(value2)·매크로(macro2) 판정 — 스타일마다 따로 판단한다(2026-11-26 사용자 결정: 세 스타일은 서로 다른 질문이라 섞지 않는다).
 // 가치 = 그레이엄·버핏·멍거(좋은 회사인가 · 비싸지 않은가), 매크로 = 소로스·드러켄밀러(지금 시장에서 공격해도 되나). 기준 숫자는 모두 잠정.
 const TRD_MACRO = {hyJump:1.0, hyHigh:5.0, dxyFast:5, dxyWarm:2, fwd:0.25, bsWarm:0, bsFast:-3, valWarm:1.2, valHot:1.4};  // 숫자는 모두 앱 기준(원문에 없음)
+// 삼의 법칙 0.5%p 는 원문(Sahm 2019) 기준, VIX 20·30 은 시장 관례(공식 기준 아님) — 2026-11-26 사용자 선택
+const TRD_MACRO_X = {sahm:0.5, vixWarm:20, vixHot:30};
 const TRD_Q = {roe:15, netDebtFcf:2, marginBand:10, fcfYears:4};   // ROE 5년 모두 15%↑ · 순부채 ≤ FCF 2년('빚이 거의 없음') · 영업이익률 폭 10%p 안 · FCF 5년 중 4년 플러스 — 숫자는 앱 기준(원문은 '좋은 ROE·빚이 거의 없음')
 const TRD_PE_BAND = 1.1;                                           // 자기 5년 중앙 PER 의 110% 이하면 '비싸지 않음' (앱 기준)
 // 그레이엄 방어적 투자자 기준(《현명한 투자자》 14장): 유동비율 2↑ · 장기부채 < 운전자본 · 10년 흑자 · 20년 배당 · 10년 이익 3분의 1↑ 성장 · 3년 평균 이익 PER 15↓ · PER×PBR 22.5↓
 const GRH = {curRatio:2, years:10, divYears:20, growth:33, pe:15, pepb:22.5};
 function trdMacro(M){
   if (!M) return {light:'n', word:'자료 없음', items:[], size:1, text:'시장 자료를 받지 못해 크기 조정을 하지 않았습니다'};
-  const it = (key, name, light, text, tip, lens) => ({key, name, light, text, tip, lens});
+  const it = (key, name, light, text, tip, lens, src=null) => ({key, name, light, text, tip, lens, src});
   const f = (v,d=2) => Number.isFinite(v) ? v.toFixed(d) : '—';
   const items = [];
+  const src = id => M.series && M.series[id] ? M.series[id] : null;
   // 유동성 — 드러켄밀러: "시장을 움직이는 건 이익이 아니라 연준이다", "18개월 뒤를 그려 보라". 지난 변화가 아니라 시장이 예상하는 앞으로의 금리를 본다.
-  if (M.fed && Number.isFinite(M.t2)){ const d = M.t2 - M.fed.now;
-    items.push(it('fed','앞으로의 금리', d>TRD_MACRO.fwd ? 'r' : 'g', d<-TRD_MACRO.fwd ? `시장은 인하 예상 (2년물 ${f(M.t2)}% < 기준 ${f(M.fed.now)}%)` : d>TRD_MACRO.fwd ? `시장은 인상 예상 (2년물 ${f(M.t2)}% > 기준 ${f(M.fed.now)}%)` : `동결 예상 (2년물 ${f(M.t2)}% ≈ 기준 ${f(M.fed.now)}%)`, '2년물 국채금리는 앞으로 2년 기준금리에 대한 시장의 예상. 지금 기준금리보다 높으면 시장이 인상(돈 조이기)을 예상하는 것 — 빨강', 'liq')); }
-  if (M.bs){ const d = (M.bs.now/M.bs.ago6m-1)*100;
-    items.push(it('bs','연준이 푼 돈', d<=TRD_MACRO.bsFast ? 'r' : d<TRD_MACRO.bsWarm ? 'y' : 'g', `연준 자산 6개월 ${d>=0?'+':''}${f(d,1)}% (${d<0?'거둬들이는 중':'푸는 중'})`, `연준 대차대조표 크기. 줄이면(양적 긴축) 시중의 돈이 빠진다. 6개월 ${TRD_MACRO.bsFast}% 이하 빨강`, 'liq')); }
-  if (Number.isFinite(M.t10) && Number.isFinite(M.t2)){ const sp = M.t10 - M.t2;
-    items.push(it('curve','장단기 금리차', sp<0 ? 'y' : Number.isFinite(M.spreadMin12m) && M.spreadMin12m<0 ? 'r' : 'g', sp<0 ? `역전 ${f(sp)}%p` : Number.isFinite(M.spreadMin12m) && M.spreadMin12m<0 ? `역전 뒤 다시 벌어짐 +${f(sp)}%p` : `정상 +${f(sp)}%p`, '10년물 − 2년물. 역전됐다가 다시 벌어질 때 경기 침체가 자주 왔다. 드러켄밀러: 주가가 30% 빠질 때는 거의 늘 침체가 있었다', 'eco')); }
-  if (M.hy){ const d = M.hy.now - M.hy.ago3m;
-    items.push(it('hy','신용 위험', d>=TRD_MACRO.hyJump ? 'r' : M.hy.now>=TRD_MACRO.hyHigh ? 'y' : 'g', `하이일드 가산금리 ${f(M.hy.now)}% (3개월 ${d>=0?'+':''}${f(d)}%p)`, `빚을 갚기 어려운 회사들의 웃돈 금리. 3개월에 ${TRD_MACRO.hyJump}%p 넘게 뛰면 빨강(앱 기준)`, 'eco')); }
-  if (M.dxy){ const d = (M.dxy.now/M.dxy.ago3m-1)*100;
-    items.push(it('dxy','달러', d>=TRD_MACRO.dxyFast ? 'r' : d>=TRD_MACRO.dxyWarm ? 'y' : 'g', `달러 지수 3개월 ${d>=0?'+':''}${f(d,1)}%`, `달러가 급히 오르면 세계 돈이 위험자산에서 빠지는 신호(달러 유동성). 3개월 +${TRD_MACRO.dxyFast}% 이상 빨강(앱 기준)`, 'liq')); }
+  if (M.fed && Number.isFinite(M.fed.now) && Number.isFinite(M.t2)){ const d = M.t2 - M.fed.now;
+    items.push(it('fed','앞으로의 금리', d>TRD_MACRO.fwd ? 'r' : 'g', d<-TRD_MACRO.fwd ? `시장은 인하 예상 (2년물 ${f(M.t2)}% < 기준 ${f(M.fed.now)}%)` : d>TRD_MACRO.fwd ? `시장은 인상 예상 (2년물 ${f(M.t2)}% > 기준 ${f(M.fed.now)}%)` : `동결 예상 (2년물 ${f(M.t2)}% ≈ 기준 ${f(M.fed.now)}%)`, '2년물 국채금리는 앞으로 2년 기준금리에 대한 시장의 예상. 지금 기준금리(실효 연방기금금리)보다 높으면 시장이 인상(돈 조이기)을 예상하는 것 — 빨강', 'liq', src('DGS2') && src('DFF') ? {...src('DGS2'), source:'FRED · DGS2 · DFF'} : src('DGS2'))); }
+  if (M.bs && Number.isFinite(M.bs.now) && M.bs.ago6m>0){ const d = (M.bs.now/M.bs.ago6m-1)*100;
+    items.push(it('bs','연준이 푼 돈', d<=TRD_MACRO.bsFast ? 'r' : d<TRD_MACRO.bsWarm ? 'y' : 'g', `연준 자산 6개월 ${d>=0?'+':''}${f(d,1)}% (${d<0?'거둬들이는 중':'푸는 중'})`, `연준 대차대조표 크기. 줄이면(양적 긴축) 시중의 돈이 빠진다. 6개월 ${TRD_MACRO.bsFast}% 이하 빨강, 줄어들면 노랑`, 'liq', src('WALCL'))); }
+  // 금리·금리차·신용·달러 네 장은 FRED 일별 자료(/api/macro, 2026-11-26 사용자 결정 — DGS10·T10Y2Y·BAA10Y·DTWEXBGS).
+  // 판정 기준(TRD_MACRO)은 그대로 두고 자료만 바꿨다. 10년 국채금리는 원래 판정 기준이 없어 참고값(회색)으로만 보인다.
+  if (Number.isFinite(M.t10)) items.push(it('rate','미국 국채 금리', 'n', `10년물 ${f(M.t10)}%`, '미국 10년 만기 국채 금리. 판정 기준이 없어 신호등은 켜지 않습니다 — 가치투자 화면의 \'국채보다 나은가\' 비교에 씁니다', 'val', src('DGS10')));
+  if (M.curve && Number.isFinite(M.curve.now)){ const sp = M.curve.now, mn = M.curve.min12m;
+    items.push(it('curve','장단기 금리차', sp<0 ? 'y' : Number.isFinite(mn) && mn<0 ? 'r' : 'g', sp<0 ? `역전 ${f(sp)}%p` : Number.isFinite(mn) && mn<0 ? `역전 뒤 다시 벌어짐 +${f(sp)}%p` : `정상 +${f(sp)}%p`, '10년물 − 2년물. 역전됐다가 다시 벌어질 때 경기 침체가 자주 왔다. 드러켄밀러: 주가가 30% 빠질 때는 거의 늘 침체가 있었다', 'eco', src('T10Y2Y'))); }
+  if (M.credit && Number.isFinite(M.credit.now)){ const d = Number.isFinite(M.credit.ago3m) ? M.credit.now - M.credit.ago3m : null;
+    items.push(it('credit','신용 위험', d==null ? 'n' : d>=TRD_MACRO.hyJump ? 'r' : M.credit.now>=TRD_MACRO.hyHigh ? 'y' : 'g', `회사채 가산금리 ${f(M.credit.now)}%${d==null ? '' : ` (3개월 ${d>=0?'+':''}${f(d)}%p)`}`, `Baa 등급 회사채 금리 − 10년 국채 금리. 돈을 빌려주는 쪽이 회사 빚에 얹는 웃돈. 3개월에 ${TRD_MACRO.hyJump}%p 넘게 뛰면 빨강, ${TRD_MACRO.hyHigh}% 이상이면 노랑(앱 기준)`, 'eco', src('BAA10Y'))); }
+  if (M.dxy && Number.isFinite(M.dxy.now)){ const d = Number.isFinite(M.dxy.ago3m) && M.dxy.ago3m>0 ? (M.dxy.now/M.dxy.ago3m-1)*100 : null;
+    items.push(it('dxy','달러', d==null ? 'n' : d>=TRD_MACRO.dxyFast ? 'r' : d>=TRD_MACRO.dxyWarm ? 'y' : 'g', `달러 지수 ${f(M.dxy.now)}${d==null ? '' : ` · 3개월 ${d>=0?'+':''}${f(d,1)}%`}`, `여러 나라 통화 대비 달러 값(무역 가중, 2006년 1월 = 100). 달러가 급히 오르면 세계 돈이 위험자산에서 빠지는 신호(달러 유동성). 3개월 +${TRD_MACRO.dxyFast}% 이상 빨강, +${TRD_MACRO.dxyWarm}% 이상 노랑(앱 기준)`, 'liq', src('DTWEXBGS'))); }
   if (M.pe && Number.isFinite(M.pe.now) && M.pe.med10y>0){ const x = M.pe.now/M.pe.med10y;
     items.push(it('val','시장 값', x>=TRD_MACRO.valHot ? 'r' : x>=TRD_MACRO.valWarm ? 'y' : 'g', `S&P 500 PER ${f(M.pe.now,1)}배 · 10년 중앙 ${f(M.pe.med10y,1)}배 (${f(x,2)}배)`, `드러켄밀러가 꼽은 세 렌즈 중 하나. 비쌀수록 같은 충격에 더 크게 빠진다. 10년 중앙의 ${TRD_MACRO.valWarm}배 노랑·${TRD_MACRO.valHot}배 빨강(앱 기준)`, 'val')); }
   if (M.spx){ const up = M.spx.ma200 > M.spx.ma200ago, above = M.spx.close > M.spx.ma200;
-    items.push(it('spx','가격이 하는 말', above && up ? 'g' : !above && !up ? 'r' : 'y', `S&P 500 이 200일선 ${above?'위':'아래'} · 200일선 ${up?'오름':'내림'}`, '드러켄밀러: "주식시장과 경제를 혼동하지 말라". 지표가 좋아도 지수 자체가 내려가는 200일선 아래면 방어로 본다', 'val')); }
+    items.push(it('spx','가격이 하는 말', above && up ? 'g' : !above && !up ? 'r' : 'y', `S&P 500 이 200일선 ${above?'위':'아래'} · 200일선 ${up?'오름':'내림'}`, '드러켄밀러: "주식시장과 경제를 혼동하지 말라". 지표가 좋아도 지수 자체가 내려가는 200일선 아래면 방어로 본다', 'val', src('SP500'))); }
+  if (M.sahm && Number.isFinite(M.sahm.now))
+    items.push(it('sahm','침체 경보 (삼의 법칙)', M.sahm.now>=TRD_MACRO_X.sahm ? 'r' : 'g', `${f(M.sahm.now)}%p · 기준 ${f(TRD_MACRO_X.sahm)}`, `실업률 3개월 평균이 지난 12개월 최저보다 ${TRD_MACRO_X.sahm}%p 이상 오르면 침체가 이미 시작된 경우가 많았다(연준 경제학자 클로디아 삼, 2019). 기준 숫자는 원문 그대로 · 월 1회 발표`, 'eco', src('SAHMREALTIME')));
+  if (M.vix && Number.isFinite(M.vix.now))
+    items.push(it('vix','시장의 겁 (VIX)', M.vix.now>=TRD_MACRO_X.vixHot ? 'r' : M.vix.now>=TRD_MACRO_X.vixWarm ? 'y' : 'g', `VIX ${f(M.vix.now,1)}`, `앞으로 한 달 S&P 500 이 얼마나 출렁일지 옵션 가격에 담긴 예상치. ${TRD_MACRO_X.vixWarm} 아래 평온, ${TRD_MACRO_X.vixWarm}~${TRD_MACRO_X.vixHot} 불안(노랑), ${TRD_MACRO_X.vixHot} 이상 공포(빨강) — 시장 관례이며 공식 기준이 아님`, 'val', src('VIXCLS')));
   const reds = items.filter(x=>x.light==='r').length, spxRed = items.some(x=>x.key==='spx' && x.light==='r');
   // 유동성이 첫째 — 앞으로의 금리와 연준 자산이 둘 다 빨강이면 다른 신호와 상관없이 방어
   const liqRed = ['fed','bs'].every(k=>items.some(x=>x.key===k && x.light==='r'));
@@ -435,7 +445,7 @@ function trdMacro(M){
   const size = light==='r' ? 0 : light==='y' ? 0.5 : 1;
   const word = {g:'공격해도 되는 시장', y:'조심할 시장', r:'새로 사지 않는 시장'}[light];
   const text = {g:'평소 크기로 삽니다', y:'새 매수는 절반 크기, 손절은 짧게', r:'새 매수를 멈추고 가진 종목은 손절 규칙만 지킵니다'}[light];
-  return {light, word, items, size, reds, liqRed, text, asOf:M.asOf};
+  return {light, word, items, size, reds, judged:items.filter(x=>x.light!=='n').length, liqRed, text, asOf:M.asOf};
 }
 function trdQuality(F){
   const ys = F && Array.isArray(F.years) ? F.years.slice(-5) : [];
@@ -506,7 +516,7 @@ function trdGraham(F, close){
 // ── 화면(trend2) ──
 const _trdEarn = {}, _trdFund = {};
 let _trdMacro, _trdMacroBusy = false;
-// 재무(5년 ROE·이익률·FCF, 순부채, PER) — /api/price?type=fundamentals. 시장 자료 — /api/price?type=macro(FRED). 실패하면 null(회색).
+// 재무(5년 ROE·이익률·FCF, 순부채, PER) — /api/price?type=fundamentals. 시장 자료 — /api/macro(FRED 를 서버가 받아 둔 값). 실패하면 null(회색).
 async function trdFetchJson(url){
   const r = await authFetch(url); const d = await r.json().catch(()=>null);
   return d && d.success ? d : null;
@@ -514,7 +524,7 @@ async function trdFetchJson(url){
 async function trdLoadMacro(){
   if (_trdMacro!==undefined || _trdMacroBusy) return;
   _trdMacroBusy = true;
-  try { _trdMacro = await trdFetchJson('/api/price?type=macro'); } catch(e){ _trdMacro = null; }
+  try { _trdMacro = await trdFetchJson('/api/macro'); } catch(e){ _trdMacro = null; }
   finally { _trdMacroBusy = false; }
   trdRerender();
 }
@@ -694,11 +704,25 @@ function valNoteHtml(){
 
 // 매크로 — 소로스·드러켄밀러. 종목이 아니라 시장 전체를 본다.
 const MAC_STANCE = {
-  g:{word:'공격 — 주식 비중 평소대로', tone:'up', why:'앞으로 돈이 풀리는 쪽이고 경제·값에도 큰 경고가 없습니다. 드러켄밀러라면 주식 비중을 줄일 이유가 없는 환경입니다.'},
+  g:{word:'공격 — 주식 비중 평소대로', tone:'up', why:'나쁜 신호가 하나 이하이고 큰 경고가 없습니다. 드러켄밀러라면 주식 비중을 줄일 이유가 없는 환경입니다.'},
   y:{word:'조심 — 비중 줄이고 현금 늘림', tone:'mid', why:'나쁜 신호가 두 개 켜졌습니다. 새로 살 때 크기를 줄이고 현금을 조금 늘리는 구간입니다.'},
   r:{word:'방어 — 새 매수 멈춤', tone:'dn', why:'유동성이 조여지거나, 나쁜 신호가 여럿이거나, 시장 자체가 하락 추세입니다. 드러켄밀러라면 새로 사지 않고 현금을 늘립니다.'},
   n:{word:'판정 보류', tone:'mid', why:'시장 자료(FRED)를 받지 못했습니다.'},
 };
+// 카드 아래 한 줄 — 자료 날짜 · 직전 관측 대비 · 출처(2026-11-26 사용자 요청). 오래된 자료(지표마다 공표 주기에 맞춘 기한 staleDays 를 넘겨 새 관측 없음)는 표시한다.
+function macSrcHtml(s){
+  if (!s) return '';
+  const [y,m,d] = String(s.date).split('-').map(Number);
+  const days = Math.floor((Date.now() - Date.UTC(y,m-1,d)) / 86400000);
+  // 공표 주기가 지표마다 달라(달러 지수·연준 자산 주 1회, 삼의 법칙 월 1회) 서버가 준 기한(staleDays)을 쓴다
+  const stale = days > (Number(s.staleDays) || 7);
+  const ch = Number(s.change), sg = ch>=0 ? '+' : '', pc = s.prevValue>0 ? ch/s.prevValue*100 : 0;
+  // 단위: 금리류 %p · 지수(달러·S&P 500) 포인트와 % · 연준 자산 % · VIX 포인트
+  const unit = {DTWEXBGS:'pts', SP500:'pts', WALCL:'pct', VIXCLS:'pt'}[s.id] || 'pp';
+  const chTxt = !Number.isFinite(ch) ? '' : unit==='pts' ? ` · 직전 대비 ${sg}${ch.toFixed(2)} (${sg}${pc.toFixed(2)}%)`
+    : unit==='pct' ? ` · 직전 대비 ${sg}${pc.toFixed(2)}%` : unit==='pt' ? ` · 직전 대비 ${sg}${ch.toFixed(2)}` : ` · 직전 대비 ${sg}${ch.toFixed(2)}%p`;
+  return `<div class="mac-src${stale?' is-stale':''}"><span>${y}.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')} 자료${stale?' · 오래됨':''}</span><span>${chTxt.slice(3)}</span><span class="mac-src-id">${cbEsc(s.source || 'FRED · '+s.id)}</span></div>`;
+}
 function cbRenderMacro(){
   const el = trdOnly('macro2'); if (!el) return;
   cbSetHead('유동성·경제·시장 값으로 지금 시장이 공격해도 되는 환경인지 봅니다 · 드러켄밀러 방식의 근사 · 규칙 확인용(투자 권유 아님)');
@@ -710,7 +734,7 @@ function macBodyHtml(){
   const word = {g:'좋음', y:'보통', r:'나쁨', n:'모름'};
   const card = x => `<div class="trd-light mac-card is-${x.light}">
       <span class="trd-lamps" aria-label="${word[x.light]}">${['g','y','r'].map(c=>`<i class="trd-lamp is-${c}${x.light===c?' is-on':''}"></i>`).join('')}</span>
-      <div class="trd-light-name">${cbEsc(x.name)}</div><div class="mac-val">${cbEsc(x.text)}</div><div class="trd-light-text">${cbEsc(x.tip)}</div></div>`;
+      <div class="trd-light-name">${cbEsc(x.name)}</div><div class="mac-val">${cbEsc(x.text)}</div>${macSrcHtml(x.src)}<div class="trd-light-text">${cbEsc(x.tip)}</div></div>`;
   // 드러켄밀러의 세 렌즈: "시장을 세 가지로 본다 — 밸류에이션, 유동성, 경제"
   const LENS = [['liq','유동성','가장 중요 — 시장을 움직이는 건 이익이 아니라 연준과 돈의 흐름'],['eco','경제','주가가 크게 빠질 때는 거의 늘 침체가 있었다'],['val','값과 가격','비싼지, 그리고 지수 자체가 무엇을 말하는지']];
   const cards = MC.items.length ? LENS.map(([k,name,sub])=>{ const xs = MC.items.filter(x=>x.lens===k); return xs.length ? `<div class="mac-lens"><div class="trd-group-title"><b>${name}</b> <span>${sub}</span></div><div class="mac-cards">${xs.map(card).join('')}</div></div>` : ''; }).join('')
@@ -724,7 +748,7 @@ function macBodyHtml(){
         <small class="trd-who">드러켄밀러의 세 렌즈를 지표로 근사한 판단 · 18개월 뒤를 그리는 상상력은 숫자로 못 옮깁니다 · 투자 권유가 아닙니다</small>
       </div>
       <div class="trd-nums">
-        ${trdNumHtml('나쁜 신호', `${MC.reds||0}개 <em>${MC.items.length}개 중</em>`, MC.reds>=2?'is-dn':'')}
+        ${trdNumHtml('나쁜 신호', `${MC.reds||0}개 <em>${MC.judged||0}개 중</em>`, MC.reds>=2?'is-dn':'')}
         ${trdNumHtml('새 매수 크기', MC.light==='n' ? '—' : MC.size>=1 ? '평소대로' : MC.size>0 ? '절반' : '멈춤', MC.size>=1?'is-up':MC.size>0?'':'is-dn')}
         ${trdNumHtml('<span data-tip="나쁜 신호가 3개 이상이거나, 유동성 두 신호(금리·연준 돈)가 모두 빨강이거나, 지수가 200일선 아래로 꺾이면 방어로 봅니다">방어 기준</span>', '빨강 3개 이상')}
       </div>
@@ -733,12 +757,13 @@ function macBodyHtml(){
     <div class="cb-panel trd-note">
       <div class="cb-panel-title">판단 방법과 한계</div>
       <ul>
-        <li>드러켄밀러: "시장 전체를 움직이는 건 이익이 아니라 연준이다 · 중앙은행과 유동성의 움직임에 집중하라", "18개월 뒤를 그려 보라 — 지금에 투자하면 치인다". 그래서 유동성은 지난 변화가 아니라 시장이 예상하는 앞으로의 금리(2년물)와 연준이 푼 돈으로 봅니다.</li>
+        <li>드러켄밀러: "시장 전체를 움직이는 건 이익이 아니라 연준이다 · 중앙은행과 유동성의 움직임에 집중하라", "18개월 뒤를 그려 보라 — 지금에 투자하면 치인다". 그래서 유동성은 지난 변화가 아니라 시장이 예상하는 앞으로의 금리(2년물)와 연준이 푼 돈으로 봅니다. 시장 값(PER) 카드는 무료 공개 자료가 없어 나오지 않습니다.</li>
         <li><b>공격</b> = 빨강 0~1개. <b>조심</b> = 빨강 2개. <b>방어</b> = 유동성 둘(앞으로의 금리·연준 자산)이 모두 빨강, 빨강 3개 이상, 또는 S&amp;P 500 이 내려가는 200일선 아래.</li>
-        <li>장단기 금리차·하이일드 가산금리·달러·시장 값은 드러켄밀러의 말에서 직접 확인한 지표가 아니라 세 렌즈를 채우려고 앱이 고른 것이고, 기준 숫자(가산금리 3개월 +${TRD_MACRO.hyJump}%p 등)도 앱 기준입니다. 하이일드 가산금리는 FRED 가 최근 3년치만 공개합니다.</li>
+        <li>장단기 금리차·회사채 가산금리·달러·삼의 법칙·VIX 는 드러켄밀러의 말에서 직접 확인한 지표가 아니라 세 렌즈를 채우려고 앱이 고른 것입니다. 기준 숫자(가산금리 3개월 +${TRD_MACRO.hyJump}%p 등)는 앱 기준이고, 삼의 법칙 ${TRD_MACRO_X.sahm}%p 만 원문 기준, VIX ${TRD_MACRO_X.vixWarm}·${TRD_MACRO_X.vixHot} 은 시장 관례입니다.</li>
+        <li>FRED 자료는 미국 평일 장 마감 뒤 하루 한 번 확인하고, 새 관측일이 있을 때만 바꿉니다. 카드마다 자료 날짜를 적습니다 — 받지 못한 날은 마지막으로 받은 값과 그 날짜가 그대로 보입니다.</li>
         <li>이 화면은 종목을 고르지 않습니다. 매크로 투자자는 주식·채권·통화·원자재 사이에서 돈을 옮기는데, 이 앱은 주식 비중의 방향만 봅니다.</li>
       </ul>
-      <small class="fin-callout">출처: Druckenmiller 1988 Barron's 인터뷰·2015 Lost Tree Club 강연. 자료: 미국 연준 FRED(기준금리·국채 2년·10년·연준 자산·하이일드 가산금리·달러 지수), S&amp;P 500 은 Yahoo 일봉, 시장 PER 출처는 구현 때 확정.</small>
+      <small class="fin-callout">출처: Druckenmiller 1988 Barron's 인터뷰·2015 Lost Tree Club 강연. 자료: 미국 연준 FRED — DGS10(10년 국채 금리)·T10Y2Y(10년 − 2년)·BAA10Y(Baa 회사채 − 10년)·DTWEXBGS(무역 가중 달러 지수)·DGS2(2년 국채 금리)·DFF(실효 연방기금금리)·WALCL(연준 총자산)·SP500(S&amp;P 500)·SAHMREALTIME(삼의 법칙)·VIXCLS(VIX). 삼의 법칙: Claudia Sahm(2019).</small>
     </div>`;
 }
 
@@ -777,7 +802,11 @@ function cbRenderScreen(){
   cbSetHead('검색하지 않아도 규칙상 매수 신호가 나온 미국 주식을 골라 보여 줍니다 · 스타일마다 따로 · 규칙 확인용(투자 권유 아님)');
   scrLoad();
   if (!_scr){
-    el.innerHTML = `<div class="cb-panel">${cbEmptyHtml(_scr===undefined?'종목 목록을 불러오는 중…':'종목 목록이 아직 없습니다','매일 아침 7:30(한국 시간) 미국 장 마감 자료로 다시 계산합니다.',[])}</div>`;
+    // 종목 목록(스크리너 배치)이 아직 없어도 매크로 탭은 자기 자료(/api/macro)로 열린다 — 탭 줄이 없으면 시장 신호등에 갈 길이 없었다.
+    const MCe = trdMacro(_trdMacro); trdLoadMacro();
+    const tabsE = `<div class="sim-view-tabs scr-tabs" role="group" aria-label="투자 스타일">${SCR_TABS.map(([k,lab])=>`<button type="button" data-scr="tab:${k}" aria-pressed="${_scrTab===k}" class="cb-btn" onclick="scrPick('tab','${k}')">${lab}${k==='macro' && MCe.light!=='n' ? ` <em><i class="trd-mini is-${MCe.light}"></i></em>` : ''}</button>`).join('')}</div>`;
+    el.innerHTML = `<div class="cb-panel scr-panel scr-panel-tabs"><div class="scr-top">${tabsE}</div></div>` + (_scrTab==='macro' ? macBodyHtml()
+      : `<div class="cb-panel">${cbEmptyHtml(_scr===undefined?'종목 목록을 불러오는 중…':'종목 목록이 아직 없습니다','매일 아침 7:30(한국 시간) 미국 장 마감 자료로 다시 계산합니다.',[])}</div>`);
     return;
   }
   const {all, rows, tOk, vOk} = scrRows();
