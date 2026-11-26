@@ -555,60 +555,76 @@ function chsToggle(k){ if (!(k in _chsShow)) return; _chsShow[k] = !_chsShow[k];
 // 종목 검색 — 내 종목 이름·티커가 맞으면 바로, 국내 6자리 코드·미국 티커 모양이면 그대로 봉을 받아 보고,
 // 그 밖(회사 이름)이나 실패하면 앱의 종목 검색(/api/get-stock — 국내 네이버·해외 Yahoo)으로 티커를 찾는다.
 const CHS_KR_CODE = /^[0-9][0-9A-Z]{5}$/, CHS_US_TKR = /^[\^A-Z][A-Z0-9.\-=]{0,8}$/;
-// 비율 차트의 한쪽 이름을 티커로 — 내 종목 → 티커·코드 모양이면 그대로 → 종목 검색
-async function chsResolveOne(q){
-  const up = q.toUpperCase(), direct = chsApiTkr(up);
+// 이름표(2026-11-26 사용자 요청 — 검색 뒤 제목·최근 목록은 티커가 아니라 종목명). 비율은 'A 이름 / B 이름'.
+const _chsNames = {};
+function chsNameOf(t){
+  if (_chsNames[t]) return _chsNames[t];
+  const rp = chsRatioParts(t);
+  if (rp) return rp.map(chsNameOf).join(' / ');
+  const row = chsHoldings(null).find(r=>r.tkr===t);
+  return row ? row.name : t;
+}
+// 검색어 하나를 종목으로 — 내 종목 → 티커·코드 모양이면 그 봉을 받아 확인(받은 봉은 캐시에 둔다) → 종목 검색(/api/get-stock).
+// 티커로 찾았을 때도 종목 검색으로 이름을 받아 온다(같은 티커일 때만 — 다른 종목 이름을 붙이지 않는다).
+async function chsResolve(q){
+  const up = q.toUpperCase(), direct = chsApiTkr(up), fr = _chsFrame==='Y' ? 'M' : _chsFrame;
   const hit = chsHoldings(null).find(r=>r.tkr===direct || r.name===q);
-  if (hit) return hit.tkr;
-  if (CHS_KR_CODE.test(direct) || (/^[\x20-\x7e]+$/.test(q) && q.length<=6 && CHS_US_TKR.test(direct))) return direct;
-  const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
-  const d = await r.json().catch(()=>null);
-  const sym = d && d.success && String(d.symbol||'').trim();
-  if (!sym) throw new Error(`'${q}' 종목을 찾지 못했습니다`);
-  return chsApiTkr(sym);
+  if (hit) return {tkr:hit.tkr, name:hit.name, cur:hit.cur, ref:hit.ref};
+  const lookup = async () => {
+    const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
+    const d = await r.json().catch(()=>null);
+    const sym = d && d.success && String(d.symbol||'').trim();
+    return sym ? {tkr:chsApiTkr(sym), name:String(d.name||sym), cur:String(d.currency||'').toUpperCase()} : null;
+  };
+  if (CHS_KR_CODE.test(direct) || (/^[\x20-\x7e]+$/.test(q) && q.length<=6 && CHS_US_TKR.test(direct))){
+    let bars = null;
+    try { bars = await chsFetchBars(direct, fr); _chsCache[chsCacheKey(direct, fr)] = bars; } catch(e){ bars = null; }
+    if (bars){
+      let named = null; try { named = await lookup(); } catch(e){ named = null; }
+      return {tkr:direct, name:named && named.tkr===direct ? named.name : direct, cur:bars.cur};
+    }
+  }
+  const found = await lookup();
+  if (!found) throw new Error(`'${q}' 종목을 찾지 못했습니다 — 회사 이름·티커(AAPL)·6자리 코드(005930)로 찾아 보세요`);
+  return found;
 }
 function chsInfoFor(t){
-  if (chsRatioParts(t)) return {tkr:t, name:t.replace('/',' / '), cur:'RATIO', ratio:true};
+  if (chsRatioParts(t)) return {tkr:t, name:chsNameOf(t), cur:'RATIO', ratio:true};
   const row = chsHoldings(null).find(r=>r.tkr===t);
-  return row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:t, cur:''};
+  return row ? {tkr:row.tkr, name:row.name, cur:row.cur, ref:row.ref} : {tkr:t, name:chsNameOf(t), cur:''};
+}
+// 비교(비율 차트) — 검색 줄의 '비교' 체크를 켜면 두 번째 검색칸이 열린다
+let _chsCompare = false, _chsQuery2 = '';
+function chsCompareToggle(on){
+  const q1 = document.getElementById('chs-q'), q2 = document.getElementById('chs-q2');
+  if (q1) _chsQuery = q1.value; if (q2) _chsQuery2 = q2.value;
+  _chsCompare = !!on; _chsSearchErr = null; cbRenderChart();
+  const f = document.getElementById(_chsCompare ? (_chsQuery ? 'chs-q2' : 'chs-q') : 'chs-q'); if (f) f.focus();
 }
 async function chsSearch(q){
+  const el2 = document.getElementById('chs-q2');
   q = String(q==null ? (document.getElementById('chs-q')||{}).value||'' : q).trim();
-  _chsQuery = q; _chsSearchErr = null;
+  let q2 = '';
+  if (arguments.length===0 && _chsCompare && el2) q2 = String(el2.value||'').trim();
+  _chsQuery = q; _chsQuery2 = q2; _chsSearchErr = null;
+  // 'XLK/XLV' 처럼 한 칸에 / 로 넣어도 비교로 본다
+  if (!q2 && q.includes('/')){ const p = q.split('/').map(x=>x.trim()); if (p.length===2){ [q, q2] = p; } else { _chsSearchErr = '비교는 두 종목을 / 하나로 이어 넣으세요 — 예: XLK/XLV'; cbRenderChart(); return; } }
+  if (_chsCompare && arguments.length===0 && (!q || !q2)){ _chsSearchErr = '비교할 두 종목을 모두 넣으세요'; cbRenderChart(); return; }
   if (!q){ cbRenderChart(); return; }
-  // 'XLK/XLV' — 두 종목의 비율 차트
-  if (q.includes('/')){
-    const parts = q.split('/').map(x=>x.trim());
-    if (parts.length!==2 || !parts[0] || !parts[1]){ _chsSearchErr = '비율 차트는 두 종목을 / 하나로 이어 넣으세요 — 예: XLK/XLV'; cbRenderChart(); return; }
-    _chsSearchBusy = true; cbRenderChart();
-    try {
-      const [a, b] = await Promise.all(parts.map(chsResolveOne));
-      if (a===b) throw new Error('같은 종목끼리는 비율을 낼 수 없습니다');
-      const t = a+'/'+b, fr = _chsFrame==='Y' ? 'M' : _chsFrame;
-      _chsCache[chsCacheKey(t, fr)] = await chsFetchBars(t, fr);
-      _chsTkr = t; _chsPickInfo = chsInfoFor(t); _chsQuery = ''; chsRemember(t);
-    } catch(e){ _chsSearchErr = (e&&e.message)||'검색 실패'; }
-    finally { _chsSearchBusy = false; }
-    cbRenderChart(); return;
-  }
-  const mine = chsHoldings(null), up = q.toUpperCase();
-  const hit = mine.find(r=>r.tkr===chsApiTkr(up) || r.name===q);
-  if (hit){ _chsQuery = ''; chsPick(hit.tkr); return; }
   _chsSearchBusy = true; cbRenderChart();
-  let info = null;
   try {
-    const direct = chsApiTkr(up);
-    if (CHS_KR_CODE.test(direct) || (/^[\x20-\x7e]+$/.test(q) && q.length<=6 && CHS_US_TKR.test(direct))){
-      try { const d = await chsFetchBars(direct, _chsFrame==='Y'?'M':_chsFrame); _chsCache[chsCacheKey(direct, _chsFrame==='Y'?'M':_chsFrame)] = d; info = {tkr:direct, name:direct, cur:d.cur}; } catch(e){ info = null; }
+    if (q2){
+      const [a, b] = await Promise.all([q, q2].map(chsResolve));
+      if (a.tkr===b.tkr) throw new Error('같은 종목끼리는 비교할 수 없습니다');
+      const t = a.tkr+'/'+b.tkr, fr = _chsFrame==='Y' ? 'M' : _chsFrame;
+      _chsCache[chsCacheKey(t, fr)] = await chsFetchBars(t, fr);
+      _chsNames[a.tkr] = a.name; _chsNames[b.tkr] = b.name;
+      _chsTkr = t; _chsPickInfo = chsInfoFor(t); _chsQuery = ''; _chsQuery2 = ''; chsRemember(t);
+    } else {
+      const info = await chsResolve(q);
+      _chsNames[info.tkr] = info.name;
+      _chsTkr = info.tkr; _chsPickInfo = info; _chsQuery = ''; chsRemember(info.tkr);
     }
-    if (!info){
-      const r = await authFetch('/api/get-stock?query=' + encodeURIComponent(q));
-      const d = await r.json().catch(()=>null);
-      const sym = d && d.success && String(d.symbol||'').trim();
-      if (!sym) throw new Error('종목을 찾지 못했습니다 — 티커(AAPL)·6자리 코드(005930)·회사 이름으로 찾아 보세요');
-      info = {tkr:chsApiTkr(sym), name:String(d.name||sym), cur:String(d.currency||'').toUpperCase()};
-    }
-    _chsTkr = info.tkr; _chsPickInfo = info; _chsQuery = ''; chsRemember(info.tkr);
   } catch(e){ _chsSearchErr = (e&&e.message)||'검색 실패'; }
   finally { _chsSearchBusy = false; }
   cbRenderChart();
@@ -628,7 +644,7 @@ const CHS_GUIDE = [
   ['MACD', '12개·26개 봉 평균의 차이(MACD)와 그 9개 평균(시그널선) · 막대가 커지면 그쪽 힘이 세지는 중'],
   ['가우시안 채널', '가격을 아주 매끄럽게 만든 가운데 선(144봉, 4겹 필터) ± 하루 움직임 폭 × 1.414 · 가운데 선이 오르면 초록, 내리면 빨강 · 처음 144봉은 값이 안정되지 않아 비움'],
   ['볼린저 2σ', '20봉 평균 ± 표준편차(σ) 2배 · 가격은 대개 이 띠 안에 머묾 · 띠가 아주 좁아지면 큰 움직임 전 조용한 구간인 경우가 많음'],
-  ['비율 차트', "'XLK/XLV'처럼 / 로 두 종목을 넣으면 앞 종목 가격 ÷ 뒤 종목 가격 · 오르면 앞 종목이 상대적으로 강함 · 지표도 그 비율에 그대로 적용"],
+  ['비율 차트', "검색 줄의 '비교'를 켜고 두 종목을 넣으면(또는 XLK/XLV) 앞 종목 가격 ÷ 뒤 종목 가격 · 오르면 앞 종목이 상대적으로 강함 · 지표도 그 비율에 그대로 적용"],
   ['다이버전스', '가격은 더 높은 고점인데 RSI 는 더 낮은 고점 = Bear(오르는 힘이 약해짐), 반대 = Bull · 고점·저점은 오른쪽 5봉이 지나야 확정되므로 늦게 표시됨'],
 ];
 
@@ -650,13 +666,15 @@ function cbRenderChart(){
   if (!_chsTkr && list[0]){ _chsTkr = list[0].tkr; _chsPickInfo = {tkr:list[0].tkr, name:list[0].name, cur:list[0].cur, ref:list[0].ref}; chsRemember(_chsTkr); }
   cbSetHead('미국·국내 종목을 검색해 봉 차트(일·주·월·년)로 추세·과열·힘을 읽는 연습 · 공부용(매매 신호 아님)', cbOwnerBtns(_chsOwner,'chsOwner'));
   // 검색 줄 — 검색 상자 · 보기 · 최근 조회 5개를 한 줄에(2026-11-26 사용자 요청 — '내 종목' 목록은 뺐다)
-  const chip = (t, on) => `<button class="trd-chip${on?' is-on':''}" onclick="chsPick('${cbEsc(t)}')"${on?' aria-current="true"':''}>${cbEsc(t)}</button>`;
+  const chip = (t, on) => { const nm = chsNameOf(t); return `<button class="trd-chip${on?' is-on':''}" onclick="chsPick('${cbEsc(t)}')" title="${cbEsc(nm)}${nm!==t?' · '+cbEsc(t):''}"${on?' aria-current="true"':''}>${cbEsc(nm)}</button>`; };
   const recent = _chsRecent.slice(0, CHS_RECENT_MAX);
   const search = `<div class="chs-search">
-      <form class="chs-form" onsubmit="event.preventDefault();chsSearch()">
-        <label class="sr-only" for="chs-q">종목 이름·티커·코드</label>
-        <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="종목 검색 — 애플, AAPL, 005930 · 비율은 XLK/XLV" value="${cbEsc(_chsQuery)}">
+      <form class="chs-form${_chsCompare?' is-compare':''}" onsubmit="event.preventDefault();chsSearch()">
+        <label class="sr-only" for="chs-q">${_chsCompare?'기준 종목':'종목 이름·티커·코드'}</label>
+        <input id="chs-q" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="${_chsCompare?'기준 종목 — 예: 애플':'종목 검색 — 애플, AAPL, 삼성전자, 005930'}" value="${cbEsc(_chsQuery)}">
+        ${_chsCompare?`<span class="chs-div-sign" aria-hidden="true">÷</span><label class="sr-only" for="chs-q2">비교할 종목</label><input id="chs-q2" class="cb-input" type="search" autocomplete="off" data-no-comma="1" placeholder="비교할 종목 — 예: 삼성전자" value="${cbEsc(_chsQuery2)}">`:''}
         <button class="cb-btn" type="submit"${_chsSearchBusy?' disabled':''}>${_chsSearchBusy?'찾는 중…':'보기'}</button>
+        <label class="chs-cmp" title="두 종목의 가격 비율(앞 ÷ 뒤)을 봉 차트로 — 오르면 앞 종목이 상대적으로 강함"><input type="checkbox" data-chs-cmp="1"${_chsCompare?' checked':''} onchange="chsCompareToggle(this.checked)"> 비교</label>
       </form>
       ${recent.length?`<div class="chs-recent" role="group" aria-label="최근 조회"><span>최근</span>${recent.map(t=>chip(t, t===_chsTkr)).join('')}</div>`:''}
       ${_chsSearchErr?`<p class="trd-err chs-err" role="alert">${cbEsc(_chsSearchErr)}</p>`:''}
@@ -690,7 +708,8 @@ function cbRenderChart(){
     const ratio = cur==='RATIO', rp = ratio ? chsRatioParts(_chsTkr) : null;
     _chsView = {bars, allBars:all, ind, off, cur, avg, frame, inProgress, show:{..._chsShow}, log:_chsLog, ratio};
     const fx = ratio && data.fx && Array.isArray(data.fx.from) ? data.fx.from : null;
-    const ratioNote = ratio ? `${cbEsc(rp[0])} 종가 ÷ ${cbEsc(rp[1])} 종가 — 선이 오르면 ${cbEsc(rp[0])}가 ${cbEsc(rp[1])}보다 강했다는 뜻입니다. 고가·저가는 근사값이고 거래량은 없습니다.${fx?` 두 종목 통화가 달라(${cbEsc(fx[0])}·${cbEsc(fx[1])}) 날마다의 환율로 둘 다 달러로 바꿔 나눴습니다 — 환율 변화까지 들어간 비교입니다.`:''}` : '';
+    const rn = rp ? rp.map(chsNameOf) : [];
+    const ratioNote = ratio ? `${cbEsc(rn[0])} 가격 ÷ ${cbEsc(rn[1])} 가격 — 선이 오르면 ${cbEsc(rn[0])} 쪽이 ${cbEsc(rn[1])}보다 강했다는 뜻입니다. 고가·저가는 근사값이고 거래량은 없습니다.${fx?` 두 종목 통화가 달라(${cbEsc(fx[0])}·${cbEsc(fx[1])}) 날마다의 환율로 둘 다 달러로 바꿔 나눴습니다 — 환율 변화까지 들어간 비교입니다.`:''}` : '';
     const reads = chsReadings(all, ind, avg, frame);
     const svg = chsChartSvg(_chsView);
     const MA = chsMaList(frame);
