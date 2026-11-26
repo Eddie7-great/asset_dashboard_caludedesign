@@ -1817,6 +1817,9 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 .trd-value-one .trd-vchecks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
 .mac-val{font-size:var(--fs-card);font-weight:800;line-height:1.35}
 .mac-card.is-g .mac-val{color:var(--up)}.mac-card.is-y .mac-val{color:var(--warn)}.mac-card.is-r .mac-val{color:var(--dn)}
+.mac-src{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:4px;font-size:var(--fs-cap);color:var(--lab);font-variant-numeric:tabular-nums}
+.mac-src-id{margin-left:auto;color:var(--mut);font-weight:600}
+.mac-src.is-stale>span:first-child{color:var(--warn);font-weight:700}
 .scr-panel{padding:14px 18px}
 .scr-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .scr-top .scr-tabs{justify-content:flex-start;margin:0;flex:1}

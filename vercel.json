@@ -55,6 +55,15 @@
     },
     "api/stock-price.js": {
       "maxDuration": 15
+    },
+    "api/macro.ts": {
+      "maxDuration": 20
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/macro",
+      "schedule": "30 22 * * 1-5"
+    }
+  ]
 }
