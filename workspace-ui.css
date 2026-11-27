@@ -2261,7 +2261,13 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
   #page-head .page-heading-line{flex:0 1 auto;min-width:0;width:auto}
   #page-head .page-control-line{flex:1 1 auto;min-width:0;width:auto;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}
   #page-head .page-control-line>:not([hidden]):not([style*="none"]){margin-left:auto}
-  #page-head .owner-btn{padding:5px 6px;font-size:var(--fs-cap)}
+  #page-head .owner-btn{padding:5px 4px;font-size:var(--fs-cap)}
+  /* 소유주 버튼은 남은 폭 안에서 나눠 갖는다 — 넘쳐서 옆으로 밀어야 보이던 '아버지'가 잘리지 않게(2026-11-27 사용자 지적) */
+  #page-head .page-control-line .owner-tabs,#page-head .page-control-line #cf-owner-bar{flex:1 1 auto;min-width:0;max-width:100%;flex-wrap:nowrap}
+  #page-head .page-control-line .owner-btn{flex:1 1 auto;min-width:0;white-space:nowrap}
+  #page-head #cb-head-widgets{flex:1 1 auto;min-width:0;justify-content:flex-end}
+  #page-head #cb-head-widgets>*{flex:1 1 100%;min-width:0;max-width:100%}
+  #page-head .page-control-line{flex:1 1 auto;min-width:0}
   #page-head #page-sub-toggle{width:22px;height:22px;min-width:0;padding:0;border:0;background:none;box-shadow:none}
   #page-head .page-control-line::-webkit-scrollbar{display:none}
   #page-head .owner-tabs{flex-wrap:nowrap!important}
