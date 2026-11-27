@@ -51,8 +51,8 @@ const CB_CLS = {
 const CB_VOL = { crypto:0.65, us:0.22, kr:0.26, jp:0.20, gold:0.15, cash:0 };
 const CB_SEC_PALETTE = ['#5b9bff','#c084fc','#f2a33c','#4ecdc4','#fb7185','#8bd3ac','#94a3c8','#e8875a','#d4b24a','#56c596','#b48ead','#7aa2ff'];
 
-const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar, report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart, trend2:cbRenderTrend, value2:cbRenderValue, macro2:cbRenderMacro, screen2:cbRenderScreen };
-const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정', report2:'월간 결산', reporty:'연간 결산', chart2:'차트 공부', trend2:'추세추종', value2:'가치투자', macro2:'매크로', screen2:'종목 찾기' };
+const CB_VIEWS  = { etf2:cbRenderEtfExplorer, cdash:cbRenderDash, perf2:cbRenderPerf, fam2:cbRenderFam, risk2:cbRenderRisk, divm:cbRenderDiv, plan2:cbRenderPlan, rebal2:cbRenderPlan, sim2:cbRenderSimulator, gift2:cbRenderGift, tax2:cbRenderTax, dca2:cbRenderDca, data2:cbRenderDataStatus, acct2:cbRenderAccounts, cal2:cbRenderCalendar, report2:cbRenderReport, reporty:cbRenderReportYear, chart2:cbRenderChart, trend2:cbRenderTrend, value2:cbRenderValue, macro2:cbRenderMacro, screen2:cbRenderScreen, more2:cbRenderMore };
+const CB_TITLES = { etf2:'ETF 탐색', cdash:'대시보드', perf2:'성과 비교', fam2:'구성원별 보유', risk2:'리스크 진단', divm:'배당 관리', plan2:'목표·리밸런싱', gift2:'가족 증여', tax2:'양도소득세', dca2:'적립식 매수 계획', data2:'데이터 상태', acct2:'계좌별 보기', cal2:'일정', report2:'월간 결산', reporty:'연간 결산', chart2:'차트 공부', trend2:'추세추종', value2:'가치투자', macro2:'매크로', screen2:'종목 찾기', more2:'더보기' };
 // cobalt.js 가 렌더하지 않는 기존 화면의 소제목 — 헤더가 페이지마다 비었다 채웠다 하지 않도록 함께 관리한다.
 const CB_LEGACY_SUB = {
   holdings: '보유 자산을 추가·수정하고 계좌별 기록을 관리합니다 · 적립식 매수 등록·수정은 보유 종목에서 진행합니다',
@@ -1350,7 +1350,7 @@ function cbRenderDash(){
   // 요약 배지 — 라벨(작은 글씨)이 옆 원화 금액의 세로 중앙에 오도록 inline-flex 정렬
   // 숫자 카드 — 예전 작은 배지 4개와 같은 값이다(새 계산 없음). 총액만 강조 카드이고
   // 나머지는 눌러서 해당 화면으로 가는 진짜 button 이다(소유주 범위는 navPrepare 가 이어 준다).
-  const kpi=(label,value,valStyle,sub,view)=>`<button type="button" class="cb-dash-kpi" onclick="switchView('${view}')">
+  const kpi=(label,value,valStyle,sub,view)=>`<button type="button" class="cb-dash-kpi kpi-${view}" onclick="switchView('${view}')">
       <span class="cb-dash-kpi-label">${label}<span class="cb-dash-kpi-go" aria-hidden="true">›</span></span>
       <b class="cb-dash-kpi-value" style="${valStyle||''}">${value}</b>
       <span class="cb-dash-kpi-sub">${sub}</span></button>`;
@@ -1378,6 +1378,7 @@ function cbRenderDash(){
         <div class="cb-alloc-donut">${cbDonutSvg(allocBySize,190,'cbDashAllocToggle',0.15)}<div class="cb-alloc-center">${allocSel
           ? `<small>${cbEsc(allocSel.label)}</small><b>${allocSel.pct.toFixed(1)}%</b><small class="cb-num">${cbDisp(allocSel.v)}</small>`
           : `<small>투자자산</small><b class="cb-num">${cbDisp(allocTotal)}</b><small>${alloc.length}개 자산군</small>`}</div></div>
+        <div class="cb-alloc-bar" aria-hidden="true">${allocBySize.map(c=>`<i style="flex:${c.pct.toFixed(2)};background:${c.color}"></i>`).join('')}</div>
         ${allocBySize.map(c=>{
           const open = _cdashAllocOpen===c.key;
           return `

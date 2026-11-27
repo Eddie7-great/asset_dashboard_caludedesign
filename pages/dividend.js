@@ -332,18 +332,18 @@ function cbRenderDiv(){
   const divTaxTip=`${year}년 규칙 기준입니다. 일반계좌 원천징수 ${(divRuleRate*100).toFixed(1)}%, ISA는 유지기간 전체 순소득에서 ${Math.round(isaRuleExempt).toLocaleString()}원 공제 후 초과분 ${(isaRuleRate*100).toFixed(1)}%를 정산합니다. 화면 ISA 세액은 연간 현금흐름 참고치이며, 연금·IRP는 계좌 안에서 과세이연으로 계산합니다.`;
   cbSetHead(
     `<span data-tip="Yield on Cost(YoC) — 내 평단가 대비 연간 배당금 비율. 배당성장 + 장기보유의 효과를 보여줍니다.">내 매입가 대비 배당률</span>은 평단가(가중평균) 기준 · 현재 <b>${basisLabel}</b> 표시`,
-    `<div class="owner-tabs" style="display:inline-flex;gap:3px">
+    `<div class="owner-tabs cb-div-basis" style="display:inline-flex;gap:3px">
        <button class="owner-btn${netBasis?'':' active'}" data-div-basis="gross" onclick="cbDivBasis('gross')" aria-pressed="${!netBasis}">세전</button>
        <button class="owner-btn${netBasis?' active':''}" data-div-basis="net" onclick="cbDivBasis('net')" aria-pressed="${netBasis}">세후</button>
      </div>
      ${cbOwnerBtns(_cbDivOwner,'cbDivOwner')}
-     <label style="display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--lab);font-weight:600">연도
+     <label class="cb-div-year" style="display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--lab);font-weight:600">연도
        <select class="cb-input" data-div-year="1" onchange="cbDivYear(this.value)" style="padding:6px 9px">${years.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}년</option>`).join('')}</select>
      </label>`
   );
   el.innerHTML = `
     <div class="cb-div-summary-grid">
-      <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">연간 배당 수입</div></div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div></div>
+      <div class="cb-panel cb-div-summary-card is-annual"><div class="cb-div-summary-head"><div class="cb-div-summary-title">연간 배당 수입</div></div><div class="cb-div-summary-value" style="color:var(--up)">${cbDisp(divAnnual)}</div><div class="cb-div-summary-sub cb-m-only">한 달 평균 ${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title">월평균</div></div><div class="cb-div-summary-value">${cbDisp(divAnnual/12)}</div></div>
       <div class="cb-panel cb-div-summary-card"><div class="cb-div-summary-head"><div class="cb-div-summary-title"><span data-tip="배당 지급 종목 전체의 매입원가 대비 배당수입 비율(YoC)">매입가 대비 배당률</span></div></div><div class="cb-div-summary-value">${(divAnnual/divCost*100).toFixed(2)}%</div></div>
       <div class="cb-panel cb-div-summary-card">
@@ -391,7 +391,7 @@ function cbRenderDiv(){
         }).join('') || '<div class="fin-empty">배당 지급 종목이 없습니다.</div>'}
       </div>
     </div>
-    <div class="cb-panel" style="margin-top:12px;padding:14px 16px 8px">
+    <div class="cb-panel cb-div-cal-panel" style="margin-top:12px;padding:14px 16px 8px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
         <span class="cb-panel-title">${year}년 월별 배당 캘린더 · ${basisLabel} ${cal.actual?`<span style="color:var(--up)" data-tip="과거 주당 지급 이력에 현재 보유수량·계좌 세제·현재 환율을 적용한 재구성 값입니다.">· 지급 이력 기반 ${cal.coverage.covered}/${cal.coverage.total}</span>`:'<span style="color:var(--dim)">· 예상</span>'}</span>
         ${divNowMonth>=0?'<span class="cb-div-hatch-legend"><i aria-hidden="true"></i>이번 달부터 남은 달 · 12달 모두 추정</span>':''}

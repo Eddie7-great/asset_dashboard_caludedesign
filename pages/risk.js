@@ -71,7 +71,7 @@ function cbLookThroughPanel(ownerFilter){
   if(lt.etfUncertain?.length)notes.push('일부·지연 자료 포함: '+lt.etfUncertain.map(cbEsc).join(', ')+' · 표시 노출은 확인된 자료만 반영');
 
   return `
-    <div class="cb-panel" style="margin-top:12px;padding:15px 17px">
+    <div class="cb-panel cb-risk-lt-panel" style="margin-top:12px;padding:15px 17px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <span class="cb-panel-title"><span class="cb-risk-tip-wide" data-tip="보유 ETF의 구성종목 비중을 풀어서(룩스루) ETF 평가액 × 편입 비중으로 간접 보유분을 계산하고, 직접 보유분과 합산한 실질 종목 비중입니다. 개별 주식으로 직접 보유한 종목만 계산합니다.">종목 집중도 · ETF 룩스루</span> <span style="color:var(--dim)">· ${ownerFilter?cbEsc(ownerFilter)+' 투자자산 대비':'전체 투자자산 대비'}</span></span>
         <div style="display:flex;gap:12px;font-size:var(--fs-cap);color:var(--mut);margin-left:auto;flex-wrap:wrap">

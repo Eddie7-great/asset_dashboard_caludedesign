@@ -49,6 +49,6 @@ assert.equal(run({ ta: { total: 0, threshold: 3, result: [{ drift: -10 }] } }).l
 assert.match(cobalt, /\$\{checks\.length\?`<div class="cb-dash-checks" role="status">[\s\S]*cbEsc\(c\.label\)[\s\S]*`:''\}/);
 // 숫자 카드는 예전 배지와 같은 값 — 총액 1개 + 이동 버튼 4개
 assert.match(cobalt, /class="cb-dash-kpi is-total"[\s\S]*kpi\([^;]*오늘 손익[\s\S]*'perf2'\)[\s\S]*평가손익[\s\S]*'holdings'\)[\s\S]*'연 배당'[\s\S]*'divm'\)[\s\S]*'리스크'[\s\S]*'risk2'\)/);
-assert.match(cobalt, /const kpi=\(label,value,valStyle,sub,view\)=>`<button type="button" class="cb-dash-kpi"/, '이동 카드는 진짜 button');
+assert.match(cobalt, /const kpi=\(label,value,valStyle,sub,view\)=>`<button type="button" class="cb-dash-kpi kpi-\$\{view\}"/, '이동 카드는 진짜 button');
 
 console.log('ok - home checks');
