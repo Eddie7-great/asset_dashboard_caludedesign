@@ -15,8 +15,13 @@ export const STALE_DAYS: Record<string, number> = { DTWEXBGS: 14, WALCL: 14, SAH
 export const FRED_CSV_URL = 'https://fred.stlouisfed.org/graph/fredgraph.csv';
 export const CACHE_KEY = 'macro_fred';
 export const CHECK_KEY = 'macro_fred_checked';
+// 마지막 실행 기록(서버 전용) — 지표마다 받았는지·FRED 가 준 최신 날짜·오류. Hobby 로그는 1시간만 남고 성공 실행은 흔적이 없어
+// 2026-11-27·28 두 번의 예약 실행이 왜 아무것도 바꾸지 않았는지 알 수 없었다.
+export const RUN_KEY = 'macro_fred_lastrun';
 const HISTORY_DAYS = 400;          // 12개월 최저·3개월 전 값을 재려고 13개월 남짓 보관
 const FETCH_TIMEOUT_MS = 8000;
+// 빨리 실패한 지표(5xx·연결 끊김)만 1초 뒤 한 번 더 받는다 — 첫 시도가 이 시간 안에 끝났을 때만(함수 제한 20초 안에 들도록).
+const RETRY_WITHIN_MS = 6000, RETRY_DELAY_MS = 1000;
 const CLOSE_HOUR_ET = 16;          // 뉴욕 시간 16시(장 마감) 이후에만 확인
 
 type Obs = [string, number];
@@ -59,7 +64,16 @@ export async function fetchSeries(id: string, now: number, fetchImpl: typeof fet
     const r = await fetchImpl(url, { headers: { 'User-Agent': 'asset-dashboard/1.0', Accept: 'text/csv' }, signal: controller.signal });
     if (!r.ok) throw new Error(`fred_http_${r.status}`);
     return parseFredCsv(await r.text(), id);
+  } catch (e: any) {
+    throw controller.signal.aborted ? new Error('fred_timeout') : e;
   } finally { clearTimeout(timer); }
+}
+
+// 오류를 기록에 남길 짧은 글로 — 네트워크 오류는 원인 코드(ECONNRESET 등)를 붙인다.
+export function errorText(e: any): string {
+  const msg = String(e && e.message || e || 'error');
+  const c = e && e.cause && (e.cause.code || e.cause.message);
+  return (c ? `${msg} (${c})` : msg).slice(0, 160);
 }
 
 // 뉴욕 기준 날짜·요일·시각 — 주말이나 장 마감 전에는 확인하지 않는다.
@@ -79,7 +93,7 @@ export function entryFrom(id: string, obs: Obs[], fetchedAt: string): SeriesEntr
 // 저장된 자료와 새로 받은 자료를 합친다 — 최신 관측일이 더 새로울 때만 그 지표를 바꾼다(같으면 그대로, 더 오래된 응답은 무시).
 export function mergeCache(cache: MacroCache | null, fetched: Record<string, Obs[] | Error>, nowIso: string) {
   const series: Record<string, SeriesEntry> = { ...(cache && cache.series || {}) };
-  const report: Record<string, { status: 'updated' | 'unchanged' | 'failed'; date: string | null; value: number | null; error?: string }> = {};
+  const report: Record<string, { status: 'updated' | 'unchanged' | 'failed'; date: string | null; value: number | null; latest?: string; error?: string }> = {};
   let changed = false;
   for (const id of FRED_SERIES) {
     const got = fetched[id], old = series[id];
@@ -88,9 +102,9 @@ export function mergeCache(cache: MacroCache | null, fetched: Record<string, Obs
       continue;
     }
     const latest = got[got.length - 1][0];
-    if (old && old.date >= latest) { report[id] = { status: 'unchanged', date: old.date, value: old.value }; continue; }
+    if (old && old.date >= latest) { report[id] = { status: 'unchanged', date: old.date, value: old.value, latest }; continue; }
     series[id] = entryFrom(id, got, nowIso);
-    report[id] = { status: 'updated', date: series[id].date, value: series[id].value };
+    report[id] = { status: 'updated', date: series[id].date, value: series[id].value, latest };
     changed = true;
   }
   return { changed, cache: { v: 1, series, updatedAt: changed ? nowIso : (cache ? cache.updatedAt : nowIso) } as MacroCache, report };
@@ -119,7 +133,7 @@ export async function readCache(fetchImpl: typeof fetch = fetch): Promise<MacroC
 }
 
 // 한 번 확인 — 예약 실행이 부른다. force 는 검증 스크립트용(HTTP 로는 켤 수 없다).
-export async function refreshFredCache(opts: { now?: number; force?: boolean; fetchImpl?: typeof fetch } = {}) {
+export async function refreshFredCache(opts: { now?: number; force?: boolean; fetchImpl?: typeof fetch; retryDelayMs?: number } = {}) {
   const now = opts.now ?? Date.now(), f = opts.fetchImpl || fetch;
   const clock = easternClock(now);
   if (!opts.force) {
@@ -130,14 +144,43 @@ export async function refreshFredCache(opts: { now?: number; force?: boolean; fe
   }
   const cache = await readCache(f);
   const fetched: Record<string, Obs[] | Error> = {};
-  await Promise.all(FRED_SERIES.map(async id => {
-    try { fetched[id] = await fetchSeries(id, now, f); } catch (e: any) { fetched[id] = new Error(String(e && e.message || e)); }
+  const t0 = Date.now(), wait = opts.retryDelayMs ?? RETRY_DELAY_MS;
+  const fetchAll = (ids: readonly string[]) => Promise.all(ids.map(async id => {
+    try { fetched[id] = await fetchSeries(id, now, f); } catch (e: any) { fetched[id] = new Error(errorText(e)); }
   }));
+  await fetchAll(FRED_SERIES);
+  const retry = FRED_SERIES.filter(id => fetched[id] instanceof Error && (fetched[id] as Error).message !== 'fred_timeout');
+  const retried = retry.length > 0 && Date.now() - t0 < RETRY_WITHIN_MS;
+  if (retried) { await new Promise(r => setTimeout(r, wait)); await fetchAll(retry); }
   const nowIso = new Date(now).toISOString();
   const merged = mergeCache(cache, fetched, nowIso);
   if (merged.changed) await kvCommand(['SET', CACHE_KEY, JSON.stringify(merged.cache)], f);
   if (!opts.force) await kvCommand(['SET', CHECK_KEY, clock.day], f);
+  const run = runRecord(merged.report, { at: new Date().toISOString(), day: clock.day, force: !!opts.force, ms: Date.now() - t0, cacheUpdated: merged.changed, retried: retried ? retry : [] });
+  console.log('[Macro FRED refresh]', runSummary(run));
+  // 기록 쓰기가 실패해도 자료 갱신은 끝난 것으로 본다(기록은 원인 찾기용일 뿐).
+  try { await kvCommand(['SET', RUN_KEY, JSON.stringify(run)], f); } catch (e: any) { console.warn('[Macro FRED run record]', errorText(e)); }
   return { ok: true, day: clock.day, cacheUpdated: merged.changed, report: merged.report };
+}
+
+type Report = ReturnType<typeof mergeCache>['report'];
+// 실행 기록 — 지표마다 결과·저장된 날짜·FRED 가 준 최신 날짜·오류만(값·비밀값은 담지 않는다).
+export function runRecord(report: Report, meta: { at: string; day: string; force: boolean; ms: number; cacheUpdated: boolean; retried: string[] }) {
+  const counts = { updated: 0, unchanged: 0, failed: 0 };
+  const series: Record<string, { status: string; date: string | null; latest?: string; error?: string }> = {};
+  for (const id of FRED_SERIES) {
+    const x = report[id]; if (!x) continue;
+    counts[x.status] += 1;
+    series[id] = { status: x.status, date: x.date, ...(x.latest ? { latest: x.latest } : {}), ...(x.error ? { error: x.error } : {}) };
+  }
+  return { v: 1, ...meta, ...counts, series };
+}
+
+// 로그 한 줄 — '갱신 3 · 그대로 7 · 실패 0' 과 실패한 지표의 오류.
+export function runSummary(run: ReturnType<typeof runRecord>): string {
+  const fails = Object.entries(run.series).filter(([, x]) => x.status === 'failed').map(([id, x]) => `${id}:${x.error}`);
+  return `day=${run.day} updated=${run.updated} unchanged=${run.unchanged} failed=${run.failed} ms=${run.ms}`
+    + (run.retried.length ? ` retried=${run.retried.join(',')}` : '') + (fails.length ? ` errors=${fails.join(' ')}` : '');
 }
 
 // ── 화면에 줄 모양 — 신호등 판정에 필요한 값만 미리 계산한다(판정 기준은 화면의 trdMacro 그대로). ──
