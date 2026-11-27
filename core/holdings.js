@@ -290,9 +290,9 @@ function renderPortfolio(owner, opts) {
   const money=v=>'₩'+Math.round(Math.abs(v)).toLocaleString();
   const kpis=`<div class="holdings-kpis">`
     +`<div class="holdings-kpi"><span>평가액</span><b>${money(sumOf('total'))}</b><small>${items.length}개 자산</small></div>`
-    +`<div class="holdings-kpi"><span>매입금액</span><b>${money(investNonCash)}</b><small>현금 제외 · 평균단가 × 수량</small></div>`
+    +`<div class="holdings-kpi is-cost"><span>매입금액</span><b>${money(investNonCash)}</b><small>현금 제외 · 평균단가 × 수량</small></div>`
     +`<div class="holdings-kpi"><span>평가손익</span><b class="${profitAll>0?'c-up':profitAll<0?'c-dn':''}">${profitAll<0?'-':profitAll>0?'+':''}${money(profitAll)}</b><small>${investNonCash>0?(profitAll>=0?'+':'')+(profitAll/investNonCash*100).toFixed(2)+'% · 매입금액 대비':'매입금액 없음'}</small></div>`
-    +`<div class="holdings-kpi${staleCount?' is-warn':''}"><span>시세 미조회</span><b>${staleCount}개</b><small>${staleCount?'직전 값으로 계산 중':'모두 수신'}</small></div>`
+    +`<div class="holdings-kpi is-stale${staleCount?' is-warn':''}"><span>시세 미조회</span><b>${staleCount}개</b><small>${staleCount?'직전 값으로 계산 중':'모두 수신'}</small></div>`
     +`</div>`;
   if(kpisOnly) return kpis;
   const tabs=`<div class="holdings-tabs" role="tablist" aria-label="자산군">`

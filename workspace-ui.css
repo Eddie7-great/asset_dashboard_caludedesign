@@ -1580,7 +1580,8 @@ body{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
 @media(max-width:1100px){.cb-risk-score-card,.cb-risk-list-panel{height:auto}.cb-risk-list{overflow:visible}}
 @media(max-width:860px){
   .cb-risk-list-head{display:none}
-  .cb-risk-row{grid-template-columns:10px minmax(0,1fr) auto auto;row-gap:6px;padding:8px 4px}
+  /* 판정·값 칸은 고정 폭 — auto 면 값 글자 길이('—'·'9.4개'·'미국 45.2%')에 따라 배지가 줄마다 다른 자리에 선다(2026-11-27 사용자 지적) */
+  .cb-risk-row{grid-template-columns:10px minmax(0,1fr) 44px 82px;row-gap:6px;padding:8px 4px}
   .cb-risk-row-meter,.cb-risk-row-desc{grid-column:2/-1}
 }
 
@@ -2217,3 +2218,93 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .fin-bullet-track,.fin-tree-row.lv0 .fin-tree-bar{background:color-mix(in srgb,var(--t1) 9%,transparent)}
 /* 보유 목록 자산군 합계 줄(원화 기준 · 총 평가 · 수익)은 오른쪽 정렬 — 머리 제목이 sr-only 라 왼쪽에 혼자 붙어 보였다(2026-11-25 사용자 요청). 휴대폰은 style.css 의 왼쪽 정렬 규칙을 그대로 둔다. */
 #view-holdings .holdings-group .pt-group-header{justify-content:flex-end}
+/* ===== 휴대폰 핵심만 — 아래 탭 5개(2026-11-27 사용자 결정 B안) =====
+   휴대폰(≤768px)은 홈·보유·배당·현금 흐름·더보기 다섯 곳만 열고, 화면마다 핵심 카드만 남긴다. PC 화면은 바뀌지 않는다.
+   계산·렌더 함수는 그대로이고 여기서 숨길 뿐이다 — 화면 구분은 body[data-mview](지금 화면)·[data-mpart](성과 화면의 성과/추이)를 mobSync(navigation.js)가 단다.
+   홈 '연 배당' 카드·리스크 '스트레스 테스트'·목표 '달성 확률'은 휴대폰에서 뺀다(사용자 결정). 이 블록은 색·글자 크기를 토큰으로만 쓴다. */
+.mobile-tabbar,.mob-back,.cb-alloc-bar,.cb-m-only{display:none}
+.mob-more{display:flex;flex-direction:column;gap:10px}
+.mob-more-sec{font-size:var(--fs-body);font-weight:700;color:var(--t2);margin:8px 2px 0}
+.mob-more-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;text-align:left;font:inherit;color:var(--t1);cursor:pointer}
+.mob-more-item b{display:block;font-size:var(--fs-card);color:var(--t1)}
+.mob-more-item small{display:block;margin-top:2px;font-size:var(--fs-cap);color:var(--t2)}
+.mob-more-item em,.mob-more-status em{margin-left:auto;font-style:normal;color:var(--t3);font-size:var(--fs-card)}
+.mob-more-set{display:flex;flex-direction:column;gap:12px;padding:14px 16px}
+.mob-more-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:var(--fs-body);color:var(--t1)}
+.mob-more-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mob-more-tools .cb-btn{width:100%}
+.mob-more-status{display:flex;align-items:center;gap:8px;width:100%;padding:10px 0 0;border:0;border-top:1px solid var(--bd);background:none;font:inherit;font-size:var(--fs-body);color:var(--t1);text-align:left;cursor:pointer}
+.mob-more-status small{color:var(--t2);font-size:var(--fs-cap);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mob-more-pc{padding:14px 16px}
+.mob-more-pc p{margin:0;font-size:var(--fs-body);color:var(--t2)}
+.mob-more-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mob-more-chips span{font-size:var(--fs-cap);padding:4px 9px;border-radius:999px;background:var(--inner-bg);color:var(--t2)}
+@media(max-width:768px){
+  /* 아래 탭 — 떠 있는 유리판, 강조는 지금 화면 표시 토큰(--nav-on) */
+  .mobile-tabbar{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:900;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px 4px;border-radius:18px;background:var(--modal-bg);border:1px solid var(--bd2);box-shadow:var(--gshadow);-webkit-backdrop-filter:blur(var(--glass-blur));backdrop-filter:blur(var(--glass-blur))}
+  .mobile-tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:46px;padding:4px 0;border:0;background:none;font:inherit;font-size:var(--fs-cap);font-weight:600;color:var(--t3);cursor:pointer}
+  .mobile-tabbar button.active{color:var(--nav-on)}
+  .mobile-tab-ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .content-area{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  /* 머리줄 = 제목(+ 돌아가기) + 소유주 버튼 한 줄. 서랍 메뉴·세부 메뉴·보기 전환·현금 흐름 탭은 쓰지 않는다(설정은 더보기에 있다) */
+  #sidebar-toggle,#page-sections,#view-mode-bar,#cf-header-tabs{display:none!important}
+  #page-head{display:flex!important;flex-wrap:nowrap!important;align-items:center;padding:10px 12px!important;gap:8px!important}
+  #page-head>*{grid-row:auto!important;grid-column:auto!important}
+  #page-head .page-heading-line{display:flex;flex-wrap:nowrap;align-items:center;gap:4px}
+  body.head-sub-open #page-head .page-heading-line{flex-wrap:wrap}
+  /* 설명 문구는 접어 두고 ⓘ 로 편다 — 펴면 머리줄이 두 줄이 된다(기준·면책 문구에 닿는 통로) */
+  #page-head #main-title-sub{display:none!important}
+  #page-head #page-sub-toggle:not([style*="none"]){display:inline-flex!important}
+  body.head-sub-open #page-head{flex-wrap:wrap!important}
+  body.head-sub-open #page-head .page-heading-line{flex-basis:100%}
+  body.head-sub-open #page-head #main-title-sub{display:block!important;flex-basis:100%;white-space:normal!important;transform:none!important;text-align:left!important;line-height:1.5}
+  #page-head .page-heading-line{flex:0 1 auto;min-width:0;width:auto}
+  #page-head .page-control-line{flex:1 1 auto;min-width:0;width:auto;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}
+  #page-head .page-control-line>:not([hidden]):not([style*="none"]){margin-left:auto}
+  #page-head .owner-btn{padding:5px 6px;font-size:var(--fs-cap)}
+  #page-head #page-sub-toggle{width:22px;height:22px;min-width:0;padding:0;border:0;background:none;box-shadow:none}
+  #page-head .page-control-line::-webkit-scrollbar{display:none}
+  #page-head .owner-tabs{flex-wrap:nowrap!important}
+  .mob-back:not([hidden]){display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px;margin-right:2px;padding:0;border:0;background:none;font:inherit;font-size:var(--fs-title);color:var(--t2);cursor:pointer}
+  .cb-m-only{display:block}
+  /* 홈 — 총액·오늘 손익·평가손익 + 자산 배분 한 줄 막대 + 30일 추이 */
+  #view-cdash .kpi-divm,#view-cdash .kpi-risk2,#view-cdash .cb-dash-sector-card,#view-cdash .cb-dash-contrib-card,#view-cdash .home-holdings-layout,#view-cdash .cb-alloc-donut{display:none!important}
+  #view-cdash .cb-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #view-cdash .cb-dash-kpi.is-total{grid-column:1/-1}
+  #view-cdash .cb-alloc-bar{display:flex;gap:2px;height:var(--bar-h-lg);margin:4px 0 10px;border-radius:var(--r-sm);overflow:hidden}
+  #view-cdash .cb-alloc-bar i{display:block;height:100%}
+  /* 보유 — 평가액·평가손익 두 카드 + 자산군 탭 + 카드 목록 */
+  #view-holdings .holdings-kpi.is-cost,#view-holdings .holdings-kpi.is-stale{display:none!important}
+  /* 배당 — 연간 배당 수입(한 달 평균 한 줄) + 향후 90일 5건 */
+  #view-divm .cb-div-summary-card:not(.is-annual),#view-divm .cb-fin-income-panel,#view-divm .cb-div-cal-panel,#view-divm .cb-div-history-panel,#view-divm .cb-div-upcoming-note,#view-divm .tax-rule-disclosure{display:none!important}
+  #view-divm .cb-div-summary-grid{grid-template-columns:1fr!important}
+  #view-divm .cb-div-upcoming-list>:nth-child(n+6){display:none!important}
+  body[data-mview="divm"] #cb-head-widgets .cb-div-basis,body[data-mview="divm"] #cb-head-widgets .cb-div-year{display:none!important}
+  /* 현금 흐름 — 이 달 요약 → 6개월 막대 → 돈의 흐름 목록(상세 내역 표는 PC) */
+  #cf-monthly-section{display:flex;flex-direction:column;gap:12px}
+  #view-cashflow .cf-chart-column{display:contents}
+  #view-cashflow .cf-sum-panel{order:-3}
+  #view-cashflow #cf-stack{order:-2}
+  #view-cashflow #cf-couple-flow{order:-1}
+  #view-cashflow .cf-detail-panel,#view-cashflow .cf-flow-note,#view-cashflow .cf-stack-note{display:none!important}
+  /* 더보기 › 성과 = 진짜 내 수익률·수익률 카드·그래프 / 투자자산 추이 = 그 카드만 */
+  body[data-mpart="perf"] #cb-perf2>:not(.cb-twr-card):not(.cb-perf-card-grid):not(.cb-perf-chart-panel){display:none!important}
+  body[data-mpart="perf"] #cb-perf2 .cb-perf-legend{display:none!important}
+  body[data-mpart="trend"] #cb-perf2>:not(.fin-trend-card),body[data-mpart="trend"] #cb-head-widgets{display:none!important}
+  body[data-mpart="trend"] #cb-perf2 .fin-callout,body[data-mpart="trend"] #cb-perf2 .fin-flow-block,body[data-mpart="trend"] #cb-perf2 .fin-nw-stats>:nth-child(n+3){display:none!important}
+  body[data-mpart="trend"] #cb-perf2 .fin-trend-card{margin-top:10px!important}
+  /* 더보기 › 리스크 = 점수 + 경고·주의 항목 (게이지·양호·보류·고점 대비 하락·스트레스 테스트·흔들림·종목 집중도는 PC) */
+  #view-risk2 .cb-risk-extra,#view-risk2 #cb-volcorr,#view-risk2 .cb-risk-lt-panel,#view-risk2 .cb-risk-ok-line,#view-risk2 .cb-risk-row.is-hold,#view-risk2 .cb-risk-row-meter,#view-risk2 .cb-risk-list-head{display:none!important}
+  #view-risk2 .cb-risk-overview{display:flex!important;flex-direction:column;height:auto!important}
+  #view-risk2 .cb-risk-score-card,#view-risk2 .cb-risk-list-panel{height:auto!important;max-height:none!important}
+  #view-risk2 .cb-risk-list{overflow:visible!important}
+  /* 더보기 › 목표 = 목표 카드만(달성 확률·진행 비교·일정·입력은 PC) */
+  #cb-plan2>:not(.fin-goal-grid):not(.cb-empty-state):not(.cb-panel:has(.cb-empty-state)){display:none!important}
+  /* 더보기 › 결산 = 장 그대로(결산 달 고르기·인쇄는 PC) */
+  body[data-mview="report2"] #cb-head-widgets .rep-month-pick,#view-report2 .rep-print-btn,body[data-mview="report2"] .rep-print-btn{display:none!important}
+  /* 더보기 › 일정 = 요약 카드 + 이 달의 일정 목록(달력 칸은 PC) */
+  #view-cal2 .cal-grid-panel,#view-cal2 .cal-foot,#view-cal2 .cal-sum-grid>.cal-sum-card:nth-child(3){display:none!important}
+  #view-cal2 .cal-sum-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #view-cal2 .cal-net-card{grid-column:1/-1}
+  #view-cal2 .cal-list-panel,#view-cal2 .cal-list{contain:none!important;max-height:none!important;overflow:visible!important}
+}

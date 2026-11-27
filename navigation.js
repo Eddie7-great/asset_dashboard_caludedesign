@@ -86,6 +86,7 @@ function navSync(id){
   });
   navModeBar(id);
   navCfTabs(id);
+  mobSync(id);
   if(!bar)return;
   bar.hidden=!group||group.views.length<2;
   bar.setAttribute('aria-label',(group?.title||'화면')+' 세부 메뉴');
@@ -147,4 +148,78 @@ function cbAssetSearch(value){
 if(typeof document!=='undefined'&&typeof ResizeObserver!=='undefined'){
   const head=document.getElementById('page-head'),main=document.querySelector('.content-area');
   if(head&&main)new ResizeObserver(()=>main.style.setProperty('--workspace-head-height',head.offsetHeight+'px')).observe(head);
+}
+
+// ===== 휴대폰 아래 탭(2026-11-27 사용자 결정 B안) =====
+// 휴대폰(≤768px)은 다섯 곳만 연다 — 홈·보유·배당·현금 흐름 + 더보기(성과·투자자산 추이·리스크·목표·결산·일정).
+// 나머지 화면은 PC 전용(휴대폰 예외 없음, 사용자 결정). 화면 id·렌더 함수·PC 화면은 그대로이고,
+// 휴대폰에서 덜어 내는 것은 workspace-ui.css '휴대폰 핵심만' 블록이 body[data-mview]·[data-mpart] 로 숨긴다.
+const MOB_TABS=['cdash','holdings','divm','cashflow'];
+const MOB_MORE=[
+  {key:'perf',view:'perf2',part:'perf',label:'성과',sub:'가족 수익률과 S&P 500·KOSPI 비교'},
+  {key:'trend',view:'perf2',part:'trend',label:'투자자산 추이',sub:'실제로 기록된 금액의 변화'},
+  {key:'risk',view:'risk2',label:'리스크',sub:'먼저 확인할 항목만'},
+  {key:'goal',view:'plan2',label:'목표',sub:'목표별 진행률'},
+  {key:'report',view:'report2',label:'결산',sub:'한 달을 장으로 넘겨 봅니다'},
+  {key:'cal',view:'cal2',label:'일정',sub:'이번 달 배당·자동이체·적립 매수'},
+];
+const MOB_PC_ONLY=['계좌별·구성원별·적립식','비중 지도·ETF 속 종목','차트 공부','종목 찾기','리밸런싱','투자 시뮬레이터','세금·증여','고정비','데이터 상태 자세히'];
+let _mobPerfPart='perf';
+function mobTabOf(id){ return MOB_TABS.includes(id)?id:'more2'; }
+function mobMoreItem(id){ return MOB_MORE.find(m=>m.view===id&&(!m.part||m.part===_mobPerfPart))||null; }
+function mobSync(id){
+  if(typeof document==='undefined'||!document.body) return;
+  const body=document.body;
+  body.dataset.mview=id;
+  if(id==='perf2') body.dataset.mpart=_mobPerfPart; else delete body.dataset.mpart;
+  const tab=mobTabOf(id);
+  document.querySelectorAll('#mobile-tabbar [data-mtab]').forEach(b=>{
+    const on=b.dataset.mtab===tab;
+    b.classList.toggle('active',on);
+    if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+  });
+  const back=document.getElementById('mob-back');
+  if(back) back.hidden=tab!=='more2'||id==='more2';
+  if(typeof isMobileLayout==='function'&&isMobileLayout()){
+    const item=mobMoreItem(id),title=document.getElementById('main-title');
+    if(item&&title) title.textContent=item.label;
+  }
+}
+function mobTab(view){
+  if(view==='more2'||!MOB_TABS.includes(view)) view='more2';
+  switchView(view);
+  document.querySelector('.content-area')?.scrollTo?.(0,0);
+}
+function mobOpen(key){
+  const item=MOB_MORE.find(m=>m.key===key); if(!item) return;
+  if(item.part) _mobPerfPart=item.part;
+  switchView(item.view);
+}
+function mobBack(){ switchView('more2'); }
+// 더보기 화면 — 휴대폰에서 여는 여섯 화면 + 화면 설정(서랍 메뉴를 쓰지 않으므로 테마·새로고침·금액 가리기·PC 화면·데이터 상태가 여기 있다).
+function cbRenderMore(){
+  const el=document.getElementById('cb-more2'); if(!el) return;
+  if(typeof cbSetHead==='function') cbSetHead(null,null);
+  const esc=typeof escHtml==='function'?escHtml:(s=>String(s));
+  const theme=document.body?.dataset.theme||'default';
+  const themes=[['default','라이트'],['navy','네이비'],['dark','다크']];
+  const priv=typeof _amountPrivacyEnabled!=='undefined'&&_amountPrivacyEnabled;
+  const feed=document.getElementById('feed-note')?.textContent||'';
+  el.innerHTML=`<div class="mob-more">
+    <div class="mob-more-sec">휴대폰에서 보는 화면</div>
+    ${MOB_MORE.map(m=>`<button type="button" class="cb-panel mob-more-item" data-mob-more="${m.key}" onclick="mobOpen('${m.key}')"><span><b>${esc(m.label)}</b><small>${esc(m.sub)}</small></span><em aria-hidden="true">›</em></button>`).join('')}
+    <div class="mob-more-sec">화면 설정</div>
+    <div class="cb-panel mob-more-set">
+      <div class="mob-more-row"><span>테마</span><div class="owner-tabs" role="group" aria-label="화면 테마">${themes.map(([k,l])=>`<button type="button" class="owner-btn${k===theme?' active':''}" aria-pressed="${k===theme}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div></div>
+      <div class="mob-more-tools">
+        <button type="button" class="cb-btn" onclick="manualRefresh()">새로고침</button>
+        <button type="button" class="cb-btn" aria-pressed="${priv}" onclick="toggleAmountPrivacy();cbRenderMore()">${priv?'금액 보이기':'금액 가리기'}</button>
+        <button type="button" class="cb-btn" onclick="toggleLayoutPreview()">PC 화면</button>
+      </div>
+      <button type="button" class="mob-more-status" onclick="switchView('data2')"><span>데이터 상태</span><small>${esc(feed)}</small><em aria-hidden="true">›</em></button>
+    </div>
+    <div class="mob-more-sec">PC에서 보는 화면</div>
+    <div class="cb-panel mob-more-pc"><p>표가 넓거나 입력이 필요한 화면은 PC에서 엽니다. 휴대폰은 조회 전용입니다.</p>
+      <div class="mob-more-chips">${MOB_PC_ONLY.map(t=>`<span>${esc(t)}</span>`).join('')}</div></div>
+  </div>`;
 }

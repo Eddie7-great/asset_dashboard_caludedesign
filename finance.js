@@ -399,7 +399,7 @@ function finInvestTrendCard(){
   const cov=finNwCoverage(series,_finNwTf);
   const tfBtns=Object.keys(FIN_NW_TFS).map(tf=>`<button class="owner-btn${tf===_finNwTf?' active':''}" data-nw-tf="${cbEsc(tf)}" onclick="finNwTf('${cbEsc(tf)}')" aria-pressed="${tf===_finNwTf}">${cbEsc(tf)}</button>`).join('');
   const ownerBtns=['전체',...OWNERS].map(o=>`<button class="owner-btn${_finNwOwner===o?' active':''}" data-nw-owner="${cbEsc(o)}" onclick="finNwOwner('${cbEsc(o)}')" aria-pressed="${_finNwOwner===o}">${cbEsc(o)}</button>`).join('');
-  return `<div class="cb-panel fin-section" style="margin-top:12px">
+  return `<div class="cb-panel fin-section fin-trend-card" style="margin-top:12px">
     <div class="fin-section-head">
       <span>투자자산 추이 <span style="color:var(--dim);font-weight:500">· ${scope} · <span data-tip="위 수익률 차트와 달리 소급 가정이 없습니다. 매일 기록된 실제 평가액이라 그 사이의 매수·매도·입금이 그대로 반영됩니다.">실제 기록 금액</span></span></span>
       <div class="fin-trend-tabs"><div class="owner-tabs" role="group" aria-label="소유주 선택">${ownerBtns}</div><span class="fin-trend-tabs-sep" aria-hidden="true"></span><span class="fin-trend-tf-label" aria-hidden="true">이 그래프 기간</span><div class="owner-tabs" role="group" aria-label="이 그래프 기간">${tfBtns}</div></div>
