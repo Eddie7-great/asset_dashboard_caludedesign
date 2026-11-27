@@ -1,0 +1,34 @@
+name: tmp check macro cron (read only)
+on:
+  push:
+    branches: [claude/project-thread-uhcfau]
+    paths: ['.github/workflows/tmp-check-macro-cron.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: production route answers (no auth)
+        run: |
+          for p in /api/macro /api/nope-404-check; do
+            echo "$p -> $(curl -s -o /dev/null -w '%{http_code}' https://asset-dashboard-caludedesign.vercel.app$p)"
+          done
+          echo "/api/macro body: $(curl -s https://asset-dashboard-caludedesign.vercel.app/api/macro | head -c 200)"
+      - name: read macro KV keys (GET only)
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          cat > ./c.mjs <<'JS'
+          const url = String(process.env.KV_REST_API_URL || '').replace(/\/+$/, '');
+          const token = String(process.env.KV_REST_API_TOKEN || '');
+          const kv = async (cmd) => { const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) }); const d = await r.json(); return d.result; };
+          console.log('NOW_UTC', new Date().toISOString());
+          console.log('macro_fred_checked =', JSON.stringify(await kv(['GET', 'macro_fred_checked'])));
+          const raw = await kv(['GET', 'macro_fred']);
+          const c = raw ? JSON.parse(raw) : null;
+          console.log('cache.updatedAt =', c && c.updatedAt);
+          for (const [id, e] of Object.entries((c && c.series) || {})) console.log(id.padEnd(13), 'date', e.date, 'value', e.value, 'prev', e.prevDate, e.prevValue, 'fetchedAt', e.fetchedAt);
+          JS
+          node ./c.mjs
