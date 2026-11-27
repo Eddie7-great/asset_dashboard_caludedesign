@@ -17,12 +17,27 @@ jobs:
           echo "/api/macro body: $(curl -s https://asset-dashboard-caludedesign.vercel.app/api/macro | head -c 200)"
       - name: FRED latest observation from this runner (read only)
         run: |
-          for id in DGS10 T10Y2Y BAA10Y DTWEXBGS DGS2 DFF WALCL SP500 SAHMREALTIME VIXCLS; do
-            out=$(curl -s -m 20 -A 'asset-dashboard/1.0' -H 'Accept: text/csv' -w '\n%{http_code} %{time_total}s' "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$id&cosd=2026-11-15")
-            meta=$(printf '%s' "$out" | tail -n 1)
-            last=$(printf '%s' "$out" | sed '$d' | grep -E '^[0-9]{4}-' | grep -vE ',(\.)?$' | tail -n 1)
-            echo "$id http/time=$meta last=$last"
+          set +e
+          for id in DGS10 SP500 VIXCLS; do
+            curl -s -m 20 -o /tmp/h2.csv -A 'asset-dashboard/1.0' "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$id&cosd=2026-11-15"; e2=$?
+            curl -s --http1.1 -m 20 -o /tmp/h1.csv -w '%{http_code}' -A 'asset-dashboard/1.0' "https://fred.stlouisfed.org/graph/fredgraph.csv?id=$id&cosd=2026-11-15" > /tmp/h1.code; e1=$?
+            echo "$id curl-h2 exit=$e2 | curl-h1.1 exit=$e1 code=$(cat /tmp/h1.code) head=$(head -c 40 /tmp/h1.csv | tr '\n' ' ') last=$(grep -E '^[0-9]{4}-' /tmp/h1.csv | grep -vE ',(\.)?$' | tail -n 1)"
           done
+          cat > ./f.mjs <<'JS'
+          const ids = ['DGS10','T10Y2Y','BAA10Y','DTWEXBGS','DGS2','DFF','WALCL','SP500','SAHMREALTIME','VIXCLS'];
+          await Promise.all(ids.map(async id => {
+            const t0 = Date.now();
+            try {
+              const c = new AbortController(); const tm = setTimeout(() => c.abort(), 8000);
+              const r = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=2026-11-15`, { headers: { 'User-Agent': 'asset-dashboard/1.0', Accept: 'text/csv' }, signal: c.signal });
+              const txt = await r.text(); clearTimeout(tm);
+              const rows = txt.trim().split('\n').filter(l => /^\d{4}-/.test(l) && !/,(\.)?$/.test(l));
+              console.log('node', id, r.status, (Date.now()-t0)+'ms', 'head=' + JSON.stringify(txt.slice(0, 30)), 'last=' + rows[rows.length-1]);
+            } catch (e) { console.log('node', id, 'ERROR', (Date.now()-t0)+'ms', String(e && (e.cause && e.cause.code || e.message) || e)); }
+          }));
+          JS
+          node ./f.mjs
+          exit 0
       - name: read macro KV keys (GET only)
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
